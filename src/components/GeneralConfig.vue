@@ -10,9 +10,9 @@
         <div class="flex items-center gap-2">
           <input
             type="number"
-            min="0.1"
-            max="10"
-            step="0.1"
+            :min="GAME_LIMITS.MIN_GAME_SPEED"
+            :max="GAME_LIMITS.MAX_GAME_SPEED"
+            :step="GAME_LIMITS.GAME_SPEED_STEP"
             :value="gameSpeed"
             @input="$emit('update:gameSpeed', Number(($event.target as HTMLInputElement).value))"
             class="w-32 bg-gray-700 rounded px-3 py-2 text-white"
@@ -32,8 +32,8 @@
           <div class="flex items-center gap-2">
             <input
               type="number"
-              min="0"
-              max="100"
+              :min="GAME_LIMITS.MIN_TECH_LEVEL"
+              :max="GAME_LIMITS.MAX_TECH_LEVEL"
               :value="props.technologyLevels[industry]"
               @input="updateTechnology(industry, Number(($event.target as HTMLInputElement).value))"
               class="w-24 bg-gray-700 rounded px-3 py-2 text-white"
@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import type { IndustryType } from '../types'
+import { GAME_LIMITS } from '../config/constants'
 
 interface Props {
   gameSpeed: number

@@ -1,5 +1,6 @@
 import { computed, type Ref } from 'vue'
 import type { BuildingInstance, GameData, Recipe, Calculations, IndustryType } from '../types'
+import { TIME_CONSTANTS } from '../config/constants'
 
 export function useCalculations(
   buildings: Ref<BuildingInstance[]>,
@@ -54,7 +55,7 @@ export function useCalculations(
         recipeDetails.push({ recipe, recipeTime })
       })
 
-      const roundsPerDay = (24 * 60) / totalRoundTime
+      const roundsPerDay = TIME_CONSTANTS.MINUTES_PER_DAY / totalRoundTime
 
       recipeDetails.forEach(({ recipe }) => {
         if (recipe.inputs) {

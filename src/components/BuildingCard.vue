@@ -17,7 +17,7 @@
         <label class="block text-sm text-gray-400 mb-1">Quantity</label>
         <input
           type="number"
-          min="1"
+          :min="GAME_LIMITS.MIN_BUILDING_QUANTITY"
           :value="building.quantity"
           @input="updateQuantity(($event.target as HTMLInputElement).value)"
           class="w-full bg-gray-600 rounded px-3 py-2"
@@ -46,8 +46,8 @@
           <div class="flex items-center gap-1">
             <input
               type="number"
-              min="1"
-              max="200"
+              :min="GAME_LIMITS.MIN_PLANET_MODIFIER"
+              :max="GAME_LIMITS.MAX_PLANET_MODIFIER"
               :value="building.planetModifiers[resource]"
               @input="updateModifier(resource, ($event.target as HTMLInputElement).value)"
               class="w-full bg-gray-700 rounded px-2 py-1 text-white text-sm"
@@ -112,6 +112,7 @@
 import { Plus, Trash2 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import type { BuildingInstance, Building, IndustryType } from '../types'
+import { GAME_LIMITS } from '../config/constants'
 
 interface Props {
   building: BuildingInstance

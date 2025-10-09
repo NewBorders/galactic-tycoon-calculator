@@ -6,8 +6,8 @@
         <label class="text-sm text-gray-400">Plan for:</label>
         <input
           type="number"
-          min="1"
-          max="365"
+          :min="GAME_LIMITS.MIN_PLAN_DAYS"
+          :max="GAME_LIMITS.MAX_PLAN_DAYS"
           v-model.number="planDays"
           class="w-20 bg-gray-700 rounded px-2 py-1 text-white text-right"
         />
@@ -44,15 +44,15 @@
               {{ (stock[material] || 0) > 0 ? formatInteger(stock[material] || 0) : '-' }}
             </td>
             <td class="py-2 px-2 text-right font-mono text-yellow-300">
-              {{ getDaysRemaining(material, amount) }}
+              {{ getMaterialDays(material, amount) }}
             </td>
             <td class="py-2 px-2 text-right font-mono text-orange-300">
-              {{ getToBuy(material, amount) }}
+              {{ getMaterialToBuy(material, amount) }}
             </td>
             <td
               :class="`py-2 px-2 text-right font-mono ${amount * (prices[material] || 0) >= 0 ? 'text-green-300' : 'text-red-300'}`"
             >
-              {{ getDailyProfit(material, amount) }}
+              {{ getMaterialProfit(material, amount) }}
             </td>
           </tr>
           <tr class="border-t-2 border-gray-600">
@@ -73,9 +73,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { formatNumber, formatInteger } from '../utils/formatNumber'
 import { formatDays } from '../utils/formatDays'
+import { GAME_LIMITS } from '../config/constants'
+import { usePlanDays, useStockDays, usePurchaseCalculations, useEconomicCalculations } from '../composables'
 import type { Material } from '../types'
 
 interface Props {
@@ -87,7 +89,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const planDays = ref(7)
+const { planDays } = usePlanDays()
 
 const sortedNetBalance = computed(() => {
   return Object.entries(props.netBalance).sort(([keyA], [keyB]) => {
@@ -97,46 +99,40 @@ const sortedNetBalance = computed(() => {
   })
 })
 
-const getDaysRemaining = (material: string, amount: number): string => {
-  const currentStock = props.stock[material] || 0
-  if (amount < 0 && currentStock > 0) {
-    const days = currentStock / Math.abs(amount)
-    return formatDays(days)
-  } else if (amount > 0) {
-    return '∞'
-  }
-  return '-'
+const getMaterialDays = (material: string, amount: number): string => {
+  const { daysRemaining } = useStockDays(
+    computed(() => props.stock[material] || 0),
+    computed(() => amount)
+  )
+  return formatDays(daysRemaining.value)
 }
 
-const getToBuy = (material: string, amount: number): string => {
-  const currentStock = props.stock[material] || 0
+const getMaterialToBuy = (material: string, amount: number): string => {
+  const { needToBuy } = usePurchaseCalculations(
+    computed(() => amount),
+    computed(() => props.stock[material] || 0),
+    planDays,
+    computed(() => props.prices[material] || 0)
+  )
   
-  // If balance is positive (producing), no need to buy
-  if (amount >= 0) {
+  if (needToBuy.value <= 0) {
     return '-'
   }
   
-  // Calculate total consumption for the plan period
-  const totalConsumption = Math.abs(amount) * planDays.value
+  return formatInteger(Math.ceil(needToBuy.value))
+}
+
+const getMaterialProfit = (material: string, amount: number): string => {
+  const { dailyProfit } = useEconomicCalculations(
+    computed(() => amount),
+    computed(() => props.prices[material] || 0)
+  )
   
-  // Calculate how much we need to buy (consumption - current stock)
-  const needToBuy = totalConsumption - currentStock
-  
-  // If we have enough stock, no need to buy
-  if (needToBuy <= 0) {
+  if (dailyProfit.value === 0) {
     return '-'
   }
   
-  return formatInteger(Math.ceil(needToBuy))
-}
-
-const getDailyProfit = (material: string, amount: number): string => {
-  const price = props.prices[material] || 0
-  if (price > 0) {
-    const dailyProfit = amount * price
-    return `${dailyProfit >= 0 ? '+' : ''}${formatNumber(dailyProfit)}`
-  }
-  return '-'
+  return `${dailyProfit.value >= 0 ? '+' : ''}${formatNumber(dailyProfit.value)}`
 }
 
 const totalPurchaseCost = computed(() => {
@@ -145,14 +141,13 @@ const totalPurchaseCost = computed(() => {
   Object.entries(props.netBalance).forEach(([material, amount]) => {
     // Only calculate for materials with negative balance (consuming)
     if (amount < 0) {
-      const currentStock = props.stock[material] || 0
-      const totalConsumption = Math.abs(amount) * planDays.value
-      const needToBuy = totalConsumption - currentStock
-      
-      if (needToBuy > 0) {
-        const price = props.prices[material] || 0
-        total += Math.ceil(needToBuy) * price
-      }
+      const { purchaseCost } = usePurchaseCalculations(
+        computed(() => amount),
+        computed(() => props.stock[material] || 0),
+        planDays,
+        computed(() => props.prices[material] || 0)
+      )
+      total += purchaseCost.value
     }
   })
   

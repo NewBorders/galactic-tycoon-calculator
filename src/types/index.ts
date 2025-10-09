@@ -24,6 +24,7 @@ export interface Building {
 }
 
 export interface Material {
+  id: number
   name: string
   category: string
   weight?: number

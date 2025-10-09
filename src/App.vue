@@ -109,7 +109,9 @@ import ProductionSummary from './components/ProductionSummary.vue'
 import WorkerConsumption from './components/WorkerConsumption.vue'
 import NetBalance from './components/NetBalance.vue'
 import EconomicSummary from './components/EconomicSummary.vue'
-import { GAME_DATA } from './data/gameData'
+import { GAME_DATA } from './data'
+import { WORKER_CONFIG } from './config/constants'
+import { loadData, saveData } from './utils/storage/localStorageManager'
 import { useCalculations } from './composables/useCalculations'
 import type { BuildingInstance, SavedData, IndustryType } from './types'
 
@@ -119,12 +121,12 @@ const stock = ref<Record<string, number>>({})
 const showPrices = ref(false)
 const showSettings = ref(false)
 const showBuildingTypeModal = ref(false)
-const productivity = ref(70)
+const productivity = ref(WORKER_CONFIG.BASE_PRODUCTIVITY)
 const gameSpeed = ref(4)
 const optionalConsumables = ref<Record<string, boolean>>({
-  'ale': false,
-  'pie': false,
-  'workwear': false
+  [WORKER_CONFIG.OPTIONAL_CONSUMABLES[0]]: false,
+  [WORKER_CONFIG.OPTIONAL_CONSUMABLES[1]]: false,
+  [WORKER_CONFIG.OPTIONAL_CONSUMABLES[2]]: false,
 })
 const technologyLevels = ref<Record<IndustryType, number>>({
   'Agriculture': 0,
@@ -162,8 +164,8 @@ const economicCalculations = computed(() => {
   })
 
   // Essential consumables (always count)
-  const essentialConsumables = ['rations', 'drinking_water', 'tools']
-  const optionalConsumablesList = ['ale', 'pie', 'workwear']
+  const essentialConsumables = WORKER_CONFIG.ESSENTIAL_CONSUMABLES
+  const optionalConsumablesList = WORKER_CONFIG.OPTIONAL_CONSUMABLES
   
   Object.entries(calculations.value.workerConsumption).forEach(([resource, amount]) => {
     const price = prices.value[resource] || 0
@@ -190,20 +192,15 @@ const hasPrices = computed(() => {
 
 // Persistence
 onMounted(() => {
-  const savedData = localStorage.getItem('productionCalculatorData')
-  if (savedData) {
-    try {
-      const data: SavedData = JSON.parse(savedData)
-      if (data.buildings) buildings.value = data.buildings
-      if (data.prices) prices.value = data.prices
-      if (data.stock) stock.value = data.stock
-      if (data.productivity) productivity.value = data.productivity
-      if (data.gameSpeed) gameSpeed.value = data.gameSpeed
-      if (data.technologyLevels) technologyLevels.value = data.technologyLevels
-      if (data.optionalConsumables) optionalConsumables.value = data.optionalConsumables
-    } catch (e) {
-      console.error('Error loading data:', e)
-    }
+  const data = loadData()
+  if (data) {
+    if (data.buildings) buildings.value = data.buildings
+    if (data.prices) prices.value = data.prices
+    if (data.stock) stock.value = data.stock
+    if (data.productivity) productivity.value = data.productivity
+    if (data.gameSpeed) gameSpeed.value = data.gameSpeed
+    if (data.technologyLevels) technologyLevels.value = data.technologyLevels
+    if (data.optionalConsumables) optionalConsumables.value = data.optionalConsumables
   }
 })
 
@@ -219,7 +216,7 @@ watch(
       technologyLevels: technologyLevels.value,
       optionalConsumables: optionalConsumables.value,
     }
-    localStorage.setItem('productionCalculatorData', JSON.stringify(dataToSave))
+    saveData(dataToSave)
   },
   { deep: true },
 )

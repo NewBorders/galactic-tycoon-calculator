@@ -8,8 +8,8 @@
         <label class="text-sm text-gray-400">Plan for:</label>
         <input
           type="number"
-          min="1"
-          max="365"
+          :min="GAME_LIMITS.MIN_PLAN_DAYS"
+          :max="GAME_LIMITS.MAX_PLAN_DAYS"
           v-model.number="planDays"
           class="w-20 bg-gray-700 rounded px-2 py-1 text-white text-right"
         />
@@ -17,7 +17,7 @@
       </div>
     </div>
     <div class="mb-4 text-sm text-gray-400">
-      Base productivity: 70% + {{ activeOptionalCount * 10 }}% = <span class="text-yellow-300 font-semibold">{{ calculatedProductivity }}%</span>
+      Base productivity: {{ WORKER_CONFIG.BASE_PRODUCTIVITY }}% + {{ activeOptionalCount * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL }}% = <span class="text-yellow-300 font-semibold">{{ calculatedProductivity }}%</span>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
@@ -53,13 +53,13 @@
               {{ getStockDisplay(resource) }}
             </td>
             <td class="py-2 px-2 text-right font-mono text-yellow-300">
-              {{ getDaysRemaining(resource, workerConsumption[resource]) }}
+              {{ getResourceDays(resource) }}
             </td>
             <td class="py-2 px-2 text-right font-mono text-orange-300">
-              {{ getToBuy(resource, workerConsumption[resource], true) }}
+              {{ getResourceToBuy(resource, true) }}
             </td>
             <td class="py-2 px-2 text-right font-mono text-yellow-300">
-              {{ getDailyCost(resource, workerConsumption[resource]) }}
+              {{ getResourceCost(resource) }}
             </td>
           </tr>
           
@@ -72,7 +72,7 @@
           >
             <td class="py-2 px-2 text-gray-300 capitalize">
               {{ resource.replace(/_/g, ' ') }}
-              <span class="text-xs text-blue-400 ml-1">(Optional +10%)</span>
+              <span class="text-xs text-blue-400 ml-1">(Optional +{{ WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL }}%)</span>
             </td>
             <td class="py-2 px-2 text-center">
               <input
@@ -89,13 +89,13 @@
               {{ getStockDisplay(resource) }}
             </td>
             <td class="py-2 px-2 text-right font-mono text-yellow-300">
-              {{ getDaysRemaining(resource, workerConsumption[resource]) }}
+              {{ getResourceDays(resource) }}
             </td>
             <td class="py-2 px-2 text-right font-mono text-orange-300">
-              {{ getToBuy(resource, workerConsumption[resource], optionalActive[resource]) }}
+              {{ getResourceToBuy(resource, optionalActive[resource]) }}
             </td>
             <td class="py-2 px-2 text-right font-mono text-yellow-300">
-              {{ optionalActive[resource] ? getDailyCost(resource, workerConsumption[resource]) : '-' }}
+              {{ optionalActive[resource] ? getResourceCost(resource) : '-' }}
             </td>
           </tr>
 
@@ -116,7 +116,7 @@
               Total Daily Cost
             </td>
             <td class="py-2 px-2 text-right font-mono text-yellow-400 font-semibold">
-              {{ formatNumber(totalCost) }}
+              {{ formatNumber(totalDailyCost) }}
             </td>
           </tr>
         </tbody>
@@ -126,9 +126,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { formatNumber, formatInteger } from '../utils/formatNumber'
 import { formatDays } from '../utils/formatDays'
+import { WORKER_CONFIG, GAME_LIMITS } from '../config/constants'
+import { usePlanDays, useStockDays, usePurchaseCalculations, useEconomicCalculations } from '../composables'
 
 interface Props {
   workerConsumption: Record<string, number>
@@ -144,18 +146,18 @@ const emit = defineEmits<{
   'update:calculatedProductivity': [value: number]
 }>()
 
-const planDays = ref(7)
+const { planDays } = usePlanDays()
 
 // Define essential and optional consumables
-const essentialConsumables = ['rations', 'drinking_water', 'tools']
-const optionalConsumables = ['ale', 'pie', 'workwear']
+const essentialConsumables = WORKER_CONFIG.ESSENTIAL_CONSUMABLES
+const optionalConsumables = WORKER_CONFIG.OPTIONAL_CONSUMABLES
 
 const activeOptionalCount = computed(() => {
   return optionalConsumables.filter(resource => props.optionalActive[resource]).length
 })
 
 const calculatedProductivity = computed(() => {
-  const productivity = 70 + (activeOptionalCount.value * 10)
+  const productivity = WORKER_CONFIG.BASE_PRODUCTIVITY + (activeOptionalCount.value * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL)
   emit('update:calculatedProductivity', productivity)
   return productivity
 })
@@ -166,69 +168,47 @@ const getStockDisplay = (resource: string): string => {
   return stockValue && stockValue > 0 ? formatInteger(stockValue) : '-'
 }
 
-const totalCost = computed(() => {
-  if (!props.prices) return 0
-  let total = 0
-  
-  // Always count essential consumables
-  essentialConsumables.forEach(resource => {
-    const amount = props.workerConsumption[resource] || 0
-    const price = props.prices[resource] || 0
-    total += amount * price
-  })
-  
-  // Only count active optional consumables
-  optionalConsumables.forEach(resource => {
-    if (props.optionalActive[resource]) {
-      const amount = props.workerConsumption[resource] || 0
-      const price = props.prices[resource] || 0
-      total += amount * price
-    }
-  })
-  
-  return total
-})
-
-const getDaysRemaining = (resource: string, amount: number): string => {
-  if (!props.stock) return '-'
-  const currentStock = props.stock[resource] || 0
-  if (amount > 0 && currentStock > 0) {
-    const days = currentStock / amount
-    return formatDays(days)
-  }
-  return '-'
+const getResourceDays = (resource: string): string => {
+  const amount = props.workerConsumption[resource] || 0
+  const { daysRemaining } = useStockDays(
+    computed(() => props.stock[resource] || 0),
+    computed(() => -amount) // Negative because it's consumption
+  )
+  return formatDays(daysRemaining.value)
 }
 
-const getToBuy = (resource: string, amount: number, isActive: boolean): string => {
-  // If not active (for optional consumables), don't need to buy
+const getResourceToBuy = (resource: string, isActive: boolean): string => {
   if (!isActive) {
     return '-'
   }
   
-  const currentStock = props.stock[resource] || 0
+  const amount = props.workerConsumption[resource] || 0
+  const { needToBuy } = usePurchaseCalculations(
+    computed(() => -amount), // Negative because it's consumption
+    computed(() => props.stock[resource] || 0),
+    planDays,
+    computed(() => props.prices[resource] || 0)
+  )
   
-  // Calculate total consumption for the plan period
-  const totalConsumption = amount * planDays.value
-  
-  // Calculate how much we need to buy (consumption - current stock)
-  const needToBuy = totalConsumption - currentStock
-  
-  // If we have enough stock, no need to buy
-  if (needToBuy <= 0) {
+  if (needToBuy.value <= 0) {
     return '-'
   }
   
-  return formatInteger(Math.ceil(needToBuy))
+  return formatInteger(Math.ceil(needToBuy.value))
 }
 
-const getDailyCost = (resource: string, amount: number): string => {
-  if (!props.prices) return '-'
-  const price = props.prices[resource] || 0
-  if (price > 0) {
-    const dailyCost = amount * price
-    return formatNumber(dailyCost)
+const getResourceCost = (resource: string): string => {
+  const amount = props.workerConsumption[resource] || 0
+  const { dailyCost } = useEconomicCalculations(
+    computed(() => -amount), // Negative because it's consumption
+    computed(() => props.prices[resource] || 0)
+  )
+  
+  if (dailyCost.value === 0) {
+    return '-'
   }
-  return '-'
+  
+  return formatNumber(dailyCost.value)
 }
 
 const toggleOptional = (resource: string) => {
@@ -244,28 +224,48 @@ const totalPurchaseCost = computed(() => {
   // Calculate for essential consumables
   essentialConsumables.forEach(resource => {
     const amount = props.workerConsumption[resource] || 0
-    const currentStock = props.stock[resource] || 0
-    const totalConsumption = amount * planDays.value
-    const needToBuy = totalConsumption - currentStock
-    
-    if (needToBuy > 0) {
-      const price = props.prices[resource] || 0
-      total += Math.ceil(needToBuy) * price
-    }
+    const { purchaseCost } = usePurchaseCalculations(
+      computed(() => -amount),
+      computed(() => props.stock[resource] || 0),
+      planDays,
+      computed(() => props.prices[resource] || 0)
+    )
+    total += purchaseCost.value
   })
   
   // Calculate for active optional consumables
   optionalConsumables.forEach(resource => {
     if (props.optionalActive[resource]) {
       const amount = props.workerConsumption[resource] || 0
-      const currentStock = props.stock[resource] || 0
-      const totalConsumption = amount * planDays.value
-      const needToBuy = totalConsumption - currentStock
-      
-      if (needToBuy > 0) {
-        const price = props.prices[resource] || 0
-        total += Math.ceil(needToBuy) * price
-      }
+      const { purchaseCost } = usePurchaseCalculations(
+        computed(() => -amount),
+        computed(() => props.stock[resource] || 0),
+        planDays,
+        computed(() => props.prices[resource] || 0)
+      )
+      total += purchaseCost.value
+    }
+  })
+  
+  return total
+})
+
+const totalDailyCost = computed(() => {
+  let total = 0
+  
+  // Always count essential consumables
+  essentialConsumables.forEach(resource => {
+    const amount = props.workerConsumption[resource] || 0
+    const price = props.prices[resource] || 0
+    total += amount * price
+  })
+  
+  // Only count active optional consumables
+  optionalConsumables.forEach(resource => {
+    if (props.optionalActive[resource]) {
+      const amount = props.workerConsumption[resource] || 0
+      const price = props.prices[resource] || 0
+      total += amount * price
     }
   })
   
