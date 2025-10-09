@@ -81,7 +81,7 @@
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ formatNumber(workerConsumption[resource] || 0) }}</td>
               <td class="py-2 px-2 text-right font-mono text-gray-300">{{ getStockDisplay(resource) }}</td>
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ getResourceDays(resource) }}</td>
-              <td class="py-2 px-2 text-right font-mono text-orange-300">{{ getResourceToBuy(resource, optionalActive[resource]) }}</td>
+              <td class="py-2 px-2 text-right font-mono text-orange-300">{{ getResourceToBuy(resource, optionalActive[resource] ?? false) }}</td>
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ optionalActive[resource] ? getResourceCost(resource) : '-' }}</td>
             </tr>
           </tbody>
@@ -137,7 +137,7 @@
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ formatNumber(workerConsumption[resource] || 0) }}</td>
               <td class="py-2 px-2 text-right font-mono text-gray-300">{{ getStockDisplay(resource) }}</td>
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ getResourceDays(resource) }}</td>
-              <td class="py-2 px-2 text-right font-mono text-orange-300">{{ getResourceToBuy(resource, optionalActive[resource]) }}</td>
+              <td class="py-2 px-2 text-right font-mono text-orange-300">{{ getResourceToBuy(resource, optionalActive[resource] ?? false) }}</td>
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ optionalActive[resource] ? getResourceCost(resource) : '-' }}</td>
             </tr>
           </tbody>
@@ -193,7 +193,7 @@
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ formatNumber(workerConsumption[resource] || 0) }}</td>
               <td class="py-2 px-2 text-right font-mono text-gray-300">{{ getStockDisplay(resource) }}</td>
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ getResourceDays(resource) }}</td>
-              <td class="py-2 px-2 text-right font-mono text-orange-300">{{ getResourceToBuy(resource, optionalActive[resource]) }}</td>
+              <td class="py-2 px-2 text-right font-mono text-orange-300">{{ getResourceToBuy(resource, optionalActive[resource] ?? false) }}</td>
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ optionalActive[resource] ? getResourceCost(resource) : '-' }}</td>
             </tr>
           </tbody>
@@ -249,7 +249,7 @@
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ formatNumber(workerConsumption[resource] || 0) }}</td>
               <td class="py-2 px-2 text-right font-mono text-gray-300">{{ getStockDisplay(resource) }}</td>
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ getResourceDays(resource) }}</td>
-              <td class="py-2 px-2 text-right font-mono text-orange-300">{{ getResourceToBuy(resource, optionalActive[resource]) }}</td>
+              <td class="py-2 px-2 text-right font-mono text-orange-300">{{ getResourceToBuy(resource, optionalActive[resource] ?? false) }}</td>
               <td class="py-2 px-2 text-right font-mono text-yellow-300">{{ optionalActive[resource] ? getResourceCost(resource) : '-' }}</td>
             </tr>
           </tbody>
@@ -400,7 +400,7 @@ const totalPurchaseCost = computed(() => {
   let total = 0
   
   allConsumables.value.forEach(resource => {
-    const isEssential = [...tier1Essential, ...tier2Essential, ...tier3Essential, ...tier4Essential].includes(resource)
+    const isEssential = [...tier1Essential, ...tier2Essential, ...tier3Essential, ...tier4Essential].includes(resource as any)
     const isActive = isEssential || props.optionalActive[resource]
     
     if (isActive) {
@@ -422,7 +422,7 @@ const totalDailyCost = computed(() => {
   let total = 0
   
   allConsumables.value.forEach(resource => {
-    const isEssential = [...tier1Essential, ...tier2Essential, ...tier3Essential, ...tier4Essential].includes(resource)
+    const isEssential = [...tier1Essential, ...tier2Essential, ...tier3Essential, ...tier4Essential].includes(resource as any)
     const isActive = isEssential || props.optionalActive[resource]
     
     if (isActive) {

@@ -68,6 +68,7 @@ export interface SavedData {
   optionalConsumables?: Record<string, boolean>
   workerPlanDays?: number
   materialPlanDays?: number
+  planDays?: number // Generic plan days (deprecated, use workerPlanDays or materialPlanDays)
 }
 
 export interface Calculations {

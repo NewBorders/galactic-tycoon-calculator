@@ -154,15 +154,19 @@ const isResourceExtraction = computed(() => {
 
 // Calcular la productividad efectiva del edificio
 const effectiveProductivity = computed(() => {
-  const totalWorkers = props.buildingData.workers
-  if (totalWorkers === 0) return 70
-  
   // Calcular productividad ponderada según los workers de cada tier
   let weightedProductivity = 0
+  let totalWorkers = 0
+  
   props.buildingData.workersByTier.forEach((count, index) => {
     const tierProductivity = props.productivityByTier[index]
-    weightedProductivity += tierProductivity * count
+    if (tierProductivity !== undefined) {
+      weightedProductivity += tierProductivity * count
+      totalWorkers += count
+    }
   })
+  
+  if (totalWorkers === 0) return 70
   
   const baseProductivity = weightedProductivity / totalWorkers
   

@@ -41,10 +41,14 @@ export function parsePricesData(
         .filter(p => p.length > 0)
 
       if (parts.length >= 2) {
-        const name = parts[0].toLowerCase().trim()
+        const namePart = parts[0]
+        if (!namePart) continue
+        
+        const name = namePart.toLowerCase().trim()
 
         // The price could be in the last column (skip "Selling" column if present)
         const priceStr = parts[parts.length - 1]
+        if (!priceStr) continue
 
         // Remove currency symbols: "65,00$" → "65,00"
         let cleanPrice = priceStr.replace(/[$€£¥₹]/g, '')

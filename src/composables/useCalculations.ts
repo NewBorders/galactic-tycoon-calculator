@@ -25,7 +25,9 @@ export function useCalculations(
       
       // Acumular workers por tier
       buildingData.workersByTier.forEach((count, index) => {
-        totalWorkersByTier[index] += count * qty
+        if (index < 4 && totalWorkersByTier[index] !== undefined) {
+          totalWorkersByTier[index] += count * qty
+        }
       })
 
       let totalRoundTime = 0
@@ -46,7 +48,8 @@ export function useCalculations(
         // Un edificio usa el tier del primer worker que tenga
         let workerTierIndex = 0
         for (let i = 0; i < buildingData.workersByTier.length; i++) {
-          if (buildingData.workersByTier[i] > 0) {
+          const tierCount = buildingData.workersByTier[i]
+          if (tierCount !== undefined && tierCount > 0) {
             workerTierIndex = i
             break
           }
@@ -54,13 +57,12 @@ export function useCalculations(
         
         // Usar la productividad específica de ese tier
         const tierProductivity = productivityByTier.value[workerTierIndex]
+        if (tierProductivity === undefined) return
         
         // Apply technology as multiplier (not additive)
-        // Technology 10% = 110% multiplier (1.10)
         const techLevel = technologyLevels.value[buildingData.industryType] || 0
-        const techMultiplier = (100 + techLevel) / 100 // Convert to multiplier
+        const techMultiplier = (100 + techLevel) / 100
         
-        // Apply productivity as efficiency (70% = 0.70)
         const productivityMultiplier = tierProductivity / 100
         
         // Combined multiplier (multiplicative, not additive)
@@ -102,11 +104,17 @@ export function useCalculations(
     totalWorkersByTier.forEach((count, index) => {
       if (count > 0) {
         const tierName = tierNames[index]
+        if (!tierName) return
+        
         const tierConsumption = WORKER_CONSUMPTION_BY_TIER[tierName]
+        if (!tierConsumption) return
+        
         const workerGroups = count / 100
         
         Object.entries(tierConsumption).forEach(([resource, amount]) => {
-          workerConsumption[resource] = (workerConsumption[resource] || 0) + (amount * workerGroups)
+          if (typeof amount === 'number') {
+            workerConsumption[resource] = (workerConsumption[resource] || 0) + (amount * workerGroups)
+          }
         })
       }
     })

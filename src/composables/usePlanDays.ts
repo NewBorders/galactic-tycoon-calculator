@@ -47,7 +47,7 @@ export function usePlanDays(initialDays: number = GAME_LIMITS.DEFAULT_PLAN_DAYS)
   /**
    * Watch for changes and save to localStorage (only initialize once)
    */
-  if (!watcherInitialized) {
+  if (!watcherInitialized && planDaysRef) {
     watch(planDaysRef, (newValue) => {
       const currentData = loadData() || {}
       saveData({
@@ -56,6 +56,11 @@ export function usePlanDays(initialDays: number = GAME_LIMITS.DEFAULT_PLAN_DAYS)
       })
     })
     watcherInitialized = true
+  }
+
+  // This should never happen due to initialization above, but TypeScript needs it
+  if (!planDaysRef) {
+    throw new Error('planDaysRef not initialized')
   }
 
   return {

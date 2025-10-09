@@ -230,8 +230,10 @@ const economicCalculations = computed(() => {
   Object.entries(calculations.value.workerConsumption).forEach(([resource, amount]) => {
     const price = prices.value[resource] || 0
     // Count if essential OR if optional and active
-    if (essentialConsumables.includes(resource) || 
-        (optionalConsumablesList.includes(resource) && optionalConsumables.value[resource])) {
+    const isEssential = essentialConsumables.includes(resource as any)
+    const isOptionalActive = optionalConsumablesList.includes(resource as any) && optionalConsumables.value[resource]
+    
+    if (isEssential || isOptionalActive) {
       totalCosts += amount * price
     }
   })
@@ -292,7 +294,10 @@ const addBuilding = (): void => {
 
 const confirmAddBuilding = (buildingType: string): void => {
   const buildingData = GAME_DATA.buildings[buildingType]
+  if (!buildingData) return
+  
   const firstRecipeKey = Object.keys(buildingData.recipes)[0]
+  if (!firstRecipeKey) return
   
   // Inicializar planetModifier en 100 si es un edificio de Resource Extraction
   const isResourceExtraction = buildingData.industryType === 'Resource Extraction'
@@ -322,17 +327,21 @@ const removeBuilding = (id: number): void => {
 
 const addRecipe = (buildingId: number): void => {
   const building = buildings.value.find((b) => b.id === buildingId)
-  if (building) {
-    const buildingData = GAME_DATA.buildings[building.buildingType]
-    const firstRecipe = Object.keys(buildingData.recipes)[0]
-    const isResourceExtraction = buildingData.industryType === 'Resource Extraction'
-    
-    building.recipes.push({ 
-      id: Date.now(), 
-      recipeKey: firstRecipe,
-      ...(isResourceExtraction && { planetModifier: 100 })
-    })
-  }
+  if (!building) return
+  
+  const buildingData = GAME_DATA.buildings[building.buildingType]
+  if (!buildingData) return
+  
+  const firstRecipe = Object.keys(buildingData.recipes)[0]
+  if (!firstRecipe) return
+  
+  const isResourceExtraction = buildingData.industryType === 'Resource Extraction'
+  
+  building.recipes.push({ 
+    id: Date.now(), 
+    recipeKey: firstRecipe,
+    ...(isResourceExtraction && { planetModifier: 100 })
+  })
 }
 
 const removeRecipe = (buildingId: number, recipeId: number): void => {

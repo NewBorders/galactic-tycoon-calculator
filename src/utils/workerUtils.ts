@@ -15,7 +15,9 @@ export const WORKER_TIER_NAMES: Record<WorkerTier, string> = {
  */
 export function getWorkerTierName(index: 0 | 1 | 2 | 3): string {
   const tiers: WorkerTier[] = ['worker', 'technician', 'engineer', 'scientist']
-  return WORKER_TIER_NAMES[tiers[index]]
+  const tier = tiers[index]
+  if (!tier) return 'Unknown'
+  return WORKER_TIER_NAMES[tier]
 }
 
 /**

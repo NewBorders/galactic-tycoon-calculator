@@ -15,7 +15,7 @@
         v-for="building in buildings"
         :key="building.id"
         :building="building"
-        :building-data="gameData.buildings[building.buildingType]"
+        :building-data="gameData.buildings[building.buildingType]!"
         :technology-levels="technologyLevels"
         :productivity-by-tier="productivityByTier"
         @remove="$emit('remove-building', building.id)"

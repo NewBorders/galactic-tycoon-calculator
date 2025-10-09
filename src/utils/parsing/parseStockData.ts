@@ -37,13 +37,18 @@ export function parseStockData(
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+      if (!line) continue
 
       // Check if this line contains tabs (single-line format)
       if (line.includes('\t')) {
         const parts = line.split('\t')
         if (parts.length >= 2) {
-          const name = parts[0].toLowerCase().trim()
-          const quantityStr = parts[1].trim()
+          const namePart = parts[0]
+          const quantityPart = parts[1]
+          if (!namePart || !quantityPart) continue
+          
+          const name = namePart.toLowerCase().trim()
+          const quantityStr = quantityPart.trim()
           const quantity = parseInt(quantityStr, 10)
 
           if (!isNaN(quantity)) {
@@ -63,10 +68,12 @@ export function parseStockData(
         // Check if next line exists and contains a number
         if (i + 1 < lines.length) {
           const nextLine = lines[i + 1]
+          if (!nextLine) continue
+          
           // Try to extract number from next line (format: "45  7t" or "45\t7t")
           const match = nextLine.match(/^(\d+)/)
 
-          if (match) {
+          if (match && match[1]) {
             const quantity = parseInt(match[1], 10)
             const key = nameToKeyMap[name]
 

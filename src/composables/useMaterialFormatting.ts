@@ -73,7 +73,10 @@ export function useMaterialFormatting() {
 
     // Sort each category
     Object.keys(grouped).forEach(category => {
-      grouped[category].sort(([, a], [, b]) => a.name.localeCompare(b.name))
+      const categoryArray = grouped[category]
+      if (categoryArray) {
+        categoryArray.sort(([, a], [, b]) => a.name.localeCompare(b.name))
+      }
     })
 
     return grouped
