@@ -2,7 +2,10 @@
   <div class="min-h-screen bg-gray-900 text-gray-100 p-6">
     <div class="max-w-7xl mx-auto">
       <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-blue-400">Production Calculator</h1>
+        <div>
+          <h1 class="text-3xl font-bold text-blue-400">Production Calculator</h1>
+          <span class="text-xs text-gray-500">v1.0.0</span>
+        </div>
         <div class="flex gap-2">
           <button
             @click="showSettings = !showSettings"
@@ -10,13 +13,6 @@
           >
             <Settings :size="20" />
             {{ showSettings ? 'Hide' : 'Show' }} Settings
-          </button>
-          <button
-            @click="showPrices = !showPrices"
-            class="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded"
-          >
-            <Package :size="20" />
-            {{ showPrices ? 'Hide' : 'Show' }} Stocks
           </button>
         </div>
       </div>
@@ -29,33 +25,81 @@
         @update:technology-levels="technologyLevels = $event"
       />
 
-      <PricesConfig
-        :show="showPrices"
-        :materials="GAME_DATA.materials"
-        :worker-consumption="GAME_DATA.workerConsumption"
-        :prices="prices"
-        :stock="stock"
-        @update:prices="prices = $event"
-        @update:stock="stock = $event"
-      />
+      <!-- Accordion: Prices & Stock -->
+      <div class="mb-6 bg-gray-800 rounded-lg overflow-hidden">
+        <button
+          @click="showPrices = !showPrices"
+          class="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-700 transition-colors"
+        >
+          <div class="flex items-center gap-3">
+            <Package :size="24" class="text-blue-400" />
+            <h2 class="text-xl font-semibold text-blue-400">Prices & Stock</h2>
+          </div>
+          <svg
+            :class="['w-5 h-5 text-gray-400 transition-transform', showPrices ? 'rotate-180' : '']"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div v-if="showPrices" class="border-t border-gray-700">
+          <PricesConfig
+            :show="true"
+            :materials="GAME_DATA.materials"
+            :worker-consumption="GAME_DATA.workerConsumption"
+            :prices="prices"
+            :stock="stock"
+            :locked-prices="lockedPrices"
+            @update:prices="prices = $event"
+            @update:stock="stock = $event"
+            @update:locked-prices="lockedPrices = $event"
+          />
+        </div>
+      </div>
+
+      <!-- Accordion: Production Buildings -->
+      <div class="mb-6 bg-gray-800 rounded-lg overflow-hidden">
+        <button
+          @click="showBuildings = !showBuildings"
+          class="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-700 transition-colors"
+        >
+          <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            <h2 class="text-xl font-semibold text-green-400">Production Buildings</h2>
+          </div>
+          <svg
+            :class="['w-5 h-5 text-gray-400 transition-transform', showBuildings ? 'rotate-180' : '']"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div v-if="showBuildings" class="border-t border-gray-700">
+          <BuildingsList
+            :buildings="buildings"
+            :game-data="GAME_DATA"
+            :technology-levels="technologyLevels"
+            :productivity-by-tier="productivityByTier"
+            @add-building="addBuilding"
+            @remove-building="removeBuilding"
+            @add-recipe="addRecipe"
+            @remove-recipe="removeRecipe"
+            @update-building="updateBuilding"
+          />
+        </div>
+      </div>
 
       <BuildingTypeModal
         :show="showBuildingTypeModal"
         :buildings="GAME_DATA.buildings"
         @confirm="confirmAddBuilding"
         @cancel="cancelAddBuilding"
-      />
-
-      <BuildingsList
-        :buildings="buildings"
-        :game-data="GAME_DATA"
-        :technology-levels="technologyLevels"
-        :productivity-by-tier="productivityByTier"
-        @add-building="addBuilding"
-        @remove-building="removeBuilding"
-        @add-recipe="addRecipe"
-        @remove-recipe="removeRecipe"
-        @update-building="updateBuilding"
       />
 
       <EconomicSummary
@@ -118,7 +162,9 @@ import type { BuildingInstance, SavedData, IndustryType } from './types'
 const buildings = ref<BuildingInstance[]>([])
 const prices = ref<Record<string, number>>({})
 const stock = ref<Record<string, number>>({})
+const lockedPrices = ref<Record<string, boolean>>({})
 const showPrices = ref(false)
+const showBuildings = ref(true) // Abierto por defecto
 const showSettings = ref(false)
 const showBuildingTypeModal = ref(false)
 const productivityByTier = computed<[number, number, number, number]>(() => {
@@ -150,6 +196,7 @@ const technologyLevels = ref<Record<IndustryType, number>>({
   'Manufacturing': 0,
   'Metallurgy': 0,
   'Resource Extraction': 0,
+  'Residential': 0,
   'Science': 0
 })
 
@@ -210,6 +257,7 @@ onMounted(() => {
     if (data.buildings) buildings.value = data.buildings
     if (data.prices) prices.value = data.prices
     if (data.stock) stock.value = data.stock
+    if (data.lockedPrices) lockedPrices.value = data.lockedPrices
     if (data.gameSpeed) gameSpeed.value = data.gameSpeed
     if (data.technologyLevels) technologyLevels.value = data.technologyLevels
     if (data.optionalConsumables) optionalConsumables.value = data.optionalConsumables
@@ -217,15 +265,20 @@ onMounted(() => {
 })
 
 watch(
-  [buildings, prices, stock, productivityByTier, gameSpeed, technologyLevels, optionalConsumables],
+  [buildings, prices, stock, lockedPrices, productivityByTier, gameSpeed, technologyLevels, optionalConsumables],
   () => {
+    // Load current data to preserve planDays values
+    const currentData = loadData() || {}
     const dataToSave: SavedData = {
       buildings: buildings.value,
       prices: prices.value,
       stock: stock.value,
+      lockedPrices: lockedPrices.value,
       gameSpeed: gameSpeed.value,
       technologyLevels: technologyLevels.value,
       optionalConsumables: optionalConsumables.value,
+      workerPlanDays: currentData.workerPlanDays, // Preserve workerPlanDays from storage
+      materialPlanDays: currentData.materialPlanDays, // Preserve materialPlanDays from storage
     }
     saveData(dataToSave)
   },
@@ -238,20 +291,21 @@ const addBuilding = (): void => {
 }
 
 const confirmAddBuilding = (buildingType: string): void => {
-  const firstRecipeKey = Object.keys(GAME_DATA.buildings[buildingType].recipes)[0]
+  const buildingData = GAME_DATA.buildings[buildingType]
+  const firstRecipeKey = Object.keys(buildingData.recipes)[0]
+  
+  // Inicializar planetModifier en 100 si es un edificio de Resource Extraction
+  const isResourceExtraction = buildingData.industryType === 'Resource Extraction'
+  
   const newBuilding: BuildingInstance = {
     id: Date.now(),
     buildingType: buildingType,
     quantity: 1,
-    recipes: [{ id: Date.now(), recipeKey: firstRecipeKey }],
-  }
-
-  if (newBuilding.buildingType === 'mine') {
-    newBuilding.planetModifiers = {
-      iron_ore: 100,
-      silica: 100,
-      limestone: 100,
-    }
+    recipes: [{ 
+      id: Date.now(), 
+      recipeKey: firstRecipeKey,
+      ...(isResourceExtraction && { planetModifier: 100 })
+    }],
   }
 
   buildings.value.push(newBuilding)
@@ -269,8 +323,15 @@ const removeBuilding = (id: number): void => {
 const addRecipe = (buildingId: number): void => {
   const building = buildings.value.find((b) => b.id === buildingId)
   if (building) {
-    const firstRecipe = Object.keys(GAME_DATA.buildings[building.buildingType].recipes)[0]
-    building.recipes.push({ id: Date.now(), recipeKey: firstRecipe })
+    const buildingData = GAME_DATA.buildings[building.buildingType]
+    const firstRecipe = Object.keys(buildingData.recipes)[0]
+    const isResourceExtraction = buildingData.industryType === 'Resource Extraction'
+    
+    building.recipes.push({ 
+      id: Date.now(), 
+      recipeKey: firstRecipe,
+      ...(isResourceExtraction && { planetModifier: 100 })
+    })
   }
 }
 

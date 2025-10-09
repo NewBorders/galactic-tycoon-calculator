@@ -71,6 +71,32 @@ function migrateData(data: any, fromVersion: number): SavedData {
   // Migration from version 0 (no version) to version 1
   if (fromVersion === 0) {
     console.log('Applying migration from v0 to v1')
+    
+    // Migrate planetModifiers from building level to recipe level
+    if (migrated.buildings && Array.isArray(migrated.buildings)) {
+      migrated.buildings = migrated.buildings.map((building: any) => {
+        // Si el edificio tiene planetModifiers antiguos, migrarlos a las recetas
+        if (building.planetModifiers && building.recipes) {
+          const newRecipes = building.recipes.map((recipe: any) => {
+            // Si la receta coincide con algún recurso en planetModifiers, usar ese valor
+            const modifier = building.planetModifiers[recipe.recipeKey]
+            return {
+              ...recipe,
+              ...(modifier !== undefined && { planetModifier: modifier })
+            }
+          })
+          
+          // Eliminar planetModifiers del edificio
+          const { planetModifiers, ...buildingWithoutModifiers } = building
+          return {
+            ...buildingWithoutModifiers,
+            recipes: newRecipes
+          }
+        }
+        return building
+      })
+    }
+    
     // Version 0 didn't have any specific structure changes
     // Just ensure all expected fields exist with defaults
     migrated = {
@@ -88,6 +114,7 @@ function migrateData(data: any, fromVersion: number): SavedData {
         'Manufacturing': 0,
         'Metallurgy': 0,
         'Resource Extraction': 0,
+        'Residential': 0,
         'Science': 0,
       },
       optionalConsumables: migrated.optionalConsumables || {
@@ -95,6 +122,8 @@ function migrateData(data: any, fromVersion: number): SavedData {
         'pie': false,
         'workwear': false,
       },
+      workerPlanDays: migrated.workerPlanDays || migrated.planDays || 7,
+      materialPlanDays: migrated.materialPlanDays || migrated.planDays || 7,
     }
   }
 

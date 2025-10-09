@@ -31,33 +31,6 @@
       </div>
     </div>
 
-    <!-- Planet modifiers only for mines -->
-    <div
-      v-if="building.buildingType === 'mine' && building.planetModifiers"
-      class="mb-4 p-3 bg-gray-600 rounded"
-    >
-      <h3 class="text-sm font-semibold text-gray-300 mb-2">Planet Modifiers</h3>
-      <p class="text-xs text-gray-400 mb-2">Lower % = harder to extract = more time</p>
-      <div class="grid grid-cols-3 gap-2">
-        <div v-for="resource in ['iron_ore', 'silica', 'limestone']" :key="resource">
-          <label class="block text-xs text-gray-400 mb-1">{{
-            resource.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-          }}</label>
-          <div class="flex items-center gap-1">
-            <input
-              type="number"
-              :min="GAME_LIMITS.MIN_PLANET_MODIFIER"
-              :max="GAME_LIMITS.MAX_PLANET_MODIFIER"
-              :value="building.planetModifiers[resource]"
-              @input="updateModifier(resource, ($event.target as HTMLInputElement).value)"
-              class="w-full bg-gray-700 rounded px-2 py-1 text-white text-sm"
-            />
-            <span class="text-xs text-gray-400">%</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="ml-4 border-l-2 border-gray-600 pl-4 space-y-2">
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm font-semibold text-gray-300">
@@ -78,31 +51,76 @@
       <div
         v-for="recipe in building.recipes"
         :key="recipe.id"
-        class="flex gap-2 items-center bg-gray-600 rounded p-2"
+        class="bg-gray-600 rounded p-3"
       >
-        <div class="flex-1">
-          <select
-            :value="recipe.recipeKey"
-            @change="updateRecipe(recipe.id, ($event.target as HTMLSelectElement).value)"
-            class="w-full bg-gray-700 rounded px-3 py-2 text-sm"
-          >
-            <option
-              v-for="[key, rcp] in Object.entries(buildingData.recipes)"
-              :key="key"
-              :value="key"
+        <div class="flex gap-2 items-start mb-2">
+          <div class="flex-1">
+            <select
+              :value="recipe.recipeKey"
+              @change="updateRecipe(recipe.id, ($event.target as HTMLSelectElement).value)"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm font-semibold"
             >
-              {{ rcp.name }}
-            </option>
-          </select>
+              <option
+                v-for="[key, rcp] in Object.entries(buildingData.recipes)"
+                :key="key"
+                :value="key"
+              >
+                {{ rcp.name }}
+              </option>
+            </select>
+          </div>
+
+          <button
+            v-if="building.recipes.length > 1"
+            @click="$emit('remove-recipe', recipe.id)"
+            class="p-2 bg-red-600 hover:bg-red-700 rounded"
+          >
+            <Trash2 :size="16" />
+          </button>
         </div>
 
-        <button
-          v-if="building.recipes.length > 1"
-          @click="$emit('remove-recipe', recipe.id)"
-          class="p-2 bg-red-600 hover:bg-red-700 rounded"
+        <!-- Recipe Flow: Inputs -> Outputs -->
+        <div class="flex items-center gap-2 text-xs flex-wrap">
+          <!-- Inputs -->
+          <template v-if="getRecipeData(recipe.recipeKey)?.inputs && Object.keys(getRecipeData(recipe.recipeKey)!.inputs).length > 0">
+            <span
+              v-for="[material, amount] in Object.entries(getRecipeData(recipe.recipeKey)!.inputs)"
+              :key="material"
+              class="bg-red-900/30 text-red-300 px-2 py-1 rounded border border-red-700/50"
+            >
+              {{ formatMaterialName(material) }} ({{ amount }})
+            </span>
+            <span class="text-gray-500 font-bold text-base">→</span>
+          </template>
+
+          <!-- Outputs -->
+          <template v-if="getRecipeData(recipe.recipeKey)?.outputs">
+            <span
+              v-for="[material, amount] in Object.entries(getRecipeData(recipe.recipeKey)!.outputs)"
+              :key="material"
+              class="bg-green-900/40 text-green-300 px-2 py-1 rounded border border-green-600/50 font-semibold"
+            >
+              {{ formatMaterialName(material) }} ({{ amount }})
+            </span>
+          </template>
+        </div>
+
+        <!-- Planet Modifier for Resource Extraction buildings -->
+        <div
+          v-if="isResourceExtraction"
+          class="mt-2 flex items-center gap-2 bg-gray-700 rounded p-2"
         >
-          <Trash2 :size="16" />
-        </button>
+          <label class="text-xs text-gray-400">Planet Modifier:</label>
+          <input
+            type="number"
+            :min="GAME_LIMITS.MIN_PLANET_MODIFIER"
+            :max="GAME_LIMITS.MAX_PLANET_MODIFIER"
+            :value="recipe.planetModifier ?? 100"
+            @input="updatePlanetModifier(recipe.id, ($event.target as HTMLInputElement).value)"
+            class="w-20 bg-gray-800 rounded px-2 py-1 text-white text-sm text-right"
+          />
+          <span class="text-xs text-gray-400">% (lower = slower extraction)</span>
+        </div>
       </div>
     </div>
   </div>
@@ -129,6 +147,11 @@ const emit = defineEmits<{
   'update-building': [building: BuildingInstance]
 }>()
 
+// Verificar si es un edificio de extracción de recursos
+const isResourceExtraction = computed(() => {
+  return props.buildingData.industryType === 'Resource Extraction'
+})
+
 // Calcular la productividad efectiva del edificio
 const effectiveProductivity = computed(() => {
   const totalWorkers = props.buildingData.workers
@@ -154,15 +177,31 @@ const updateQuantity = (value: string) => {
   emit('update-building', { ...props.building, quantity: Number(value) })
 }
 
-const updateModifier = (resource: string, value: string) => {
-  const newModifiers = { ...props.building.planetModifiers, [resource]: Number(value) }
-  emit('update-building', { ...props.building, planetModifiers: newModifiers })
-}
-
 const updateRecipe = (recipeId: number, recipeKey: string) => {
   const newRecipes = props.building.recipes.map((r) =>
     r.id === recipeId ? { ...r, recipeKey } : r,
   )
   emit('update-building', { ...props.building, recipes: newRecipes })
+}
+
+const updatePlanetModifier = (recipeId: number, value: string) => {
+  const modifier = Number(value)
+  const newRecipes = props.building.recipes.map((r) =>
+    r.id === recipeId ? { ...r, planetModifier: modifier } : r,
+  )
+  emit('update-building', { ...props.building, recipes: newRecipes })
+}
+
+// Obtener datos de la receta
+const getRecipeData = (recipeKey: string) => {
+  return props.buildingData.recipes[recipeKey]
+}
+
+// Formatear nombre de material
+const formatMaterialName = (material: string): string => {
+  return material
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 </script>

@@ -142,12 +142,12 @@ export const TIER1_BUILDINGS: Record<string, Building> = {
     industryType: 'Resource Extraction',
     tier: 1,
     recipes: {
-      grain: {
+      oxygen: {
         id: 4,
-        name: 'Grain',
+        name: 'Oxygen',
         time: 75,
         inputs: {},
-        outputs: { grain: 10 },
+        outputs: { oxygen: 10 },
       },
       hydrogen: {
         id: 14,

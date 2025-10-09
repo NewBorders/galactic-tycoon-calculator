@@ -2,28 +2,28 @@ import { ref, watch, type Ref } from 'vue'
 import { GAME_LIMITS } from '../config/constants'
 import { loadData, saveData } from '../utils/storage/localStorageManager'
 
-// Shared state - singleton pattern
-let planDaysRef: Ref<number> | null = null
+// Shared state - singleton pattern for material plan days
+let materialPlanDaysRef: Ref<number> | null = null
 let watcherInitialized = false
 
 /**
- * Composable for managing planning days state
- * Centralizes the logic for plan days across components
+ * Composable for managing material planning days state
+ * Used in NetBalance component
  * Persists data to localStorage automatically
  * Uses singleton pattern to share state across all components
  */
-export function usePlanDays(initialDays: number = GAME_LIMITS.DEFAULT_PLAN_DAYS): {
+export function useMaterialPlanDays(initialDays: number = GAME_LIMITS.DEFAULT_PLAN_DAYS): {
   planDays: Ref<number>
   setPlanDays: (days: number) => void
   resetPlanDays: () => void
 } {
   // Initialize shared ref only once
-  if (!planDaysRef) {
+  if (!materialPlanDaysRef) {
     // Load from localStorage if available
     const savedData = loadData()
-    const savedPlanDays = savedData?.planDays ?? initialDays
+    const savedPlanDays = savedData?.materialPlanDays ?? initialDays
     
-    planDaysRef = ref(savedPlanDays)
+    materialPlanDaysRef = ref(savedPlanDays)
   }
 
   /**
@@ -34,32 +34,32 @@ export function usePlanDays(initialDays: number = GAME_LIMITS.DEFAULT_PLAN_DAYS)
       GAME_LIMITS.MIN_PLAN_DAYS,
       Math.min(GAME_LIMITS.MAX_PLAN_DAYS, days)
     )
-    planDaysRef!.value = validDays
+    materialPlanDaysRef!.value = validDays
   }
 
   /**
    * Reset to default plan days
    */
   const resetPlanDays = (): void => {
-    planDaysRef!.value = GAME_LIMITS.DEFAULT_PLAN_DAYS
+    materialPlanDaysRef!.value = GAME_LIMITS.DEFAULT_PLAN_DAYS
   }
 
   /**
    * Watch for changes and save to localStorage (only initialize once)
    */
   if (!watcherInitialized) {
-    watch(planDaysRef, (newValue) => {
+    watch(materialPlanDaysRef, (newValue) => {
       const currentData = loadData() || {}
       saveData({
         ...currentData,
-        planDays: newValue,
+        materialPlanDays: newValue,
       })
     })
     watcherInitialized = true
   }
 
   return {
-    planDays: planDaysRef,
+    planDays: materialPlanDaysRef,
     setPlanDays,
     resetPlanDays,
   }

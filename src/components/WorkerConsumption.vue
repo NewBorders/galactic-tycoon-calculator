@@ -278,7 +278,7 @@ import { computed } from 'vue'
 import { formatNumber, formatInteger } from '../utils/formatNumber'
 import { formatDays } from '../utils/formatDays'
 import { WORKER_CONFIG, GAME_LIMITS } from '../config/constants'
-import { usePlanDays, useStockDays, usePurchaseCalculations, useEconomicCalculations } from '../composables'
+import { useWorkerPlanDays, useStockDays, usePurchaseCalculations, useEconomicCalculations } from '../composables'
 
 interface Props {
   workerConsumption: Record<string, number>
@@ -294,7 +294,7 @@ const emit = defineEmits<{
   'update:optionalActive': [value: Record<string, boolean>]
 }>()
 
-const { planDays } = usePlanDays()
+const { planDays } = useWorkerPlanDays()
 
 // Define consumables per tier
 const tier1Essential = [...WORKER_CONFIG.TIER1_ESSENTIAL]

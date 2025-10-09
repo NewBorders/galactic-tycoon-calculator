@@ -305,10 +305,10 @@ export const TIER2_BUILDINGS: Record<string, Building> = {
   residential_complex: {
     id: 21,
     name: 'Residential Complex',
-    description: '',
+    description: 'Housing for workers',
     workers: 0,
     workersByTier: [0, 0, 0, 0],
-    industryType: 'Construction',
+    industryType: 'Residential',
     tier: 2,
     recipes: {},
   },

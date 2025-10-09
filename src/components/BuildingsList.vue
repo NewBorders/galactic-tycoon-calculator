@@ -1,7 +1,6 @@
 <template>
-  <div class="bg-gray-800 rounded-lg p-6 mb-6">
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-xl font-semibold">Production Buildings</h2>
+  <div class="p-6">
+    <div class="mb-4">
       <button
         @click="$emit('add-building')"
         class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"

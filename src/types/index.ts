@@ -9,6 +9,7 @@ export type IndustryType =
   | 'Manufacturing'
   | 'Metallurgy'
   | 'Resource Extraction'
+  | 'Residential'
   | 'Science'
 
 export interface Recipe {
@@ -33,7 +34,7 @@ export interface Building {
 export interface Material {
   id: number
   name: string
-  category: string
+  category: IndustryType
   weight?: number
 }
 
@@ -42,12 +43,12 @@ export interface BuildingInstance {
   buildingType: string
   quantity: number
   recipes: RecipeInstance[]
-  planetModifiers?: Record<string, number>
 }
 
 export interface RecipeInstance {
   id: number
   recipeKey: string
+  planetModifier?: number // Modifier específico para esta receta (solo para Resource Extraction)
 }
 
 export interface GameData {
@@ -60,10 +61,13 @@ export interface SavedData {
   buildings?: BuildingInstance[]
   prices?: Record<string, number>
   stock?: Record<string, number>
+  lockedPrices?: Record<string, boolean>
   productivity?: number
   gameSpeed?: number
   technologyLevels?: Record<IndustryType, number>
   optionalConsumables?: Record<string, boolean>
+  workerPlanDays?: number
+  materialPlanDays?: number
 }
 
 export interface Calculations {

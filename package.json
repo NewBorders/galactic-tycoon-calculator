@@ -1,8 +1,11 @@
 {
-  "name": "calculadora-produccion",
-  "version": "0.0.0",
+  "name": "galactic-tycoons-calculator",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "Production calculator for Galactic Tycoons game",
+  "author": "Your Name",
+  "license": "MIT",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },

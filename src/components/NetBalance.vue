@@ -77,7 +77,7 @@ import { computed } from 'vue'
 import { formatNumber, formatInteger } from '../utils/formatNumber'
 import { formatDays } from '../utils/formatDays'
 import { GAME_LIMITS } from '../config/constants'
-import { usePlanDays, useStockDays, usePurchaseCalculations, useEconomicCalculations } from '../composables'
+import { useMaterialPlanDays, useStockDays, usePurchaseCalculations, useEconomicCalculations } from '../composables'
 import type { Material } from '../types'
 
 interface Props {
@@ -89,7 +89,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const { planDays } = usePlanDays()
+const { planDays } = useMaterialPlanDays()
 
 const sortedNetBalance = computed(() => {
   return Object.entries(props.netBalance).sort(([keyA], [keyB]) => {

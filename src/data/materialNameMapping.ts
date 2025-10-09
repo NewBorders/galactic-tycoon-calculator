@@ -49,6 +49,7 @@ export const MATERIAL_NAME_TO_KEY: Record<string, string> = {
   'truss': 'truss',
   'welding kit': 'welding_kit',
   'hull plate': 'hull_plate',
+  'drill': 'drill',
 
   // Tier 1 - Consumables
   'rations': 'rations',
@@ -113,18 +114,20 @@ export const MATERIAL_NAME_TO_KEY: Record<string, string> = {
   'pressure sealant kit': 'pressure_sealant_kit',
   'modern prefab kit': 'modern_prefab_kit',
   'composite truss': 'composite_truss',
+  'structural elements': 'structural_elements',
+  'construction vehicle': 'construction_vehicle',
+  'mining vehicle': 'mining_vehicle',
+  'life support system': 'life_support_system',
+  'hydrogen generator': 'hydrogen_generator',
+  'drone': 'drone',
 
   // Tier 2 - Spaceship Components
-  'life support system': 'life_support_system',
   'ship interior kit': 'ship_interior_kit',
   'cargo bay segment': 'cargo_bay_segment',
   'fuel tank segment': 'fuel_tank_segment',
   'heat shielding': 'heat_shielding',
   'shuttle bridge': 'shuttle_bridge',
-  'hydrogen generator': 'hydrogen_generator',
   'linear ftl emitter': 'linear_ftl_emitter',
-  'mining vehicle': 'mining_vehicle',
-  'drone': 'drone',
 
   // Tier 2 - Consumables
   'advanced tools': 'advanced_tools',
@@ -132,8 +135,111 @@ export const MATERIAL_NAME_TO_KEY: Record<string, string> = {
   'ship repair kit': 'ship_repair_kit',
 
   // Tier 2 - Special
-  'structural elements': 'structural_elements',
-  'construction vehicle': 'construction_vehicle',
-  'drill': 'drill',
   'advanced research data': 'advanced_research_data',
+
+  // Tier 3 - Raw Materials
+  'uranium ore': 'uranium_ore',
+  'aeridium ore': 'aeridium_ore',
+  'bioxene': 'bioxene',
+
+  // Tier 3 - Processed Materials
+  'platinum': 'platinum',
+  'graphene': 'graphene',
+  'carbon nanotubes': 'carbon_nanotubes',
+  'aeridium': 'aeridium',
+  'tiridium alloy': 'tiridium_alloy',
+  'cohesilite': 'cohesilite',
+  'nanopolyne': 'nanopolyne',
+  'nanoweave': 'nanoweave',
+  'bio-nutrient blend': 'bio_nutrient_blend',
+
+  // Tier 3 - Food & Organic
+  'gourmet rations': 'gourmet_rations',
+  'exotic spices': 'exotic_spices',
+  'lobster': 'lobster',
+  'rejuvaline': 'rejuvaline',
+
+  // Tier 3 - Manufactured & High-Tech
+  'molecular fusion kit': 'molecular_fusion_kit',
+  'advanced construction kit': 'advanced_construction_kit',
+  'advanced prefab kit': 'advanced_prefab_kit',
+  'advanced amenities': 'advanced_amenities',
+  'titanium carbide drill': 'titanium_carbide_drill',
+  'advanced processing unit': 'advanced_processing_unit',
+  'sensor array': 'sensor_array',
+  'mainframe': 'mainframe',
+  'vr headset': 'vr_headset',
+  'fission reactor': 'fission_reactor',
+  'robot': 'robot',
+  'filtration system': 'filtration_system',
+  'industrial machinery': 'industrial_machinery',
+
+  // Tier 3 - Spaceship Components
+  'radiation shielding': 'radiation_shielding',
+  'fission fuel': 'fission_fuel',
+  'quantum ftl emitter': 'quantum_ftl_emitter',
+  'tiridium hull plate': 'tiridium_hull_plate',
+  'hauler bridge': 'hauler_bridge',
+  'ftl field controller': 'ftl_field_controller',
+  'composite shielding': 'composite_shielding',
+
+  // Tier 3 - Consumables
+  'spectra modulator': 'spectra_modulator',
+
+  // Tier 3 - Special
+  'apex research data': 'apex_research_data',
+  'operating system': 'operating_system',
+  'artificial intelligence': 'artificial_intelligence',
+  'ai training data': 'ai_training_data',
+
+  // Tier 3 - Construction
+  'apex structural elements': 'apex_structural_elements',
+  'apex prefab kit': 'apex_prefab_kit',
+  'nanoweave shielding': 'nanoweave_shielding',
+
+  // Tier 4 - Raw Materials
+  'tesserite': 'tesserite',
+  'kryon': 'kryon',
+
+  // Tier 4 - Processed Materials
+  'graphenium': 'graphenium',
+  'quadranium': 'quadranium',
+  'starglass': 'starglass',
+  'biopolyne': 'biopolyne',
+  'antimatter': 'antimatter',
+
+  // Tier 4 - Manufactured & Ultra-Tech
+  'aicore': 'aicore',
+  'quantum mainframe': 'quantum_mainframe',
+  'antimatter reactor': 'antimatter_reactor',
+  'antimatter containment': 'antimatter_containment',
+  'superconducting coil': 'superconducting_coil',
+  'graphenium wire': 'graphenium_wire',
+  'field cooling system': 'field_cooling_system',
+  'neural interface': 'neural_interface',
+
+  // Tier 4 - Spaceship Components
+  'starglass hull plate': 'starglass_hull_plate',
+  'extradimensional ftl emitter': 'extradimensional_ftl_emitter',
+  'extra-dimensional ftl emitter': 'extradimensional_ftl_emitter',
+  'freighter bridge': 'freighter_bridge',
+  'starlifter structural elements': 'starlifter_structural_elements',
+
+  // Tier 4 - Consumables
+  'laboratory suit': 'laboratory_suit',
+  'nanites': 'nanites',
+
+  // Tier 4 - Special
+  'quantum research data': 'quantum_research_data',
+
+  // Additional aliases and variations
+  'lab. suit': 'laboratory_suit',
+  'lab suit': 'laboratory_suit',
+  'el. circuit': 'electronic_circuit',
+  'acb': 'advanced_circuit_board',
+  'ftl fc': 'ftl_field_controller',
+  '4d emitter': 'extradimensional_ftl_emitter',
+  'apu': 'advanced_processing_unit',
+  'tic drill': 'titanium_carbide_drill',
+  'antimatter cont.': 'antimatter_containment',
 }

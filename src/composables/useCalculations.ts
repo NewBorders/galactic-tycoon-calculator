@@ -37,8 +37,9 @@ export function useCalculations(
 
         let recipeTime = recipe.time
 
-        if (building.buildingType === 'mine' && building.planetModifiers?.[recipeItem.recipeKey]) {
-          recipeTime = recipe.time * (100 / building.planetModifiers[recipeItem.recipeKey])
+        // Aplicar planet modifier si existe en la receta (para Resource Extraction)
+        if (recipeItem.planetModifier && recipeItem.planetModifier !== 100) {
+          recipeTime = recipe.time * (100 / recipeItem.planetModifier)
         }
 
         // Determinar qué tier de worker tiene este edificio

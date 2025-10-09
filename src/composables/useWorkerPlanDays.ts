@@ -2,28 +2,28 @@ import { ref, watch, type Ref } from 'vue'
 import { GAME_LIMITS } from '../config/constants'
 import { loadData, saveData } from '../utils/storage/localStorageManager'
 
-// Shared state - singleton pattern
-let planDaysRef: Ref<number> | null = null
+// Shared state - singleton pattern for worker plan days
+let workerPlanDaysRef: Ref<number> | null = null
 let watcherInitialized = false
 
 /**
- * Composable for managing planning days state
- * Centralizes the logic for plan days across components
+ * Composable for managing worker planning days state
+ * Used in WorkerConsumption component
  * Persists data to localStorage automatically
  * Uses singleton pattern to share state across all components
  */
-export function usePlanDays(initialDays: number = GAME_LIMITS.DEFAULT_PLAN_DAYS): {
+export function useWorkerPlanDays(initialDays: number = GAME_LIMITS.DEFAULT_PLAN_DAYS): {
   planDays: Ref<number>
   setPlanDays: (days: number) => void
   resetPlanDays: () => void
 } {
   // Initialize shared ref only once
-  if (!planDaysRef) {
+  if (!workerPlanDaysRef) {
     // Load from localStorage if available
     const savedData = loadData()
-    const savedPlanDays = savedData?.planDays ?? initialDays
+    const savedPlanDays = savedData?.workerPlanDays ?? initialDays
     
-    planDaysRef = ref(savedPlanDays)
+    workerPlanDaysRef = ref(savedPlanDays)
   }
 
   /**
@@ -34,32 +34,32 @@ export function usePlanDays(initialDays: number = GAME_LIMITS.DEFAULT_PLAN_DAYS)
       GAME_LIMITS.MIN_PLAN_DAYS,
       Math.min(GAME_LIMITS.MAX_PLAN_DAYS, days)
     )
-    planDaysRef!.value = validDays
+    workerPlanDaysRef!.value = validDays
   }
 
   /**
    * Reset to default plan days
    */
   const resetPlanDays = (): void => {
-    planDaysRef!.value = GAME_LIMITS.DEFAULT_PLAN_DAYS
+    workerPlanDaysRef!.value = GAME_LIMITS.DEFAULT_PLAN_DAYS
   }
 
   /**
    * Watch for changes and save to localStorage (only initialize once)
    */
   if (!watcherInitialized) {
-    watch(planDaysRef, (newValue) => {
+    watch(workerPlanDaysRef, (newValue) => {
       const currentData = loadData() || {}
       saveData({
         ...currentData,
-        planDays: newValue,
+        workerPlanDays: newValue,
       })
     })
     watcherInitialized = true
   }
 
   return {
-    planDays: planDaysRef,
+    planDays: workerPlanDaysRef,
     setPlanDays,
     resetPlanDays,
   }
