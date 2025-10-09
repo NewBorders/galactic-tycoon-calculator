@@ -1,12 +1,13 @@
 import type { Building } from '../../types'
 import { TIER1_BUILDINGS } from './tier1'
+import { TIER2_BUILDINGS } from './tier2'
 
 /**
- * All buildings available in the game
- * Organized by tier for easy management
+ * All Buildings organized by tier
  */
 export const BUILDINGS: Record<string, Building> = {
   ...TIER1_BUILDINGS,
-  // TIER2_BUILDINGS will be added here when created
-  // TIER3_BUILDINGS will be added here when created
+  ...TIER2_BUILDINGS,
 }
+
+export { TIER1_BUILDINGS, TIER2_BUILDINGS }

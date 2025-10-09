@@ -49,8 +49,8 @@
       <BuildingsList
         :buildings="buildings"
         :game-data="GAME_DATA"
-        :productivity="productivity"
         :technology-levels="technologyLevels"
+        :productivity-by-tier="productivityByTier"
         @add-building="addBuilding"
         @remove-building="removeBuilding"
         @add-recipe="addRecipe"
@@ -70,11 +70,11 @@
         <WorkerConsumption
           :worker-consumption="calculations.workerConsumption"
           :total-workers="calculations.totalWorkers"
+          :total-workers-by-tier="calculations.totalWorkersByTier"
           :stock="stock"
           :prices="prices"
           :optional-active="optionalConsumables"
           @update:optional-active="optionalConsumables = $event"
-          @update:calculated-productivity="productivity = $event"
         />
 
         <NetBalance
@@ -121,7 +121,20 @@ const stock = ref<Record<string, number>>({})
 const showPrices = ref(false)
 const showSettings = ref(false)
 const showBuildingTypeModal = ref(false)
-const productivity = ref(WORKER_CONFIG.BASE_PRODUCTIVITY)
+const productivityByTier = computed<[number, number, number, number]>(() => {
+  // Calcular productividad para cada tier basado en sus consumibles opcionales activos
+  const tier1Active = [...WORKER_CONFIG.TIER1_OPTIONAL].filter(r => optionalConsumables.value[r]).length
+  const tier2Active = [...WORKER_CONFIG.TIER2_OPTIONAL].filter(r => optionalConsumables.value[r]).length
+  const tier3Active = [...WORKER_CONFIG.TIER3_OPTIONAL].filter(r => optionalConsumables.value[r]).length
+  const tier4Active = [...WORKER_CONFIG.TIER4_OPTIONAL].filter(r => optionalConsumables.value[r]).length
+  
+  return [
+    WORKER_CONFIG.BASE_PRODUCTIVITY + (tier1Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL),
+    WORKER_CONFIG.BASE_PRODUCTIVITY + (tier2Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL),
+    WORKER_CONFIG.BASE_PRODUCTIVITY + (tier3Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL),
+    WORKER_CONFIG.BASE_PRODUCTIVITY + (tier4Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL),
+  ]
+})
 const gameSpeed = ref(4)
 const optionalConsumables = ref<Record<string, boolean>>({
   [WORKER_CONFIG.OPTIONAL_CONSUMABLES[0]]: false,
@@ -141,7 +154,7 @@ const technologyLevels = ref<Record<IndustryType, number>>({
 })
 
 // Calculations
-const { calculations } = useCalculations(buildings, GAME_DATA, productivity, gameSpeed, technologyLevels)
+const { calculations } = useCalculations(buildings, GAME_DATA, productivityByTier, gameSpeed, technologyLevels)
 
 const timeToEmpty = computed(() => {
   const times: Record<string, number> = {}
@@ -197,7 +210,6 @@ onMounted(() => {
     if (data.buildings) buildings.value = data.buildings
     if (data.prices) prices.value = data.prices
     if (data.stock) stock.value = data.stock
-    if (data.productivity) productivity.value = data.productivity
     if (data.gameSpeed) gameSpeed.value = data.gameSpeed
     if (data.technologyLevels) technologyLevels.value = data.technologyLevels
     if (data.optionalConsumables) optionalConsumables.value = data.optionalConsumables
@@ -205,13 +217,12 @@ onMounted(() => {
 })
 
 watch(
-  [buildings, prices, stock, productivity, gameSpeed, technologyLevels, optionalConsumables],
+  [buildings, prices, stock, productivityByTier, gameSpeed, technologyLevels, optionalConsumables],
   () => {
     const dataToSave: SavedData = {
       buildings: buildings.value,
       prices: prices.value,
       stock: stock.value,
-      productivity: productivity.value,
       gameSpeed: gameSpeed.value,
       technologyLevels: technologyLevels.value,
       optionalConsumables: optionalConsumables.value,

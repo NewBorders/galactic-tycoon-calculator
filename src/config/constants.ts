@@ -5,6 +5,19 @@
 export const WORKER_CONFIG = {
   BASE_PRODUCTIVITY: 70,
   PRODUCTIVITY_BONUS_PER_OPTIONAL: 10,
+  // Worker (Tier 1)
+  TIER1_ESSENTIAL: ['rations', 'drinking_water', 'tools'] as const,
+  TIER1_OPTIONAL: ['workwear', 'ale', 'pie'] as const,
+  // Technician (Tier 2)
+  TIER2_ESSENTIAL: ['fine_rations', 'drinking_water', 'workwear'] as const,
+  TIER2_OPTIONAL: ['coffee', 'exosuit', 'pie'] as const,
+  // Engineer (Tier 3)
+  TIER3_ESSENTIAL: ['fine_rations', 'vitaqua', 'advanced_tools'] as const,
+  TIER3_OPTIONAL: ['coffee', 'robot', 'rejuvaline'] as const,
+  // Scientist (Tier 4)
+  TIER4_ESSENTIAL: ['gourmet_rations', 'vitaqua', 'spectra_modulator'] as const,
+  TIER4_OPTIONAL: ['laboratory_suit', 'nanites', 'rejuvaline'] as const,
+  // Legacy - mantener para retrocompatibilidad
   ESSENTIAL_CONSUMABLES: ['rations', 'drinking_water', 'tools'] as const,
   OPTIONAL_CONSUMABLES: ['ale', 'pie', 'workwear'] as const,
 } as const

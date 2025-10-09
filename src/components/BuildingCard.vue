@@ -117,8 +117,8 @@ import { GAME_LIMITS } from '../config/constants'
 interface Props {
   building: BuildingInstance
   buildingData: Building
-  productivity: number
   technologyLevels: Record<IndustryType, number>
+  productivityByTier: [number, number, number, number]
 }
 
 const props = defineProps<Props>()
@@ -129,12 +129,25 @@ const emit = defineEmits<{
   'update-building': [building: BuildingInstance]
 }>()
 
+// Calcular la productividad efectiva del edificio
 const effectiveProductivity = computed(() => {
+  const totalWorkers = props.buildingData.workers
+  if (totalWorkers === 0) return 70
+  
+  // Calcular productividad ponderada según los workers de cada tier
+  let weightedProductivity = 0
+  props.buildingData.workersByTier.forEach((count, index) => {
+    const tierProductivity = props.productivityByTier[index]
+    weightedProductivity += tierProductivity * count
+  })
+  
+  const baseProductivity = weightedProductivity / totalWorkers
+  
+  // Aplicar technology bonus
   const techLevel = props.technologyLevels[props.buildingData.industryType] || 0
   const techMultiplier = (100 + techLevel) / 100
-  const productivityMultiplier = props.productivity / 100
-  const combined = productivityMultiplier * techMultiplier * 100
-  return Math.round(combined)
+  
+  return Math.round(baseProductivity * techMultiplier)
 })
 
 const updateQuantity = (value: string) => {

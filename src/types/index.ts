@@ -1,3 +1,5 @@
+export type WorkerTier = 'worker' | 'technician' | 'engineer' | 'scientist'
+
 export type IndustryType = 
   | 'Agriculture'
   | 'Chemistry'
@@ -10,6 +12,7 @@ export type IndustryType =
   | 'Science'
 
 export interface Recipe {
+  id: number
   name: string
   time: number
   inputs: Record<string, number>
@@ -17,9 +20,13 @@ export interface Recipe {
 }
 
 export interface Building {
+  id: number
   name: string
-  workers: number
+  description?: string
+  workers: number // Total de trabajadores
+  workersByTier: [number, number, number, number] // [worker, technician, engineer, scientist]
   industryType: IndustryType
+  tier: number
   recipes: Record<string, Recipe>
 }
 
@@ -64,5 +71,6 @@ export interface Calculations {
   totalOutputs: Record<string, number>
   netBalance: Record<string, number>
   totalWorkers: number
+  totalWorkersByTier: [number, number, number, number] // [worker, technician, engineer, scientist]
   workerConsumption: Record<string, number>
 }

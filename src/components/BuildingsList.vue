@@ -17,8 +17,8 @@
         :key="building.id"
         :building="building"
         :building-data="gameData.buildings[building.buildingType]"
-        :productivity="productivity"
         :technology-levels="technologyLevels"
+        :productivity-by-tier="productivityByTier"
         @remove="$emit('remove-building', building.id)"
         @add-recipe="$emit('add-recipe', building.id)"
         @remove-recipe="(recipeId) => $emit('remove-recipe', building.id, recipeId)"
@@ -40,8 +40,8 @@ import type { BuildingInstance, GameData, IndustryType } from '../types'
 interface Props {
   buildings: BuildingInstance[]
   gameData: GameData
-  productivity: number
   technologyLevels: Record<IndustryType, number>
+  productivityByTier: [number, number, number, number]
 }
 
 defineProps<Props>()
