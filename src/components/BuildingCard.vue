@@ -130,7 +130,10 @@ const emit = defineEmits<{
 
 const effectiveProductivity = computed(() => {
   const techLevel = props.technologyLevels[props.buildingData.industryType] || 0
-  return props.productivity + techLevel
+  const techMultiplier = (100 + techLevel) / 100
+  const productivityMultiplier = props.productivity / 100
+  const combined = productivityMultiplier * techMultiplier * 100
+  return Math.round(combined)
 })
 
 const updateQuantity = (value: string) => {

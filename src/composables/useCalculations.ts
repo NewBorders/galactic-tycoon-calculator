@@ -33,11 +33,19 @@ export function useCalculations(
           recipeTime = recipe.time * (100 / building.planetModifiers[recipeItem.recipeKey])
         }
 
-        // Apply productivity + technology bonus combined
-        // Productivity of 95% means working at 95% efficiency (takes MORE time)
+        // Apply technology as multiplier (not additive)
+        // Technology 10% = 110% multiplier (1.10)
         const techLevel = technologyLevels.value[buildingData.industryType] || 0
-        const effectiveProductivity = productivity.value + techLevel
-        recipeTime = recipeTime / (effectiveProductivity / 100)
+        const techMultiplier = (100 + techLevel) / 100 // Convert to multiplier
+        
+        // Apply productivity as efficiency (70% = 0.70)
+        const productivityMultiplier = productivity.value / 100
+        
+        // Combined multiplier (multiplicative, not additive)
+        const combinedMultiplier = productivityMultiplier * techMultiplier
+        
+        // Apply to recipe time (higher multiplier = less time)
+        recipeTime = recipeTime / combinedMultiplier
         
         // Apply game speed
         recipeTime = recipeTime / gameSpeed.value
