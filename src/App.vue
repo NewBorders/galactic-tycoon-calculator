@@ -4,7 +4,7 @@
       <div class="flex justify-between items-center mb-6">
         <div>
           <h1 class="text-3xl font-bold text-blue-400">Production Calculator</h1>
-          <span class="text-xs text-gray-500">v1.0.0</span>
+          <span class="text-xs text-gray-500">v1.0.1</span>
         </div>
         <div class="flex gap-2">
           <button
@@ -41,7 +41,12 @@
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 9l-7 7-7-7"
+            />
           </svg>
         </button>
         <div v-if="showPrices" class="border-t border-gray-700">
@@ -66,18 +71,36 @@
           class="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-700 transition-colors"
         >
           <div class="flex items-center gap-3">
-            <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            <svg
+              class="w-6 h-6 text-green-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+              />
             </svg>
             <h2 class="text-xl font-semibold text-green-400">Production Buildings</h2>
           </div>
           <svg
-            :class="['w-5 h-5 text-gray-400 transition-transform', showBuildings ? 'rotate-180' : '']"
+            :class="[
+              'w-5 h-5 text-gray-400 transition-transform',
+              showBuildings ? 'rotate-180' : '',
+            ]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 9l-7 7-7-7"
+            />
           </svg>
         </button>
         <div v-if="showBuildings" class="border-t border-gray-700">
@@ -135,7 +158,10 @@
           :time-to-empty="timeToEmpty"
         />
 
-        <ProductionSummary :total-outputs="calculations.totalOutputs" :materials="GAME_DATA.materials" />
+        <ProductionSummary
+          :total-outputs="calculations.totalOutputs"
+          :materials="GAME_DATA.materials"
+        />
       </div>
     </div>
   </div>
@@ -169,16 +195,24 @@ const showSettings = ref(false)
 const showBuildingTypeModal = ref(false)
 const productivityByTier = computed<[number, number, number, number]>(() => {
   // Calcular productividad para cada tier basado en sus consumibles opcionales activos
-  const tier1Active = [...WORKER_CONFIG.TIER1_OPTIONAL].filter(r => optionalConsumables.value[r]).length
-  const tier2Active = [...WORKER_CONFIG.TIER2_OPTIONAL].filter(r => optionalConsumables.value[r]).length
-  const tier3Active = [...WORKER_CONFIG.TIER3_OPTIONAL].filter(r => optionalConsumables.value[r]).length
-  const tier4Active = [...WORKER_CONFIG.TIER4_OPTIONAL].filter(r => optionalConsumables.value[r]).length
-  
+  const tier1Active = [...WORKER_CONFIG.TIER1_OPTIONAL].filter(
+    (r) => optionalConsumables.value[r],
+  ).length
+  const tier2Active = [...WORKER_CONFIG.TIER2_OPTIONAL].filter(
+    (r) => optionalConsumables.value[r],
+  ).length
+  const tier3Active = [...WORKER_CONFIG.TIER3_OPTIONAL].filter(
+    (r) => optionalConsumables.value[r],
+  ).length
+  const tier4Active = [...WORKER_CONFIG.TIER4_OPTIONAL].filter(
+    (r) => optionalConsumables.value[r],
+  ).length
+
   return [
-    WORKER_CONFIG.BASE_PRODUCTIVITY + (tier1Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL),
-    WORKER_CONFIG.BASE_PRODUCTIVITY + (tier2Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL),
-    WORKER_CONFIG.BASE_PRODUCTIVITY + (tier3Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL),
-    WORKER_CONFIG.BASE_PRODUCTIVITY + (tier4Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL),
+    WORKER_CONFIG.BASE_PRODUCTIVITY + tier1Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL,
+    WORKER_CONFIG.BASE_PRODUCTIVITY + tier2Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL,
+    WORKER_CONFIG.BASE_PRODUCTIVITY + tier3Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL,
+    WORKER_CONFIG.BASE_PRODUCTIVITY + tier4Active * WORKER_CONFIG.PRODUCTIVITY_BONUS_PER_OPTIONAL,
   ]
 })
 const gameSpeed = ref(4)
@@ -188,20 +222,26 @@ const optionalConsumables = ref<Record<string, boolean>>({
   [WORKER_CONFIG.OPTIONAL_CONSUMABLES[2]]: false,
 })
 const technologyLevels = ref<Record<IndustryType, number>>({
-  'Agriculture': 0,
-  'Chemistry': 0,
-  'Construction': 0,
-  'Electronics': 0,
+  Agriculture: 0,
+  Chemistry: 0,
+  Construction: 0,
+  Electronics: 0,
   'Food Production': 0,
-  'Manufacturing': 0,
-  'Metallurgy': 0,
+  Manufacturing: 0,
+  Metallurgy: 0,
   'Resource Extraction': 0,
-  'Residential': 0,
-  'Science': 0
+  Residential: 0,
+  Science: 0,
 })
 
 // Calculations
-const { calculations } = useCalculations(buildings, GAME_DATA, productivityByTier, gameSpeed, technologyLevels)
+const { calculations } = useCalculations(
+  buildings,
+  GAME_DATA,
+  productivityByTier,
+  gameSpeed,
+  technologyLevels,
+)
 
 const timeToEmpty = computed(() => {
   const times: Record<string, number> = {}
@@ -215,29 +255,79 @@ const timeToEmpty = computed(() => {
 })
 
 const economicCalculations = computed(() => {
+  // Calculate Total Daily Cost
+  // This is the daily operational cost: worker consumables + cost of negative balance materials (excluding worker consumables)
   let totalCosts = 0
-  let totalRevenue = 0
 
-  Object.entries(calculations.value.totalInputs).forEach(([material, amount]) => {
-    const price = prices.value[material] || 0
-    totalCosts += amount * price
-  })
+  // 1. Cost of worker consumables (all tiers, essentials + actives)
+  // Get ALL worker consumables from all tiers
+  const allWorkerConsumables = [
+    ...WORKER_CONFIG.TIER1_ESSENTIAL,
+    ...WORKER_CONFIG.TIER1_OPTIONAL,
+    ...WORKER_CONFIG.TIER2_ESSENTIAL,
+    ...WORKER_CONFIG.TIER2_OPTIONAL,
+    ...WORKER_CONFIG.TIER3_ESSENTIAL,
+    ...WORKER_CONFIG.TIER3_OPTIONAL,
+    ...WORKER_CONFIG.TIER4_ESSENTIAL,
+    ...WORKER_CONFIG.TIER4_OPTIONAL,
+  ]
 
-  // Essential consumables (always count)
-  const essentialConsumables = WORKER_CONFIG.ESSENTIAL_CONSUMABLES
-  const optionalConsumablesList = WORKER_CONFIG.OPTIONAL_CONSUMABLES
-  
   Object.entries(calculations.value.workerConsumption).forEach(([resource, amount]) => {
+    if (amount === 0) return
+
     const price = prices.value[resource] || 0
-    // Count if essential OR if optional and active
-    const isEssential = essentialConsumables.includes(resource as any)
-    const isOptionalActive = optionalConsumablesList.includes(resource as any) && optionalConsumables.value[resource]
-    
-    if (isEssential || isOptionalActive) {
+
+    // Check if this resource is essential for ANY tier that we have workers in
+    let isEssentialForActiveTier = false
+
+    // Tier 1 (Workers)
+    if (
+      calculations.value.totalWorkersByTier[0] > 0 &&
+      WORKER_CONFIG.TIER1_ESSENTIAL.includes(resource as any)
+    ) {
+      isEssentialForActiveTier = true
+    }
+    // Tier 2 (Technicians)
+    if (
+      calculations.value.totalWorkersByTier[1] > 0 &&
+      WORKER_CONFIG.TIER2_ESSENTIAL.includes(resource as any)
+    ) {
+      isEssentialForActiveTier = true
+    }
+    // Tier 3 (Engineers)
+    if (
+      calculations.value.totalWorkersByTier[2] > 0 &&
+      WORKER_CONFIG.TIER3_ESSENTIAL.includes(resource as any)
+    ) {
+      isEssentialForActiveTier = true
+    }
+    // Tier 4 (Scientists)
+    if (
+      calculations.value.totalWorkersByTier[3] > 0 &&
+      WORKER_CONFIG.TIER4_ESSENTIAL.includes(resource as any)
+    ) {
+      isEssentialForActiveTier = true
+    }
+
+    const isOptionalActive = optionalConsumables.value[resource] === true
+
+    if (isEssentialForActiveTier || isOptionalActive) {
       totalCosts += amount * price
     }
   })
 
+  // 2. Cost of materials with negative balance (consuming more than producing)
+
+  Object.entries(calculations.value.netBalance).forEach(([material, dailyBalance]) => {
+    if (dailyBalance < 0) {
+      const price = prices.value[material] || 0
+      const dailyCost = Math.abs(dailyBalance) * price
+      totalCosts += dailyCost
+    }
+  })
+
+  // Calculate Total Revenue from production outputs
+  let totalRevenue = 0
   Object.entries(calculations.value.totalOutputs).forEach(([material, amount]) => {
     const price = prices.value[material] || 0
     totalRevenue += amount * price
@@ -267,7 +357,16 @@ onMounted(() => {
 })
 
 watch(
-  [buildings, prices, stock, lockedPrices, productivityByTier, gameSpeed, technologyLevels, optionalConsumables],
+  [
+    buildings,
+    prices,
+    stock,
+    lockedPrices,
+    productivityByTier,
+    gameSpeed,
+    technologyLevels,
+    optionalConsumables,
+  ],
   () => {
     // Load current data to preserve planDays values
     const currentData = loadData() || {}
@@ -295,22 +394,24 @@ const addBuilding = (): void => {
 const confirmAddBuilding = (buildingType: string): void => {
   const buildingData = GAME_DATA.buildings[buildingType]
   if (!buildingData) return
-  
+
   const firstRecipeKey = Object.keys(buildingData.recipes)[0]
   if (!firstRecipeKey) return
-  
+
   // Inicializar planetModifier en 100 si es un edificio de Resource Extraction
   const isResourceExtraction = buildingData.industryType === 'Resource Extraction'
-  
+
   const newBuilding: BuildingInstance = {
     id: Date.now(),
     buildingType: buildingType,
     quantity: 1,
-    recipes: [{ 
-      id: Date.now(), 
-      recipeKey: firstRecipeKey,
-      ...(isResourceExtraction && { planetModifier: 100 })
-    }],
+    recipes: [
+      {
+        id: Date.now(),
+        recipeKey: firstRecipeKey,
+        ...(isResourceExtraction && { planetModifier: 100 }),
+      },
+    ],
   }
 
   buildings.value.push(newBuilding)
@@ -328,19 +429,19 @@ const removeBuilding = (id: number): void => {
 const addRecipe = (buildingId: number): void => {
   const building = buildings.value.find((b) => b.id === buildingId)
   if (!building) return
-  
+
   const buildingData = GAME_DATA.buildings[building.buildingType]
   if (!buildingData) return
-  
+
   const firstRecipe = Object.keys(buildingData.recipes)[0]
   if (!firstRecipe) return
-  
+
   const isResourceExtraction = buildingData.industryType === 'Resource Extraction'
-  
-  building.recipes.push({ 
-    id: Date.now(), 
+
+  building.recipes.push({
+    id: Date.now(),
     recipeKey: firstRecipe,
-    ...(isResourceExtraction && { planetModifier: 100 })
+    ...(isResourceExtraction && { planetModifier: 100 }),
   })
 }
 
