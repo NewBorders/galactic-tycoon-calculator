@@ -1,0 +1,36 @@
+// ESTE ES SOLO EL FRAGMENTO A REEMPLAZAR EN App.vue
+// Reemplazar desde línea 321 hasta línea 386
+
+const economicCalculations = computed(() => {
+  // Total Daily Cost = Cost of materials we need to BUY (negative net balance)
+  // This includes worker consumables that are being consumed
+  let totalCosts = 0
+  
+  Object.entries(calculations.value.netBalance).forEach(([material, dailyBalance]) => {
+    // Si el balance es negativo, estamos consumiendo más de lo que producimos
+    // Necesitamos comprar la diferencia
+    if (dailyBalance < 0) {
+      const price = prices.value[material] || 0
+      const dailyCost = Math.abs(dailyBalance) * price
+      totalCosts += dailyCost
+    }
+  })
+
+  // Total Revenue = Revenue from materials we can SELL (positive net balance)
+  // We only sell what we produce in excess
+  let totalRevenue = 0
+  
+  Object.entries(calculations.value.netBalance).forEach(([material, dailyBalance]) => {
+    // Si el balance es positivo, estamos produciendo más de lo que consumimos
+    // Podemos vender el excedente
+    if (dailyBalance > 0) {
+      const price = prices.value[material] || 0
+      const dailyRevenue = dailyBalance * price
+      totalRevenue += dailyRevenue
+    }
+  })
+
+  const totalProfit = totalRevenue - totalCosts
+
+  return { totalCosts, totalRevenue, totalProfit }
+})

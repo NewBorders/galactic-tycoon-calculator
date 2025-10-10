@@ -255,23 +255,9 @@ const timeToEmpty = computed(() => {
 })
 
 const economicCalculations = computed(() => {
-  // Calculate Total Daily Cost
-  // This is the daily operational cost: worker consumables + cost of negative balance materials (excluding worker consumables)
   let totalCosts = 0
 
-  // 1. Cost of worker consumables (all tiers, essentials + actives)
-  // Get ALL worker consumables from all tiers
-  const allWorkerConsumables = [
-    ...WORKER_CONFIG.TIER1_ESSENTIAL,
-    ...WORKER_CONFIG.TIER1_OPTIONAL,
-    ...WORKER_CONFIG.TIER2_ESSENTIAL,
-    ...WORKER_CONFIG.TIER2_OPTIONAL,
-    ...WORKER_CONFIG.TIER3_ESSENTIAL,
-    ...WORKER_CONFIG.TIER3_OPTIONAL,
-    ...WORKER_CONFIG.TIER4_ESSENTIAL,
-    ...WORKER_CONFIG.TIER4_OPTIONAL,
-  ]
-
+  // 1. Cost of ACTIVE worker consumables (essentials + optionals that are active)
   Object.entries(calculations.value.workerConsumption).forEach(([resource, amount]) => {
     if (amount === 0) return
 
@@ -316,8 +302,7 @@ const economicCalculations = computed(() => {
     }
   })
 
-  // 2. Cost of materials with negative balance (consuming more than producing)
-
+  // 2. Cost of production materials with negative balance (consuming more than producing)
   Object.entries(calculations.value.netBalance).forEach(([material, dailyBalance]) => {
     if (dailyBalance < 0) {
       const price = prices.value[material] || 0
@@ -326,11 +311,15 @@ const economicCalculations = computed(() => {
     }
   })
 
-  // Calculate Total Revenue from production outputs
+  // Total Revenue = Revenue from materials we can SELL (positive net balance)
   let totalRevenue = 0
-  Object.entries(calculations.value.totalOutputs).forEach(([material, amount]) => {
-    const price = prices.value[material] || 0
-    totalRevenue += amount * price
+  
+  Object.entries(calculations.value.netBalance).forEach(([material, dailyBalance]) => {
+    if (dailyBalance > 0) {
+      const price = prices.value[material] || 0
+      const dailyRevenue = dailyBalance * price
+      totalRevenue += dailyRevenue
+    }
   })
 
   const totalProfit = totalRevenue - totalCosts
