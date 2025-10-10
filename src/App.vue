@@ -4,7 +4,7 @@
       <div class="flex justify-between items-center mb-6">
         <div>
           <h1 class="text-3xl font-bold text-blue-400">Production Calculator</h1>
-          <span class="text-xs text-gray-500">v1.0.1</span>
+          <span class="text-xs text-gray-500">v1.0.2</span>
         </div>
         <div class="flex gap-2">
           <button
@@ -313,7 +313,7 @@ const economicCalculations = computed(() => {
 
   // Total Revenue = Revenue from materials we can SELL (positive net balance)
   let totalRevenue = 0
-  
+
   Object.entries(calculations.value.netBalance).forEach(([material, dailyBalance]) => {
     if (dailyBalance > 0) {
       const price = prices.value[material] || 0
