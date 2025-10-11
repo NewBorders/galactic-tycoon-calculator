@@ -105,7 +105,7 @@
           </template>
         </div>
 
-        <!-- Planet Modifier for Resource Extraction buildings -->
+        <!-- Planet Modifier for Resource Extraction and Agriculture buildings -->
         <div
           v-if="isResourceExtraction"
           class="mt-2 flex items-center gap-2 bg-gray-700 rounded p-2"
@@ -119,7 +119,7 @@
             @input="updatePlanetModifier(recipe.id, ($event.target as HTMLInputElement).value)"
             class="w-20 bg-gray-800 rounded px-2 py-1 text-white text-sm text-right"
           />
-          <span class="text-xs text-gray-400">% (lower = slower extraction)</span>
+          <span class="text-xs text-gray-400">% (lower = slower production)</span>
         </div>
       </div>
     </div>
@@ -147,9 +147,9 @@ const emit = defineEmits<{
   'update-building': [building: BuildingInstance]
 }>()
 
-// Verificar si es un edificio de extracción de recursos
+// Verificar si es un edificio de extracción de recursos o agricultura
 const isResourceExtraction = computed(() => {
-  return props.buildingData.industryType === 'Resource Extraction'
+  return props.buildingData.industryType === 'Resource Extraction' || props.buildingData.industryType === 'Agriculture'
 })
 
 // Calcular la productividad efectiva del edificio

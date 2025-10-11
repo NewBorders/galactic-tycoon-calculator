@@ -48,7 +48,7 @@ export interface BuildingInstance {
 export interface RecipeInstance {
   id: number
   recipeKey: string
-  planetModifier?: number // Modifier específico para esta receta (solo para Resource Extraction)
+  planetModifier?: number // Modifier específico para esta receta (para Resource Extraction y Agriculture)
 }
 
 export interface GameData {

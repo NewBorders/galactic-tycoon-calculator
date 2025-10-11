@@ -39,7 +39,7 @@ export function useCalculations(
 
         let recipeTime = recipe.time
 
-        // Aplicar planet modifier si existe en la receta (para Resource Extraction)
+        // Aplicar planet modifier si existe en la receta (para Resource Extraction y Agriculture)
         if (recipeItem.planetModifier && recipeItem.planetModifier !== 100) {
           recipeTime = recipe.time * (100 / recipeItem.planetModifier)
         }
