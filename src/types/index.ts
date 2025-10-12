@@ -60,6 +60,9 @@ export interface GameData {
 export interface SavedData {
   buildings?: BuildingInstance[]
   prices?: Record<string, number>
+  currentPrices?: Record<string, number> // Precio actual de la API
+  avgPrices?: Record<string, number> // Precio promedio de la API
+  usePriceType?: 'current' | 'avg' // Tipo de precio a usar en los cálculos
   stock?: Record<string, number>
   lockedPrices?: Record<string, boolean>
   productivity?: number

@@ -1,7 +1,7 @@
 import type { SavedData } from '../../types'
 
 const STORAGE_KEY = 'productionCalculatorData'
-const STORAGE_VERSION = 1
+const STORAGE_VERSION = 2
 
 interface StorageData {
   version: number
@@ -128,7 +128,17 @@ function migrateData(data: any, fromVersion: number): SavedData {
   }
 
   // Future migrations will go here
-  // if (fromVersion < 2) { ... }
+  if (fromVersion < 2) {
+    console.log('Applying migration from v1 to v2')
+    
+    // Add new price-related fields with defaults
+    migrated = {
+      ...migrated,
+      currentPrices: migrated.currentPrices || {},
+      avgPrices: migrated.avgPrices || {},
+      usePriceType: migrated.usePriceType || 'current',
+    }
+  }
   // if (fromVersion < 3) { ... }
 
   return migrated
