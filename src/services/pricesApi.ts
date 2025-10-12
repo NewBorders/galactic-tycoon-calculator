@@ -1,4 +1,7 @@
-const API_BASE_URL = 'https://api.g2.galactictycoons.com'
+// Use our proxy API route in production, direct API in development
+const API_URL = import.meta.env.DEV 
+  ? 'https://api.g2.galactictycoons.com/public/exchange/mat-prices'
+  : '/api/prices'
 
 export interface MaterialPrice {
   matId: number
@@ -13,7 +16,7 @@ export interface PricesApiResponse {
 
 export async function fetchMaterialPrices(): Promise<MaterialPrice[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/public/exchange/mat-prices`)
+    const response = await fetch(API_URL)
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
