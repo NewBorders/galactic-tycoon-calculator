@@ -4,7 +4,7 @@
       <div class="flex justify-between items-center mb-6">
         <div>
           <h1 class="text-3xl font-bold text-blue-400">Production Calculator</h1>
-          <span class="text-xs text-gray-500">v1.0.3</span>
+          <span class="text-xs text-gray-500">v1.0.4</span>
         </div>
         <div class="flex gap-2">
           <button
@@ -55,9 +55,15 @@
             :materials="GAME_DATA.materials"
             :worker-consumption="GAME_DATA.workerConsumption"
             :prices="prices"
+            :current-prices="currentPrices"
+            :avg-prices="avgPrices"
+            :use-price-type="usePriceType"
             :stock="stock"
             :locked-prices="lockedPrices"
             @update:prices="prices = $event"
+            @update:current-prices="currentPrices = $event"
+            @update:avg-prices="avgPrices = $event"
+            @update:use-price-type="usePriceType = $event"
             @update:stock="stock = $event"
             @update:locked-prices="lockedPrices = $event"
           />
@@ -187,6 +193,9 @@ import type { BuildingInstance, SavedData, IndustryType } from './types'
 
 const buildings = ref<BuildingInstance[]>([])
 const prices = ref<Record<string, number>>({})
+const currentPrices = ref<Record<string, number>>({})
+const avgPrices = ref<Record<string, number>>({})
+const usePriceType = ref<'current' | 'avg'>('current')
 const stock = ref<Record<string, number>>({})
 const lockedPrices = ref<Record<string, boolean>>({})
 const showPrices = ref(false)
@@ -337,6 +346,9 @@ onMounted(() => {
   if (data) {
     if (data.buildings) buildings.value = data.buildings
     if (data.prices) prices.value = data.prices
+    if (data.currentPrices) currentPrices.value = data.currentPrices
+    if (data.avgPrices) avgPrices.value = data.avgPrices
+    if (data.usePriceType) usePriceType.value = data.usePriceType
     if (data.stock) stock.value = data.stock
     if (data.lockedPrices) lockedPrices.value = data.lockedPrices
     if (data.gameSpeed) gameSpeed.value = data.gameSpeed
@@ -349,6 +361,9 @@ watch(
   [
     buildings,
     prices,
+    currentPrices,
+    avgPrices,
+    usePriceType,
     stock,
     lockedPrices,
     productivityByTier,
@@ -362,6 +377,9 @@ watch(
     const dataToSave: SavedData = {
       buildings: buildings.value,
       prices: prices.value,
+      currentPrices: currentPrices.value,
+      avgPrices: avgPrices.value,
+      usePriceType: usePriceType.value,
       stock: stock.value,
       lockedPrices: lockedPrices.value,
       gameSpeed: gameSpeed.value,
