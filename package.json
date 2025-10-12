@@ -7,7 +7,7 @@
   "author": "Your Name",
   "license": "MIT",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": "18.x"
   },
   "scripts": {
     "dev": "vite",
