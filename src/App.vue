@@ -4,7 +4,7 @@
       <div class="flex justify-between items-center mb-6">
         <div>
           <h1 class="text-3xl font-bold text-blue-400">Production Calculator</h1>
-          <span class="text-xs text-gray-500">v1.0.4</span>
+          <span class="text-xs text-gray-500">v1.0.5</span>
         </div>
         <div class="flex gap-2">
           <button

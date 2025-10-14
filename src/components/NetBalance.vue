@@ -56,11 +56,14 @@
             </td>
           </tr>
           <tr class="border-t-2 border-gray-600">
-            <td class="py-2 px-2 text-gray-300 font-semibold" colspan="4">
-              Total Purchase Cost
+            <td class="py-2 px-2 text-gray-300 font-semibold" colspan="3">
+              Totals
             </td>
             <td class="py-2 px-2 text-right font-mono text-orange-400 font-semibold">
               {{ formatNumber(totalPurchaseCost) }}
+            </td>
+            <td class="py-2 px-2 text-right font-mono text-purple-400 font-semibold">
+              {{ formatNumber(totalPurchaseWeight) }}
             </td>
             <td class="py-2 px-2 text-right font-mono text-green-400 font-semibold">
               -
@@ -148,6 +151,29 @@ const totalPurchaseCost = computed(() => {
         computed(() => props.prices[material] || 0)
       )
       total += purchaseCost.value
+    }
+  })
+  
+  return total
+})
+
+const totalPurchaseWeight = computed(() => {
+  let total = 0
+  
+  Object.entries(props.netBalance).forEach(([material, amount]) => {
+    // Only calculate for materials with negative balance (consuming)
+    if (amount < 0) {
+      const { needToBuy } = usePurchaseCalculations(
+        computed(() => amount),
+        computed(() => props.stock[material] || 0),
+        planDays,
+        computed(() => props.prices[material] || 0)
+      )
+      
+      const materialData = props.materials[material]
+      if (materialData && materialData.weight && needToBuy.value > 0) {
+        total += needToBuy.value * materialData.weight
+      }
     }
   })
   

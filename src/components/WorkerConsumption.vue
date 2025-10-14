@@ -393,12 +393,16 @@
 
     <!-- Totals -->
     <div class="bg-gray-900 rounded p-4 mt-4">
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-3 gap-4">
         <div>
           <div class="text-sm text-gray-400">Total Purchase Cost</div>
           <div class="text-2xl font-bold text-orange-400">
             {{ formatNumber(totalPurchaseCost) }}
           </div>
+        </div>
+        <div>
+          <div class="text-sm text-gray-400">Total Purchase Weight</div>
+          <div class="text-2xl font-bold text-purple-400">{{ formatNumber(totalPurchaseWeight) }}</div>
         </div>
         <div>
           <div class="text-sm text-gray-400">Total Daily Cost</div>
@@ -415,6 +419,7 @@ import { formatNumber, formatInteger } from '../utils/formatNumber'
 import { formatDays } from '../utils/formatDays'
 import { WORKER_CONFIG, GAME_LIMITS } from '../config/constants'
 import { WORKER_CONSUMPTION_BY_TIER } from '../data/workerConsumption'
+import { MATERIALS } from '../data/materials'
 import {
   useWorkerPlanDays,
   useStockDays,
@@ -678,6 +683,29 @@ const totalDailyCost = computed(() => {
     if (consumption > 0) {
       const price = props.prices[resource] || 0
       total += consumption * price
+    }
+  })
+
+  return total
+})
+
+const totalPurchaseWeight = computed(() => {
+  let total = 0
+
+  allConsumables.value.forEach((resource) => {
+    const consumption = getTotalConsumptionForResource(resource)
+    if (consumption > 0) {
+      const { needToBuy } = usePurchaseCalculations(
+        computed(() => -consumption),
+        computed(() => props.stock[resource] || 0),
+        planDays,
+        computed(() => props.prices[resource] || 0),
+      )
+      
+      const material = MATERIALS[resource]
+      if (material && material.weight && needToBuy.value > 0) {
+        total += needToBuy.value * material.weight
+      }
     }
   })
 
