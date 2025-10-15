@@ -396,12 +396,8 @@ const getTier = (key: string): number => {
   const material = props.materials[key]
   if (!material) return 1
   
-  // Determine tier based on material ID ranges
-  const id = material.id
-  if (id <= 50 || (id >= 66 && id <= 69)) return 1
-  if (id <= 132) return 2
-  if (id <= 165) return 3
-  return 4
+  // Use tier from material data
+  return material.tier || 1
 }
 
 const getCategoryOrder = (category: IndustryType): number => {

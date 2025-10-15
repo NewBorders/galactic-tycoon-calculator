@@ -36,6 +36,7 @@ export interface Material {
   name: string
   category: IndustryType
   weight?: number
+  tier: number
 }
 
 export interface BuildingInstance {
