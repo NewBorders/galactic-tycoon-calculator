@@ -289,7 +289,7 @@ export const TIER1_BUILDINGS: Record<string, Building> = {
         id: 58,
         name: 'Ethanol',
         time: 75,
-        inputs: { hydrogen: 4, polyethylene: 20, ethanol: 6 },
+        inputs: { carbon: 1, hydrogen: 5, water: 4 },
         outputs: { ethanol: 25 },
       },
       lubricant: {
