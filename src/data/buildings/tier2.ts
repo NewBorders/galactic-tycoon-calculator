@@ -198,13 +198,6 @@ export const TIER2_BUILDINGS: Record<string, Building> = {
         inputs: { reinforced_glass: 20, life_support_system: 2, control_console: 3, advanced_circuit_board: 3 },
         outputs: { shuttle_bridge: 1 },
       },
-      control_console: {
-        id: 119,
-        name: 'Control Console',
-        time: 105,
-        inputs: { aluminium: 1, reinforced_glass: 1, advanced_circuit_board: 1 },
-        outputs: { control_console: 1 },
-      },
       hydrogen_generator: {
         id: 121,
         name: 'Hydrogen Generator',
@@ -403,6 +396,13 @@ export const TIER2_BUILDINGS: Record<string, Building> = {
         time: 75,
         inputs: { glass: 1, pipes: 2, lubricant: 5, electronic_circuit: 1 },
         outputs: { pump: 2 },
+      },
+      control_console: {
+        id: 119,
+        name: 'Control Console',
+        time: 105,
+        inputs: { aluminium: 1, reinforced_glass: 1, advanced_circuit_board: 1 },
+        outputs: { control_console: 1 },
       },
       sensor_array: {
         id: 115,
