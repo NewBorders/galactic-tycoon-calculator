@@ -31,15 +31,16 @@ async function refresh(force = false) {
 const materialsEnriched = computed(() =>
   (gameData.value?.materials ?? []).map((m) => ({
     ...m,
-    category: getCategoryByType(m.type ?? 0),
+    category: getCategoryByType(m.type),
   })),
 )
-const buildingsEnriched = computed(() =>
-  (gameData.value?.buildings ?? []).map((b) => ({
-    ...b,
-    specializationName: BuildingSpecialization[b.specialization as number] ?? 'Unknown',
-  })),
-)
+
+// const buildingsEnriched = computed(() =>
+//   (gameData.value?.buildings ?? []).map((b) => ({
+//     ...b,
+//     specializationName: BuildingSpecialization[b.specialization as number] ?? 'Unknown',
+//   })),
+// )
 
 onMounted(() => refresh(false))
 </script>
