@@ -19,6 +19,7 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@vercel/speed-insights": "^1.2.0",
     "lucide-vue-next": "^0.544.0",
     "vue": "^3.5.22"
   },
