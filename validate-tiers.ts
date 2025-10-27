@@ -1,5 +1,5 @@
 // Validation script to check all materials have tier property
-import { MATERIALS } from './src/data/materials/index'
+import { MATERIALS } from './src/v1/data/materials/index'
 
 console.log('🔍 Validating materials tier property...\n')
 

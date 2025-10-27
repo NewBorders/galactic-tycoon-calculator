@@ -1,0 +1,31 @@
+services:
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - web_node_modules:/app/node_modules
+    command: >
+      sh -c "
+        corepack enable &&
+        if [ -f pnpm-lock.yaml ]; then
+          pnpm install --frozen-lockfile &&
+          pnpm run dev --host 0.0.0.0 --port 5173;
+        elif [ -f package-lock.json ]; then
+          npm ci &&
+          npm run dev -- --host 0.0.0.0 --port 5173;
+        else
+          npm install &&
+          npm run dev -- --host 0.0.0.0 --port 5173;
+        fi
+      "
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=1
+      - WATCHPACK_POLLING=true
+    tty: true
+
+volumes:
+  web_node_modules:
