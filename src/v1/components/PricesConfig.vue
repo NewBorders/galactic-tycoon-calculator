@@ -4,6 +4,36 @@
       <h3 class="text-lg font-semibold text-gray-300">Configuration</h3>
     </div>
 
+    <!-- Import Stock Section -->
+    <div class="mb-6 bg-gray-700 rounded-lg p-4">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-semibold text-blue-400">Import Stock from Game</h3>
+        <button
+          v-if="importStockText"
+          @click="clearImportStockText"
+          class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm text-gray-300"
+        >
+          Clear
+        </button>
+      </div>
+      <p class="text-sm text-gray-400 mb-3">
+        Paste the stock data copied from the game (Material, Quantity, Weight columns):
+      </p>
+      <textarea
+        v-model="importStockText"
+        @input="handleStockImport"
+        placeholder="Paste here the table copied from game...\nAle\t45\t7t\nAmenities\t2\t3t"
+        class="w-full bg-gray-600 rounded px-3 py-2 text-white text-sm font-mono h-24 resize-none"
+      ></textarea>
+      <div
+        v-if="importStockStatus"
+        class="mt-2 text-sm"
+        :class="importStockStatus.success ? 'text-green-400' : 'text-red-400'"
+      >
+        {{ importStockStatus.message }}
+      </div>
+    </div>
+
     <!-- Import Prices Section -->
     <div class="mb-6 bg-gray-700 rounded-lg p-4">
       <div class="flex justify-between items-center mb-3">
