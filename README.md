@@ -37,6 +37,10 @@ npm run dev
 
 # Build for production
 npm run build
+
+# type checks
+npm run type-check
+npm run lint
 ```
 
 ## 🎮 How to Use
@@ -104,8 +108,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🎯 Game Information
 
 This calculator is designed for **Galactic Tycoons** game. All game data, materials, buildings, and recipes are property of the game developers.
-
----
-
-**Version**: 1.0.0  
-**Last Updated**: January 2025

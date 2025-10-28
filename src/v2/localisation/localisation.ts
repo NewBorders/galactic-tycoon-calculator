@@ -1,22 +1,51 @@
-import { ref } from 'vue';
+import { ref } from 'vue'
+
 export type LanguageCode = 'en' | 'de'
 
-const STORAGE_KEY  = 'gt:language'
+const STORAGE_KEY = 'gt:language'
 
 const messages: Record<LanguageCode, Record<string, string>> = {
   en: {
-    fetchFromApi: 'Fetch from API',
-    lastUpdate: 'Last update',
-    source: 'source',
-    materials: 'Materials',
     language: 'Language',
+    tabRecipes: 'V2 → V1 Recipe Translator',
+    tabPlayerConfig: 'Player configuration',
+    planetSearch: 'Search planet…',
+    selectPlanet: 'Select planet…',
+    addBase: 'Add base',
+    alreadyAdded: '(already added)',
+    delete: 'Delete',
+    moveUp: 'Up',
+    moveDown: 'Down',
+    addBuilding: 'Add building…',
+    building: 'Building',
+    level: 'Level',
+    count: 'Count',
+    recipesConfigPlaceholder: 'Recipes config per base will follow',
+    noResults: 'No results',
+    editName: 'Edit name',
+    save: 'Save',
+    cancel: 'Cancel',
   },
   de: {
-    fetchFromApi: 'Von API laden',
-    lastUpdate: 'Letztes Update',
-    source: 'Quelle',
-    materials: 'Materialien',
     language: 'Sprache',
+    tabRecipes: 'V2 → V1 Rezept-Übersetzer',
+    tabPlayerConfig: 'Spieler-Konfiguration',
+    planetSearch: 'Planet suchen…',
+    selectPlanet: 'Planet wählen…',
+    addBase: 'Basis hinzufügen',
+    alreadyAdded: '(bereits hinzugefügt)',
+    delete: 'Löschen',
+    moveUp: 'Hoch',
+    moveDown: 'Runter',
+    addBuilding: 'Gebäude hinzufügen…',
+    building: 'Gebäude',
+    level: 'Level',
+    count: 'Anzahl',
+    recipesConfigPlaceholder: 'Rezepte-Konfiguration pro Basis folgt',
+    noResults: 'Keine Treffer',
+    editName: 'Name bearbeiten',
+    save: 'Speichern',
+    cancel: 'Abbrechen',
   },
 }
 

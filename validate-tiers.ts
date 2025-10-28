@@ -5,7 +5,7 @@ console.log('🔍 Validating materials tier property...\n')
 
 let totalMaterials = 0
 let materialsWithTier = 0
-let materialsWithoutTier: string[] = []
+const materialsWithoutTier: string[] = []
 
 for (const [key, material] of Object.entries(MATERIALS)) {
   totalMaterials++
