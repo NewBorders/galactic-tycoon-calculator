@@ -219,13 +219,6 @@ export const TIER3_BUILDINGS: Record<string, Building> = {
         inputs: { reinforced_glass: 30, composite_shielding: 6, life_support_system: 3, control_console: 7, ftl_field_controller: 1 },
         outputs: { hauler_bridge: 1 },
       },
-      filtration_system: {
-        id: 159,
-        name: 'Filtration System',
-        time: 150,
-        inputs: { steel: 2, carbon_nanotubes: 3, pump: 2 },
-        outputs: { filtration_system: 2 },
-      },
       nanites: {
         id: 181,
         name: 'Nanites',
@@ -273,11 +266,11 @@ export const TIER3_BUILDINGS: Record<string, Building> = {
         inputs: { nanoweave: 4, composite_shielding: 1 },
         outputs: { nanoweave_shielding: 1 },
       },
-      filtration_system_alt: {
+      filtration_system: {
         id: 165,
-        name: 'Filtration System (Alternative)',
-        time: 150,
-        inputs: { aeridium: 1, carbon_nanotubes: 3, pump: 2 },
+        name: 'Filtration System',
+        time: 135,
+        inputs: { aeridium: 1, carbon_nanotubes: 3, pump: 1 },
         outputs: { filtration_system: 2 },
       },
       apex_prefab_kit: {

@@ -180,15 +180,15 @@ export const TIER2_BUILDINGS: Record<string, Building> = {
       life_support_system: {
         id: 104,
         name: 'Life Support System',
-        time: 60,
-        inputs: { aluminium: 1, coolant: 8, aerogel: 3 },
+        time: 75,
+        inputs: { aluminium: 1, aerogel: 3, cooling_system: 1 },
         outputs: { life_support_system: 1 },
       },
       cooling_system: {
         id: 114,
         name: 'Cooling System',
         time: 120,
-        inputs: { copper: 1, insulation_panels: 1, coolant: 15, electronic_circuit: 2 },
+        inputs: { copper: 1, insulation_panels: 1, coolant: 15, pump: 1 },
         outputs: { cooling_system: 3 },
       },
       shuttle_bridge: {

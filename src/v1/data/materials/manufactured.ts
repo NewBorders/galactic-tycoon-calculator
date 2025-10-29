@@ -10,7 +10,7 @@ export const MANUFACTURED_MATERIALS_T1: Record<string, Material> = {
   prefab_kit: { id: 92, name: 'Prefab Kit', category: 'Construction', weight: 2, tier: 1 },
   amenities: { id: 93, name: 'Amenities', category: 'Construction', weight: 1.5, tier: 1 },
   pipes: { id: 68, name: 'Pipes', category: 'Manufacturing', weight: 0.35, tier: 1 },
-  office_supplies: { id: 66, name: 'Office Supplies', category: 'Manufacturing', weight: 0.3, tier: 1 },
+  office_supplies: { id: 66, name: 'Office Supplies', category: 'Manufacturing', weight: 0.2, tier: 1 },
   furniture: { id: 47, name: 'Furniture', category: 'Manufacturing', weight: 0.4, tier: 1 },
   truss: { id: 98, name: 'Truss', category: 'Metallurgy', weight: 2, tier: 1 },
   welding_kit: { id: 108, name: 'Welding Kit', category: 'Manufacturing', weight: 0.6, tier: 1 },

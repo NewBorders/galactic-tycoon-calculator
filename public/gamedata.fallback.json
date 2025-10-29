@@ -3770,7 +3770,7 @@
       "source": 2,
       "tier": 1,
       "type": 6,
-      "weight": 0.3
+      "weight": 0.2
     },
     {
       "cp": 32659,
@@ -4197,7 +4197,7 @@
       "description": "A sophisticated interface used to monitor and control complex systems and machinery.",
       "id": 102,
       "name": "Control Console",
-      "reqTech": 4,
+      "reqTech": 5,
       "sName": "Console",
       "source": 2,
       "tier": 2,
@@ -4245,7 +4245,7 @@
       "description": "A modular segment for storing and transporting fuel.",
       "id": 106,
       "name": "Fuel Tank Segment",
-      "reqTech": 4,
+      "reqTech": 5,
       "sName": "Fuel Tank",
       "source": 2,
       "tier": 2,
@@ -4317,7 +4317,7 @@
       "description": "A versatile platform integrating multiple chips and electronic components to enable basic data processing.",
       "id": 112,
       "name": "Advanced Circuit Board",
-      "reqTech": 5,
+      "reqTech": 4,
       "sName": "ACB",
       "source": 2,
       "tier": 2,
