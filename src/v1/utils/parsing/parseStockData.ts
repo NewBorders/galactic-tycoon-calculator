@@ -48,7 +48,7 @@ export function parseStockData(
           if (!namePart || !quantityPart) continue
           
           const name = namePart.toLowerCase().trim()
-          const quantityStr = quantityPart.trim()
+          const quantityStr = quantityPart.replace(/[,.]/g, '').trim()
           const quantity = parseInt(quantityStr, 10)
 
           if (!isNaN(quantity)) {
@@ -70,11 +70,13 @@ export function parseStockData(
           const nextLine = lines[i + 1]
           if (!nextLine) continue
           
-          // Try to extract number from next line (format: "45  7t" or "45\t7t")
-          const match = nextLine.match(/^(\d+)/)
+          // Try to extract number from next line (format: "4.005  7t" or "4.005\t7t")
+          const match = nextLine.match(/^([\d.,]+)\s+(.+)$/)
 
           if (match && match[1]) {
-            const quantity = parseInt(match[1], 10)
+            const quantityPart = match[1]
+            const quantityStr = quantityPart.replace(/[,.]/g, '').trim()
+            const quantity = parseInt(quantityStr, 10)
             const key = nameToKeyMap[name]
 
             if (key) {
