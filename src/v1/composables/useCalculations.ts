@@ -1,5 +1,12 @@
 import { computed, type Ref } from 'vue'
-import type { BuildingInstance, GameData, Recipe, Calculations, IndustryType, WorkerTier } from '../types'
+import type {
+  BuildingInstance,
+  GameData,
+  Recipe,
+  Calculations,
+  IndustryType,
+  WorkerTier,
+} from '../types'
 import { TIME_CONSTANTS } from '../config/constants'
 import { WORKER_CONSUMPTION_BY_TIER } from '../data/workerConsumption'
 
@@ -22,7 +29,7 @@ export function useCalculations(
 
       const qty = building.quantity
       totalWorkers += buildingData.workers * qty
-      
+
       // Acumular workers por tier
       buildingData.workersByTier.forEach((count, index) => {
         if (index < 4 && totalWorkersByTier[index] !== undefined) {
@@ -44,33 +51,28 @@ export function useCalculations(
           recipeTime = recipe.time * (100 / recipeItem.planetModifier)
         }
 
-        // Determinar qué tier de worker tiene este edificio
-        // Un edificio usa el tier del primer worker que tenga
-        let workerTierIndex = 0
-        for (let i = 0; i < buildingData.workersByTier.length; i++) {
-          const tierCount = buildingData.workersByTier[i]
-          if (tierCount !== undefined && tierCount > 0) {
-            workerTierIndex = i
-            break
-          }
-        }
-        
-        // Usar la productividad específica de ese tier
-        const tierProductivity = productivityByTier.value[workerTierIndex]
-        if (tierProductivity === undefined) return
-        
+        // Average productivity across tiers present
+        const presentTierIndices = (buildingData.workersByTier ?? []).flatMap((count, index) =>
+          typeof count === 'number' && count > 0 ? [index] : [],
+        )
+
+        if (presentTierIndices.length === 0) return
+
+        const avgTierProductivity =
+          presentTierIndices
+            .map((index) => productivityByTier.value[index] ?? 100)
+            .reduce((acc, value) => acc + value, 0) / presentTierIndices.length
+
         // Apply technology as multiplier (not additive)
         const techLevel = technologyLevels.value[buildingData.industryType] || 0
         const techMultiplier = (100 + techLevel) / 100
-        
-        const productivityMultiplier = tierProductivity / 100
-        
+
         // Combined multiplier (multiplicative, not additive)
-        const combinedMultiplier = productivityMultiplier * techMultiplier
-        
+        const combinedMultiplier = (avgTierProductivity / 100) * techMultiplier
+
         // Apply to recipe time (higher multiplier = less time)
         recipeTime = recipeTime / combinedMultiplier
-        
+
         // Apply game speed
         recipeTime = recipeTime / gameSpeed.value
 
@@ -100,20 +102,20 @@ export function useCalculations(
     // Calcular consumo de workers por tier
     const workerConsumption: Record<string, number> = {}
     const tierNames: WorkerTier[] = ['worker', 'technician', 'engineer', 'scientist']
-    
+
     totalWorkersByTier.forEach((count, index) => {
       if (count > 0) {
         const tierName = tierNames[index]
         if (!tierName) return
-        
+
         const tierConsumption = WORKER_CONSUMPTION_BY_TIER[tierName]
         if (!tierConsumption) return
-        
+
         const workerGroups = count / 100
-        
+
         Object.entries(tierConsumption).forEach(([resource, amount]) => {
           if (typeof amount === 'number') {
-            workerConsumption[resource] = (workerConsumption[resource] || 0) + (amount * workerGroups)
+            workerConsumption[resource] = (workerConsumption[resource] || 0) + amount * workerGroups
           }
         })
       }
