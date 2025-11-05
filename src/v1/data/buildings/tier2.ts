@@ -518,7 +518,7 @@ export const TIER2_BUILDINGS: Record<string, Building> = {
       construction_kit_advanced: {
         id: 23,
         name: 'Construction Kit (Advanced)',
-        time: 195,
+        time: 225,
         inputs: {
           polyethylene: 75,
           construction_tools: 3,
