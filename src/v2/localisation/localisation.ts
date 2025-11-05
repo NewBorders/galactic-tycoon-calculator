@@ -20,11 +20,12 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     building: 'Building',
     level: 'Level',
     count: 'Count',
-    recipesConfigPlaceholder: 'Recipes config per base will follow',
+    productionConfigPlaceholder: 'config per base will follow',
     noResults: 'No results',
     editName: 'Edit name',
     save: 'Save',
     cancel: 'Cancel',
+    buildingSearch: 'Search building…',
   },
   de: {
     language: 'Sprache',
@@ -41,11 +42,12 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     building: 'Gebäude',
     level: 'Level',
     count: 'Anzahl',
-    recipesConfigPlaceholder: 'Rezepte-Konfiguration pro Basis folgt',
+    productionConfigPlaceholder: 'Konfiguration pro Basis folgt',
     noResults: 'Keine Treffer',
     editName: 'Name bearbeiten',
     save: 'Speichern',
     cancel: 'Abbrechen',
+    buildingSearch: 'Gebäude suchen…',
   },
 }
 

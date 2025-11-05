@@ -1,20 +1,32 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
-import type { Planet } from '@/v2/services/gamedata/types.ts'
-import { translate } from '@/v2/localisation/localisation.ts'
-
-type PlayerBuilding = { buildingId: number; level: number; count: number }
-type PlayerBase = { id: string; planetId: number; name?: string; buildings: PlayerBuilding[] }
+import type { Building, Planet } from '@/v2/services/gamedata/types'
+import type { PlayerBase } from '@/v2/services/playerBases'
+import { translate } from '@/v2/localisation/localisation'
+import BuildingSearch from './BuildingSearch.vue'
+import BaseBuildingsSection from './BaseBuildingsSection.vue'
 
 const props = defineProps<{
   base: PlayerBase
   planet?: Planet
-}>()
-const emit = defineEmits<{
-  rename:[name: string],
-  remove:[],
+  buildings: Building[]
+  isBaseOpen: (id: string) => boolean
+  getSections: (id: string) => { buildings: boolean; production: boolean }
 }>()
 
+const emit = defineEmits<{
+  rename: [name: string]
+  remove: []
+  addBuilding: [{ buildingId: number; level: number }]
+  updateBuilding: [{ id: string; patch: { level?: number } }]
+  removeBuilding: [{ id: string }]
+  reorderBuildings: [{ ids: string[] }]
+  persist: []
+  toggleBase: [open: boolean]
+  toggleSection: [{ which: 'buildings' | 'production'; open: boolean }]
+}>()
+
+// Name-Editing
 const editing = ref(false)
 const buf = ref(props.base.name || 'Base')
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -24,22 +36,33 @@ function startEdit() {
   buf.value = props.base.name || 'Base'
   nextTick(() => inputRef.value?.focus())
 }
+
 function saveEdit() {
-  const val = (buf.value || 'Base').slice(0, 20)
-  emit('rename', val)
+  emit('rename', (buf.value || 'Base').slice(0, 20))
   editing.value = false
 }
+
 function cancelEdit() {
   editing.value = false
 }
+
 function onKey(e: KeyboardEvent) {
-  if (e.key === 'Enter') { e.preventDefault(); saveEdit() }
-  else if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    saveEdit()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    cancelEdit()
+  }
 }
 </script>
 
 <template>
-  <details class="border border-slate-700 rounded bg-slate-800">
+  <details
+    class="border border-slate-700 rounded bg-slate-800"
+    :open="isBaseOpen(base.id)"
+    @toggle="emit('toggleBase', ($event.target as HTMLDetailsElement).open)"
+  >
     <summary class="flex flex-col gap-1 px-3 py-2 cursor-pointer">
       <div class="flex items-center gap-2">
         <!-- Drag Handle -->
@@ -49,7 +72,6 @@ function onKey(e: KeyboardEvent) {
 
         <!-- Name + Edit-Controls -->
         <div class="flex items-center gap-2 min-w-0">
-          <!-- Name -->
           <template v-if="editing">
             <input
               ref="inputRef"
@@ -81,7 +103,6 @@ function onKey(e: KeyboardEvent) {
                 />
               </svg>
             </button>
-
             <!-- Cancel -->
             <button
               class="px-2 py-1 border border-red-700 text-red-300 rounded hover:bg-red-900/30"
@@ -142,36 +163,91 @@ function onKey(e: KeyboardEvent) {
         </button>
       </div>
 
-      <!-- planet / base infos -->
+      <!-- Planet-/Basisinfos in Kopfzeile, responsive -->
       <div class="text-sm text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
         <span class="whitespace-nowrap font-bold">
           {{ planet?.name ?? base.planetId }}
         </span>
-        <span class="whitespace-nowrap"
-          >• Tier {{ planet?.tier ?? '-' }}</span
-        >
+        <span class="whitespace-nowrap">• Tier {{ planet?.tier ?? '-' }}</span>
         <span class="whitespace-nowrap">
           <span class="font-bold">• Mats:&nbsp;</span>
           <span
-            v-for="(material, i) in (planet?.materials ?? [])"
+            v-for="(material, i) in planet?.materials ?? []"
             :key="material.id"
             class="text-slate-500"
           >
             {{ material.name }} ({{ material.abundanceRating }}%)
-            <span v-if="i < ((planet?.materials.length ?? 0) - 1)">, </span>
+            <span v-if="i < (planet?.materials.length ?? 0) - 1">, </span>
           </span>
         </span>
-        <span class="whitespace-nowrap"
-          >• Fertility: {{ planet?.fertility ?? '0' }}</span
-        >
+        <span class="whitespace-nowrap">• Fertility: {{ planet?.fertility ?? '0' }}</span>
       </div>
     </summary>
 
-    <!-- buildings - upcoming -->
-    <div class="px-3 pb-3">
-      <div class="mt-2 p-3 border border-slate-700 rounded bg-slate-900 text-slate-400 text-sm">
-        {{ translate('recipesConfigPlaceholder') }}
+    <!-- Production (Platzhalter; Engine folgt) -->
+    <details
+      class="mt-2 border border-slate-700 rounded bg-slate-800"
+      :open="getSections(base.id).production"
+      @toggle="
+        emit('toggleSection', {
+          which: 'production',
+          open: ($event.target as HTMLDetailsElement).open,
+        })
+      "
+    >
+      <summary class="px-3 py-2 cursor-pointer font-medium">Production</summary>
+      <div class="p-3 text-sm text-slate-400">
+        {{ translate('productionConfigPlaceholder') }}
       </div>
-    </div>
+    </details>
+
+    <!-- Buildings -->
+    <details
+      class="mt-2 border border-slate-700 rounded bg-slate-800"
+      :open="getSections(base.id).buildings"
+      @toggle="
+        emit('toggleSection', {
+          which: 'buildings',
+          open: ($event.target as HTMLDetailsElement).open,
+        })
+      "
+    >
+      <summary class="px-3 py-2 cursor-pointer font-medium">Buildings</summary>
+      <div class="p-3 space-y-3">
+        <BuildingSearch
+          :buildings="buildings"
+          @select="
+            (b) => {
+              $emit('addBuilding', { buildingId: b.id, level: 1 })
+              $emit('persist')
+            }
+          "
+        />
+        <BaseBuildingsSection
+          :base-id="base.id"
+          :building-refs="base.buildings"
+          :lookup="buildings"
+          @update="
+            (p) => {
+              $emit('updateBuilding', p)
+              $emit('persist')
+            }
+          "
+          @remove="
+            (p) => {
+              $emit('removeBuilding', p)
+              $emit('persist')
+            }
+          "
+          @reorder="
+            (p) => {
+              $emit('reorderBuildings', p)
+              $emit('persist')
+            }
+          "
+          @persist="$emit('persist')"
+        />
+      </div>
+    </details>
   </details>
 </template>

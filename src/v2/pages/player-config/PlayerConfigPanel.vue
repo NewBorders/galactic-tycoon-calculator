@@ -9,8 +9,22 @@ import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
 
 const props = defineProps<{ gameData: GameData }>()
-const { state, basesEnriched, planetHasBase, addBase, removeBase, renameBase, persist } =
-  usePlayerBases(props.gameData)
+const {
+  state,
+  planetHasBase,
+  addBase,
+  removeBase,
+  renameBase,
+  persist,
+  addBuilding,
+  setBuilding,
+  removeBuilding,
+  reorderBuildings,
+  isBaseOpen,
+  setBaseOpen,
+  getSections,
+  setSection,
+} = usePlayerBases(props.gameData)
 
 const query = ref('')
 
@@ -52,6 +66,21 @@ function getPlanetById(id: number) {
         <ConfiguredBase
           :base="base"
           :planet="getPlanetById(base.planetId)"
+          :buildings="props.gameData.buildings"
+          :isBaseOpen="(id) => isBaseOpen(id)"
+          :getSections="(id) => getSections(id)"
+          @toggleBase="
+            (open) => {
+              setBaseOpen(base.id, open)
+              persist()
+            }
+          "
+          @toggleSection="
+            ({ which, open }) => {
+              setSection(base.id, which, open)
+              persist()
+            }
+          "
           @rename="
             (name) => {
               renameBase(base.id, name)
@@ -64,6 +93,31 @@ function getPlanetById(id: number) {
               persist()
             }
           "
+          @addBuilding="
+            ({ buildingId, level }) => {
+              addBuilding(base.id, buildingId, level)
+              persist()
+            }
+          "
+          @updateBuilding="
+            ({ id, patch }) => {
+              setBuilding(base.id, id, patch)
+              persist()
+            }
+          "
+          @removeBuilding="
+            ({ id }) => {
+              removeBuilding(base.id, id)
+              persist()
+            }
+          "
+          @reorderBuildings="
+            ({ ids }) => {
+              reorderBuildings(base.id, ids)
+              persist()
+            }
+          "
+          @persist="persist"
         />
       </template>
     </Draggable>

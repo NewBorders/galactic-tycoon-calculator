@@ -1,35 +1,57 @@
+// src/v2/services/playerBases.ts
 import { computed, ref } from 'vue'
 import type { Building, GameData } from './gamedata/service'
 
-export type PlayerBuilding = { buildingId: number; level: number; count: number }
+export type PlayerBuilding = { id: string; buildingId: number; level: number }
 export type PlayerBase = {
   id: string
   planetId: number
   name?: string
   buildings: PlayerBuilding[]
 }
-export type PlayerState = { bases: PlayerBase[] }
+
+type UiSections = { buildings: boolean; production: boolean }
+type UiState = {
+  basesOpen: Record<string, boolean>
+  sections: Record<string, UiSections> // key = baseId
+}
+
+export type PlayerState = {
+  bases: PlayerBase[]
+  ui: UiState
+}
 
 const LS_KEY = 'gt:v2:player:bases:v1'
-const loadState = (): PlayerState => {
+const uid = () => Math.random().toString(36).slice(2, 10)
+
+function ensureUi(st: Partial<PlayerState>): PlayerState {
+  const ui: UiState = {
+    basesOpen: st.ui?.basesOpen ?? {},
+    sections: st.ui?.sections ?? {},
+  }
+  return { bases: (st.bases as PlayerBase[]) ?? [], ui }
+}
+
+function loadState(): PlayerState {
   try {
-    const s = localStorage.getItem(LS_KEY)
-    return s ? JSON.parse(s) : { bases: [] }
+    const raw = localStorage.getItem(LS_KEY)
+    return ensureUi(raw ? JSON.parse(raw) : {})
   } catch {
-    return { bases: [] }
+    return ensureUi({})
   }
 }
-const saveState = (st: PlayerState) => {
+
+function saveState(st: PlayerState) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(st))
   } catch {}
 }
 
-export function usePlayerBases(gameData: GameData) {
+export function usePlayerBases(gd: GameData) {
   const state = ref<PlayerState>(loadState())
 
-  const planets = computed(() => gameData.planets)
-  const buildings = computed<Building[]>(() => gameData.buildings)
+  const planets = computed(() => gd.planets)
+  const buildings = computed<Building[]>(() => gd.buildings)
   const planetsById = computed(() => new Map(planets.value.map((p) => [p.id, p])))
   const buildingsById = computed(() => new Map(buildings.value.map((b) => [b.id, b])))
 
@@ -54,77 +76,75 @@ export function usePlayerBases(gameData: GameData) {
     saveState(state.value)
   }
 
-  function addBuilding(baseId: string, buildingId: number, level = 1, count = 1) {
+  function addBuilding(baseId: string, buildingId: number, level = 1) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return
-    const ex = b.buildings.find((bb) => bb.buildingId === buildingId && bb.level === level)
-    if (ex) {
-      ex.count += count
-    } else {
-      b.buildings.push({ buildingId, level, count })
-    }
+    b.buildings.push({ id: uid(), buildingId, level: Math.max(1, level) })
     saveState(state.value)
   }
 
-  function setBuilding(baseId: string, buildingId: number, level: number, count: number) {
+  function setBuilding(baseId: string, instanceId: string, patch: { level?: number }) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return
-    const item = b.buildings.find((bb) => bb.buildingId === buildingId && bb.level === level)
-    if (!item) return
-    item.count = Math.max(0, Math.floor(count))
-    if (item.count === 0) b.buildings = b.buildings.filter((bb) => bb !== item)
+    const it = b.buildings.find((bb) => bb.id === instanceId)
+    if (!it) return
+    if (patch.level != null) it.level = Math.max(1, Math.floor(patch.level))
     saveState(state.value)
   }
 
-  // swaps ohne undefined
-  function moveBase(idx: number, dir: -1 | 1) {
-    const arr = state.value.bases
-    const j = idx + dir
-    if (idx < 0 || j < 0 || idx >= arr.length || j >= arr.length) return
-    const a = arr[idx]!,
-      b = arr[j]!
-    arr[idx] = b
-    arr[j] = a
-    saveState(state.value)
-  }
-
-  function moveBuilding(baseId: string, idx: number, dir: -1 | 1) {
+  function removeBuilding(baseId: string, instanceId: string) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return
-    const arr = b.buildings
-    const j = idx + dir
-    if (idx < 0 || j < 0 || idx >= arr.length || j >= arr.length) return
-    const a = arr[idx]!,
-      c = arr[j]!
-    arr[idx] = c
-    arr[j] = a
+    b.buildings = b.buildings.filter((bb) => bb.id !== instanceId)
     saveState(state.value)
   }
 
-  const basesEnriched = computed(() =>
-    state.value.bases.map((b) => ({
-      ...b,
-      planetName: planetsById.value.get(b.planetId)?.name ?? `planet_${b.planetId}`,
-      buildings: b.buildings.map((bb) => ({
-        ...bb,
-        name: buildingsById.value.get(bb.buildingId)?.name ?? `building_${bb.buildingId}`,
-      })),
-    })),
-  )
+  function reorderBuildings(baseId: string, orderedIds: string[]) {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    const byId = new Map(b.buildings.map((x) => [x.id, x]))
+    b.buildings = orderedIds.map((id) => byId.get(id)!).filter(Boolean)
+    saveState(state.value)
+  }
+
+  // UI-State API
+  function isBaseOpen(baseId: string): boolean {
+    return !!state.value.ui.basesOpen[baseId]
+  }
+
+  function setBaseOpen(baseId: string, open: boolean) {
+    state.value.ui.basesOpen[baseId] = open
+    saveState(state.value)
+  }
+
+  function getSections(baseId: string): UiSections {
+    return (state.value.ui.sections[baseId] ??= { buildings: false, production: false })
+  }
+
+  function setSection(baseId: string, which: keyof UiSections, open: boolean) {
+    const s = getSections(baseId)
+    s[which] = open
+    saveState(state.value)
+  }
 
   return {
     state,
-    basesEnriched,
     planets,
     buildings,
+    planetsById,
+    buildingsById,
     planetHasBase,
     addBase,
     removeBase,
     renameBase,
     addBuilding,
     setBuilding,
-    moveBase,
-    moveBuilding,
+    removeBuilding,
+    reorderBuildings,
+    isBaseOpen,
+    setBaseOpen,
+    getSections,
+    setSection,
     persist: () => saveState(state.value),
   }
 }
