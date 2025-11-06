@@ -23,8 +23,7 @@ const emit = defineEmits<{
   updateBuilding: [{ id: string; patch: { level?: number } }]
   removeBuilding: [{ id: string }]
   reorderBuildings: [{ ids: string[] }]
-  addRecipe: [{ recipeId: number; share: number }]
-  updateRecipe: [{ id: string; patch: { share?: number } }]
+  addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
   persist: []
@@ -209,12 +208,6 @@ function onKey(e: KeyboardEvent) {
           @addRecipe="
             (payload) => {
               $emit('addRecipe', payload)
-              $emit('persist')
-            }
-          "
-          @updateRecipe="
-            (payload) => {
-              $emit('updateRecipe', payload)
               $emit('persist')
             }
           "

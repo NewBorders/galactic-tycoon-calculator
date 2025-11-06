@@ -21,7 +21,6 @@ const {
   removeBuilding,
   reorderBuildings,
   addRecipe,
-  setRecipe,
   removeRecipe,
   reorderRecipes,
   isBaseOpen,
@@ -123,14 +122,8 @@ function getPlanetById(id: number) {
             }
           "
           @addRecipe="
-            ({ recipeId, share }) => {
-              addRecipe(base.id, recipeId, share)
-              persist()
-            }
-          "
-          @updateRecipe="
-            ({ id, patch }) => {
-              setRecipe(base.id, id, patch)
+            ({ recipeId }) => {
+              addRecipe(base.id, recipeId)
               persist()
             }
           "

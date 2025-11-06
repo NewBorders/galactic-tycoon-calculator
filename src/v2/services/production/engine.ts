@@ -27,28 +27,15 @@ function clampPositiveInt(value: number | undefined, fallback = 0): number {
   return Math.max(fallback, Math.floor(value))
 }
 
+function productionUnitsFromLevel(level: number): number {
+  if (level <= 0 || Number.isNaN(level)) return 0
+  const units = 0.84 * level - 0.1
+  return units > 0 ? units : 0
+}
+
 function addToMap(map: Map<number, number>, key: number, value: number) {
   const prev = map.get(key) ?? 0
   map.set(key, prev + value)
-}
-
-function allocateShare(
-  availableByBuilding: Map<number, number>,
-  usedByBuilding: Map<number, number>,
-  recipe: Recipe,
-  requested: number,
-): { effective: number; overCapacity: boolean; capacity: number } {
-  const buildingId = recipe.producedInId
-  const maxShare = availableByBuilding.get(buildingId) ?? 0
-  if (maxShare <= 0) {
-    return { effective: 0, overCapacity: requested > 0, capacity: 0 }
-  }
-  const alreadyUsed = usedByBuilding.get(buildingId) ?? 0
-  const remaining = Math.max(0, maxShare - alreadyUsed)
-  const effective = Math.min(requested, remaining)
-  const overCapacity = requested > remaining
-  usedByBuilding.set(buildingId, alreadyUsed + effective)
-  return { effective, overCapacity, capacity: maxShare }
 }
 
 function abundanceMultiplier(planet: Planet | undefined, materialId: number): number {
@@ -63,16 +50,18 @@ type WorkforceDemand = Map<number, number>
 
 type InterimRow = {
   recipe: Recipe
-  requestedShare: number
-  effectiveShare: number
-  capacityShare: number
-  overCapacity: boolean
-  perUnitCycles: number
-  outputPerDay: number
-  inputsPerDay: Array<{ materialId: number; amount: number }>
+  buildingId: number
+  buildingUnits: number
+  queueShare: number
+  cyclesPerDayPerUnit: number
+  effectiveTimeMinutes: number
+  rawRunsPerDay: number
+  rawOutputPerDay: number
+  rawInputsPerDay: Array<{ materialId: number; amount: number }>
   workforceDemand: WorkforceDemand
   productivityFactor: number
   abundanceFactor: number
+  blockedByAbundance: boolean
 }
 
 export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): BaseReport {
@@ -87,18 +76,21 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
   const activeOptional = options?.activeOptionalConsumables ?? new Set<number>()
 
   const housingByTier = new Map<number, number>()
-  const availableShare = new Map<number, number>()
+  const productionUnitsById = new Map<number, number>()
+  const workforceUnitsById = new Map<number, number>()
   assignment.buildings.forEach((instance) => {
     const level = clampPositiveInt(instance.level, 1)
     const count = clampPositiveInt(instance.count, 1)
-    const totalUnits = level * count
-    addToMap(availableShare, instance.buildingId, totalUnits * 100)
+    const workforceUnits = level * count
+    addToMap(workforceUnitsById, instance.buildingId, workforceUnits)
+    const productionUnits = productionUnitsFromLevel(level) * count
+    addToMap(productionUnitsById, instance.buildingId, productionUnits)
     const building = buildingById.get(instance.buildingId)
     if (building?.workersHousing) {
       TIER_CONFIG.forEach(({ tier, key }) => {
         const capacity = building.workersHousing?.[key] ?? 0
         if (capacity > 0) {
-          addToMap(housingByTier, tier, capacity * totalUnits)
+          addToMap(housingByTier, tier, capacity * workforceUnits)
         }
       })
     }
@@ -118,7 +110,6 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     productivityByTier.set(tier, Math.min(150, Math.max(10, productivity)))
   })
 
-  const usedShare = new Map<number, number>()
   const materialBalance = new Map<number, number>()
   const interimRows: InterimRow[] = []
   const workforceDemandTotals = new Map<number, number>()
@@ -126,68 +117,106 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
   let materialCosts = 0
   let revenue = 0
 
+  const buildingGroups = new Map<
+    number,
+    { building: Building; productionUnits: number; workforceUnits: number; recipes: Recipe[] }
+  >()
+
   assignment.recipes.forEach((selection) => {
     const recipe = recipeById.get(selection.recipeId)
     if (!recipe) return
-
-    const requested = Math.max(0, Number(selection.share) || 0)
-    const { effective, overCapacity, capacity } = allocateShare(
-      availableShare,
-      usedShare,
-      recipe,
-      requested,
-    )
-
-    const perUnitCycles = recipe.timeMinutes > 0 ? MINUTES_PER_DAY / recipe.timeMinutes : 0
-    const shareUnits = effective / 100
     const building = buildingById.get(recipe.producedInId)
-
-    const tiersUsed = building
-      ? TIER_CONFIG.filter(({ key }) => (building.workersNeeded?.[key] ?? 0) > 0).map(
-          ({ tier }) => tier,
-        )
-      : []
-    const avgProductivity =
-      tiersUsed.length > 0
-        ? tiersUsed.reduce(
-            (acc, tier) => acc + (productivityByTier.get(tier) ?? 100),
-            0,
-          ) / tiersUsed.length
-        : 100
-    const productivityFactor = avgProductivity / 100
-    const abundanceFactor = abundanceMultiplier(planet, recipe.output.id)
-
-    const totalCycles = perUnitCycles * shareUnits * productivityFactor * abundanceFactor
-    const outputPerDay = totalCycles * recipe.output.amount
-    const inputsPerDay = recipe.inputs.map((input) => ({
-      materialId: input.id,
-      amount: totalCycles * input.amount,
-    }))
-
-    const workforceDemand: WorkforceDemand = new Map()
-    if (building?.workersNeeded) {
-      TIER_CONFIG.forEach(({ tier, key }) => {
-        const perUnit = building.workersNeeded?.[key] ?? 0
-        if (perUnit > 0 && shareUnits > 0) {
-          const required = perUnit * shareUnits
-          addToMap(workforceDemand, tier, required)
-          addToMap(workforceDemandTotals, tier, required)
-        }
+    if (!building) return
+    const productionUnits = productionUnitsById.get(recipe.producedInId) ?? 0
+    if (productionUnits <= 0) return
+    const workforceUnits = workforceUnitsById.get(recipe.producedInId) ?? 0
+    const group = buildingGroups.get(recipe.producedInId)
+    if (group) {
+      group.recipes.push(recipe)
+    } else {
+      buildingGroups.set(recipe.producedInId, {
+        building,
+        productionUnits,
+        workforceUnits,
+        recipes: [recipe],
       })
     }
+  })
 
-    interimRows.push({
-      recipe,
-      requestedShare: requested,
-      effectiveShare: effective,
-      capacityShare: capacity,
-      overCapacity,
-      perUnitCycles,
-      outputPerDay,
-      inputsPerDay,
-      workforceDemand,
-      productivityFactor,
-      abundanceFactor,
+  buildingGroups.forEach(({ building, productionUnits, workforceUnits, recipes }) => {
+    if (!recipes.length || productionUnits <= 0) return
+
+    const tiersUsed = TIER_CONFIG.filter(({ key }) => (building.workersNeeded?.[key] ?? 0) > 0).map(
+      ({ tier }) => tier,
+    )
+    const avgProductivity =
+      tiersUsed.length > 0
+        ? tiersUsed.reduce((acc, tier) => acc + (productivityByTier.get(tier) ?? 100), 0) /
+          tiersUsed.length
+        : 100
+    const productivityFactor = avgProductivity / 100
+
+    type Pending = {
+      recipe: Recipe
+      abundanceFactor: number
+      blocked: boolean
+      effectiveTime: number
+    }
+
+    const pending: Pending[] = []
+    let totalCycleTime = 0
+
+    recipes.forEach((recipe) => {
+      const abundanceFactor = abundanceMultiplier(planet, recipe.output.id)
+      const blocked = abundanceFactor <= 0
+      const baseEffective = recipe.timeMinutes / Math.max(productivityFactor, 1e-6)
+      const effectiveTime =
+        !blocked && abundanceFactor > 0 ? baseEffective / abundanceFactor : baseEffective
+      const timeContribution = !blocked && abundanceFactor > 0 ? effectiveTime : 0
+      totalCycleTime += timeContribution
+      pending.push({ recipe, abundanceFactor, blocked, effectiveTime })
+    })
+
+    const cyclesPerDayPerUnit = totalCycleTime > 0 ? MINUTES_PER_DAY / totalCycleTime : 0
+    const totalCyclesPerDay = cyclesPerDayPerUnit * productionUnits
+
+    pending.forEach(({ recipe, abundanceFactor, blocked, effectiveTime }) => {
+      const timeContribution = !blocked && abundanceFactor > 0 ? effectiveTime : 0
+      const queueShare = totalCycleTime > 0 ? timeContribution / totalCycleTime : 0
+      const rawRunsPerDay = totalCyclesPerDay * queueShare
+      const rawOutputPerDay = rawRunsPerDay * recipe.output.amount
+      const rawInputsPerDay = recipe.inputs.map((input) => ({
+        materialId: input.id,
+        amount: rawRunsPerDay * input.amount,
+      }))
+
+      const workforceDemand: WorkforceDemand = new Map()
+      if (building.workersNeeded) {
+        TIER_CONFIG.forEach(({ tier, key }) => {
+          const perUnit = building.workersNeeded?.[key] ?? 0
+          if (perUnit > 0 && queueShare > 0) {
+            const required = perUnit * workforceUnits * queueShare
+            addToMap(workforceDemand, tier, required)
+            addToMap(workforceDemandTotals, tier, required)
+          }
+        })
+      }
+
+      interimRows.push({
+        recipe,
+        buildingId: building.id,
+        buildingUnits: productionUnits,
+        queueShare,
+        cyclesPerDayPerUnit,
+        effectiveTimeMinutes: effectiveTime,
+        rawRunsPerDay,
+        rawOutputPerDay,
+        rawInputsPerDay,
+        workforceDemand,
+        productivityFactor,
+        abundanceFactor,
+        blockedByAbundance: blocked,
+      })
     })
   })
 
@@ -214,8 +243,9 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       tiersUsed.length > 0
         ? Math.min(...tiersUsed.map((tier) => coverageByTier.get(tier) ?? 1))
         : 1
-    const adjustedOutput = raw.outputPerDay * workforceFactor
-    const adjustedInputs = raw.inputsPerDay.map((input) => ({
+    const adjustedRuns = raw.rawRunsPerDay * workforceFactor
+    const adjustedOutput = raw.rawOutputPerDay * workforceFactor
+    const adjustedInputs = raw.rawInputsPerDay.map((input) => ({
       materialId: input.materialId,
       amount: input.amount * workforceFactor,
     }))
@@ -230,19 +260,21 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     const row: RecipeProductionRow = {
       recipeId: raw.recipe.id,
       buildingId: raw.recipe.producedInId,
-      requestedShare: raw.requestedShare,
-      effectiveShare: raw.effectiveShare * workforceFactor,
-      capacityShare: raw.capacityShare,
       timeMinutes: raw.recipe.timeMinutes,
-      cyclesPerDayPerLine: raw.perUnitCycles,
+      buildingUnits: raw.buildingUnits,
+      queueShare: raw.queueShare,
+      effectiveTimeMinutes: raw.effectiveTimeMinutes,
+      cyclesPerDayPerUnit: raw.cyclesPerDayPerUnit,
+      runsPerDay: adjustedRuns,
       outputMaterialId: raw.recipe.output.id,
       outputAmountPerCycle: raw.recipe.output.amount,
       outputPerDay: adjustedOutput,
       inputsPerDay: adjustedInputs,
-      overCapacity: raw.overCapacity || workforceFactor < 0.999,
       workforce,
       abundanceFactor: raw.abundanceFactor,
       productivityFactor: raw.productivityFactor,
+      workforceFactor,
+      blockedByAbundance: raw.blockedByAbundance,
     }
     recipeRows.push(row)
 
@@ -303,7 +335,8 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
 
     const groups = count / 100
     worker.consumables.forEach((consumable) => {
-      const baseAmount = consumable.amount * groups
+      const amountPerGroup = (consumable.amount ?? 0) / 10
+      const baseAmount = amountPerGroup * groups
       if (baseAmount < 0) return
       const optional = !consumable.essential
       const active = !optional || activeOptional.has(consumable.matId)
@@ -352,3 +385,4 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
 }
 
 export type { RecipeProductionRow } from './types'
+export { productionUnitsFromLevel }

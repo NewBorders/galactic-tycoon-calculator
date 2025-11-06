@@ -4,7 +4,7 @@ import Draggable from 'vuedraggable'
 import type { GameData, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import type { Recipe } from '@/v2/services/gamedata/service'
-import { computeBaseReport } from '@/v2/services/production/engine'
+import { computeBaseReport, productionUnitsFromLevel } from '@/v2/services/production/engine'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
 import RecipeTile from './RecipeTile.vue'
@@ -22,8 +22,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  addRecipe: [{ recipeId: number; share: number }]
-  updateRecipe: [{ id: string; patch: { share?: number } }]
+  addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
 }>()
@@ -36,22 +35,12 @@ const materialById = computed(() => new Map(props.gameData.materials.map((m) => 
 const recipeById = computed(() => new Map(props.gameData.recipes.map((r) => [r.id, r])))
 const workerByTier = computed(() => new Map(props.gameData.workers.map((w) => [w.type, w])))
 
-const buildingShareCapacity = computed(() => {
+const buildingUnits = computed(() => {
   const acc = new Map<number, number>()
   props.base.buildings.forEach((b) => {
     const level = Math.max(1, Math.floor(b.level ?? 1))
-    acc.set(b.buildingId, (acc.get(b.buildingId) ?? 0) + level * 100)
-  })
-  return acc
-})
-
-const requestedShareByBuilding = computed(() => {
-  const acc = new Map<number, number>()
-  props.base.recipes.forEach((sel) => {
-    const recipe = recipeById.value.get(sel.recipeId)
-    if (!recipe) return
-    const share = Math.max(0, Number(sel.share) || 0)
-    acc.set(recipe.producedInId, (acc.get(recipe.producedInId) ?? 0) + share)
+    const units = productionUnitsFromLevel(level)
+    acc.set(b.buildingId, (acc.get(b.buildingId) ?? 0) + units)
   })
   return acc
 })
@@ -64,7 +53,6 @@ const assignment = computed(() => ({
   })),
   recipes: props.base.recipes.map((r) => ({
     recipeId: r.recipeId,
-    share: r.share,
   })),
 }))
 
@@ -90,7 +78,7 @@ const hasRecipes = computed(() => props.base.recipes.length > 0)
 const cardsById = computed(() => {
   const map = new Map<
     string,
-    { recipe: Recipe; reportRow?: RecipeProductionRow; buildingName: string; capacityShare: number }
+    { recipe: Recipe; reportRow?: RecipeProductionRow; buildingName: string; units: number }
   >()
   props.base.recipes.forEach((selection) => {
     const recipe = recipeById.value.get(selection.recipeId)
@@ -100,7 +88,7 @@ const cardsById = computed(() => {
       recipe,
       reportRow: reportByRecipeId.value.get(recipe.id),
       buildingName: building?.name ?? `#${recipe.producedInId}`,
-      capacityShare: buildingShareCapacity.value.get(recipe.producedInId) ?? 0,
+      units: buildingUnits.value.get(recipe.producedInId) ?? 0,
     })
   })
   return map
@@ -130,14 +118,14 @@ const suggestions = computed(() => {
     .slice(0, 30)
     .map((recipe) => {
       const building = buildingById.value.get(recipe.producedInId)
-      const capacity = buildingShareCapacity.value.get(recipe.producedInId) ?? 0
+      const units = buildingUnits.value.get(recipe.producedInId) ?? 0
       const workerNeeds = building?.workersNeeded
       return {
         recipe,
         buildingName: building?.name ?? `#${recipe.producedInId}`,
-        hasBuilding: capacity > 0,
+        hasBuilding: units > 0,
         alreadySelected: selectedRecipeIds.value.has(recipe.id),
-        capacity,
+        units,
         inputs: recipe.inputs.map((i) => ({
           name: materialById.value.get(i.id)?.name ?? `#${i.id}`,
           amount: i.amount,
@@ -156,20 +144,12 @@ const suggestions = computed(() => {
 
 function addRecipe(recipe: Recipe) {
   const buildingId = recipe.producedInId
-  const capacity = buildingShareCapacity.value.get(buildingId) ?? 0
-  if (capacity <= 0) return
+  const units = buildingUnits.value.get(buildingId) ?? 0
+  if (units <= 0) return
   if (selectedRecipeIds.value.has(recipe.id)) return
 
-  const alreadyRequested = requestedShareByBuilding.value.get(buildingId) ?? 0
-  const remaining = Math.max(0, capacity - alreadyRequested)
-  const defaultShare = remaining > 0 ? remaining : Math.min(100, capacity)
-
-  emit('addRecipe', { recipeId: recipe.id, share: defaultShare })
+  emit('addRecipe', { recipeId: recipe.id })
   query.value = ''
-}
-
-function updateShare(id: string, share: number) {
-  emit('updateRecipe', { id, patch: { share } })
 }
 
 function removeRecipe(id: string) {
@@ -285,7 +265,7 @@ function coverageClass(value: number) {
                 {{ translate('workers') }}: {{ item.workers }}
               </div>
               <div class="text-xs text-slate-500">
-                {{ translate('availableCapacity') }}: {{ formatShare(item.capacity) }}
+                {{ translate('activeUnits') }}: {{ formatNumber(item.units, 0) }}
               </div>
               <div v-if="!item.hasBuilding" class="text-xs text-red-400">
                 {{ translate('requiresBuilding') }} {{ item.buildingName }}
@@ -306,13 +286,11 @@ function coverageClass(value: number) {
           <template #item="{ element }">
             <RecipeTile
               v-if="cardsById.get(element.id)"
-              :selection="element"
               :recipe="cardsById.get(element.id)!.recipe"
               :report-row="cardsById.get(element.id)!.reportRow"
               :building-name="cardsById.get(element.id)!.buildingName"
-              :capacity-share="cardsById.get(element.id)!.capacityShare"
+              :units="cardsById.get(element.id)!.units"
               :material-lookup="materialById"
-              @updateShare="(share) => updateShare(element.id, share)"
               @remove="removeRecipe(element.id)"
             />
           </template>

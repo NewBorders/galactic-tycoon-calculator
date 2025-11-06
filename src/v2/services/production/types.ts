@@ -4,7 +4,7 @@ import type { GameData } from '../gamedata/service'
 export type BaseAssignment = {
   planetId: number
   buildings: Array<{ buildingId: number; level: number; count?: number }>
-  recipes: Array<{ recipeId: number; share: number }>
+  recipes: Array<{ recipeId: number }>
 }
 
 export type Horizon = 1 | 7 | 14 | 30
@@ -33,19 +33,21 @@ export type WorkerConsumptionRow = {
 export type RecipeProductionRow = {
   recipeId: number
   buildingId: number
-  requestedShare: number
-  effectiveShare: number
-  capacityShare: number
+  buildingUnits: number
+  queueShare: number
   timeMinutes: number
-  cyclesPerDayPerLine: number
+  effectiveTimeMinutes: number
+  cyclesPerDayPerUnit: number
+  runsPerDay: number
   outputMaterialId: number
   outputAmountPerCycle: number
   outputPerDay: number
   inputsPerDay: Array<{ materialId: number; amount: number }>
-  overCapacity: boolean
   workforce: Array<{ tier: 1 | 2 | 3 | 4; required: number; assigned: number }>
   abundanceFactor: number
   productivityFactor: number
+  workforceFactor: number
+  blockedByAbundance: boolean
 }
 
 export type BaseReport = {

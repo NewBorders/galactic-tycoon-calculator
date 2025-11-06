@@ -1,65 +1,49 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Recipe } from '@/v2/services/gamedata/types'
-import type { PlayerRecipe } from '@/v2/services/playerBases'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
 
 const props = defineProps<{
   recipe: Recipe
-  selection: PlayerRecipe
   reportRow?: RecipeProductionRow
   buildingName: string
-  capacityShare: number
+  units: number
   materialLookup: Map<number, { name: string }>
 }>()
 
-const emit = defineEmits<{ updateShare: [share: number]; remove: [] }>()
+const emit = defineEmits<{ remove: [] }>()
 
 const minutesPerDay = 60 * 24
 
-const requestedShare = computed(() => props.reportRow?.requestedShare ?? props.selection.share)
-const effectiveShare = computed(() => props.reportRow?.effectiveShare ?? props.selection.share)
-const capacityShare = computed(() => props.reportRow?.capacityShare ?? props.capacityShare ?? 0)
-
-const perUnitCycles = computed(() =>
-  props.recipe.timeMinutes > 0 ? minutesPerDay / props.recipe.timeMinutes : 0,
+const activeUnits = computed(() => props.reportRow?.buildingUnits ?? props.units)
+const queueShare = computed(() => props.reportRow?.queueShare ?? 1)
+const cyclesPerUnit = computed(() =>
+  props.reportRow?.cyclesPerDayPerUnit ?? (props.recipe.timeMinutes > 0 ? minutesPerDay / props.recipe.timeMinutes : 0),
 )
-
-const fallbackCycles = computed(
-  () => perUnitCycles.value * (effectiveShare.value / 100),
-)
+const runsPerDay = computed(() => props.reportRow?.runsPerDay ?? cyclesPerUnit.value * activeUnits.value * queueShare.value)
 
 const outputPerDay = computed(() => {
   if (props.reportRow) return props.reportRow.outputPerDay
-  return fallbackCycles.value * props.recipe.output.amount
+  return runsPerDay.value * props.recipe.output.amount
 })
 
 const inputsPerDay = computed(() => {
   if (props.reportRow) return props.reportRow.inputsPerDay
   return props.recipe.inputs.map((inp) => ({
     materialId: inp.id,
-    amount: inp.amount * fallbackCycles.value,
+    amount: inp.amount * runsPerDay.value,
   }))
 })
 
 const workforce = computed(() => props.reportRow?.workforce ?? [])
-const overCapacity = computed(() => props.reportRow?.overCapacity ?? false)
+const workforceFactor = computed(() => props.reportRow?.workforceFactor ?? 1)
 const abundanceFactor = computed(() => props.reportRow?.abundanceFactor ?? 1)
 const productivityFactor = computed(() => props.reportRow?.productivityFactor ?? 1)
+const blockedByAbundance = computed(() => props.reportRow?.blockedByAbundance ?? false)
 
 function materialName(id: number) {
   return props.materialLookup.get(id)?.name ?? `#${id}`
-}
-
-function onShareInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const value = Number(target.value)
-  if (Number.isNaN(value)) return
-  const normalized = Math.max(0, value)
-  const max = capacityShare.value > 0 ? capacityShare.value : normalized
-  const clamped = Math.min(normalized, max)
-  emit('updateShare', clamped)
 }
 
 function formatNumber(value: number, fractionDigits = 2) {
@@ -107,27 +91,18 @@ function tierLabel(tier: number) {
           </button>
         </div>
 
-        <div class="mt-3 flex flex-wrap items-center gap-4 text-sm">
-          <label class="flex items-center gap-2 text-xs text-slate-300">
-            {{ translate('shareLabel') }}
-            <input
-              type="number"
-              min="0"
-              :max="Math.max(0, capacityShare)"
-              step="1"
-              class="w-20 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100"
-              :value="selection.share"
-              @input="onShareInput"
-            />
-          </label>
-          <div class="text-xs text-slate-400">
-            {{ translate('availableCapacity') }}: {{ formatShare(capacityShare) }}
+        <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+          <div>
+            {{ translate('activeUnits') }}: {{ formatNumber(activeUnits, 0) }}
           </div>
-          <div class="text-xs text-slate-400">
-            {{ translate('requestedShare') }}: {{ formatShare(requestedShare) }}
+          <div>
+            {{ translate('queueShare') }}: {{ formatShare(queueShare * 100) }}
           </div>
-          <div class="text-xs text-slate-400">
-            {{ translate('effectiveShare') }}: {{ formatShare(effectiveShare) }}
+          <div>
+            {{ translate('cyclesPerUnit') }}: {{ formatNumber(cyclesPerUnit) }}
+          </div>
+          <div>
+            {{ translate('runsPerDay') }}: {{ formatNumber(runsPerDay) }}
           </div>
         </div>
 
@@ -164,11 +139,11 @@ function tierLabel(tier: number) {
             {{ translate('abundanceFactor') }}: {{ formatShare(abundanceFactor * 100) }}
           </div>
         </div>
-        <div v-if="abundanceFactor === 0" class="mt-2 text-xs text-amber-300">
+        <div v-if="blockedByAbundance" class="mt-2 text-xs text-amber-300">
           {{ translate('abundanceZeroWarning') }}
         </div>
-        <div v-if="overCapacity" class="mt-2 text-xs text-amber-300">
-          {{ translate('overCapacityShare') }}
+        <div v-else-if="workforceFactor < 0.999" class="mt-2 text-xs text-amber-300">
+          {{ translate('workforcePenalty') }}
         </div>
       </div>
     </div>
