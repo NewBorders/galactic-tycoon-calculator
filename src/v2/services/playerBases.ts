@@ -2,12 +2,15 @@
 import { computed, ref } from 'vue'
 import type { Building, GameData } from './gamedata/service'
 
+export type PlayerRecipe = { id: string; recipeId: number; lines: number }
+
 export type PlayerBuilding = { id: string; buildingId: number; level: number }
 export type PlayerBase = {
   id: string
   planetId: number
   name?: string
   buildings: PlayerBuilding[]
+  recipes: PlayerRecipe[]
 }
 
 type UiSections = { buildings: boolean; production: boolean }
@@ -29,7 +32,21 @@ function ensureUi(st: Partial<PlayerState>): PlayerState {
     basesOpen: st.ui?.basesOpen ?? {},
     sections: st.ui?.sections ?? {},
   }
-  return { bases: (st.bases as PlayerBase[]) ?? [], ui }
+  const bases = ((st.bases as PlayerBase[]) ?? []).map((base) => ({
+    ...base,
+    buildings: (base.buildings as PlayerBuilding[])?.map((bld) => ({
+      id: bld.id ?? uid(),
+      buildingId: bld.buildingId,
+      level: Math.max(1, Math.floor(bld.level ?? 1)),
+    })) ?? [],
+    recipes:
+      (base.recipes as PlayerRecipe[])?.map((rec) => ({
+        id: rec.id ?? uid(),
+        recipeId: rec.recipeId,
+        lines: Math.max(0, Math.floor(rec.lines ?? 0)),
+      })) ?? [],
+  }))
+  return { bases, ui }
 }
 
 function loadState(): PlayerState {
@@ -60,7 +77,7 @@ export function usePlayerBases(gd: GameData) {
   function addBase(planetId: number) {
     if (planetHasBase(planetId)) return
     const id = crypto?.randomUUID?.() ?? `b_${Date.now()}`
-    state.value.bases.push({ id, planetId, buildings: [] })
+    state.value.bases.push({ id, planetId, buildings: [], recipes: [] })
     saveState(state.value)
   }
 
@@ -107,6 +124,38 @@ export function usePlayerBases(gd: GameData) {
     saveState(state.value)
   }
 
+  function addRecipe(baseId: string, recipeId: number, lines = 1) {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    if (b.recipes.some((r) => r.recipeId === recipeId)) return
+    b.recipes.push({ id: uid(), recipeId, lines: Math.max(0, Math.floor(lines)) })
+    saveState(state.value)
+  }
+
+  function setRecipe(baseId: string, recipeInstanceId: string, patch: { lines?: number }) {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    const rec = b.recipes.find((r) => r.id === recipeInstanceId)
+    if (!rec) return
+    if (patch.lines != null) rec.lines = Math.max(0, Math.floor(patch.lines))
+    saveState(state.value)
+  }
+
+  function removeRecipe(baseId: string, recipeInstanceId: string) {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    b.recipes = b.recipes.filter((r) => r.id !== recipeInstanceId)
+    saveState(state.value)
+  }
+
+  function reorderRecipes(baseId: string, orderedIds: string[]) {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    const byId = new Map(b.recipes.map((x) => [x.id, x]))
+    b.recipes = orderedIds.map((id) => byId.get(id)!).filter(Boolean)
+    saveState(state.value)
+  }
+
   // UI-State API
   function isBaseOpen(baseId: string): boolean {
     return !!state.value.ui.basesOpen[baseId]
@@ -141,6 +190,10 @@ export function usePlayerBases(gd: GameData) {
     setBuilding,
     removeBuilding,
     reorderBuildings,
+    addRecipe,
+    setRecipe,
+    removeRecipe,
+    reorderRecipes,
     isBaseOpen,
     setBaseOpen,
     getSections,

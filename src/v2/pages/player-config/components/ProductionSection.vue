@@ -1,0 +1,357 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import Draggable from 'vuedraggable'
+import type { GameData } from '@/v2/services/gamedata/types'
+import type { PlayerBase } from '@/v2/services/playerBases'
+import type { Recipe } from '@/v2/services/gamedata/service'
+import { computeBaseReport } from '@/v2/services/production/engine'
+import type { RecipeProductionRow } from '@/v2/services/production/types'
+import { translate } from '@/v2/localisation/localisation'
+import RecipeTile from './RecipeTile.vue'
+
+const props = defineProps<{
+  base: PlayerBase
+  gameData: GameData
+}>()
+
+const emit = defineEmits<{
+  addRecipe: [{ recipeId: number; lines: number }]
+  updateRecipe: [{ id: string; patch: { lines?: number } }]
+  removeRecipe: [{ id: string }]
+  reorderRecipes: [{ ids: string[] }]
+}>()
+
+const query = ref('')
+
+const buildingById = computed(() => new Map(props.gameData.buildings.map((b) => [b.id, b])))
+const materialById = computed(() => new Map(props.gameData.materials.map((m) => [m.id, m])))
+const recipeById = computed(() => new Map(props.gameData.recipes.map((r) => [r.id, r])))
+
+const buildingCapacity = computed(() => {
+  const acc = new Map<number, number>()
+  props.base.buildings.forEach((b) => {
+    const level = Math.max(1, Math.floor(b.level ?? 1))
+    acc.set(b.buildingId, (acc.get(b.buildingId) ?? 0) + level)
+  })
+  return acc
+})
+
+const requestedLinesByBuilding = computed(() => {
+  const acc = new Map<number, number>()
+  props.base.recipes.forEach((sel) => {
+    const recipe = recipeById.value.get(sel.recipeId)
+    if (!recipe) return
+    acc.set(recipe.producedInId, (acc.get(recipe.producedInId) ?? 0) + Math.max(0, sel.lines))
+  })
+  return acc
+})
+
+const assignment = computed(() => ({
+  planetId: props.base.planetId,
+  buildings: props.base.buildings.map((b) => ({
+    buildingId: b.buildingId,
+    level: b.level,
+  })),
+  recipes: props.base.recipes.map((r) => ({
+    recipeId: r.recipeId,
+    lines: r.lines,
+  })),
+}))
+
+const report = computed(() =>
+  computeBaseReport(props.gameData, { assignment: assignment.value, horizonDays: 1 }),
+)
+
+const reportByRecipeId = computed(() =>
+  new Map<number, RecipeProductionRow>(report.value.recipes.map((row) => [row.recipeId, row])),
+)
+
+const list = computed({
+  get: () => props.base.recipes,
+  set: (val) => emit('reorderRecipes', { ids: val.map((v) => v.id) }),
+})
+
+const hasRecipes = computed(() => props.base.recipes.length > 0)
+
+const cardsById = computed(() => {
+  const map = new Map<
+    string,
+    { recipe: Recipe; reportRow?: RecipeProductionRow; buildingName: string; maxLines: number }
+  >()
+  props.base.recipes.forEach((selection) => {
+    const recipe = recipeById.value.get(selection.recipeId)
+    if (!recipe) return
+    const building = buildingById.value.get(recipe.producedInId)
+    map.set(selection.id, {
+      recipe,
+      reportRow: reportByRecipeId.value.get(recipe.id),
+      buildingName: building?.name ?? `#${recipe.producedInId}`,
+      maxLines: buildingCapacity.value.get(recipe.producedInId) ?? 0,
+    })
+  })
+  return map
+})
+
+const selectedRecipeIds = computed(() => new Set(props.base.recipes.map((r) => r.recipeId)))
+
+const openSuggestions = computed(() => query.value.trim().length >= 2)
+
+function recipeMatches(recipe: Recipe, needle: string) {
+  const target = needle.toLowerCase()
+  if (!target) return false
+  if (recipe.output.name.toLowerCase().includes(target)) return true
+  const building = buildingById.value.get(recipe.producedInId)
+  if (building?.name?.toLowerCase().includes(target)) return true
+  return recipe.inputs.some((input) =>
+    materialById.value.get(input.id)?.name?.toLowerCase().includes(target),
+  )
+}
+
+const suggestions = computed(() => {
+  if (!openSuggestions.value) return []
+  const text = query.value.trim().toLowerCase()
+  if (!text) return []
+  return props.gameData.recipes
+    .filter((recipe) => recipeMatches(recipe, text))
+    .slice(0, 30)
+    .map((recipe) => {
+      const building = buildingById.value.get(recipe.producedInId)
+      const capacity = buildingCapacity.value.get(recipe.producedInId) ?? 0
+      const workerNeeds = building?.workersNeeded
+      return {
+        recipe,
+        buildingName: building?.name ?? `#${recipe.producedInId}`,
+        hasBuilding: capacity > 0,
+        alreadySelected: selectedRecipeIds.value.has(recipe.id),
+        capacity,
+        inputs: recipe.inputs.map((i) => ({
+          name: materialById.value.get(i.id)?.name ?? `#${i.id}`,
+          amount: i.amount,
+        })),
+        output: {
+          name: materialById.value.get(recipe.output.id)?.name ?? recipe.output.name,
+          amount: recipe.output.amount,
+        },
+        timeMinutes: recipe.timeMinutes,
+        workers: workerNeeds
+          ? `${workerNeeds.worker}/${workerNeeds.technician}/${workerNeeds.engineer}/${workerNeeds.scientist}`
+          : '0/0/0/0',
+      }
+    })
+})
+
+function addRecipe(recipe: Recipe) {
+  const buildingId = recipe.producedInId
+  const capacity = buildingCapacity.value.get(buildingId) ?? 0
+  if (capacity <= 0) return
+  if (selectedRecipeIds.value.has(recipe.id)) return
+
+  const alreadyRequested = requestedLinesByBuilding.value.get(buildingId) ?? 0
+  const remaining = Math.max(0, capacity - alreadyRequested)
+  const defaultLines = remaining > 0 ? remaining : Math.max(1, capacity)
+
+  emit('addRecipe', { recipeId: recipe.id, lines: defaultLines })
+  query.value = ''
+}
+
+function updateLines(id: string, lines: number) {
+  emit('updateRecipe', { id, patch: { lines } })
+}
+
+function removeRecipe(id: string) {
+  emit('removeRecipe', { id })
+}
+
+function formatNumber(value: number, fractionDigits = 2) {
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: fractionDigits,
+  })
+}
+
+const summary = computed(() => report.value.summary)
+const materials = computed(() => report.value.materials)
+const workers = computed(() => report.value.workers)
+
+function materialName(id: number) {
+  return materialById.value.get(id)?.name ?? `#${id}`
+}
+
+function tierLabel(tier: number) {
+  switch (tier) {
+    case 1:
+      return 'T1'
+    case 2:
+      return 'T2'
+    case 3:
+      return 'T3'
+    case 4:
+      return 'T4'
+    default:
+      return `T${tier}`
+  }
+}
+</script>
+
+<template>
+  <div class="grid gap-5 lg:grid-cols-[2fr_1fr]">
+    <div class="space-y-4">
+      <div class="relative">
+        <input
+          v-model="query"
+          :placeholder="translate('recipeSearch')"
+          class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2"
+        />
+        <div
+          v-if="openSuggestions"
+          class="absolute left-0 right-0 mt-1 z-30 rounded border border-slate-700 bg-slate-800 shadow-xl max-h-96 overflow-auto"
+        >
+          <template v-if="suggestions.length">
+            <button
+              v-for="item in suggestions"
+              :key="item.recipe.id"
+              class="w-full text-left p-3 hover:bg-slate-700 flex flex-col gap-1"
+              :class="{
+                'opacity-50 cursor-not-allowed': !item.hasBuilding || item.alreadySelected,
+              }"
+              :disabled="!item.hasBuilding || item.alreadySelected"
+              @click="addRecipe(item.recipe)"
+            >
+              <div class="flex items-center gap-2">
+                <div class="font-medium truncate">
+                  {{ item.output.amount }} × {{ item.output.name }}
+                </div>
+                <span class="text-xs text-slate-400">→ {{ item.buildingName }}</span>
+                <span v-if="item.alreadySelected" class="text-xs text-amber-300">
+                  {{ translate('alreadyAdded') }}
+                </span>
+              </div>
+              <div class="text-xs text-slate-400 flex flex-wrap gap-1">
+                <span>{{ translate('inputsPerDay') }}:</span>
+                <span class="text-slate-300">
+                  {{
+                    item.inputs.length
+                      ? item.inputs.map((i) => `${i.amount} × ${i.name}`).join(', ')
+                      : '—'
+                  }}
+                </span>
+              </div>
+              <div class="text-xs text-slate-500">
+                {{ translate('cycleTime') }}: {{ item.timeMinutes }} {{ translate('minutes') }} •
+                {{ translate('workers') }}: {{ item.workers }}
+              </div>
+              <div v-if="!item.hasBuilding" class="text-xs text-red-400">
+                {{ translate('requiresBuilding') }} {{ item.buildingName }}
+              </div>
+            </button>
+          </template>
+          <div v-else class="px-3 py-2 text-sm text-slate-400">{{ translate('noResults') }}</div>
+        </div>
+      </div>
+
+      <div v-if="hasRecipes" class="space-y-3">
+        <Draggable
+          v-model="list"
+          item-key="id"
+          handle=".recipe-dnd-handle"
+          class="space-y-3"
+        >
+          <template #item="{ element }">
+            <RecipeTile
+              v-if="cardsById.get(element.id)"
+              :selection="element"
+              :recipe="cardsById.get(element.id)!.recipe"
+              :report-row="cardsById.get(element.id)!.reportRow"
+              :building-name="cardsById.get(element.id)!.buildingName"
+              :max-lines="cardsById.get(element.id)!.maxLines"
+              :material-lookup="materialById"
+              @updateLines="(lines) => updateLines(element.id, lines)"
+              @remove="removeRecipe(element.id)"
+            />
+          </template>
+        </Draggable>
+      </div>
+      <div v-else class="text-sm text-slate-400">
+        {{ translate('noRecipesConfigured') }}
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
+        <div class="font-semibold">{{ translate('dailySummary') }}</div>
+        <div class="text-sm text-slate-300 flex flex-col gap-1">
+          <div>
+            {{ translate('totalRevenue') }}:
+            <span class="text-green-300">{{ formatNumber(summary.revenue) }}</span>
+          </div>
+          <div>
+            {{ translate('totalCosts') }}:
+            <span class="text-red-300">{{ formatNumber(summary.costs) }}</span>
+          </div>
+          <div>
+            {{ translate('netResult') }}:
+            <span :class="summary.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+              {{ formatNumber(summary.net) }}
+            </span>
+          </div>
+          <div class="text-xs text-slate-500">
+            {{ translate('adminCost') }}: {{ formatNumber(report.adminCostPerDay) }}
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3">
+        <div class="font-semibold">{{ translate('workerConsumption') }}</div>
+        <template v-if="workers.length">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400 text-xs uppercase">
+              <tr>
+                <th class="text-left pb-1">Tier</th>
+                <th class="text-left pb-1">{{ translate('material') }}</th>
+                <th class="text-right pb-1">{{ translate('perDay') }}</th>
+                <th class="text-right pb-1">{{ translate('totalCosts') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in workers" :key="row.tier + '-' + row.materialId" class="border-t border-slate-800/60">
+                <td class="py-1 text-slate-400">{{ tierLabel(row.tier) }}</td>
+                <td class="py-1">{{ materialName(row.materialId) }}</td>
+                <td class="py-1 text-right">{{ formatNumber(row.consumptionPerDay) }}</td>
+                <td class="py-1 text-right">{{ formatNumber(row.costPerDay) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+        <div v-else class="text-sm text-slate-400">—</div>
+      </div>
+
+      <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3">
+        <div class="font-semibold">{{ translate('materialBalance') }}</div>
+        <template v-if="materials.length">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400 text-xs uppercase">
+              <tr>
+                <th class="text-left pb-1">{{ translate('material') }}</th>
+                <th class="text-right pb-1">{{ translate('perDay') }}</th>
+                <th class="text-right pb-1">{{ translate('netResult') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in materials" :key="row.materialId" class="border-t border-slate-800/60">
+                <td class="py-1">{{ materialName(row.materialId) }}</td>
+                <td
+                  class="py-1 text-right"
+                  :class="row.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300'"
+                >
+                  {{ formatNumber(row.balancePerDay) }}
+                </td>
+                <td class="py-1 text-right">{{ formatNumber(row.valuePerDay) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+        <div v-else class="text-sm text-slate-400">—</div>
+      </div>
+    </div>
+  </div>
+</template>

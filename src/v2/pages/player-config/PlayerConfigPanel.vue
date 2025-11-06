@@ -20,6 +20,10 @@ const {
   setBuilding,
   removeBuilding,
   reorderBuildings,
+  addRecipe,
+  setRecipe,
+  removeRecipe,
+  reorderRecipes,
   isBaseOpen,
   setBaseOpen,
   getSections,
@@ -67,6 +71,7 @@ function getPlanetById(id: number) {
           :base="base"
           :planet="getPlanetById(base.planetId)"
           :buildings="props.gameData.buildings"
+          :game-data="props.gameData"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           @toggleBase="
@@ -114,6 +119,30 @@ function getPlanetById(id: number) {
           @reorderBuildings="
             ({ ids }) => {
               reorderBuildings(base.id, ids)
+              persist()
+            }
+          "
+          @addRecipe="
+            ({ recipeId, lines }) => {
+              addRecipe(base.id, recipeId, lines)
+              persist()
+            }
+          "
+          @updateRecipe="
+            ({ id, patch }) => {
+              setRecipe(base.id, id, patch)
+              persist()
+            }
+          "
+          @removeRecipe="
+            ({ id }) => {
+              removeRecipe(base.id, id)
+              persist()
+            }
+          "
+          @reorderRecipes="
+            ({ ids }) => {
+              reorderRecipes(base.id, ids)
               persist()
             }
           "
