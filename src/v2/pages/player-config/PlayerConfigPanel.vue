@@ -123,8 +123,8 @@ function getPlanetById(id: number) {
             }
           "
           @addRecipe="
-            ({ recipeId, lines }) => {
-              addRecipe(base.id, recipeId, lines)
+            ({ recipeId, share }) => {
+              addRecipe(base.id, recipeId, share)
               persist()
             }
           "

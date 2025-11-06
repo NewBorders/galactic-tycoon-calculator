@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import Draggable from 'vuedraggable'
-import type { GameData } from '@/v2/services/gamedata/types'
+import type { GameData, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import type { Recipe } from '@/v2/services/gamedata/service'
 import { computeBaseReport } from '@/v2/services/production/engine'
@@ -9,39 +9,49 @@ import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
 import RecipeTile from './RecipeTile.vue'
 
+const TIER_LABELS: Record<1 | 2 | 3 | 4, string> = {
+  1: 'T1',
+  2: 'T2',
+  3: 'T3',
+  4: 'T4',
+}
+
 const props = defineProps<{
   base: PlayerBase
   gameData: GameData
 }>()
 
 const emit = defineEmits<{
-  addRecipe: [{ recipeId: number; lines: number }]
-  updateRecipe: [{ id: string; patch: { lines?: number } }]
+  addRecipe: [{ recipeId: number; share: number }]
+  updateRecipe: [{ id: string; patch: { share?: number } }]
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
 }>()
 
 const query = ref('')
+const optionalActive = ref<Set<number>>(new Set())
 
 const buildingById = computed(() => new Map(props.gameData.buildings.map((b) => [b.id, b])))
 const materialById = computed(() => new Map(props.gameData.materials.map((m) => [m.id, m])))
 const recipeById = computed(() => new Map(props.gameData.recipes.map((r) => [r.id, r])))
+const workerByTier = computed(() => new Map(props.gameData.workers.map((w) => [w.type, w])))
 
-const buildingCapacity = computed(() => {
+const buildingShareCapacity = computed(() => {
   const acc = new Map<number, number>()
   props.base.buildings.forEach((b) => {
     const level = Math.max(1, Math.floor(b.level ?? 1))
-    acc.set(b.buildingId, (acc.get(b.buildingId) ?? 0) + level)
+    acc.set(b.buildingId, (acc.get(b.buildingId) ?? 0) + level * 100)
   })
   return acc
 })
 
-const requestedLinesByBuilding = computed(() => {
+const requestedShareByBuilding = computed(() => {
   const acc = new Map<number, number>()
   props.base.recipes.forEach((sel) => {
     const recipe = recipeById.value.get(sel.recipeId)
     if (!recipe) return
-    acc.set(recipe.producedInId, (acc.get(recipe.producedInId) ?? 0) + Math.max(0, sel.lines))
+    const share = Math.max(0, Number(sel.share) || 0)
+    acc.set(recipe.producedInId, (acc.get(recipe.producedInId) ?? 0) + share)
   })
   return acc
 })
@@ -54,12 +64,16 @@ const assignment = computed(() => ({
   })),
   recipes: props.base.recipes.map((r) => ({
     recipeId: r.recipeId,
-    lines: r.lines,
+    share: r.share,
   })),
 }))
 
 const report = computed(() =>
-  computeBaseReport(props.gameData, { assignment: assignment.value, horizonDays: 1 }),
+  computeBaseReport(props.gameData, {
+    assignment: assignment.value,
+    horizonDays: 1,
+    options: { activeOptionalConsumables: optionalActive.value },
+  }),
 )
 
 const reportByRecipeId = computed(() =>
@@ -76,7 +90,7 @@ const hasRecipes = computed(() => props.base.recipes.length > 0)
 const cardsById = computed(() => {
   const map = new Map<
     string,
-    { recipe: Recipe; reportRow?: RecipeProductionRow; buildingName: string; maxLines: number }
+    { recipe: Recipe; reportRow?: RecipeProductionRow; buildingName: string; capacityShare: number }
   >()
   props.base.recipes.forEach((selection) => {
     const recipe = recipeById.value.get(selection.recipeId)
@@ -86,7 +100,7 @@ const cardsById = computed(() => {
       recipe,
       reportRow: reportByRecipeId.value.get(recipe.id),
       buildingName: building?.name ?? `#${recipe.producedInId}`,
-      maxLines: buildingCapacity.value.get(recipe.producedInId) ?? 0,
+      capacityShare: buildingShareCapacity.value.get(recipe.producedInId) ?? 0,
     })
   })
   return map
@@ -116,7 +130,7 @@ const suggestions = computed(() => {
     .slice(0, 30)
     .map((recipe) => {
       const building = buildingById.value.get(recipe.producedInId)
-      const capacity = buildingCapacity.value.get(recipe.producedInId) ?? 0
+      const capacity = buildingShareCapacity.value.get(recipe.producedInId) ?? 0
       const workerNeeds = building?.workersNeeded
       return {
         recipe,
@@ -142,20 +156,20 @@ const suggestions = computed(() => {
 
 function addRecipe(recipe: Recipe) {
   const buildingId = recipe.producedInId
-  const capacity = buildingCapacity.value.get(buildingId) ?? 0
+  const capacity = buildingShareCapacity.value.get(buildingId) ?? 0
   if (capacity <= 0) return
   if (selectedRecipeIds.value.has(recipe.id)) return
 
-  const alreadyRequested = requestedLinesByBuilding.value.get(buildingId) ?? 0
+  const alreadyRequested = requestedShareByBuilding.value.get(buildingId) ?? 0
   const remaining = Math.max(0, capacity - alreadyRequested)
-  const defaultLines = remaining > 0 ? remaining : Math.max(1, capacity)
+  const defaultShare = remaining > 0 ? remaining : Math.min(100, capacity)
 
-  emit('addRecipe', { recipeId: recipe.id, lines: defaultLines })
+  emit('addRecipe', { recipeId: recipe.id, share: defaultShare })
   query.value = ''
 }
 
-function updateLines(id: string, lines: number) {
-  emit('updateRecipe', { id, patch: { lines } })
+function updateShare(id: string, share: number) {
+  emit('updateRecipe', { id, patch: { share } })
 }
 
 function removeRecipe(id: string) {
@@ -169,27 +183,57 @@ function formatNumber(value: number, fractionDigits = 2) {
   })
 }
 
+function formatShare(value: number) {
+  return `${formatNumber(value, 1)}%`
+}
+
 const summary = computed(() => report.value.summary)
 const materials = computed(() => report.value.materials)
 const workers = computed(() => report.value.workers)
+const workforceSummary = computed(() => report.value.workforceSummary)
+
+const optionalConsumables = computed(() => {
+  return [1, 2, 3, 4]
+    .map((tier) => {
+      const worker = workerByTier.value.get(tier as Worker['type'])
+      if (!worker) return null
+      const options = worker.consumables
+        .filter((c) => !c.essential)
+        .map((c) => ({ materialId: c.matId, amount: c.amount }))
+      if (!options.length) return null
+      return { tier: tier as 1 | 2 | 3 | 4, options }
+    })
+    .filter((entry): entry is { tier: 1 | 2 | 3 | 4; options: Array<{ materialId: number; amount: number }> } =>
+      Boolean(entry),
+    )
+})
 
 function materialName(id: number) {
   return materialById.value.get(id)?.name ?? `#${id}`
 }
 
 function tierLabel(tier: number) {
-  switch (tier) {
-    case 1:
-      return 'T1'
-    case 2:
-      return 'T2'
-    case 3:
-      return 'T3'
-    case 4:
-      return 'T4'
-    default:
-      return `T${tier}`
+  return TIER_LABELS[tier as 1 | 2 | 3 | 4] ?? `T${tier}`
+}
+
+function toggleOptional(materialId: number) {
+  const next = new Set(optionalActive.value)
+  if (next.has(materialId)) {
+    next.delete(materialId)
+  } else {
+    next.add(materialId)
   }
+  optionalActive.value = next
+}
+
+function isOptionalActive(materialId: number) {
+  return optionalActive.value.has(materialId)
+}
+
+function coverageClass(value: number) {
+  if (value >= 0.99) return 'text-emerald-300'
+  if (value >= 0.75) return 'text-amber-300'
+  return 'text-rose-300'
 }
 </script>
 
@@ -240,6 +284,9 @@ function tierLabel(tier: number) {
                 {{ translate('cycleTime') }}: {{ item.timeMinutes }} {{ translate('minutes') }} •
                 {{ translate('workers') }}: {{ item.workers }}
               </div>
+              <div class="text-xs text-slate-500">
+                {{ translate('availableCapacity') }}: {{ formatShare(item.capacity) }}
+              </div>
               <div v-if="!item.hasBuilding" class="text-xs text-red-400">
                 {{ translate('requiresBuilding') }} {{ item.buildingName }}
               </div>
@@ -263,9 +310,9 @@ function tierLabel(tier: number) {
               :recipe="cardsById.get(element.id)!.recipe"
               :report-row="cardsById.get(element.id)!.reportRow"
               :building-name="cardsById.get(element.id)!.buildingName"
-              :max-lines="cardsById.get(element.id)!.maxLines"
+              :capacity-share="cardsById.get(element.id)!.capacityShare"
               :material-lookup="materialById"
-              @updateLines="(lines) => updateLines(element.id, lines)"
+              @updateShare="(share) => updateShare(element.id, share)"
               @remove="removeRecipe(element.id)"
             />
           </template>
@@ -301,7 +348,61 @@ function tierLabel(tier: number) {
       </div>
 
       <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3">
+        <div class="font-semibold">{{ translate('workforceOverview') }}</div>
+        <template v-if="workforceSummary.some((row) => row.required > 0)">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400 text-xs uppercase">
+              <tr>
+                <th class="text-left pb-1">Tier</th>
+                <th class="text-right pb-1">{{ translate('requiredWorkers') }}</th>
+                <th class="text-right pb-1">{{ translate('housingCapacity') }}</th>
+                <th class="text-right pb-1">{{ translate('coverage') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in workforceSummary" :key="row.tier" class="border-t border-slate-800/60">
+                <td class="py-1 text-slate-400">{{ tierLabel(row.tier) }}</td>
+                <td class="py-1 text-right">{{ formatNumber(row.required, 1) }}</td>
+                <td class="py-1 text-right">{{ formatNumber(row.housing, 1) }}</td>
+                <td class="py-1 text-right" :class="coverageClass(row.coverage)">
+                  {{ formatShare(row.coverage * 100) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+        <div v-else class="text-sm text-slate-400">—</div>
+      </div>
+
+      <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3">
         <div class="font-semibold">{{ translate('workerConsumption') }}</div>
+        <div v-if="optionalConsumables.length" class="space-y-2 text-xs text-slate-400">
+          <div>{{ translate('optionalHint') }}</div>
+          <div class="space-y-1">
+            <div
+              v-for="group in optionalConsumables"
+              :key="group.tier"
+              class="flex flex-wrap items-center gap-2"
+            >
+              <span class="text-slate-500">{{ tierLabel(group.tier) }}</span>
+              <label
+                v-for="opt in group.options"
+                :key="opt.materialId"
+                class="inline-flex items-center gap-1"
+              >
+                <input
+                  type="checkbox"
+                  class="accent-emerald-500"
+                  :checked="isOptionalActive(opt.materialId)"
+                  @change="toggleOptional(opt.materialId)"
+                />
+                <span class="text-slate-300">
+                  {{ materialName(opt.materialId) }} ({{ formatNumber(opt.amount) }})
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
         <template v-if="workers.length">
           <table class="w-full text-sm">
             <thead class="text-slate-400 text-xs uppercase">
@@ -313,9 +414,23 @@ function tierLabel(tier: number) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in workers" :key="row.tier + '-' + row.materialId" class="border-t border-slate-800/60">
+              <tr
+                v-for="row in workers"
+                :key="row.tier + '-' + row.materialId"
+                class="border-t border-slate-800/60"
+                :class="{ 'opacity-60': row.optional && !row.active }"
+              >
                 <td class="py-1 text-slate-400">{{ tierLabel(row.tier) }}</td>
-                <td class="py-1">{{ materialName(row.materialId) }}</td>
+                <td class="py-1">
+                  {{ materialName(row.materialId) }}
+                  <span
+                    v-if="row.optional"
+                    class="ml-2 text-[11px]"
+                    :class="row.active ? 'text-emerald-300' : 'text-slate-500'"
+                  >
+                    {{ row.active ? translate('optionalActive') : translate('optionalInactive') }}
+                  </span>
+                </td>
                 <td class="py-1 text-right">{{ formatNumber(row.consumptionPerDay) }}</td>
                 <td class="py-1 text-right">{{ formatNumber(row.costPerDay) }}</td>
               </tr>

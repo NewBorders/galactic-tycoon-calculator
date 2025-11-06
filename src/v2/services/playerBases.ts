@@ -1,8 +1,8 @@
 // src/v2/services/playerBases.ts
 import { computed, ref } from 'vue'
-import type { Building, GameData } from './gamedata/service'
+import type { Building, GameData, Recipe } from './gamedata/service'
 
-export type PlayerRecipe = { id: string; recipeId: number; lines: number }
+export type PlayerRecipe = { id: string; recipeId: number; share: number }
 
 export type PlayerBuilding = { id: string; buildingId: number; level: number }
 export type PlayerBase = {
@@ -40,11 +40,20 @@ function ensureUi(st: Partial<PlayerState>): PlayerState {
       level: Math.max(1, Math.floor(bld.level ?? 1)),
     })) ?? [],
     recipes:
-      (base.recipes as PlayerRecipe[])?.map((rec) => ({
-        id: rec.id ?? uid(),
-        recipeId: rec.recipeId,
-        lines: Math.max(0, Math.floor(rec.lines ?? 0)),
-      })) ?? [],
+      (base.recipes as (PlayerRecipe & { lines?: number })[])?.map((rec) => {
+        const hasShare = Number.isFinite(rec.share)
+        const legacyLines = Number.isFinite(rec.lines) ? Number(rec.lines) : undefined
+        const normalizedShare = hasShare
+          ? Number(rec.share)
+          : legacyLines != null
+            ? legacyLines * 100
+            : 0
+        return {
+          id: rec.id ?? uid(),
+          recipeId: rec.recipeId,
+          share: Math.max(0, normalizedShare),
+        }
+      }) ?? [],
   }))
   return { bases, ui }
 }
@@ -69,8 +78,45 @@ export function usePlayerBases(gd: GameData) {
 
   const planets = computed(() => gd.planets)
   const buildings = computed<Building[]>(() => gd.buildings)
+  const recipes = computed<Recipe[]>(() => gd.recipes)
   const planetsById = computed(() => new Map(planets.value.map((p) => [p.id, p])))
   const buildingsById = computed(() => new Map(buildings.value.map((b) => [b.id, b])))
+  const recipesById = computed(() => new Map(recipes.value.map((r) => [r.id, r])))
+
+  const addToMap = (map: Map<number, number>, key: number, value: number) => {
+    const prev = map.get(key) ?? 0
+    map.set(key, prev + value)
+  }
+
+  const buildingShareCapacity = (base: PlayerBase): Map<number, number> => {
+    const capacity = new Map<number, number>()
+    base.buildings.forEach((instance) => {
+      const level = Math.max(1, Math.floor(instance.level ?? 1))
+      addToMap(capacity, instance.buildingId, level * 100)
+    })
+    return capacity
+  }
+
+  const syncRecipesWithBuildings = (base: PlayerBase) => {
+    const capacity = buildingShareCapacity(base)
+    const used = new Map<number, number>()
+    base.recipes.forEach((selection) => {
+      const recipe = recipesById.value.get(selection.recipeId)
+      if (!recipe) {
+        selection.share = 0
+        return
+      }
+      const max = capacity.get(recipe.producedInId) ?? 0
+      const normalized = Math.max(0, Number.isFinite(selection.share) ? Number(selection.share) : 0)
+      const already = used.get(recipe.producedInId) ?? 0
+      const remaining = Math.max(0, max - already)
+      const applied = Math.min(normalized, remaining)
+      selection.share = applied
+      used.set(recipe.producedInId, already + applied)
+    })
+  }
+
+  state.value.bases.forEach((base) => syncRecipesWithBuildings(base))
 
   const planetHasBase = (planetId: number) => state.value.bases.some((b) => b.planetId === planetId)
 
@@ -97,6 +143,7 @@ export function usePlayerBases(gd: GameData) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return
     b.buildings.push({ id: uid(), buildingId, level: Math.max(1, level) })
+    syncRecipesWithBuildings(b)
     saveState(state.value)
   }
 
@@ -106,6 +153,7 @@ export function usePlayerBases(gd: GameData) {
     const it = b.buildings.find((bb) => bb.id === instanceId)
     if (!it) return
     if (patch.level != null) it.level = Math.max(1, Math.floor(patch.level))
+    syncRecipesWithBuildings(b)
     saveState(state.value)
   }
 
@@ -113,6 +161,7 @@ export function usePlayerBases(gd: GameData) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return
     b.buildings = b.buildings.filter((bb) => bb.id !== instanceId)
+    syncRecipesWithBuildings(b)
     saveState(state.value)
   }
 
@@ -124,20 +173,22 @@ export function usePlayerBases(gd: GameData) {
     saveState(state.value)
   }
 
-  function addRecipe(baseId: string, recipeId: number, lines = 1) {
+  function addRecipe(baseId: string, recipeId: number, share = 100) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return
     if (b.recipes.some((r) => r.recipeId === recipeId)) return
-    b.recipes.push({ id: uid(), recipeId, lines: Math.max(0, Math.floor(lines)) })
+    b.recipes.push({ id: uid(), recipeId, share: Math.max(0, Number(share) || 0) })
+    syncRecipesWithBuildings(b)
     saveState(state.value)
   }
 
-  function setRecipe(baseId: string, recipeInstanceId: string, patch: { lines?: number }) {
+  function setRecipe(baseId: string, recipeInstanceId: string, patch: { share?: number }) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return
     const rec = b.recipes.find((r) => r.id === recipeInstanceId)
     if (!rec) return
-    if (patch.lines != null) rec.lines = Math.max(0, Math.floor(patch.lines))
+    if (patch.share != null) rec.share = Math.max(0, Number(patch.share) || 0)
+    syncRecipesWithBuildings(b)
     saveState(state.value)
   }
 
