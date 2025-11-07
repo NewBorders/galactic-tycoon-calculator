@@ -348,19 +348,7 @@ function handleStockImport() {
 
   const result = importStockText(text, props.gameData.materials)
   if (result.success) {
-    const merged: Record<number, number> = {}
-    Object.entries(props.base.stock ?? {}).forEach(([key, value]) => {
-      const id = Number(key)
-      const amount = typeof value === 'number' ? value : Number(value)
-      if (!Number.isFinite(id) || Number.isNaN(amount) || amount < 0) return
-      merged[id] = amount
-    })
-    Object.entries(result.stock).forEach(([key, value]) => {
-      const id = Number(key)
-      if (!Number.isFinite(id)) return
-      merged[id] = value
-    })
-    emit('updateStock', merged)
+    emit('updateStock', { ...result.stock })
     const parts = [`${translate('stockImportImported')}: ${result.processed}`]
     if (result.missing.length) {
       parts.push(`${translate('stockImportMissing')}: ${result.missing.length}`)
