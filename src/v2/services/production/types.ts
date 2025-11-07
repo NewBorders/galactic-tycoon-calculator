@@ -26,6 +26,7 @@ export type WorkerConsumptionRow = {
   materialId: number
   consumptionPerDay: number
   costPerDay: number
+  unitPrice: number
   optional: boolean
   active: boolean
 }
@@ -72,6 +73,7 @@ export type ComputeOptions = {
   activeOptionalConsumables?: Set<number>
   technologyLevels?: Partial<Record<number, number>>
   startingBonus?: number
+  priceResolver?: (materialId: number) => number
 }
 
 export type BaseProductionContext = {

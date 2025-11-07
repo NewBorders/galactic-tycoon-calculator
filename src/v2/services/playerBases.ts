@@ -11,6 +11,7 @@ export type PlayerBase = {
   name?: string
   buildings: PlayerBuilding[]
   recipes: PlayerRecipe[]
+  optionalConsumables?: number[]
 }
 
 type UiSections = { buildings: boolean; production: boolean }
@@ -44,6 +45,9 @@ function ensureUi(st: Partial<PlayerState>): PlayerState {
         id: rec.id ?? uid(),
         recipeId: rec.recipeId,
       })) ?? [],
+    optionalConsumables: Array.isArray(base.optionalConsumables)
+      ? [...new Set(base.optionalConsumables.filter((id): id is number => typeof id === 'number'))]
+      : [],
   }))
   return { bases, ui }
 }
@@ -89,7 +93,7 @@ export function usePlayerBases(gd: GameData) {
   function addBase(planetId: number) {
     if (planetHasBase(planetId)) return
     const id = crypto?.randomUUID?.() ?? `b_${Date.now()}`
-    state.value.bases.push({ id, planetId, buildings: [], recipes: [] })
+    state.value.bases.push({ id, planetId, buildings: [], recipes: [], optionalConsumables: [] })
     saveState(state.value)
   }
 
@@ -167,6 +171,15 @@ export function usePlayerBases(gd: GameData) {
     saveState(state.value)
   }
 
+  function setOptionalConsumables(baseId: string, materialIds: number[]) {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    b.optionalConsumables = Array.from(new Set(materialIds)).filter(
+      (id): id is number => typeof id === 'number' && !Number.isNaN(id),
+    )
+    saveState(state.value)
+  }
+
   // UI-State API
   function isBaseOpen(baseId: string): boolean {
     return !!state.value.ui.basesOpen[baseId]
@@ -204,6 +217,7 @@ export function usePlayerBases(gd: GameData) {
     addRecipe,
     removeRecipe,
     reorderRecipes,
+    setOptionalConsumables,
     isBaseOpen,
     setBaseOpen,
     getSections,

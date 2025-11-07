@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { GameData, Planet } from '../../services/gamedata/service.ts'
+import type { GameData, GdIndex, Planet } from '../../services/gamedata/service.ts'
 import { searchPlanetsByName } from '../../services/gamedata/service.ts'
 import { usePlayerBases } from '../../services/playerBases.ts'
 import Draggable from 'vuedraggable'
@@ -8,7 +8,7 @@ import Draggable from 'vuedraggable'
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
 
-const props = defineProps<{ gameData: GameData }>()
+const props = defineProps<{ gameData: GameData; index: GdIndex }>()
 const {
   state,
   planetHasBase,
@@ -23,6 +23,7 @@ const {
   addRecipe,
   removeRecipe,
   reorderRecipes,
+  setOptionalConsumables,
   isBaseOpen,
   setBaseOpen,
   getSections,
@@ -71,6 +72,7 @@ function getPlanetById(id: number) {
           :planet="getPlanetById(base.planetId)"
           :buildings="props.gameData.buildings"
           :game-data="props.gameData"
+          :index="props.index"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           @toggleBase="
@@ -136,6 +138,12 @@ function getPlanetById(id: number) {
           @reorderRecipes="
             ({ ids }) => {
               reorderRecipes(base.id, ids)
+              persist()
+            }
+          "
+          @setOptionalConsumables="
+            (materialIds) => {
+              setOptionalConsumables(base.id, materialIds)
               persist()
             }
           "

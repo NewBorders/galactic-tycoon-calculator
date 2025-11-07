@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import Draggable from 'vuedraggable'
-import type { GameData, Worker } from '@/v2/services/gamedata/types'
+import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import type { Recipe } from '@/v2/services/gamedata/service'
 import { computeBaseReport, productionUnitsFromLevel } from '@/v2/services/production/engine'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
 import RecipeTile from './RecipeTile.vue'
+import { useMaterialPricing } from '@/v2/services/gamedata/service'
 
 const TIER_LABELS: Record<1 | 2 | 3 | 4, string> = {
   1: 'T1',
@@ -19,23 +20,22 @@ const TIER_LABELS: Record<1 | 2 | 3 | 4, string> = {
 const props = defineProps<{
   base: PlayerBase
   gameData: GameData
+  index: GdIndex
 }>()
 
 const emit = defineEmits<{
   addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
+  updateOptional: [number[]]
 }>()
 
 const query = ref('')
 const optionalActive = ref<Set<number>>(new Set())
 
-const buildingById = computed(() => new Map(props.gameData.buildings.map((b) => [b.id, b])))
-const materialById = computed(() => new Map(props.gameData.materials.map((m) => [m.id, m])))
-const recipeById = computed(() => new Map(props.gameData.recipes.map((r) => [r.id, r])))
-const workerByTier = computed(() => new Map(props.gameData.workers.map((w) => [w.type, w])))
-const planetById = computed(() => new Map(props.gameData.planets.map((p) => [p.id, p])))
-const planet = computed(() => planetById.value.get(props.base.planetId))
+const { priceResolver } = useMaterialPricing(props.gameData)
+
+const planet = computed(() => props.index.planetById.get(props.base.planetId))
 const abundanceByMaterialId = computed(() => {
   const map = new Map<number, number>()
   planet.value?.materials.forEach((mat) => {
@@ -69,7 +69,7 @@ const report = computed(() =>
   computeBaseReport(props.gameData, {
     assignment: assignment.value,
     horizonDays: 1,
-    options: { activeOptionalConsumables: optionalActive.value },
+    options: { activeOptionalConsumables: optionalActive.value, priceResolver: priceResolver.value },
   }),
 )
 
@@ -90,9 +90,9 @@ const cardsById = computed(() => {
     { recipe: Recipe; reportRow?: RecipeProductionRow; buildingName: string; units: number }
   >()
   props.base.recipes.forEach((selection) => {
-    const recipe = recipeById.value.get(selection.recipeId)
+    const recipe = props.index.recipeById.get(selection.recipeId)
     if (!recipe) return
-    const building = buildingById.value.get(recipe.producedInId)
+    const building = props.index.buildingById.get(recipe.producedInId)
     map.set(selection.id, {
       recipe,
       reportRow: reportByRecipeId.value.get(recipe.id),
@@ -111,10 +111,10 @@ function recipeMatches(recipe: Recipe, needle: string) {
   const target = needle.toLowerCase()
   if (!target) return false
   if (recipe.output.name.toLowerCase().includes(target)) return true
-  const building = buildingById.value.get(recipe.producedInId)
+  const building = props.index.buildingById.get(recipe.producedInId)
   if (building?.name?.toLowerCase().includes(target)) return true
   return recipe.inputs.some((input) =>
-    materialById.value.get(input.id)?.name?.toLowerCase().includes(target),
+    props.index.materialById.get(input.id)?.name?.toLowerCase().includes(target),
   )
 }
 
@@ -126,7 +126,7 @@ const suggestions = computed(() => {
     .filter((recipe) => recipeMatches(recipe, text))
     .slice(0, 30)
     .map((recipe) => {
-      const building = buildingById.value.get(recipe.producedInId)
+      const building = props.index.buildingById.get(recipe.producedInId)
       const units = buildingUnits.value.get(recipe.producedInId) ?? 0
       const workerNeeds = building?.workersNeeded
       const alreadySelected = selectedRecipeIds.value.has(recipe.id)
@@ -143,11 +143,11 @@ const suggestions = computed(() => {
         disabled: alreadySelected || !hasBuilding || !hasAbundance,
         units,
         inputs: recipe.inputs.map((i) => ({
-          name: materialById.value.get(i.id)?.name ?? `#${i.id}`,
+          name: props.index.materialById.get(i.id)?.name ?? `#${i.id}`,
           amount: i.amount,
         })),
         output: {
-          name: materialById.value.get(recipe.output.id)?.name ?? recipe.output.name,
+          name: props.index.materialById.get(recipe.output.id)?.name ?? recipe.output.name,
           amount: recipe.output.amount,
         },
         timeMinutes: recipe.timeMinutes,
@@ -189,11 +189,12 @@ const summary = computed(() => report.value.summary)
 const materials = computed(() => report.value.materials)
 const workers = computed(() => report.value.workers)
 const workforceSummary = computed(() => report.value.workforceSummary)
+const totalWorkerCosts = computed(() => workers.value.reduce((acc, row) => acc + row.costPerDay, 0))
 
 const optionalConsumables = computed(() => {
   return [1, 2, 3, 4]
     .map((tier) => {
-      const worker = workerByTier.value.get(tier as Worker['type'])
+      const worker = props.index.workerByType.get(tier as Worker['type'])
       if (!worker) return null
       const options = worker.consumables
         .filter((c) => !c.essential)
@@ -207,7 +208,7 @@ const optionalConsumables = computed(() => {
 })
 
 function materialName(id: number) {
-  return materialById.value.get(id)?.name ?? `#${id}`
+  return props.index.materialById.get(id)?.name ?? `#${id}`
 }
 
 function tierLabel(tier: number) {
@@ -222,6 +223,7 @@ function toggleOptional(materialId: number) {
     next.add(materialId)
   }
   optionalActive.value = next
+  emit('updateOptional', Array.from(next).sort((a, b) => a - b))
 }
 
 function isOptionalActive(materialId: number) {
@@ -233,6 +235,14 @@ function coverageClass(value: number) {
   if (value >= 0.75) return 'text-amber-300'
   return 'text-rose-300'
 }
+
+watch(
+  () => props.base.optionalConsumables,
+  (list) => {
+    optionalActive.value = new Set((list ?? []).filter((id): id is number => typeof id === 'number'))
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -313,15 +323,15 @@ function coverageClass(value: number) {
           class="space-y-3"
         >
           <template #item="{ element }">
-            <RecipeTile
-              v-if="cardsById.get(element.id)"
-              :recipe="cardsById.get(element.id)!.recipe"
-              :report-row="cardsById.get(element.id)!.reportRow"
-              :building-name="cardsById.get(element.id)!.buildingName"
-              :units="cardsById.get(element.id)!.units"
-              :material-lookup="materialById"
-              @remove="removeRecipe(element.id)"
-            />
+              <RecipeTile
+                v-if="cardsById.get(element.id)"
+                :recipe="cardsById.get(element.id)!.recipe"
+                :report-row="cardsById.get(element.id)!.reportRow"
+                :building-name="cardsById.get(element.id)!.buildingName"
+                :units="cardsById.get(element.id)!.units"
+                :material-lookup="props.index.materialById"
+                @remove="removeRecipe(element.id)"
+              />
           </template>
         </Draggable>
       </div>
@@ -416,6 +426,7 @@ function coverageClass(value: number) {
               <tr>
                 <th class="text-left pb-1">Tier</th>
                 <th class="text-left pb-1">{{ translate('material') }}</th>
+                <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
                 <th class="text-right pb-1">{{ translate('perDay') }}</th>
                 <th class="text-right pb-1">{{ translate('totalCosts') }}</th>
               </tr>
@@ -438,11 +449,16 @@ function coverageClass(value: number) {
                     {{ row.active ? translate('optionalActive') : translate('optionalInactive') }}
                   </span>
                 </td>
+                <td class="py-1 text-right">{{ formatNumber(row.unitPrice, 2) }}</td>
                 <td class="py-1 text-right">{{ formatNumber(row.consumptionPerDay) }}</td>
                 <td class="py-1 text-right">{{ formatNumber(row.costPerDay) }}</td>
               </tr>
             </tbody>
           </table>
+          <div class="text-right text-xs text-slate-400">
+            {{ translate('totalWorkerCosts') }}:
+            <span class="text-slate-200">{{ formatNumber(totalWorkerCosts) }}</span>
+          </div>
         </template>
         <div v-else class="text-sm text-slate-400">—</div>
       </div>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
-import type { Building, GameData, Planet } from '@/v2/services/gamedata/types'
+import type { Building, GameData, GdIndex, Planet } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { translate } from '@/v2/localisation/localisation'
 import BuildingSearch from './BuildingSearch.vue'
@@ -12,6 +12,7 @@ const props = defineProps<{
   planet?: Planet
   buildings: Building[]
   gameData: GameData
+  index: GdIndex
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean }
 }>()
@@ -26,6 +27,7 @@ const emit = defineEmits<{
   addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
+  setOptionalConsumables: [materialIds: number[]]
   persist: []
   toggleBase: [open: boolean]
   toggleSection: [{ which: 'buildings' | 'production'; open: boolean }]
@@ -205,6 +207,7 @@ function onKey(e: KeyboardEvent) {
         <ProductionSection
           :base="base"
           :game-data="props.gameData"
+          :index="props.index"
           @addRecipe="
             (payload) => {
               $emit('addRecipe', payload)
@@ -220,6 +223,12 @@ function onKey(e: KeyboardEvent) {
           @reorderRecipes="
             (payload) => {
               $emit('reorderRecipes', payload)
+              $emit('persist')
+            }
+          "
+          @updateOptional="
+            (materialIds) => {
+              $emit('setOptionalConsumables', materialIds)
               $emit('persist')
             }
           "

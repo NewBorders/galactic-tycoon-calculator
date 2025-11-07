@@ -6,7 +6,7 @@ import {
 } from './types'
 
 const MINUTES_PER_DAY = 60 * 24
-const WORKER_BASE_PRODUCTIVITY = 100
+const WORKER_BASE_PRODUCTIVITY = 70
 const WORKER_OPTIONAL_BONUS = 10
 
 const TIER_CONFIG: Array<{ tier: 1 | 2 | 3 | 4; key: 'worker' | 'technician' | 'engineer' | 'scientist' }> = [
@@ -15,12 +15,6 @@ const TIER_CONFIG: Array<{ tier: 1 | 2 | 3 | 4; key: 'worker' | 'technician' | '
   { tier: 3, key: 'engineer' },
   { tier: 4, key: 'scientist' },
 ]
-
-function priceOf(material: Material | undefined): number {
-  if (!material) return 0
-  const cents = material.calculatedPriceInCents ?? 0
-  return cents / 100
-}
 
 function clampPositiveInt(value: number | undefined, fallback = 0): number {
   if (!value || Number.isNaN(value)) return fallback
@@ -73,6 +67,21 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
   const planet = gd.planets.find((pl) => pl.id === assignment.planetId)
 
   const activeOptional = options?.activeOptionalConsumables ?? new Set<number>()
+  const priceResolver = options?.priceResolver
+
+  const fallbackPrice = (material: Material | undefined): number => {
+    if (!material) return 0
+    const cents = material.calculatedPriceInCents ?? 0
+    return cents / 100
+  }
+
+  const priceOf = (materialId: number): number => {
+    const resolved = priceResolver?.(materialId)
+    if (resolved != null && Number.isFinite(resolved) && resolved >= 0) {
+      return resolved
+    }
+    return fallbackPrice(materialById.get(materialId))
+  }
 
   const housingByTier = new Map<number, number>()
   const productionUnitsById = new Map<number, number>()
@@ -307,13 +316,13 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
 
     if (adjustedOutput > 0) {
       addToMap(materialBalance, raw.recipe.output.id, adjustedOutput)
-      const price = priceOf(materialById.get(raw.recipe.output.id))
+      const price = priceOf(raw.recipe.output.id)
       revenue += adjustedOutput * price
     }
     adjustedInputs.forEach((inp) => {
       if (inp.amount <= 0) return
       addToMap(materialBalance, inp.materialId, -inp.amount)
-      const price = priceOf(materialById.get(inp.materialId))
+      const price = priceOf(inp.materialId)
       materialCosts += inp.amount * price
     })
   })
@@ -323,6 +332,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     materialId: number
     consumptionPerDay: number
     costPerDay: number
+    unitPrice: number
     optional: boolean
     active: boolean
   }>()
@@ -344,11 +354,13 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       materialId,
       consumptionPerDay: 0,
       costPerDay: 0,
+      unitPrice,
       optional,
       active,
     }
     existing.optional = optional
     existing.active = active
+    existing.unitPrice = unitPrice
     existing.consumptionPerDay += amount
     if (amount > 0) {
       existing.costPerDay += amount * unitPrice
@@ -368,8 +380,15 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       const optional = !consumable.essential
       const active = !optional || activeOptional.has(consumable.matId)
       const consumed = active ? baseAmount : 0
-      const price = priceOf(materialById.get(consumable.matId))
-      registerWorkerConsumption(tier as 1 | 2 | 3 | 4, consumable.matId, optional, active, consumed, price)
+      const price = priceOf(consumable.matId)
+      registerWorkerConsumption(
+        tier as 1 | 2 | 3 | 4,
+        consumable.matId,
+        optional,
+        active,
+        consumed,
+        price,
+      )
       if (consumed > 0) {
         addToMap(materialBalance, consumable.matId, -consumed)
         workerMaterialCosts += consumed * price
@@ -386,7 +405,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     .map(([materialId, balancePerDay]) => ({
       materialId,
       balancePerDay,
-      valuePerDay: balancePerDay * priceOf(materialById.get(materialId)),
+      valuePerDay: balancePerDay * priceOf(materialId),
     }))
 
   const workers = Array.from(workerConsumptions.values()).sort((a, b) => {

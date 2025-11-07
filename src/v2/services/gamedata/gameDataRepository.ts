@@ -30,6 +30,8 @@ export function buildIndex(gd: GameData): GdIndex {
     buildingById: new Map(gd.buildings.map((b) => [b.id, b])),
     planetById: new Map(gd.planets.map((p) => [p.id, p])),
     systemById: new Map(gd.systems.map((s) => [s.id, s])),
+    recipeById: new Map(gd.recipes.map((r) => [r.id, r])),
+    workerByType: new Map(gd.workers.map((w) => [w.type, w])),
   }
 }
 
