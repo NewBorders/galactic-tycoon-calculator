@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
-import type { Building, Planet } from '@/v2/services/gamedata/types'
+import type { Building, GameData, GdIndex, Planet } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { translate } from '@/v2/localisation/localisation'
 import BuildingSearch from './BuildingSearch.vue'
 import BaseBuildingsSection from './BaseBuildingsSection.vue'
+import ProductionSection from './ProductionSection.vue'
 
 const props = defineProps<{
   base: PlayerBase
   planet?: Planet
   buildings: Building[]
+  gameData: GameData
+  index: GdIndex
+  priceResolver: (materialId: number) => number
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean }
 }>()
@@ -21,6 +25,10 @@ const emit = defineEmits<{
   updateBuilding: [{ id: string; patch: { level?: number } }]
   removeBuilding: [{ id: string }]
   reorderBuildings: [{ ids: string[] }]
+  addRecipe: [{ recipeId: number }]
+  removeRecipe: [{ id: string }]
+  reorderRecipes: [{ ids: string[] }]
+  setOptionalConsumables: [materialIds: number[]]
   persist: []
   toggleBase: [open: boolean]
   toggleSection: [{ which: 'buildings' | 'production'; open: boolean }]
@@ -196,8 +204,37 @@ function onKey(e: KeyboardEvent) {
       "
     >
       <summary class="px-3 py-2 cursor-pointer font-medium">Production</summary>
-      <div class="p-3 text-sm text-slate-400">
-        {{ translate('productionConfigPlaceholder') }}
+      <div class="p-3">
+        <ProductionSection
+          :base="base"
+          :game-data="props.gameData"
+          :index="props.index"
+          :price-resolver="props.priceResolver"
+          @addRecipe="
+            (payload) => {
+              $emit('addRecipe', payload)
+              $emit('persist')
+            }
+          "
+          @removeRecipe="
+            (payload) => {
+              $emit('removeRecipe', payload)
+              $emit('persist')
+            }
+          "
+          @reorderRecipes="
+            (payload) => {
+              $emit('reorderRecipes', payload)
+              $emit('persist')
+            }
+          "
+          @updateOptional="
+            (materialIds) => {
+              $emit('setOptionalConsumables', materialIds)
+              $emit('persist')
+            }
+          "
+        />
       </div>
     </details>
 

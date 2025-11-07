@@ -11,6 +11,8 @@ const LS_KEY = 'gt:v2:activeTab'
 
 const active = ref<Tab>('recipes')
 const gd = ref(null as any)
+const gdIndex = ref(null as any)
+const gdLoadedAt = ref<number | null>(null)
 const loading = ref(false)
 const err = ref<string | null>(null)
 
@@ -20,8 +22,10 @@ onMounted(async () => {
 
   loading.value = true
   try {
-    const { data } = await loadGameData()
+    const { data, index, loadedAt } = await loadGameData()
     gd.value = data
+    gdIndex.value = index
+    gdLoadedAt.value = loadedAt
   } catch (e: any) {
     err.value = e?.message ?? 'error'
   } finally {
@@ -63,7 +67,12 @@ watch(active, (t) => {
       <p v-if="err" class="text-red-600 text-sm">{{ err }}</p>
       <p v-else-if="loading">…</p>
 
-      <PlayerConfigPanel v-if="gd && active === 'bases'" :gameData="gd" />
+      <PlayerConfigPanel
+        v-if="gd && gdIndex && active === 'bases'"
+        :gameData="gd"
+        :index="gdIndex"
+        :game-data-loaded-at="gdLoadedAt"
+      />
       <RecipeTranslatorPanel v-if="gd && active === 'recipes'" :gameData="gd" />
     </div>
   </div>

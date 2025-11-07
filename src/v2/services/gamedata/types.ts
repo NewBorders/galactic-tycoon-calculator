@@ -12,6 +12,8 @@ export type GdIndex = {
   buildingById: Map<number, Building>
   planetById: Map<number, Planet>
   systemById: Map<number, System>
+  recipeById: Map<number, Recipe>
+  workerByType: Map<number, Worker>
 }
 
 export type System = {
