@@ -595,9 +595,9 @@ export const TIER2_BUILDINGS: Record<string, Building> = {
         inputs: { steel: 4, rubber: 30, electric_motor: 2, control_console: 1 },
         outputs: { industrial_machinery: 1 },
       },
-      shuttle_complete: {
+      ship_repair_kit_tier2: {
         id: 183,
-        name: 'Shuttle (Complete)',
+        name: 'Ship Repair Kit',
         time: 1440,
         inputs: {
           ship_interior_kit: 2,
