@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import Draggable from 'vuedraggable'
 import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
@@ -39,6 +39,7 @@ const query = ref('')
 const optionalActive = ref<Set<number>>(new Set())
 const stockImportText = ref('')
 const stockImportStatus = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
+let stockImportTimeout: ReturnType<typeof setTimeout> | null = null
 
 const technologyLevelMap = computed(() => {
   const map = new Map<number, number>()
@@ -339,7 +340,13 @@ function coverageClass(value: number) {
 }
 
 function handleStockImport() {
-  const result = importStockText(stockImportText.value, props.gameData.materials)
+  const text = stockImportText.value.trim()
+  if (!text) {
+    stockImportStatus.value = null
+    return
+  }
+
+  const result = importStockText(text, props.gameData.materials)
   if (result.success) {
     const merged: Record<number, number> = {}
     Object.entries(props.base.stock ?? {}).forEach(([key, value]) => {
@@ -384,8 +391,34 @@ watch(
   () => {
     stockImportStatus.value = null
     stockImportText.value = ''
+    if (stockImportTimeout !== null) {
+      clearTimeout(stockImportTimeout)
+      stockImportTimeout = null
+    }
   },
 )
+
+watch(stockImportText, (value) => {
+  if (stockImportTimeout !== null) {
+    clearTimeout(stockImportTimeout)
+    stockImportTimeout = null
+  }
+
+  if (!value.trim()) {
+    stockImportStatus.value = null
+    return
+  }
+
+  stockImportTimeout = setTimeout(() => {
+    handleStockImport()
+  }, 300)
+})
+
+onBeforeUnmount(() => {
+  if (stockImportTimeout !== null) {
+    clearTimeout(stockImportTimeout)
+  }
+})
 </script>
 
 <template>
@@ -507,21 +540,13 @@ watch(
           rows="3"
           :placeholder="translate('stockImportPlaceholder')"
         />
-        <div class="flex flex-wrap items-center gap-3 text-xs">
-          <button
-            type="button"
-            class="px-3 py-1 border border-slate-600 rounded hover:bg-slate-800"
-            @click="handleStockImport"
-          >
-            {{ translate('stockImportButton') }}
-          </button>
-          <span
-            v-if="stockImportStatus"
-            :class="stockStatusClass(stockImportStatus.kind)"
-          >
-            {{ stockImportStatus.message }}
-          </span>
-        </div>
+        <span
+          v-if="stockImportStatus"
+          class="block text-xs"
+          :class="stockStatusClass(stockImportStatus.kind)"
+        >
+          {{ stockImportStatus.message }}
+        </span>
       </div>
 
       <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
