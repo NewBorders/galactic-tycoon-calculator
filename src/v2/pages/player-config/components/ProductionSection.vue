@@ -34,6 +34,15 @@ const buildingById = computed(() => new Map(props.gameData.buildings.map((b) => 
 const materialById = computed(() => new Map(props.gameData.materials.map((m) => [m.id, m])))
 const recipeById = computed(() => new Map(props.gameData.recipes.map((r) => [r.id, r])))
 const workerByTier = computed(() => new Map(props.gameData.workers.map((w) => [w.type, w])))
+const planetById = computed(() => new Map(props.gameData.planets.map((p) => [p.id, p])))
+const planet = computed(() => planetById.value.get(props.base.planetId))
+const abundanceByMaterialId = computed(() => {
+  const map = new Map<number, number>()
+  planet.value?.materials.forEach((mat) => {
+    map.set(mat.id, mat.abundanceRating ?? 0)
+  })
+  return map
+})
 
 const buildingUnits = computed(() => {
   const acc = new Map<number, number>()
@@ -120,11 +129,18 @@ const suggestions = computed(() => {
       const building = buildingById.value.get(recipe.producedInId)
       const units = buildingUnits.value.get(recipe.producedInId) ?? 0
       const workerNeeds = building?.workersNeeded
+      const alreadySelected = selectedRecipeIds.value.has(recipe.id)
+      const abundanceRating = abundanceByMaterialId.value.get(recipe.output.id)
+      const hasAbundance = (abundanceRating ?? 0) > 0
+      const hasBuilding = units > 0
       return {
         recipe,
         buildingName: building?.name ?? `#${recipe.producedInId}`,
-        hasBuilding: units > 0,
-        alreadySelected: selectedRecipeIds.value.has(recipe.id),
+        hasBuilding,
+        hasAbundance,
+        abundanceRating: abundanceRating ?? null,
+        alreadySelected,
+        disabled: alreadySelected || !hasBuilding || !hasAbundance,
         units,
         inputs: recipe.inputs.map((i) => ({
           name: materialById.value.get(i.id)?.name ?? `#${i.id}`,
@@ -146,6 +162,8 @@ function addRecipe(recipe: Recipe) {
   const buildingId = recipe.producedInId
   const units = buildingUnits.value.get(buildingId) ?? 0
   if (units <= 0) return
+  const abundance = abundanceByMaterialId.value.get(recipe.output.id) ?? 0
+  if (abundance <= 0) return
   if (selectedRecipeIds.value.has(recipe.id)) return
 
   emit('addRecipe', { recipeId: recipe.id })
@@ -236,9 +254,9 @@ function coverageClass(value: number) {
               :key="item.recipe.id"
               class="w-full text-left p-3 hover:bg-slate-700 flex flex-col gap-1"
               :class="{
-                'opacity-50 cursor-not-allowed': !item.hasBuilding || item.alreadySelected,
+                'opacity-50 cursor-not-allowed': item.disabled,
               }"
-              :disabled="!item.hasBuilding || item.alreadySelected"
+              :disabled="item.disabled"
               @click="addRecipe(item.recipe)"
             >
               <div class="flex items-center gap-2">
@@ -265,10 +283,21 @@ function coverageClass(value: number) {
                 {{ translate('workers') }}: {{ item.workers }}
               </div>
               <div class="text-xs text-slate-500">
-                {{ translate('activeUnits') }}: {{ formatNumber(item.units, 0) }}
+                {{ translate('activeModules') }}: {{ formatNumber(item.units, 0) }} •
+                {{ translate('planetaryAbundance') }}:
+                <span class="text-slate-300">
+                  {{
+                    item.abundanceRating != null
+                      ? `${formatNumber(item.abundanceRating, 0)}%`
+                      : '—'
+                  }}
+                </span>
               </div>
               <div v-if="!item.hasBuilding" class="text-xs text-red-400">
                 {{ translate('requiresBuilding') }} {{ item.buildingName }}
+              </div>
+              <div v-else-if="!item.hasAbundance" class="text-xs text-amber-300">
+                {{ translate('requiresAbundance') }}
               </div>
             </button>
           </template>

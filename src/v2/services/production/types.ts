@@ -36,9 +36,12 @@ export type RecipeProductionRow = {
   buildingUnits: number
   queueShare: number
   timeMinutes: number
-  effectiveTimeMinutes: number
+  adjustedTimeMinutes: number
+  actualTimeMinutes: number
+  nominalCyclesPerDayPerUnit: number
   cyclesPerDayPerUnit: number
   runsPerDay: number
+  runsPerDayPerUnit: number
   outputMaterialId: number
   outputAmountPerCycle: number
   outputPerDay: number
@@ -67,6 +70,8 @@ export type BaseReport = {
 export type ComputeOptions = {
   theoretical?: boolean
   activeOptionalConsumables?: Set<number>
+  technologyLevels?: Partial<Record<number, number>>
+  startingBonus?: number
 }
 
 export type BaseProductionContext = {

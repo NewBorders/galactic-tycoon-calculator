@@ -18,10 +18,18 @@ const minutesPerDay = 60 * 24
 
 const activeUnits = computed(() => props.reportRow?.buildingUnits ?? props.units)
 const queueShare = computed(() => props.reportRow?.queueShare ?? 1)
-const cyclesPerUnit = computed(() =>
-  props.reportRow?.cyclesPerDayPerUnit ?? (props.recipe.timeMinutes > 0 ? minutesPerDay / props.recipe.timeMinutes : 0),
+const baseCycleMinutes = computed(() => props.reportRow?.timeMinutes ?? props.recipe.timeMinutes)
+const adjustedCycleMinutes = computed(
+  () => props.reportRow?.adjustedTimeMinutes ?? baseCycleMinutes.value,
 )
-const runsPerDay = computed(() => props.reportRow?.runsPerDay ?? cyclesPerUnit.value * activeUnits.value * queueShare.value)
+const actualCycleMinutes = computed(
+  () => props.reportRow?.actualTimeMinutes ?? adjustedCycleMinutes.value,
+)
+const dailyRunsPerModule = computed(() =>
+  props.reportRow?.cyclesPerDayPerUnit ??
+  (props.recipe.timeMinutes > 0 ? minutesPerDay / props.recipe.timeMinutes : 0),
+)
+const runsPerDay = computed(() => props.reportRow?.runsPerDay ?? dailyRunsPerModule.value * activeUnits.value)
 
 const outputPerDay = computed(() => {
   if (props.reportRow) return props.reportRow.outputPerDay
@@ -57,6 +65,11 @@ function formatShare(value: number) {
   return `${formatNumber(value, 1)}%`
 }
 
+function formatMinutes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '—'
+  return `${formatNumber(value, 1)} ${translate('minutes')}`
+}
+
 function tierLabel(tier: number) {
   switch (tier) {
     case 1:
@@ -81,9 +94,10 @@ function tierLabel(tier: number) {
         <div class="flex items-start gap-2">
           <div class="flex-1 min-w-0">
             <div class="font-semibold truncate">{{ recipe.output.name }}</div>
-            <div class="text-xs text-slate-400">
-              {{ buildingName }} • {{ translate('cycleTime') }}: {{ recipe.timeMinutes }}
-              {{ translate('minutes') }}
+            <div class="text-xs text-slate-400">{{ buildingName }}</div>
+            <div class="text-xs text-slate-500">
+              {{ translate('baseCycleTime') }}: {{ formatMinutes(baseCycleMinutes) }} •
+              {{ translate('actualCycleTime') }}: {{ formatMinutes(actualCycleMinutes) }}
             </div>
           </div>
           <button class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700" @click.prevent="emit('remove')">
@@ -93,17 +107,12 @@ function tierLabel(tier: number) {
 
         <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-400">
           <div>
-            {{ translate('activeUnits') }}: {{ formatNumber(activeUnits, 0) }}
+            {{ translate('activeModules') }}: {{ formatNumber(activeUnits, 0) }}
           </div>
           <div>
-            {{ translate('queueShare') }}: {{ formatShare(queueShare * 100) }}
+            {{ translate('queueTimeShare') }}: {{ formatShare(queueShare * 100) }}
           </div>
-          <div>
-            {{ translate('cyclesPerUnit') }}: {{ formatNumber(cyclesPerUnit) }}
-          </div>
-          <div>
-            {{ translate('runsPerDay') }}: {{ formatNumber(runsPerDay) }}
-          </div>
+          <div>{{ translate('dailyRunsPerModule') }}: {{ formatNumber(dailyRunsPerModule) }}</div>
         </div>
 
         <div class="mt-3 space-y-2 text-sm">

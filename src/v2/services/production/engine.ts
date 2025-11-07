@@ -6,7 +6,7 @@ import {
 } from './types'
 
 const MINUTES_PER_DAY = 60 * 24
-const WORKER_BASE_PRODUCTIVITY = 70
+const WORKER_BASE_PRODUCTIVITY = 100
 const WORKER_OPTIONAL_BONUS = 10
 
 const TIER_CONFIG: Array<{ tier: 1 | 2 | 3 | 4; key: 'worker' | 'technician' | 'engineer' | 'scientist' }> = [
@@ -29,8 +29,7 @@ function clampPositiveInt(value: number | undefined, fallback = 0): number {
 
 function productionUnitsFromLevel(level: number): number {
   if (level <= 0 || Number.isNaN(level)) return 0
-  const units = 0.84 * level - 0.1
-  return units > 0 ? units : 0
+  return level
 }
 
 function addToMap(map: Map<number, number>, key: number, value: number) {
@@ -53,8 +52,8 @@ type InterimRow = {
   buildingId: number
   buildingUnits: number
   queueShare: number
-  cyclesPerDayPerUnit: number
-  effectiveTimeMinutes: number
+  nominalCyclesPerDayPerUnit: number
+  adjustedTimeMinutes: number
   rawRunsPerDay: number
   rawOutputPerDay: number
   rawInputsPerDay: Array<{ materialId: number; amount: number }>
@@ -117,9 +116,18 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
   let materialCosts = 0
   let revenue = 0
 
+  const startingBonus = options?.startingBonus ?? 1
+  const technologyLevels = options?.technologyLevels ?? {}
+
   const buildingGroups = new Map<
     number,
-    { building: Building; productionUnits: number; workforceUnits: number; recipes: Recipe[] }
+    {
+      building: Building
+      productionUnits: number
+      workforceUnits: number
+      recipes: Recipe[]
+      technologyBonus: number
+    }
   >()
 
   assignment.recipes.forEach((selection) => {
@@ -134,16 +142,20 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     if (group) {
       group.recipes.push(recipe)
     } else {
+      const techLevelRaw = technologyLevels[building.specialization] ?? 0
+      const techLevel = typeof techLevelRaw === 'number' ? techLevelRaw : 0
+      const technologyBonus = 1 + techLevel * 0.05
       buildingGroups.set(recipe.producedInId, {
         building,
         productionUnits,
         workforceUnits,
         recipes: [recipe],
+        technologyBonus,
       })
     }
   })
 
-  buildingGroups.forEach(({ building, productionUnits, workforceUnits, recipes }) => {
+  buildingGroups.forEach(({ building, productionUnits, workforceUnits, recipes, technologyBonus }) => {
     if (!recipes.length || productionUnits <= 0) return
 
     const tiersUsed = TIER_CONFIG.filter(({ key }) => (building.workersNeeded?.[key] ?? 0) > 0).map(
@@ -160,7 +172,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       recipe: Recipe
       abundanceFactor: number
       blocked: boolean
-      effectiveTime: number
+      adjustedTime: number
     }
 
     const pending: Pending[] = []
@@ -169,19 +181,24 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     recipes.forEach((recipe) => {
       const abundanceFactor = abundanceMultiplier(planet, recipe.output.id)
       const blocked = abundanceFactor <= 0
-      const baseEffective = recipe.timeMinutes / Math.max(productivityFactor, 1e-6)
-      const effectiveTime =
-        !blocked && abundanceFactor > 0 ? baseEffective / abundanceFactor : baseEffective
-      const timeContribution = !blocked && abundanceFactor > 0 ? effectiveTime : 0
-      totalCycleTime += timeContribution
-      pending.push({ recipe, abundanceFactor, blocked, effectiveTime })
+      const workforceSatisfaction = Math.max(productivityFactor, 0)
+      const buildingProductivity = 1
+      const baseSpeed =
+        workforceSatisfaction * buildingProductivity * technologyBonus * startingBonus
+      const speedWithAbundance = blocked ? 0 : baseSpeed * abundanceFactor
+      const adjustedTime = speedWithAbundance > 0 ? recipe.timeMinutes / speedWithAbundance : Infinity
+      const timeContribution = !blocked ? adjustedTime : 0
+      if (timeContribution > 0 && Number.isFinite(timeContribution)) {
+        totalCycleTime += timeContribution
+      }
+      pending.push({ recipe, abundanceFactor, blocked, adjustedTime })
     })
 
-    const cyclesPerDayPerUnit = totalCycleTime > 0 ? MINUTES_PER_DAY / totalCycleTime : 0
-    const totalCyclesPerDay = cyclesPerDayPerUnit * productionUnits
+    const nominalCyclesPerDayPerUnit = totalCycleTime > 0 ? MINUTES_PER_DAY / totalCycleTime : 0
+    const totalCyclesPerDay = nominalCyclesPerDayPerUnit * productionUnits
 
-    pending.forEach(({ recipe, abundanceFactor, blocked, effectiveTime }) => {
-      const timeContribution = !blocked && abundanceFactor > 0 ? effectiveTime : 0
+    pending.forEach(({ recipe, abundanceFactor, blocked, adjustedTime }) => {
+      const timeContribution = !blocked && Number.isFinite(adjustedTime) ? adjustedTime : 0
       const queueShare = totalCycleTime > 0 ? timeContribution / totalCycleTime : 0
       const rawRunsPerDay = blocked || totalCyclesPerDay <= 0 ? 0 : totalCyclesPerDay
       const rawOutputPerDay = rawRunsPerDay * recipe.output.amount
@@ -207,8 +224,8 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         buildingId: building.id,
         buildingUnits: productionUnits,
         queueShare,
-        cyclesPerDayPerUnit,
-        effectiveTimeMinutes: effectiveTime,
+        nominalCyclesPerDayPerUnit,
+        adjustedTimeMinutes: Number.isFinite(adjustedTime) ? adjustedTime : Infinity,
         rawRunsPerDay,
         rawOutputPerDay,
         rawInputsPerDay,
@@ -249,6 +266,13 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       materialId: input.materialId,
       amount: input.amount * workforceFactor,
     }))
+    const effectiveCyclesPerUnit = raw.nominalCyclesPerDayPerUnit * workforceFactor
+    const actualTimeMinutes =
+      workforceFactor > 0 && Number.isFinite(raw.adjustedTimeMinutes)
+        ? raw.adjustedTimeMinutes / workforceFactor
+        : Number.isFinite(raw.adjustedTimeMinutes)
+          ? raw.adjustedTimeMinutes
+          : Infinity
 
     const workforce = tiersUsed.map((tier) => {
       const required = raw.workforceDemand.get(tier) ?? 0
@@ -263,9 +287,12 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       timeMinutes: raw.recipe.timeMinutes,
       buildingUnits: raw.buildingUnits,
       queueShare: raw.queueShare,
-      effectiveTimeMinutes: raw.effectiveTimeMinutes,
-      cyclesPerDayPerUnit: raw.cyclesPerDayPerUnit,
+      adjustedTimeMinutes: raw.adjustedTimeMinutes,
+      actualTimeMinutes,
+      nominalCyclesPerDayPerUnit: raw.nominalCyclesPerDayPerUnit,
+      cyclesPerDayPerUnit: effectiveCyclesPerUnit,
       runsPerDay: adjustedRuns,
+      runsPerDayPerUnit: effectiveCyclesPerUnit,
       outputMaterialId: raw.recipe.output.id,
       outputAmountPerCycle: raw.recipe.output.amount,
       outputPerDay: adjustedOutput,
