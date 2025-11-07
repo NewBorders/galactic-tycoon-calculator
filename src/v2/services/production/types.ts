@@ -10,14 +10,16 @@ export type BaseAssignment = {
 export type Horizon = 1 | 7 | 14 | 30
 
 export type BaseDailySummary = {
-  costs: number
-  revenue: number
+  productionRevenue: number
+  materialPurchaseCosts: number
+  workerPurchaseCosts: number
   net: number
 }
 
 export type MaterialBalance = {
   materialId: number
   balancePerDay: number
+  unitPrice: number
   valuePerDay: number
 }
 
@@ -59,7 +61,6 @@ export type BaseReport = {
   materials: MaterialBalance[]
   workers: WorkerConsumptionRow[]
   recipes: RecipeProductionRow[]
-  adminCostPerDay: number
   workforceSummary: Array<{
     tier: 1 | 2 | 3 | 4
     required: number

@@ -1,4 +1,4 @@
-import { computed, onMounted, reactive, readonly } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, readonly } from 'vue'
 import type { GameData, Material } from './types'
 
 const API_URL = import.meta.env.DEV
@@ -8,6 +8,7 @@ const API_URL = import.meta.env.DEV
 const CACHE_KEY = 'gt:v2:prices:market'
 const SETTINGS_KEY = 'gt:v2:prices:settings'
 const CACHE_TTL = 30 * 60 * 1000
+const POLL_INTERVAL = 5 * 60 * 1000
 
 type PriceMode = 'current' | 'average' | 'weightedAverage' | 'manual'
 
@@ -53,6 +54,9 @@ const priceStore: PriceStore = reactive({
   initialised: false,
 })
 
+let poller: number | null = null
+let subscribers = 0
+
 function touchSettings() {
   priceStore.settings = {
     defaultMode: priceStore.settings.defaultMode,
@@ -64,7 +68,7 @@ function loadSettings(): PriceSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (!raw) {
-      return { defaultMode: 'weightedAverage', overrides: {} }
+      return { defaultMode: 'current', overrides: {} }
     }
     const parsed = JSON.parse(raw) as Partial<PriceSettings>
     const defaultMode: PriceMode =
@@ -73,7 +77,7 @@ function loadSettings(): PriceSettings {
       parsed?.defaultMode === 'weightedAverage' ||
       parsed?.defaultMode === 'manual'
         ? parsed.defaultMode
-        : 'weightedAverage'
+        : 'current'
     const overrides: Record<number, MaterialPriceOverride> = {}
     if (parsed?.overrides && typeof parsed.overrides === 'object') {
       Object.entries(parsed.overrides).forEach(([key, value]) => {
@@ -100,7 +104,7 @@ function loadSettings(): PriceSettings {
     }
     return { defaultMode, overrides }
   } catch {
-    return { defaultMode: 'weightedAverage', overrides: {} }
+    return { defaultMode: 'current', overrides: {} }
   }
 }
 
@@ -198,7 +202,7 @@ function ensureCacheLoaded() {
   priceStore.initialised = true
 }
 
-async function ensureMarketPrices(force = false) {
+async function ensureMarketPrices(force = false): Promise<void> {
   ensureCacheLoaded()
   const now = Date.now()
   if (!force && priceStore.market.size > 0 && now - priceStore.lastFetched < CACHE_TTL) {
@@ -217,6 +221,20 @@ async function ensureMarketPrices(force = false) {
   } finally {
     priceStore.loading = false
   }
+}
+
+function startAutoRefresh() {
+  if (poller != null) return
+  poller = window.setInterval(() => {
+    void ensureMarketPrices(true)
+  }, POLL_INTERVAL)
+}
+
+function stopAutoRefresh() {
+  if (poller == null) return
+  if (subscribers > 0) return
+  window.clearInterval(poller)
+  poller = null
 }
 
 function pickPriceByMode(entry: MarketPriceEntry | undefined, mode: PriceMode): number | null {
@@ -242,7 +260,7 @@ function resolveMaterialPrice(
 ): number {
   const baseFallback = (material.calculatedPriceInCents ?? 0) / 100
   const override = settings.overrides[material.id]
-  let mode: PriceMode = override?.mode ?? settings.defaultMode ?? 'weightedAverage'
+  let mode: PriceMode = override?.mode ?? settings.defaultMode ?? 'current'
 
   switch (mode) {
     case 'manual': {
@@ -250,7 +268,7 @@ function resolveMaterialPrice(
       if (manual != null && Number.isFinite(manual) && manual >= 0) {
         return manual
       }
-      const fallbackMode = settings.defaultMode === 'manual' ? 'weightedAverage' : settings.defaultMode
+      const fallbackMode = settings.defaultMode === 'manual' ? 'current' : settings.defaultMode
       mode = fallbackMode
       break
     }
@@ -326,7 +344,16 @@ function setLocked(materialId: number, locked: boolean) {
 export function useMaterialPricing(gameData: GameData) {
   ensureCacheLoaded()
   onMounted(() => {
-    ensureMarketPrices()
+    subscribers += 1
+    startAutoRefresh()
+    void ensureMarketPrices()
+  })
+
+  onUnmounted(() => {
+    subscribers = Math.max(0, subscribers - 1)
+    if (subscribers === 0) {
+      stopAutoRefresh()
+    }
   })
 
   const resolver = computed(() => {
@@ -342,9 +369,10 @@ export function useMaterialPricing(gameData: GameData) {
 
   return {
     priceResolver: resolver,
-    refreshPrices: ensureMarketPrices,
+    refreshPrices: (force = true) => ensureMarketPrices(force),
     loading: computed(() => priceStore.loading),
     error: computed(() => priceStore.error),
+    lastFetched: computed(() => priceStore.lastFetched),
     settings: readonly(priceStore.settings),
     setDefaultMode,
     setOverrideMode,

@@ -41,6 +41,16 @@ function abundanceMultiplier(planet: Planet | undefined, materialId: number): nu
 
 type WorkforceDemand = Map<number, number>
 
+type WorkerConsumptionEntry = {
+  tier: 1 | 2 | 3 | 4
+  materialId: number
+  consumptionPerDay: number
+  costPerDay: number
+  unitPrice: number
+  optional: boolean
+  active: boolean
+}
+
 type InterimRow = {
   recipe: Recipe
   buildingId: number
@@ -119,11 +129,18 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
   })
 
   const materialBalance = new Map<number, number>()
+  const materialStats = new Map<number, { produced: number; recipe: number; worker: number }>()
+  const statsFor = (materialId: number) => {
+    let stats = materialStats.get(materialId)
+    if (!stats) {
+      stats = { produced: 0, recipe: 0, worker: 0 }
+      materialStats.set(materialId, stats)
+    }
+    return stats
+  }
   const interimRows: InterimRow[] = []
   const workforceDemandTotals = new Map<number, number>()
 
-  let materialCosts = 0
-  let revenue = 0
 
   const startingBonus = options?.startingBonus ?? 1
   const technologyLevels = options?.technologyLevels ?? {}
@@ -316,29 +333,16 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
 
     if (adjustedOutput > 0) {
       addToMap(materialBalance, raw.recipe.output.id, adjustedOutput)
-      const price = priceOf(raw.recipe.output.id)
-      revenue += adjustedOutput * price
+      statsFor(raw.recipe.output.id).produced += adjustedOutput
     }
     adjustedInputs.forEach((inp) => {
       if (inp.amount <= 0) return
       addToMap(materialBalance, inp.materialId, -inp.amount)
-      const price = priceOf(inp.materialId)
-      materialCosts += inp.amount * price
+      statsFor(inp.materialId).recipe += inp.amount
     })
   })
 
-  const workerConsumptions = new Map<string, {
-    tier: 1 | 2 | 3 | 4
-    materialId: number
-    consumptionPerDay: number
-    costPerDay: number
-    unitPrice: number
-    optional: boolean
-    active: boolean
-  }>()
-
-  let workerMaterialCosts = 0
-  let adminCostPerDay = 0
+  const workerConsumptions = new Map<string, WorkerConsumptionEntry>()
 
   const registerWorkerConsumption = (
     tier: 1 | 2 | 3 | 4,
@@ -349,7 +353,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     unitPrice: number,
   ) => {
     const key = `${tier}:${materialId}`
-    const existing = workerConsumptions.get(key) ?? {
+    const existing: WorkerConsumptionEntry = workerConsumptions.get(key) ?? {
       tier,
       materialId,
       consumptionPerDay: 0,
@@ -362,9 +366,6 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     existing.active = active
     existing.unitPrice = unitPrice
     existing.consumptionPerDay += amount
-    if (amount > 0) {
-      existing.costPerDay += amount * unitPrice
-    }
     workerConsumptions.set(key, existing)
   }
 
@@ -391,41 +392,92 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       )
       if (consumed > 0) {
         addToMap(materialBalance, consumable.matId, -consumed)
-        workerMaterialCosts += consumed * price
+        statsFor(consumable.matId).worker += consumed
       }
     })
+  })
 
-    if (worker.adminCost) {
-      adminCostPerDay += worker.adminCost * groups
+  const workerRowsByMaterial = new Map<number, WorkerConsumptionEntry[]>()
+  workerConsumptions.forEach((row) => {
+    row.costPerDay = 0
+    const list = workerRowsByMaterial.get(row.materialId)
+    if (list) {
+      list.push(row)
+    } else {
+      workerRowsByMaterial.set(row.materialId, [row])
     }
+  })
+
+  const materialIds = new Set<number>([
+    ...materialStats.keys(),
+    ...materialBalance.keys(),
+    ...Array.from(workerConsumptions.values(), (row) => row.materialId),
+  ])
+
+  let productionRevenue = 0
+  let materialPurchaseCosts = 0
+  let workerPurchaseCosts = 0
+
+  materialIds.forEach((materialId) => {
+    const stats = materialStats.get(materialId) ?? { produced: 0, recipe: 0, worker: 0 }
+    const unitPrice = priceOf(materialId)
+    const balance = materialBalance.get(materialId) ?? stats.produced - stats.recipe - stats.worker
+
+    if (balance > 0) {
+      productionRevenue += balance * unitPrice
+    }
+
+    const recipeShortfall = Math.max(0, stats.recipe - stats.produced)
+    const leftoverForWorkers = Math.max(0, stats.produced - stats.recipe)
+    const workerShortfall = Math.max(0, stats.worker - leftoverForWorkers)
+
+    materialPurchaseCosts += recipeShortfall * unitPrice
+    workerPurchaseCosts += workerShortfall * unitPrice
+
+    const rows = workerRowsByMaterial.get(materialId)
+    if (!rows || rows.length === 0) return
+    const totalConsumption = rows.reduce((acc, row) => acc + row.consumptionPerDay, 0)
+    rows.forEach((row) => {
+      row.unitPrice = unitPrice
+      if (workerShortfall <= 0 || totalConsumption <= 0) {
+        row.costPerDay = 0
+        return
+      }
+      const share = row.consumptionPerDay > 0 ? row.consumptionPerDay / totalConsumption : 0
+      row.costPerDay = workerShortfall * share * unitPrice
+    })
   })
 
   const materials = Array.from(materialBalance.entries())
     .filter(([, amount]) => Math.abs(amount) > 1e-6)
-    .map(([materialId, balancePerDay]) => ({
-      materialId,
-      balancePerDay,
-      valuePerDay: balancePerDay * priceOf(materialId),
-    }))
+    .map(([materialId, balancePerDay]) => {
+      const unitPrice = priceOf(materialId)
+      return {
+        materialId,
+        balancePerDay,
+        unitPrice,
+        valuePerDay: balancePerDay * unitPrice,
+      }
+    })
 
   const workers = Array.from(workerConsumptions.values()).sort((a, b) => {
-    if (a.tier === b.tier) return a.materialId - b.materialId
-    return a.tier - b.tier
+    if (a.tier !== b.tier) return a.tier - b.tier
+    if (a.optional !== b.optional) return a.optional ? 1 : -1
+    return a.materialId - b.materialId
   })
 
-  const totalCosts = materialCosts + workerMaterialCosts + adminCostPerDay
-  const net = revenue - totalCosts
+  const net = productionRevenue - materialPurchaseCosts - workerPurchaseCosts
 
   return {
     summary: {
-      costs: totalCosts,
-      revenue,
+      productionRevenue,
+      materialPurchaseCosts,
+      workerPurchaseCosts,
       net,
     },
     materials,
     workers,
     recipes: recipeRows,
-    adminCostPerDay,
     workforceSummary,
   }
 }

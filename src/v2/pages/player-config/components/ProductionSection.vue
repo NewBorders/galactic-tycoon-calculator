@@ -8,19 +8,19 @@ import { computeBaseReport, productionUnitsFromLevel } from '@/v2/services/produ
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
 import RecipeTile from './RecipeTile.vue'
-import { useMaterialPricing } from '@/v2/services/gamedata/service'
 
-const TIER_LABELS: Record<1 | 2 | 3 | 4, string> = {
-  1: 'T1',
-  2: 'T2',
-  3: 'T3',
-  4: 'T4',
+const TIER_LABEL_KEYS: Record<1 | 2 | 3 | 4, string> = {
+  1: 'workerTier1',
+  2: 'workerTier2',
+  3: 'workerTier3',
+  4: 'workerTier4',
 }
 
 const props = defineProps<{
   base: PlayerBase
   gameData: GameData
   index: GdIndex
+  priceResolver: (materialId: number) => number
 }>()
 
 const emit = defineEmits<{
@@ -32,8 +32,6 @@ const emit = defineEmits<{
 
 const query = ref('')
 const optionalActive = ref<Set<number>>(new Set())
-
-const { priceResolver } = useMaterialPricing(props.gameData)
 
 const planet = computed(() => props.index.planetById.get(props.base.planetId))
 const abundanceByMaterialId = computed(() => {
@@ -69,7 +67,7 @@ const report = computed(() =>
   computeBaseReport(props.gameData, {
     assignment: assignment.value,
     horizonDays: 1,
-    options: { activeOptionalConsumables: optionalActive.value, priceResolver: priceResolver.value },
+    options: { activeOptionalConsumables: optionalActive.value, priceResolver: props.priceResolver },
   }),
 )
 
@@ -186,10 +184,18 @@ function formatShare(value: number) {
 }
 
 const summary = computed(() => report.value.summary)
-const materials = computed(() => report.value.materials)
-const workers = computed(() => report.value.workers)
+const materialRows = computed(() => report.value.materials)
+const workerRows = computed(() => {
+  const rows = report.value.workers.slice()
+  rows.sort((a, b) => {
+    if (a.tier !== b.tier) return a.tier - b.tier
+    if (a.optional !== b.optional) return a.optional ? 1 : -1
+    return a.materialId - b.materialId
+  })
+  return rows
+})
 const workforceSummary = computed(() => report.value.workforceSummary)
-const totalWorkerCosts = computed(() => workers.value.reduce((acc, row) => acc + row.costPerDay, 0))
+const totalWorkerCosts = computed(() => workerRows.value.reduce((acc, row) => acc + row.costPerDay, 0))
 
 const optionalConsumables = computed(() => {
   return [1, 2, 3, 4]
@@ -212,7 +218,8 @@ function materialName(id: number) {
 }
 
 function tierLabel(tier: number) {
-  return TIER_LABELS[tier as 1 | 2 | 3 | 4] ?? `T${tier}`
+  const key = TIER_LABEL_KEYS[tier as 1 | 2 | 3 | 4]
+  return key ? translate(key) : `T${tier}`
 }
 
 function toggleOptional(materialId: number) {
@@ -345,21 +352,22 @@ watch(
         <div class="font-semibold">{{ translate('dailySummary') }}</div>
         <div class="text-sm text-slate-300 flex flex-col gap-1">
           <div>
-            {{ translate('totalRevenue') }}:
-            <span class="text-green-300">{{ formatNumber(summary.revenue) }}</span>
+            {{ translate('productionRevenue') }}:
+            <span class="text-green-300">{{ formatNumber(summary.productionRevenue) }}</span>
           </div>
           <div>
-            {{ translate('totalCosts') }}:
-            <span class="text-red-300">{{ formatNumber(summary.costs) }}</span>
+            {{ translate('materialPurchaseCosts') }}:
+            <span class="text-red-300">{{ formatNumber(summary.materialPurchaseCosts) }}</span>
+          </div>
+          <div>
+            {{ translate('workerPurchaseCosts') }}:
+            <span class="text-red-300">{{ formatNumber(summary.workerPurchaseCosts) }}</span>
           </div>
           <div>
             {{ translate('netResult') }}:
             <span :class="summary.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
               {{ formatNumber(summary.net) }}
             </span>
-          </div>
-          <div class="text-xs text-slate-500">
-            {{ translate('adminCost') }}: {{ formatNumber(report.adminCostPerDay) }}
           </div>
         </div>
       </div>
@@ -420,20 +428,20 @@ watch(
             </div>
           </div>
         </div>
-        <template v-if="workers.length">
+        <template v-if="workerRows.length">
           <table class="w-full text-sm">
             <thead class="text-slate-400 text-xs uppercase">
               <tr>
                 <th class="text-left pb-1">Tier</th>
                 <th class="text-left pb-1">{{ translate('material') }}</th>
-                <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
                 <th class="text-right pb-1">{{ translate('perDay') }}</th>
+                <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
                 <th class="text-right pb-1">{{ translate('totalCosts') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr
-                v-for="row in workers"
+                v-for="row in workerRows"
                 :key="row.tier + '-' + row.materialId"
                 class="border-t border-slate-800/60"
                 :class="{ 'opacity-60': row.optional && !row.active }"
@@ -449,8 +457,8 @@ watch(
                     {{ row.active ? translate('optionalActive') : translate('optionalInactive') }}
                   </span>
                 </td>
-                <td class="py-1 text-right">{{ formatNumber(row.unitPrice, 2) }}</td>
                 <td class="py-1 text-right">{{ formatNumber(row.consumptionPerDay) }}</td>
+                <td class="py-1 text-right">{{ formatNumber(row.unitPrice, 2) }}</td>
                 <td class="py-1 text-right">{{ formatNumber(row.costPerDay) }}</td>
               </tr>
             </tbody>
@@ -465,17 +473,18 @@ watch(
 
       <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3">
         <div class="font-semibold">{{ translate('materialBalance') }}</div>
-        <template v-if="materials.length">
+        <template v-if="materialRows.length">
           <table class="w-full text-sm">
             <thead class="text-slate-400 text-xs uppercase">
               <tr>
                 <th class="text-left pb-1">{{ translate('material') }}</th>
                 <th class="text-right pb-1">{{ translate('perDay') }}</th>
+                <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
                 <th class="text-right pb-1">{{ translate('netResult') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in materials" :key="row.materialId" class="border-t border-slate-800/60">
+              <tr v-for="row in materialRows" :key="row.materialId" class="border-t border-slate-800/60">
                 <td class="py-1">{{ materialName(row.materialId) }}</td>
                 <td
                   class="py-1 text-right"
@@ -483,6 +492,7 @@ watch(
                 >
                   {{ formatNumber(row.balancePerDay) }}
                 </td>
+                <td class="py-1 text-right">{{ formatNumber(row.unitPrice, 2) }}</td>
                 <td class="py-1 text-right">{{ formatNumber(row.valuePerDay) }}</td>
               </tr>
             </tbody>

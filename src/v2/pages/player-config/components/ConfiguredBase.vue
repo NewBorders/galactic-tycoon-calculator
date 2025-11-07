@@ -13,6 +13,7 @@ const props = defineProps<{
   buildings: Building[]
   gameData: GameData
   index: GdIndex
+  priceResolver: (materialId: number) => number
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean }
 }>()
@@ -208,6 +209,7 @@ function onKey(e: KeyboardEvent) {
           :base="base"
           :game-data="props.gameData"
           :index="props.index"
+          :price-resolver="props.priceResolver"
           @addRecipe="
             (payload) => {
               $emit('addRecipe', payload)
