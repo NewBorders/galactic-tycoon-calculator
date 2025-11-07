@@ -8,7 +8,7 @@ const messages: Record<LanguageCode, Record<string, string>> = {
   en: {
     language: 'Language',
     tabRecipes: 'V2 → V1 Recipe Translator',
-    tabPlayerConfig: 'Player configuration',
+    tabPlayerConfig: 'Bases',
     planetSearch: 'Search planet…',
     selectPlanet: 'Select planet…',
     addBase: 'Add base',
@@ -81,7 +81,7 @@ const messages: Record<LanguageCode, Record<string, string>> = {
   de: {
     language: 'Sprache',
     tabRecipes: 'V2 → V1 Rezept-Übersetzer',
-    tabPlayerConfig: 'Spieler-Konfiguration',
+    tabPlayerConfig: 'Basen',
     planetSearch: 'Planet suchen…',
     selectPlanet: 'Planet wählen…',
     addBase: 'Basis hinzufügen',
