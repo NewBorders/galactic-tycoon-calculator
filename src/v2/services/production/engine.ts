@@ -57,7 +57,7 @@ type InterimRow = {
   workforceDemand: WorkforceDemand
   productivityFactor: number
   abundanceFactor: number
-  blockedReason: 'abundance' | 'fertility' | null
+  blockedReason: 'abundance' | 'fertility' | 'technology' | null
 }
 
 export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): BaseReport {
@@ -135,7 +135,11 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
   const workforceDemandTotals = new Map<number, number>()
 
 
-  const startingBonus = options?.startingBonus ?? 1
+  const startingBonusRaw = options?.startingBonus
+  const startingBonus =
+    typeof startingBonusRaw === 'number' && Number.isFinite(startingBonusRaw)
+      ? Math.max(0.1, startingBonusRaw)
+      : 1
   const technologyLevels = options?.technologyLevels ?? {}
 
   const buildingGroups = new Map<
@@ -146,6 +150,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       workforceUnits: number
       recipes: Recipe[]
       technologyBonus: number
+      technologyLevel: number
     }
   >()
 
@@ -162,7 +167,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       group.recipes.push(recipe)
     } else {
       const techLevelRaw = technologyLevels[building.specialization] ?? 0
-      const techLevel = typeof techLevelRaw === 'number' ? techLevelRaw : 0
+      const techLevel = typeof techLevelRaw === 'number' ? Math.max(0, Math.floor(techLevelRaw)) : 0
       const technologyBonus = 1 + techLevel * 0.05
       buildingGroups.set(recipe.producedInId, {
         building,
@@ -170,11 +175,13 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         workforceUnits,
         recipes: [recipe],
         technologyBonus,
+        technologyLevel: techLevel,
       })
     }
   })
 
-  buildingGroups.forEach(({ building, productionUnits, workforceUnits, recipes, technologyBonus }) => {
+  buildingGroups.forEach(
+    ({ building, productionUnits, workforceUnits, recipes, technologyBonus, technologyLevel }) => {
     if (!recipes.length || productionUnits <= 0) return
 
     const tiersUsed = TIER_CONFIG.filter(({ key }) => (building.workersNeeded?.[key] ?? 0) > 0).map(
@@ -191,7 +198,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       recipe: Recipe
       abundanceFactor: number
       blocked: boolean
-      blockedReason: 'abundance' | 'fertility' | null
+      blockedReason: 'abundance' | 'fertility' | 'technology' | null
       adjustedTime: number
     }
 
@@ -206,7 +213,15 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         material,
       })
       const abundanceFactor = availability.abundanceFactor
-      const blocked = availability.blocked
+      const requiredTech = recipe.reqTech ?? 0
+      const technologySatisfied = technologyLevel >= requiredTech
+      let blockedReason: Pending['blockedReason'] = null
+      if (!technologySatisfied) {
+        blockedReason = 'technology'
+      } else if (availability.blocked) {
+        blockedReason = availability.reason
+      }
+      const blocked = blockedReason !== null
       const workforceSatisfaction = Math.max(productivityFactor, 0)
       const buildingProductivity = 1
       const baseSpeed =
@@ -221,7 +236,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         recipe,
         abundanceFactor,
         blocked,
-        blockedReason: availability.reason,
+        blockedReason,
         adjustedTime,
       })
     })

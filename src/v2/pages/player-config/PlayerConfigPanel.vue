@@ -8,6 +8,7 @@ import { translate } from '../../localisation/localisation.ts'
 
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
+import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
 const {
@@ -25,11 +26,16 @@ const {
   removeRecipe,
   reorderRecipes,
   setOptionalConsumables,
+  setStock,
   isBaseOpen,
   setBaseOpen,
   getSections,
   setSection,
 } = usePlayerBases(props.gameData)
+
+const { state: technologyState } = usePlayerTechnology()
+const technologyLevels = computed(() => technologyState.value.levels ?? {})
+const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
 
 const query = ref('')
 
@@ -114,6 +120,8 @@ function getPlanetById(id: number) {
           :game-data="props.gameData"
           :index="props.index"
           :price-resolver="priceResolver"
+          :technology-levels="technologyLevels"
+          :starting-bonus="startingBonus"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           @toggleBase="
@@ -185,6 +193,12 @@ function getPlanetById(id: number) {
           @setOptionalConsumables="
             (materialIds) => {
               setOptionalConsumables(base.id, materialIds)
+              persist()
+            }
+          "
+          @updateStock="
+            (stock) => {
+              setStock(base.id, stock)
               persist()
             }
           "
