@@ -24,26 +24,49 @@ export const TIER4_BUILDINGS: Record<string, Building> = {
     industryType: 'Manufacturing',
     tier: 4,
     recipes: {
-      extradimensional_ftl_emitter: {
-        id: 169,
-        name: 'Extra-dimensional FTL Emitter',
-        time: 900,
-        inputs: { quadranium: 2, field_cooling_system: 3, ftl_field_controller: 1 },
-        outputs: { extradimensional_ftl_emitter: 1 },
+      starlifter_structural_elements: {
+        id: 185,
+        name: 'Starlifter Structural Elements',
+        time: 550,
+        inputs: {
+          pipes: 5,
+          starglass: 5,
+          biopolyne: 2,
+          molecular_fusion_kit: 1,
+          graphenium_wire: 5,
+        },
+        outputs: {
+          starlifter_structural_elements: 1,
+        },
       },
       antimatter_reactor: {
-        id: 182,
+        id: 169,
         name: 'Antimatter Reactor',
-        time: 3600,
-        inputs: { starglass: 10, antimatter_containment: 5, antimatter: 15, quantum_mainframe: 1 },
-        outputs: { antimatter_reactor: 1 },
+        time: 1800,
+        inputs: {
+          starglass: 20,
+          antimatter_containment: 10,
+          graphenium_wire: 5,
+          quantum_mainframe: 1,
+        },
+        outputs: {
+          antimatter_reactor: 1,
+        },
       },
       freighter_bridge: {
-        id: 185,
+        id: 182,
         name: 'Freighter Bridge',
-        time: 2400,
-        inputs: { starglass: 40, nanoweave_shielding: 10, life_support_system: 5, aicore: 1, ftl_field_controller: 2 },
-        outputs: { freighter_bridge: 1 },
+        time: 1080,
+        inputs: {
+          biopolyne: 15,
+          life_support_system: 4,
+          sensor_array: 3,
+          aicore: 1,
+          neural_interface: 2,
+        },
+        outputs: {
+          freighter_bridge: 1,
+        },
       },
     },
   },
@@ -57,40 +80,73 @@ export const TIER4_BUILDINGS: Record<string, Building> = {
     industryType: 'Chemistry',
     tier: 4,
     recipes: {
-      antimatter_containment: {
-        id: 17,
-        name: 'Antimatter Containment',
-        time: 240,
-        inputs: { graphenium: 1, superconducting_coil: 3 },
-        outputs: { antimatter_containment: 1 },
+      nanoweave_shielding: {
+        id: 162,
+        name: 'Nanoweave Shielding',
+        time: 150,
+        inputs: {
+          tiridium_alloy: 1,
+          nanoweave: 5,
+          aerogel: 8,
+        },
+        outputs: {
+          nanoweave_shielding: 2,
+        },
+      },
+      biopolyne: {
+        id: 178,
+        name: 'Biopolyne',
+        time: 75,
+        inputs: {
+          bioxene: 2,
+          kryon: 1,
+          nanoweave: 3,
+        },
+        outputs: {
+          biopolyne: 5,
+        },
       },
       quadranium: {
         id: 93,
         name: 'Quadranium',
-        time: 285,
-        inputs: { tesserite: 5, kryon: 2 },
-        outputs: { quadranium: 3 },
-      },
-      antimatter: {
-        id: 162,
-        name: 'Antimatter',
-        time: 420,
-        inputs: { hydrogen: 100, antimatter_containment: 1 },
-        outputs: { antimatter: 1 },
+        time: 45,
+        inputs: {
+          tesserite: 1,
+          kryon: 1,
+          sulfuric_acid: 4,
+        },
+        outputs: {
+          quadranium: 1,
+        },
       },
       starglass: {
-        id: 178,
-        name: 'Starglass',
-        time: 225,
-        inputs: { quadranium: 1, graphenium: 2, kryon: 2 },
-        outputs: { starglass: 1 },
-      },
-      graphenium: {
         id: 187,
-        name: 'Graphenium',
-        time: 135,
-        inputs: { graphene: 5, tesserite: 3, kryon: 1 },
-        outputs: { graphenium: 1 },
+        name: 'Starglass',
+        time: 150,
+        inputs: {
+          kryon: 2,
+          carbon_nanotubes: 2,
+          quadranium: 1,
+          aerogel: 3,
+        },
+        outputs: {
+          starglass: 2,
+        },
+      },
+      antimatter: {
+        id: 17,
+        name: 'Antimatter',
+        time: 180,
+        inputs: {
+          hydrogen: 5,
+          kryon: 5,
+          quadranium: 1,
+          antimatter_containment: 1,
+          superconducting_coil: 3,
+        },
+        outputs: {
+          antimatter: 1,
+        },
       },
     },
   },
@@ -105,18 +161,30 @@ export const TIER4_BUILDINGS: Record<string, Building> = {
     tier: 4,
     recipes: {
       quantum_research_data: {
-        id: 180,
-        name: 'Quantum Research Data',
-        time: 900,
-        inputs: { quadranium: 1, apex_research_data: 3, quantum_mainframe: 1 },
-        outputs: { quantum_research_data: 1 },
-      },
-      aicore: {
         id: 189,
-        name: 'AICore',
-        time: 1680,
-        inputs: { artificial_intelligence: 6, quantum_mainframe: 1 },
-        outputs: { aicore: 1 },
+        name: 'Quantum Research Data',
+        time: 720,
+        inputs: {
+          bioxene: 10,
+          biopolyne: 5,
+          quantum_mainframe: 1,
+        },
+        outputs: {
+          quantum_research_data: 2,
+        },
+      },
+      quantum_research_data_alt: {
+        id: 180,
+        name: 'Quantum Research Data (Alternative)',
+        time: 1155,
+        inputs: {
+          quadranium: 5,
+          superconducting_coil: 10,
+          aicore: 1,
+        },
+        outputs: {
+          quantum_research_data: 5,
+        },
       },
     },
   },
@@ -130,40 +198,73 @@ export const TIER4_BUILDINGS: Record<string, Building> = {
     industryType: 'Electronics',
     tier: 4,
     recipes: {
-      superconducting_coil: {
+      quantum_mainframe: {
+        id: 190,
+        name: 'Quantum Mainframe',
+        time: 450,
+        inputs: {
+          nanoweave_shielding: 1,
+          field_cooling_system: 1,
+          graphenium_wire: 5,
+          operating_system: 1,
+        },
+        outputs: {
+          quantum_mainframe: 1,
+        },
+      },
+      aicore: {
         id: 157,
-        name: 'Superconducting Coil',
-        time: 135,
-        inputs: { graphenium: 1, copper_wire: 25 },
-        outputs: { superconducting_coil: 4 },
+        name: 'AICore',
+        time: 405,
+        inputs: {
+          field_cooling_system: 1,
+          control_console: 1,
+          quantum_mainframe: 1,
+          artificial_intelligence: 1,
+        },
+        outputs: {
+          aicore: 1,
+        },
       },
-      graphenium_wire: {
+      extra_dimensional_ftl_emitter: {
         id: 176,
-        name: 'Graphenium Wire',
-        time: 120,
-        inputs: { graphenium: 1 },
-        outputs: { graphenium_wire: 5 },
+        name: 'Extra-dimensional FTL Emitter',
+        time: 630,
+        inputs: {
+          starglass: 5,
+          field_cooling_system: 1,
+          ftl_field_controller: 1,
+          superconducting_coil: 3,
+        },
+        outputs: {
+          extra_dimensional_ftl_emitter: 2,
+        },
       },
-      starglass_hull_plate: {
+      nanites: {
         id: 179,
-        name: 'Starglass Hull Plate',
-        time: 900,
-        inputs: { starglass: 2, starlifter_structural_elements: 1, molecular_fusion_kit: 2 },
-        outputs: { starglass_hull_plate: 1 },
+        name: 'Nanites',
+        time: 120,
+        inputs: {
+          starglass: 1,
+          battery: 1,
+          advanced_processing_unit: 1,
+        },
+        outputs: {
+          nanites: 10,
+        },
       },
       neural_interface: {
         id: 184,
         name: 'Neural Interface',
         time: 360,
-        inputs: { biopolyne: 2, nanites: 3, quantum_mainframe: 1 },
-        outputs: { neural_interface: 1 },
-      },
-      quantum_mainframe: {
-        id: 190,
-        name: 'Quantum Mainframe',
-        time: 540,
-        inputs: { quadranium: 2, field_cooling_system: 2, graphenium_wire: 15 },
-        outputs: { quantum_mainframe: 1 },
+        inputs: {
+          biopolyne: 3,
+          advanced_processing_unit: 2,
+          graphenium_wire: 5,
+        },
+        outputs: {
+          neural_interface: 2,
+        },
       },
     },
   },
