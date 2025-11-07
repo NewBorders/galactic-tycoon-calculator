@@ -10,6 +10,8 @@ const props = defineProps<{
   buildingName: string
   units: number
   materialLookup: Map<number, { name: string }>
+  technologyLevel: number
+  requiredTech: number
 }>()
 
 const emit = defineEmits<{ remove: [] }>()
@@ -51,6 +53,10 @@ const productivityFactor = computed(() => props.reportRow?.productivityFactor ??
 const blockedReason = computed(() => props.reportRow?.blockedReason ?? null)
 const blockedByAbundance = computed(() => blockedReason.value === 'abundance')
 const blockedByFertility = computed(() => blockedReason.value === 'fertility')
+const blockedByTechnology = computed(() => blockedReason.value === 'technology')
+const technologyLevel = computed(() => props.technologyLevel ?? 0)
+const requiredTech = computed(() => props.requiredTech ?? 0)
+const hasTechnology = computed(() => technologyLevel.value >= requiredTech.value)
 
 function materialName(id: number) {
   return props.materialLookup.get(id)?.name ?? `#${id}`
@@ -97,6 +103,9 @@ function tierLabel(tier: number) {
           <div class="flex-1 min-w-0">
             <div class="font-semibold truncate">{{ recipe.output.name }}</div>
             <div class="text-xs text-slate-400">{{ buildingName }}</div>
+            <div class="text-xs" :class="hasTechnology ? 'text-slate-500' : 'text-amber-300'">
+              {{ translate('technologyLevel') }}: {{ technologyLevel }} / {{ requiredTech }}
+            </div>
             <div class="text-xs text-slate-500">
               {{ translate('baseCycleTime') }}: {{ formatMinutes(baseCycleMinutes) }} •
               {{ translate('actualCycleTime') }}: {{ formatMinutes(actualCycleMinutes) }}
@@ -157,6 +166,12 @@ function tierLabel(tier: number) {
           <template v-else-if="blockedByFertility">
             {{ translate('fertilityZeroWarning') }}
           </template>
+          <template v-else-if="blockedByTechnology">
+            {{ translate('technologyBlockedWarning') }}
+          </template>
+        </div>
+        <div v-else-if="!hasTechnology" class="mt-2 text-xs text-amber-300">
+          {{ translate('technologyRequirement') }} {{ requiredTech }}
         </div>
         <div v-else-if="workforceFactor < 0.999" class="mt-2 text-xs text-amber-300">
           {{ translate('workforcePenalty') }}

@@ -14,6 +14,8 @@ const props = defineProps<{
   gameData: GameData
   index: GdIndex
   priceResolver: (materialId: number) => number
+  technologyLevels: Partial<Record<number, number>>
+  startingBonus: number
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean }
 }>()
@@ -29,6 +31,7 @@ const emit = defineEmits<{
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
   setOptionalConsumables: [materialIds: number[]]
+  updateStock: [Record<number, number>]
   persist: []
   toggleBase: [open: boolean]
   toggleSection: [{ which: 'buildings' | 'production'; open: boolean }]
@@ -210,6 +213,8 @@ function onKey(e: KeyboardEvent) {
           :game-data="props.gameData"
           :index="props.index"
           :price-resolver="props.priceResolver"
+          :technology-levels="props.technologyLevels"
+          :starting-bonus="props.startingBonus"
           @addRecipe="
             (payload) => {
               $emit('addRecipe', payload)
@@ -231,6 +236,12 @@ function onKey(e: KeyboardEvent) {
           @updateOptional="
             (materialIds) => {
               $emit('setOptionalConsumables', materialIds)
+              $emit('persist')
+            }
+          "
+          @updateStock="
+            (stock) => {
+              $emit('updateStock', stock)
               $emit('persist')
             }
           "
