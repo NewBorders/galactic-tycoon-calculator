@@ -183,7 +183,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     pending.forEach(({ recipe, abundanceFactor, blocked, effectiveTime }) => {
       const timeContribution = !blocked && abundanceFactor > 0 ? effectiveTime : 0
       const queueShare = totalCycleTime > 0 ? timeContribution / totalCycleTime : 0
-      const rawRunsPerDay = totalCyclesPerDay * queueShare
+      const rawRunsPerDay = blocked || totalCyclesPerDay <= 0 ? 0 : totalCyclesPerDay
       const rawOutputPerDay = rawRunsPerDay * recipe.output.amount
       const rawInputsPerDay = recipe.inputs.map((input) => ({
         materialId: input.id,
