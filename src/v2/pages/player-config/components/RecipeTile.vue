@@ -48,7 +48,9 @@ const workforce = computed(() => props.reportRow?.workforce ?? [])
 const workforceFactor = computed(() => props.reportRow?.workforceFactor ?? 1)
 const abundanceFactor = computed(() => props.reportRow?.abundanceFactor ?? 1)
 const productivityFactor = computed(() => props.reportRow?.productivityFactor ?? 1)
-const blockedByAbundance = computed(() => props.reportRow?.blockedByAbundance ?? false)
+const blockedReason = computed(() => props.reportRow?.blockedReason ?? null)
+const blockedByAbundance = computed(() => blockedReason.value === 'abundance')
+const blockedByFertility = computed(() => blockedReason.value === 'fertility')
 
 function materialName(id: number) {
   return props.materialLookup.get(id)?.name ?? `#${id}`
@@ -148,8 +150,13 @@ function tierLabel(tier: number) {
             {{ translate('abundanceFactor') }}: {{ formatShare(abundanceFactor * 100) }}
           </div>
         </div>
-        <div v-if="blockedByAbundance" class="mt-2 text-xs text-amber-300">
-          {{ translate('abundanceZeroWarning') }}
+        <div v-if="blockedReason" class="mt-2 text-xs text-amber-300">
+          <template v-if="blockedByAbundance">
+            {{ translate('abundanceZeroWarning') }}
+          </template>
+          <template v-else-if="blockedByFertility">
+            {{ translate('fertilityZeroWarning') }}
+          </template>
         </div>
         <div v-else-if="workforceFactor < 0.999" class="mt-2 text-xs text-amber-300">
           {{ translate('workforcePenalty') }}

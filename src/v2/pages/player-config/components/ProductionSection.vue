@@ -5,6 +5,7 @@ import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import type { Recipe } from '@/v2/services/gamedata/service'
 import { computeBaseReport, productionUnitsFromLevel } from '@/v2/services/production/engine'
+import { evaluateRecipeAvailability } from '@/v2/services/production/availability'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
 import RecipeTile from './RecipeTile.vue'
@@ -34,14 +35,6 @@ const query = ref('')
 const optionalActive = ref<Set<number>>(new Set())
 
 const planet = computed(() => props.index.planetById.get(props.base.planetId))
-const abundanceByMaterialId = computed(() => {
-  const map = new Map<number, number>()
-  planet.value?.materials.forEach((mat) => {
-    map.set(mat.id, mat.abundanceRating ?? 0)
-  })
-  return map
-})
-
 const buildingUnits = computed(() => {
   const acc = new Map<number, number>()
   props.base.buildings.forEach((b) => {
@@ -128,17 +121,22 @@ const suggestions = computed(() => {
       const units = buildingUnits.value.get(recipe.producedInId) ?? 0
       const workerNeeds = building?.workersNeeded
       const alreadySelected = selectedRecipeIds.value.has(recipe.id)
-      const abundanceRating = abundanceByMaterialId.value.get(recipe.output.id)
-      const hasAbundance = (abundanceRating ?? 0) > 0
+      const material = props.index.materialById.get(recipe.output.id)
+      const availability = evaluateRecipeAvailability({
+        planet: planet.value,
+        building,
+        material,
+      })
       const hasBuilding = units > 0
+      const blockedReason = availability.blocked ? availability.reason : null
       return {
         recipe,
         buildingName: building?.name ?? `#${recipe.producedInId}`,
         hasBuilding,
-        hasAbundance,
-        abundanceRating: abundanceRating ?? null,
+        abundanceRating: availability.abundanceRating,
+        blockedReason,
         alreadySelected,
-        disabled: alreadySelected || !hasBuilding || !hasAbundance,
+        disabled: alreadySelected || !hasBuilding || availability.blocked,
         units,
         inputs: recipe.inputs.map((i) => ({
           name: props.index.materialById.get(i.id)?.name ?? `#${i.id}`,
@@ -160,8 +158,14 @@ function addRecipe(recipe: Recipe) {
   const buildingId = recipe.producedInId
   const units = buildingUnits.value.get(buildingId) ?? 0
   if (units <= 0) return
-  const abundance = abundanceByMaterialId.value.get(recipe.output.id) ?? 0
-  if (abundance <= 0) return
+  const building = props.index.buildingById.get(buildingId)
+  const material = props.index.materialById.get(recipe.output.id)
+  const availability = evaluateRecipeAvailability({
+    planet: planet.value,
+    building,
+    material,
+  })
+  if (availability.blocked) return
   if (selectedRecipeIds.value.has(recipe.id)) return
 
   emit('addRecipe', { recipeId: recipe.id })
@@ -313,8 +317,11 @@ watch(
               <div v-if="!item.hasBuilding" class="text-xs text-red-400">
                 {{ translate('requiresBuilding') }} {{ item.buildingName }}
               </div>
-              <div v-else-if="!item.hasAbundance" class="text-xs text-amber-300">
+              <div v-else-if="item.blockedReason === 'abundance'" class="text-xs text-amber-300">
                 {{ translate('requiresAbundance') }}
+              </div>
+              <div v-else-if="item.blockedReason === 'fertility'" class="text-xs text-amber-300">
+                {{ translate('requiresFertility') }}
               </div>
             </button>
           </template>

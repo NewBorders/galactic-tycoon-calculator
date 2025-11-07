@@ -1,4 +1,5 @@
 import type { Building, GameData, Material, Planet, Recipe, Worker } from '../gamedata/types'
+import { evaluateRecipeAvailability } from './availability'
 import {
   type BaseProductionContext,
   type BaseReport,
@@ -31,14 +32,6 @@ function addToMap(map: Map<number, number>, key: number, value: number) {
   map.set(key, prev + value)
 }
 
-function abundanceMultiplier(planet: Planet | undefined, materialId: number): number {
-  if (!planet) return 1
-  const entry = planet.materials.find((mat) => mat.id === materialId)
-  if (!entry) return 1
-  if (!entry.abundanceRating) return 0
-  return entry.abundanceRating / 100
-}
-
 type WorkforceDemand = Map<number, number>
 
 type WorkerConsumptionEntry = {
@@ -64,7 +57,7 @@ type InterimRow = {
   workforceDemand: WorkforceDemand
   productivityFactor: number
   abundanceFactor: number
-  blockedByAbundance: boolean
+  blockedReason: 'abundance' | 'fertility' | null
 }
 
 export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): BaseReport {
@@ -198,6 +191,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       recipe: Recipe
       abundanceFactor: number
       blocked: boolean
+      blockedReason: 'abundance' | 'fertility' | null
       adjustedTime: number
     }
 
@@ -205,8 +199,14 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     let totalCycleTime = 0
 
     recipes.forEach((recipe) => {
-      const abundanceFactor = abundanceMultiplier(planet, recipe.output.id)
-      const blocked = abundanceFactor <= 0
+      const material = materialById.get(recipe.output.id)
+      const availability = evaluateRecipeAvailability({
+        planet,
+        building,
+        material,
+      })
+      const abundanceFactor = availability.abundanceFactor
+      const blocked = availability.blocked
       const workforceSatisfaction = Math.max(productivityFactor, 0)
       const buildingProductivity = 1
       const baseSpeed =
@@ -217,13 +217,19 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       if (timeContribution > 0 && Number.isFinite(timeContribution)) {
         totalCycleTime += timeContribution
       }
-      pending.push({ recipe, abundanceFactor, blocked, adjustedTime })
+      pending.push({
+        recipe,
+        abundanceFactor,
+        blocked,
+        blockedReason: availability.reason,
+        adjustedTime,
+      })
     })
 
     const nominalCyclesPerDayPerUnit = totalCycleTime > 0 ? MINUTES_PER_DAY / totalCycleTime : 0
     const totalCyclesPerDay = nominalCyclesPerDayPerUnit * productionUnits
 
-    pending.forEach(({ recipe, abundanceFactor, blocked, adjustedTime }) => {
+    pending.forEach(({ recipe, abundanceFactor, blocked, blockedReason, adjustedTime }) => {
       const timeContribution = !blocked && Number.isFinite(adjustedTime) ? adjustedTime : 0
       const queueShare = totalCycleTime > 0 ? timeContribution / totalCycleTime : 0
       const rawRunsPerDay = blocked || totalCyclesPerDay <= 0 ? 0 : totalCyclesPerDay
@@ -258,7 +264,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         workforceDemand,
         productivityFactor,
         abundanceFactor,
-        blockedByAbundance: blocked,
+        blockedReason,
       })
     })
   })
@@ -327,7 +333,8 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       abundanceFactor: raw.abundanceFactor,
       productivityFactor: raw.productivityFactor,
       workforceFactor,
-      blockedByAbundance: raw.blockedByAbundance,
+      blockedByAbundance: raw.blockedReason === 'abundance',
+      blockedReason: raw.blockedReason,
     }
     recipeRows.push(row)
 
