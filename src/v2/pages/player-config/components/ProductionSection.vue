@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import Draggable from 'vuedraggable'
 import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
@@ -9,6 +9,7 @@ import { evaluateRecipeAvailability } from '@/v2/services/production/availabilit
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
 import RecipeTile from './RecipeTile.vue'
+import { importStockText } from '@/v2/services/stock/import'
 
 const TIER_LABEL_KEYS: Record<1 | 2 | 3 | 4, string> = {
   1: 'workerTier1',
@@ -22,6 +23,8 @@ const props = defineProps<{
   gameData: GameData
   index: GdIndex
   priceResolver: (materialId: number) => number
+  technologyLevels: Partial<Record<number, number>>
+  startingBonus: number
 }>()
 
 const emit = defineEmits<{
@@ -29,10 +32,44 @@ const emit = defineEmits<{
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
   updateOptional: [number[]]
+  updateStock: [Record<number, number>]
 }>()
 
 const query = ref('')
 const optionalActive = ref<Set<number>>(new Set())
+const stockImportText = ref('')
+const stockImportStatus = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
+let stockImportTimeout: ReturnType<typeof setTimeout> | null = null
+
+const technologyLevelMap = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.technologyLevels ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    map.set(spec, Math.max(0, Math.floor(level)))
+  })
+  return map
+})
+
+const technologyLevelsOption = computed(() => {
+  const obj: Record<number, number> = {}
+  technologyLevelMap.value.forEach((level, spec) => {
+    obj[spec] = level
+  })
+  return obj
+})
+
+const stockByMaterialId = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.base.stock ?? {}).forEach(([key, value]) => {
+    const materialId = Number(key)
+    const amount = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(materialId) || Number.isNaN(amount) || amount < 0) return
+    map.set(materialId, amount)
+  })
+  return map
+})
 
 const planet = computed(() => props.index.planetById.get(props.base.planetId))
 const buildingUnits = computed(() => {
@@ -60,7 +97,12 @@ const report = computed(() =>
   computeBaseReport(props.gameData, {
     assignment: assignment.value,
     horizonDays: 1,
-    options: { activeOptionalConsumables: optionalActive.value, priceResolver: props.priceResolver },
+    options: {
+      activeOptionalConsumables: optionalActive.value,
+      priceResolver: props.priceResolver,
+      technologyLevels: technologyLevelsOption.value,
+      startingBonus: props.startingBonus,
+    },
   }),
 )
 
@@ -78,17 +120,28 @@ const hasRecipes = computed(() => props.base.recipes.length > 0)
 const cardsById = computed(() => {
   const map = new Map<
     string,
-    { recipe: Recipe; reportRow?: RecipeProductionRow; buildingName: string; units: number }
+    {
+      recipe: Recipe
+      reportRow?: RecipeProductionRow
+      buildingName: string
+      units: number
+      technologyLevel: number
+      requiredTech: number
+    }
   >()
   props.base.recipes.forEach((selection) => {
     const recipe = props.index.recipeById.get(selection.recipeId)
     if (!recipe) return
     const building = props.index.buildingById.get(recipe.producedInId)
+    const technologyLevel = building ? technologyLevelMap.value.get(building.specialization) ?? 0 : 0
+    const requiredTech = recipe.reqTech ?? 0
     map.set(selection.id, {
       recipe,
       reportRow: reportByRecipeId.value.get(recipe.id),
       buildingName: building?.name ?? `#${recipe.producedInId}`,
       units: buildingUnits.value.get(recipe.producedInId) ?? 0,
+      technologyLevel,
+      requiredTech,
     })
   })
   return map
@@ -128,7 +181,15 @@ const suggestions = computed(() => {
         material,
       })
       const hasBuilding = units > 0
-      const blockedReason = availability.blocked ? availability.reason : null
+      const technologyLevel = building ? technologyLevelMap.value.get(building.specialization) ?? 0 : 0
+      const requiredTech = recipe.reqTech ?? 0
+      const technologySatisfied = technologyLevel >= requiredTech
+      const availabilityBlocked = availability.blocked
+      const blockedReason = !technologySatisfied
+        ? 'technology'
+        : availabilityBlocked
+          ? availability.reason
+          : null
       return {
         recipe,
         buildingName: building?.name ?? `#${recipe.producedInId}`,
@@ -136,8 +197,11 @@ const suggestions = computed(() => {
         abundanceRating: availability.abundanceRating,
         blockedReason,
         alreadySelected,
-        disabled: alreadySelected || !hasBuilding || availability.blocked,
+        disabled: alreadySelected || !hasBuilding || !technologySatisfied || availabilityBlocked,
         units,
+        technologyLevel,
+        requiredTech,
+        technologySatisfied,
         inputs: recipe.inputs.map((i) => ({
           name: props.index.materialById.get(i.id)?.name ?? `#${i.id}`,
           amount: i.amount,
@@ -166,6 +230,8 @@ function addRecipe(recipe: Recipe) {
     material,
   })
   if (availability.blocked) return
+  const technologyLevel = building ? technologyLevelMap.value.get(building.specialization) ?? 0 : 0
+  if (technologyLevel < (recipe.reqTech ?? 0)) return
   if (selectedRecipeIds.value.has(recipe.id)) return
 
   emit('addRecipe', { recipeId: recipe.id })
@@ -187,8 +253,34 @@ function formatShare(value: number) {
   return `${formatNumber(value, 1)}%`
 }
 
+function formatCoverage(days: number | null) {
+  if (days == null || !Number.isFinite(days)) return '—'
+  if (days <= 0) return '0h'
+  const totalHours = days * 24
+  const dayPart = Math.floor(totalHours / 24)
+  const hourPart = Math.floor(totalHours - dayPart * 24)
+  const remainderMinutes = Math.round((totalHours - Math.floor(totalHours)) * 60)
+  const parts: string[] = []
+  if (dayPart > 0) parts.push(`${dayPart}d`)
+  if (hourPart > 0) parts.push(`${hourPart}h`)
+  if (!parts.length) {
+    if (remainderMinutes > 0) {
+      parts.push(translate('lessThanHour'))
+    } else {
+      parts.push('0h')
+    }
+  }
+  return parts.join(' ')
+}
+
 const summary = computed(() => report.value.summary)
-const materialRows = computed(() => report.value.materials)
+const materialRows = computed(() =>
+  report.value.materials.map((row) => {
+    const stock = stockByMaterialId.value.get(row.materialId) ?? 0
+    const daysCoverage = row.balancePerDay < 0 ? (stock > 0 ? stock / -row.balancePerDay : 0) : null
+    return { ...row, stock, daysCoverage }
+  }),
+)
 const workerRows = computed(() => {
   const rows = report.value.workers.slice()
   rows.sort((a, b) => {
@@ -247,6 +339,45 @@ function coverageClass(value: number) {
   return 'text-rose-300'
 }
 
+function handleStockImport() {
+  const text = stockImportText.value.trim()
+  if (!text) {
+    stockImportStatus.value = null
+    return
+  }
+
+  const result = importStockText(text, props.gameData.materials)
+  if (result.success) {
+    const merged: Record<number, number> = {}
+    Object.entries(props.base.stock ?? {}).forEach(([key, value]) => {
+      const id = Number(key)
+      const amount = typeof value === 'number' ? value : Number(value)
+      if (!Number.isFinite(id) || Number.isNaN(amount) || amount < 0) return
+      merged[id] = amount
+    })
+    Object.entries(result.stock).forEach(([key, value]) => {
+      const id = Number(key)
+      if (!Number.isFinite(id)) return
+      merged[id] = value
+    })
+    emit('updateStock', merged)
+    const parts = [`${translate('stockImportImported')}: ${result.processed}`]
+    if (result.missing.length) {
+      parts.push(`${translate('stockImportMissing')}: ${result.missing.length}`)
+    }
+    stockImportStatus.value = { kind: 'success', message: parts.join(' · ') }
+  } else {
+    stockImportStatus.value = {
+      kind: 'error',
+      message: result.error === 'empty' ? translate('stockImportNoValid') : translate('stockImportError'),
+    }
+  }
+}
+
+function stockStatusClass(kind: 'success' | 'error') {
+  return kind === 'success' ? 'text-emerald-300' : 'text-rose-300'
+}
+
 watch(
   () => props.base.optionalConsumables,
   (list) => {
@@ -254,6 +385,40 @@ watch(
   },
   { immediate: true },
 )
+
+watch(
+  () => props.base.id,
+  () => {
+    stockImportStatus.value = null
+    stockImportText.value = ''
+    if (stockImportTimeout !== null) {
+      clearTimeout(stockImportTimeout)
+      stockImportTimeout = null
+    }
+  },
+)
+
+watch(stockImportText, (value) => {
+  if (stockImportTimeout !== null) {
+    clearTimeout(stockImportTimeout)
+    stockImportTimeout = null
+  }
+
+  if (!value.trim()) {
+    stockImportStatus.value = null
+    return
+  }
+
+  stockImportTimeout = setTimeout(() => {
+    handleStockImport()
+  }, 300)
+})
+
+onBeforeUnmount(() => {
+  if (stockImportTimeout !== null) {
+    clearTimeout(stockImportTimeout)
+  }
+})
 </script>
 
 <template>
@@ -314,8 +479,17 @@ watch(
                   }}
                 </span>
               </div>
+              <div class="text-xs text-slate-500">
+                {{ translate('technologyLevel') }}: {{ item.technologyLevel }} / {{ item.requiredTech }}
+              </div>
+              <div v-if="!item.technologySatisfied" class="text-xs text-amber-300">
+                {{ translate('technologyRequirement') }} {{ item.requiredTech }}
+              </div>
               <div v-if="!item.hasBuilding" class="text-xs text-red-400">
                 {{ translate('requiresBuilding') }} {{ item.buildingName }}
+              </div>
+              <div v-else-if="item.blockedReason === 'technology'" class="text-xs text-amber-300">
+                {{ translate('technologyRequirement') }} {{ item.requiredTech }}
               </div>
               <div v-else-if="item.blockedReason === 'abundance'" class="text-xs text-amber-300">
                 {{ translate('requiresAbundance') }}
@@ -343,6 +517,8 @@ watch(
                 :report-row="cardsById.get(element.id)!.reportRow"
                 :building-name="cardsById.get(element.id)!.buildingName"
                 :units="cardsById.get(element.id)!.units"
+                :technology-level="cardsById.get(element.id)!.technologyLevel"
+                :required-tech="cardsById.get(element.id)!.requiredTech"
                 :material-lookup="props.index.materialById"
                 @remove="removeRecipe(element.id)"
               />
@@ -355,6 +531,24 @@ watch(
     </div>
 
     <div class="space-y-4">
+      <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
+        <div class="font-semibold">{{ translate('stockImportTitle') }}</div>
+        <p class="text-xs text-slate-400">{{ translate('stockImportDescription') }}</p>
+        <textarea
+          v-model="stockImportText"
+          class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+          rows="3"
+          :placeholder="translate('stockImportPlaceholder')"
+        />
+        <span
+          v-if="stockImportStatus"
+          class="block text-xs"
+          :class="stockStatusClass(stockImportStatus.kind)"
+        >
+          {{ stockImportStatus.message }}
+        </span>
+      </div>
+
       <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
         <div class="font-semibold">{{ translate('dailySummary') }}</div>
         <div class="text-sm text-slate-300 flex flex-col gap-1">
@@ -487,6 +681,7 @@ watch(
                 <th class="text-left pb-1">{{ translate('material') }}</th>
                 <th class="text-right pb-1">{{ translate('perDay') }}</th>
                 <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
+                <th class="text-right pb-1">{{ translate('stockCoverage') }}</th>
                 <th class="text-right pb-1">{{ translate('netResult') }}</th>
               </tr>
             </thead>
@@ -500,6 +695,9 @@ watch(
                   {{ formatNumber(row.balancePerDay) }}
                 </td>
                 <td class="py-1 text-right">{{ formatNumber(row.unitPrice, 2) }}</td>
+                <td class="py-1 text-right">
+                  {{ row.balancePerDay < 0 ? formatCoverage(row.daysCoverage ?? null) : '—' }}
+                </td>
                 <td class="py-1 text-right">{{ formatNumber(row.valuePerDay) }}</td>
               </tr>
             </tbody>

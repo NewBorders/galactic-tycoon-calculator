@@ -54,7 +54,7 @@ export type RecipeProductionRow = {
   productivityFactor: number
   workforceFactor: number
   blockedByAbundance: boolean
-  blockedReason: 'abundance' | 'fertility' | null
+  blockedReason: 'abundance' | 'fertility' | 'technology' | null
 }
 
 export type BaseReport = {
