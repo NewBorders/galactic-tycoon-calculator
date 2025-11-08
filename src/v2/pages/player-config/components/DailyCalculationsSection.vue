@@ -96,7 +96,7 @@ const materialRows = computed(() =>
     const daysCoverage = row.balancePerDay < 0 ? (stock > 0 ? stock / -row.balancePerDay : 0) : null
     const balancePerPeriod = row.balancePerDay * periodFactor.value
     const valuePerPeriod = row.valuePerDay * periodFactor.value
-    const toBuy = row.balancePerDay < 0 ? -balancePerPeriod : 0
+    const toBuy = row.balancePerDay < 0 ? Math.max(0, -balancePerPeriod - stock) : 0
     return { ...row, stock, daysCoverage, balancePerPeriod, valuePerPeriod, toBuy }
   }),
 )
