@@ -13,6 +13,7 @@ const props = defineProps<{
   priceResolver: (materialId: number) => number
   technologyLevels: Partial<Record<number, number>>
   startingBonus: number
+  timeframeHours: number
 }>()
 
 const emit = defineEmits<{
@@ -24,6 +25,16 @@ const optionalActive = ref<Set<number>>(new Set())
 const stockImportText = ref('')
 const stockImportStatus = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
 let stockImportTimeout: ReturnType<typeof setTimeout> | null = null
+
+const timeframeHours = computed(() => {
+  const hours = Number(props.timeframeHours)
+  if (!Number.isFinite(hours)) return 24
+  return Math.min(336, Math.max(1, Math.round(hours)))
+})
+
+const periodFactor = computed(() => timeframeHours.value / 24)
+
+const periodLabel = computed(() => translate('perHours', { hours: timeframeHours.value }))
 
 const technologyLevelMap = computed(() => {
   const map = new Map<number, number>()
@@ -83,7 +94,10 @@ const materialRows = computed(() =>
   report.value.materials.map((row) => {
     const stock = stockByMaterialId.value.get(row.materialId) ?? 0
     const daysCoverage = row.balancePerDay < 0 ? (stock > 0 ? stock / -row.balancePerDay : 0) : null
-    return { ...row, stock, daysCoverage }
+    const balancePerPeriod = row.balancePerDay * periodFactor.value
+    const valuePerPeriod = row.valuePerDay * periodFactor.value
+    const toBuy = row.balancePerDay < 0 ? Math.max(0, -balancePerPeriod - stock) : 0
+    return { ...row, stock, daysCoverage, balancePerPeriod, valuePerPeriod, toBuy }
   }),
 )
 
@@ -99,7 +113,17 @@ const workerRows = computed(() => {
 
 const workforceSummary = computed(() => report.value.workforceSummary)
 
-const totalWorkerCosts = computed(() => workerRows.value.reduce((acc, row) => acc + row.costPerDay, 0))
+const workerDisplayRows = computed(() =>
+  workerRows.value.map((row) => ({
+    ...row,
+    consumptionPerPeriod: row.consumptionPerDay * periodFactor.value,
+    costPerPeriod: row.costPerDay * periodFactor.value,
+  })),
+)
+
+const totalWorkerCosts = computed(() =>
+  workerDisplayRows.value.reduce((acc, row) => acc + row.costPerPeriod, 0),
+)
 
 const optionalConsumables = computed(() => {
   const groups: Array<{ tier: 1 | 2 | 3 | 4; options: Array<{ materialId: number; amount: number }> }> = []
@@ -258,7 +282,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="grid gap-4 lg:grid-cols-2">
     <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
       <div class="font-semibold">{{ translate('stockImportTitle') }}</div>
       <p class="text-xs text-slate-400">{{ translate('stockImportDescription') }}</p>
@@ -329,20 +353,20 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
-      <template v-if="workerRows.length">
+      <template v-if="workerDisplayRows.length">
         <table class="w-full text-sm">
           <thead class="text-slate-400 text-xs uppercase">
             <tr>
               <th class="text-left pb-1">Tier</th>
               <th class="text-left pb-1">{{ translate('material') }}</th>
-              <th class="text-right pb-1">{{ translate('perDay') }}</th>
+              <th class="text-right pb-1">{{ periodLabel }}</th>
               <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
               <th class="text-right pb-1">{{ translate('totalCosts') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="row in workerRows"
+              v-for="row in workerDisplayRows"
               :key="row.tier + '-' + row.materialId"
               class="border-t border-slate-800/60"
               :class="{ 'opacity-60': row.optional && !row.active }"
@@ -358,9 +382,9 @@ onBeforeUnmount(() => {
                   {{ row.active ? translate('optionalActive') : translate('optionalInactive') }}
                 </span>
               </td>
-              <td class="py-1 text-right">{{ formatNumber(row.consumptionPerDay) }}</td>
+              <td class="py-1 text-right">{{ formatNumber(row.consumptionPerPeriod) }}</td>
               <td class="py-1 text-right">{{ formatNumber(row.unitPrice, 2) }}</td>
-              <td class="py-1 text-right">{{ formatNumber(row.costPerDay) }}</td>
+              <td class="py-1 text-right">{{ formatNumber(row.costPerPeriod) }}</td>
             </tr>
           </tbody>
         </table>
@@ -379,8 +403,9 @@ onBeforeUnmount(() => {
           <thead class="text-slate-400 text-xs uppercase">
             <tr>
               <th class="text-left pb-1">{{ translate('material') }}</th>
-              <th class="text-right pb-1">{{ translate('perDay') }}</th>
+              <th class="text-right pb-1">{{ periodLabel }}</th>
               <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
+              <th class="text-right pb-1">{{ translate('toBuy') }}</th>
               <th class="text-right pb-1">{{ translate('stockCoverage') }}</th>
               <th class="text-right pb-1">{{ translate('netResult') }}</th>
             </tr>
@@ -392,13 +417,16 @@ onBeforeUnmount(() => {
                 class="py-1 text-right"
                 :class="row.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300'"
               >
-                {{ formatNumber(row.balancePerDay) }}
+                {{ formatNumber(row.balancePerPeriod) }}
               </td>
               <td class="py-1 text-right">{{ formatNumber(row.unitPrice, 2) }}</td>
               <td class="py-1 text-right">
+                {{ row.toBuy > 0 ? formatNumber(row.toBuy) : '—' }}
+              </td>
+              <td class="py-1 text-right">
                 {{ row.balancePerDay < 0 ? formatCoverage(row.daysCoverage ?? null) : '—' }}
               </td>
-              <td class="py-1 text-right">{{ formatNumber(row.valuePerDay) }}</td>
+              <td class="py-1 text-right">{{ formatNumber(row.valuePerPeriod) }}</td>
             </tr>
           </tbody>
         </table>

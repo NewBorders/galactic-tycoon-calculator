@@ -18,6 +18,7 @@ const props = defineProps<{
   priceResolver: (materialId: number) => number
   technologyLevels: Partial<Record<number, number>>
   startingBonus: number
+  timeframeHours: number
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean; dailySummary: boolean }
 }>()
@@ -208,7 +209,7 @@ function onKey(e: KeyboardEvent) {
       "
     >
       <summary class="px-3 py-2 cursor-pointer font-medium">
-        {{ translate('dailySummary') }}
+        {{ translate('summaryForHours', { hours: props.timeframeHours }) }}
 <!--        <div class="mt-2 space-y-2 px-3">-->
           <BaseSummaryCard
             :base="base"
@@ -217,6 +218,7 @@ function onKey(e: KeyboardEvent) {
             :price-resolver="props.priceResolver"
             :technology-levels="props.technologyLevels"
             :starting-bonus="props.startingBonus"
+            :timeframe-hours="props.timeframeHours"
           />
 <!--        </div>-->
       </summary>
@@ -228,6 +230,7 @@ function onKey(e: KeyboardEvent) {
           :price-resolver="props.priceResolver"
           :technology-levels="props.technologyLevels"
           :starting-bonus="props.startingBonus"
+          :timeframe-hours="props.timeframeHours"
           @updateOptional="
             (materialIds) => {
               $emit('setOptionalConsumables', materialIds)
@@ -266,6 +269,7 @@ function onKey(e: KeyboardEvent) {
           :price-resolver="props.priceResolver"
           :technology-levels="props.technologyLevels"
           :starting-bonus="props.startingBonus"
+          :timeframe-hours="props.timeframeHours"
           @addRecipe="
             (payload) => {
               $emit('addRecipe', payload)
