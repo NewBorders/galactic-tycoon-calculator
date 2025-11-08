@@ -103,6 +103,9 @@ function tierLabel(tier: number) {
           <div class="flex-1 min-w-0">
             <div class="font-semibold truncate">{{ recipe.output.name }}</div>
             <div class="text-xs text-slate-400">{{ buildingName }}</div>
+            <div class="text-xs" :class="hasTechnology ? 'text-slate-500' : 'text-amber-300'">
+              {{ translate('technologyLevel') }}: {{ technologyLevel }} / {{ requiredTech }}
+            </div>
             <div class="text-xs text-slate-500">
               {{ translate('baseCycleTime') }}: {{ formatMinutes(baseCycleMinutes) }} •
               {{ translate('actualCycleTime') }}: {{ formatMinutes(actualCycleMinutes) }}
