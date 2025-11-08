@@ -12,9 +12,10 @@ export type PlayerBase = {
   buildings: PlayerBuilding[]
   recipes: PlayerRecipe[]
   optionalConsumables?: number[]
+  stock?: Record<number, number>
 }
 
-type UiSections = { buildings: boolean; production: boolean }
+type UiSections = { buildings: boolean; production: boolean; dailySummary: boolean }
 type UiState = {
   basesOpen: Record<string, boolean>
   sections: Record<string, UiSections> // key = baseId
@@ -25,8 +26,21 @@ export type PlayerState = {
   ui: UiState
 }
 
-const LS_KEY = 'gt:v2:player:bases:v1'
+const LS_KEY = 'gt:v2:player:bases:v2'
 const uid = () => Math.random().toString(36).slice(2, 10)
+
+function sanitizeStock(stock: Record<number, number> | undefined | null): Record<number, number> {
+  if (!stock || typeof stock !== 'object') return {}
+  const result: Record<number, number> = {}
+  Object.entries(stock).forEach(([key, value]) => {
+    const id = Number(key)
+    const amount = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(id) || Number.isNaN(amount)) return
+    if (amount < 0) return
+    result[id] = amount
+  })
+  return result
+}
 
 function ensureUi(st: Partial<PlayerState>): PlayerState {
   const ui: UiState = {
@@ -48,6 +62,7 @@ function ensureUi(st: Partial<PlayerState>): PlayerState {
     optionalConsumables: Array.isArray(base.optionalConsumables)
       ? [...new Set(base.optionalConsumables.filter((id): id is number => typeof id === 'number'))]
       : [],
+    stock: sanitizeStock(base.stock),
   }))
   return { bases, ui }
 }
@@ -93,7 +108,14 @@ export function usePlayerBases(gd: GameData) {
   function addBase(planetId: number) {
     if (planetHasBase(planetId)) return
     const id = crypto?.randomUUID?.() ?? `b_${Date.now()}`
-    state.value.bases.push({ id, planetId, buildings: [], recipes: [], optionalConsumables: [] })
+    state.value.bases.push({
+      id,
+      planetId,
+      buildings: [],
+      recipes: [],
+      optionalConsumables: [],
+      stock: {},
+    })
     saveState(state.value)
   }
 
@@ -180,6 +202,13 @@ export function usePlayerBases(gd: GameData) {
     saveState(state.value)
   }
 
+  function setStock(baseId: string, stock: Record<number, number>) {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    b.stock = sanitizeStock(stock)
+    saveState(state.value)
+  }
+
   // UI-State API
   function isBaseOpen(baseId: string): boolean {
     return !!state.value.ui.basesOpen[baseId]
@@ -191,7 +220,16 @@ export function usePlayerBases(gd: GameData) {
   }
 
   function getSections(baseId: string): UiSections {
-    return (state.value.ui.sections[baseId] ??= { buildings: false, production: false })
+    const sections = state.value.ui.sections[baseId]
+    if (sections) {
+      if (typeof sections.dailySummary !== 'boolean') {
+        sections.dailySummary = false
+      }
+      return sections
+    }
+    const initial: UiSections = { buildings: false, production: false, dailySummary: false }
+    state.value.ui.sections[baseId] = initial
+    return initial
   }
 
   function setSection(baseId: string, which: keyof UiSections, open: boolean) {
@@ -218,6 +256,7 @@ export function usePlayerBases(gd: GameData) {
     removeRecipe,
     reorderRecipes,
     setOptionalConsumables,
+    setStock,
     isBaseOpen,
     setBaseOpen,
     getSections,

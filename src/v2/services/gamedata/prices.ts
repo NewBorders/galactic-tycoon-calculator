@@ -373,6 +373,10 @@ export function useMaterialPricing(gameData: GameData) {
     loading: computed(() => priceStore.loading),
     error: computed(() => priceStore.error),
     lastFetched: computed(() => priceStore.lastFetched),
+    nextRefreshAt: computed(() =>
+      priceStore.lastFetched ? priceStore.lastFetched + POLL_INTERVAL : null,
+    ),
+    pollIntervalMs: POLL_INTERVAL,
     settings: readonly(priceStore.settings),
     setDefaultMode,
     setOverrideMode,
