@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import Draggable from 'vuedraggable'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
@@ -9,6 +9,7 @@ import { evaluateRecipeAvailability } from '@/v2/services/production/availabilit
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
 import RecipeTile from './RecipeTile.vue'
+import { importStockText } from '@/v2/services/stock/import'
 
 const props = defineProps<{
   base: PlayerBase
@@ -27,6 +28,39 @@ const emit = defineEmits<{
 
 const query = ref('')
 const optionalActive = ref<Set<number>>(new Set())
+const stockImportText = ref('')
+const stockImportStatus = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
+let stockImportTimeout: ReturnType<typeof setTimeout> | null = null
+
+const technologyLevelMap = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.technologyLevels ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    map.set(spec, Math.max(0, Math.floor(level)))
+  })
+  return map
+})
+
+const technologyLevelsOption = computed(() => {
+  const obj: Record<number, number> = {}
+  technologyLevelMap.value.forEach((level, spec) => {
+    obj[spec] = level
+  })
+  return obj
+})
+
+const stockByMaterialId = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.base.stock ?? {}).forEach(([key, value]) => {
+    const materialId = Number(key)
+    const amount = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(materialId) || Number.isNaN(amount) || amount < 0) return
+    map.set(materialId, amount)
+  })
+  return map
+})
 
 const technologyLevelMap = computed(() => {
   const map = new Map<number, number>()
