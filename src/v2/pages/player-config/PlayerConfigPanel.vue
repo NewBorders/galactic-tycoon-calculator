@@ -39,6 +39,28 @@ const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
 
 const query = ref('')
 
+const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
+const DEFAULT_TIMEFRAME_HOURS = 24
+
+function sanitizeTimeframe(value: unknown): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) return DEFAULT_TIMEFRAME_HOURS
+  const clamped = Math.min(336, Math.max(1, Math.round(numeric)))
+  return clamped
+}
+
+function loadTimeframe(): number {
+  try {
+    const raw = localStorage.getItem(TIMEFRAME_STORAGE_KEY)
+    if (raw == null) return DEFAULT_TIMEFRAME_HOURS
+    return sanitizeTimeframe(Number(raw))
+  } catch {
+    return DEFAULT_TIMEFRAME_HOURS
+  }
+}
+
+const timeframeHours = ref(loadTimeframe())
+
 const suggestions = computed<Planet[]>(() => {
   const text = query.value.trim()
   if (text.length < 2) return []
@@ -126,6 +148,21 @@ function selectPlanet(planet: Planet) {
 function getPlanetById(id: number) {
   return props.gameData.planets.find((pl) => pl.id === id)
 }
+
+watch(
+  timeframeHours,
+  (value) => {
+    const sanitized = sanitizeTimeframe(value)
+    if (sanitized !== value) {
+      timeframeHours.value = sanitized
+      return
+    }
+    try {
+      localStorage.setItem(TIMEFRAME_STORAGE_KEY, String(sanitized))
+    } catch {}
+  },
+  { immediate: false },
+)
 </script>
 
 <template>
@@ -155,6 +192,22 @@ function getPlanetById(id: number) {
       <div v-if="priceError" class="text-amber-300">
         {{ translate('priceError') }}: {{ priceError }}
       </div>
+      <div class="flex items-center gap-2">
+        <label class="flex items-center gap-2">
+          <span>{{ translate('timeframeHoursLabel') }}</span>
+          <input
+            v-model.number="timeframeHours"
+            type="number"
+            min="1"
+            max="336"
+            step="1"
+            class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100"
+          />
+        </label>
+        <span class="text-slate-500 hidden md:inline">
+          {{ translate('timeframeHoursHint') }}
+        </span>
+      </div>
     </div>
 
     <PlanetSearch
@@ -182,6 +235,7 @@ function getPlanetById(id: number) {
           :price-resolver="priceResolver"
           :technology-levels="technologyLevels"
           :starting-bonus="startingBonus"
+          :timeframe-hours="timeframeHours"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           @toggleBase="

@@ -12,6 +12,7 @@ const props = defineProps<{
   priceResolver: (materialId: number) => number
   technologyLevels: Partial<Record<number, number>>
   startingBonus: number
+  timeframeHours: number
 }>()
 
 const technologyLevelMap = computed(() => {
@@ -63,6 +64,20 @@ const report = computed(() =>
 
 const summary = computed(() => report.value.summary)
 
+const periodFactor = computed(() => {
+  const hours = Number(props.timeframeHours)
+  if (!Number.isFinite(hours)) return 1
+  const clamped = Math.min(336, Math.max(1, Math.round(hours)))
+  return clamped / 24
+})
+
+const summaryForPeriod = computed(() => ({
+  productionRevenue: summary.value.productionRevenue * periodFactor.value,
+  materialPurchaseCosts: summary.value.materialPurchaseCosts * periodFactor.value,
+  workerPurchaseCosts: summary.value.workerPurchaseCosts * periodFactor.value,
+  net: summary.value.net * periodFactor.value,
+}))
+
 function formatNumber(value: number, fractionDigits = 2) {
   return value.toLocaleString(undefined, {
     minimumFractionDigits: 0,
@@ -76,19 +91,21 @@ function formatNumber(value: number, fractionDigits = 2) {
     <div class="text-lg text-slate-300 flex flex-wrap gap-4">
       <div>
         {{ translate('netResult') }}:
-        <span :class="summary.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">{{ formatNumber(summary.net) }}</span>
+        <span :class="summaryForPeriod.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+          {{ formatNumber(summaryForPeriod.net) }}
+        </span>
       </div>
       <div>
         {{ translate('workerPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatNumber(summary.workerPurchaseCosts) }}</span>
+        <span class="text-rose-300">{{ formatNumber(summaryForPeriod.workerPurchaseCosts) }}</span>
       </div>
       <div>
         {{ translate('materialPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatNumber(summary.materialPurchaseCosts) }}</span>
+        <span class="text-rose-300">{{ formatNumber(summaryForPeriod.materialPurchaseCosts) }}</span>
       </div>
       <div>
         {{ translate('productionRevenue') }}:
-        <span class="text-emerald-300">{{ formatNumber(summary.productionRevenue) }}</span>
+        <span class="text-emerald-300">{{ formatNumber(summaryForPeriod.productionRevenue) }}</span>
       </div>
     </div>
   </div>
