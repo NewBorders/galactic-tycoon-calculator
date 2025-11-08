@@ -1,4 +1,4 @@
-import type { Building, GameData, Material, Planet, Recipe, Worker } from '../gamedata/types'
+import type { Building, GameData, Material, Recipe, Worker } from '../gamedata/types'
 import { evaluateRecipeAvailability } from './availability'
 import {
   type BaseProductionContext,

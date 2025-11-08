@@ -15,7 +15,7 @@ export type PlayerBase = {
   stock?: Record<number, number>
 }
 
-type UiSections = { buildings: boolean; production: boolean }
+type UiSections = { buildings: boolean; production: boolean; dailySummary: boolean }
 type UiState = {
   basesOpen: Record<string, boolean>
   sections: Record<string, UiSections> // key = baseId
@@ -220,7 +220,16 @@ export function usePlayerBases(gd: GameData) {
   }
 
   function getSections(baseId: string): UiSections {
-    return (state.value.ui.sections[baseId] ??= { buildings: false, production: false })
+    const sections = state.value.ui.sections[baseId]
+    if (sections) {
+      if (typeof sections.dailySummary !== 'boolean') {
+        sections.dailySummary = false
+      }
+      return sections
+    }
+    const initial: UiSections = { buildings: false, production: false, dailySummary: false }
+    state.value.ui.sections[baseId] = initial
+    return initial
   }
 
   function setSection(baseId: string, which: keyof UiSections, open: boolean) {

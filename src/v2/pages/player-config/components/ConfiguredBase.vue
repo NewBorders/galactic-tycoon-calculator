@@ -6,6 +6,8 @@ import { translate } from '@/v2/localisation/localisation'
 import BuildingSearch from './BuildingSearch.vue'
 import BaseBuildingsSection from './BaseBuildingsSection.vue'
 import ProductionSection from './ProductionSection.vue'
+import BaseSummaryCard from './BaseSummaryCard.vue'
+import DailyCalculationsSection from './DailyCalculationsSection.vue'
 
 const props = defineProps<{
   base: PlayerBase
@@ -17,7 +19,7 @@ const props = defineProps<{
   technologyLevels: Partial<Record<number, number>>
   startingBonus: number
   isBaseOpen: (id: string) => boolean
-  getSections: (id: string) => { buildings: boolean; production: boolean }
+  getSections: (id: string) => { buildings: boolean; production: boolean; dailySummary: boolean }
 }>()
 
 const emit = defineEmits<{
@@ -34,7 +36,7 @@ const emit = defineEmits<{
   updateStock: [Record<number, number>]
   persist: []
   toggleBase: [open: boolean]
-  toggleSection: [{ which: 'buildings' | 'production'; open: boolean }]
+  toggleSection: [{ which: 'buildings' | 'production' | 'dailySummary'; open: boolean }]
 }>()
 
 // Name-Editing
@@ -195,7 +197,53 @@ function onKey(e: KeyboardEvent) {
       </div>
     </summary>
 
-    <!-- Production (Platzhalter; Engine folgt) -->
+    <div class="mt-2 space-y-2 px-3">
+      <BaseSummaryCard
+        :base="base"
+        :game-data="props.gameData"
+        :index="props.index"
+        :price-resolver="props.priceResolver"
+        :technology-levels="props.technologyLevels"
+        :starting-bonus="props.startingBonus"
+      />
+    </div>
+
+    <details
+      class="mt-2 border border-slate-700 rounded bg-slate-800"
+      :open="getSections(base.id).dailySummary"
+      @toggle="
+        emit('toggleSection', {
+          which: 'dailySummary',
+          open: ($event.target as HTMLDetailsElement).open,
+        })
+      "
+    >
+      <summary class="px-3 py-2 cursor-pointer font-medium">{{ translate('dailySummary') }}</summary>
+      <div class="p-3">
+        <DailyCalculationsSection
+          :base="base"
+          :game-data="props.gameData"
+          :index="props.index"
+          :price-resolver="props.priceResolver"
+          :technology-levels="props.technologyLevels"
+          :starting-bonus="props.startingBonus"
+          @updateOptional="
+            (materialIds) => {
+              $emit('setOptionalConsumables', materialIds)
+              $emit('persist')
+            }
+          "
+          @updateStock="
+            (stock) => {
+              $emit('updateStock', stock)
+              $emit('persist')
+            }
+          "
+        />
+      </div>
+    </details>
+
+    <!-- Production -->
     <details
       class="mt-2 border border-slate-700 rounded bg-slate-800"
       :open="getSections(base.id).production"
@@ -206,7 +254,7 @@ function onKey(e: KeyboardEvent) {
         })
       "
     >
-      <summary class="px-3 py-2 cursor-pointer font-medium">Production</summary>
+      <summary class="px-3 py-2 cursor-pointer font-medium">{{ translate('sectionProduction') }}</summary>
       <div class="p-3">
         <ProductionSection
           :base="base"
@@ -233,18 +281,6 @@ function onKey(e: KeyboardEvent) {
               $emit('persist')
             }
           "
-          @updateOptional="
-            (materialIds) => {
-              $emit('setOptionalConsumables', materialIds)
-              $emit('persist')
-            }
-          "
-          @updateStock="
-            (stock) => {
-              $emit('updateStock', stock)
-              $emit('persist')
-            }
-          "
         />
       </div>
     </details>
@@ -260,7 +296,7 @@ function onKey(e: KeyboardEvent) {
         })
       "
     >
-      <summary class="px-3 py-2 cursor-pointer font-medium">Buildings</summary>
+      <summary class="px-3 py-2 cursor-pointer font-medium">{{ translate('sectionBuildings') }}</summary>
       <div class="p-3 space-y-3">
         <BuildingSearch
           :buildings="buildings"

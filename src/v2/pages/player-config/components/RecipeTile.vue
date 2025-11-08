@@ -95,7 +95,7 @@ function tierLabel(tier: number) {
 </script>
 
 <template>
-  <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3">
+  <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3 h-full">
     <div class="flex items-start gap-3">
       <span class="recipe-dnd-handle cursor-move px-2 py-1 border border-slate-700 rounded select-none">↕</span>
       <div class="flex-1 min-w-0">
@@ -117,9 +117,6 @@ function tierLabel(tier: number) {
         </div>
 
         <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-400">
-          <div>
-            {{ translate('activeModules') }}: {{ formatNumber(activeUnits, 0) }}
-          </div>
           <div>
             {{ translate('queueTimeShare') }}: {{ formatShare(queueShare * 100) }}
           </div>
