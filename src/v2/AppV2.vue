@@ -3,13 +3,13 @@ import { ref, onMounted, watch } from 'vue'
 import { loadGameData } from './services/gamedata/service'
 import { translate } from './localisation/localisation'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
-import RecipeTranslatorPanel from './pages/recipe-translator/RecipeTranslatorPanel.vue'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
+import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 
-type Tab = 'recipes' | 'bases'
+type Tab = 'bases' | 'technology'
 const LS_KEY = 'gt:v2:activeTab'
 
-const active = ref<Tab>('recipes')
+const active = ref<Tab>('bases')
 const gd = ref(null as any)
 const gdIndex = ref(null as any)
 const gdLoadedAt = ref<number | null>(null)
@@ -18,7 +18,7 @@ const err = ref<string | null>(null)
 
 onMounted(async () => {
   const saved = localStorage.getItem(LS_KEY) as Tab | null
-  if (saved === 'recipes' || saved === 'bases') active.value = saved
+  if (saved === 'bases' || saved === 'technology') active.value = saved
 
   loading.value = true
   try {
@@ -46,17 +46,17 @@ watch(active, (t) => {
         <nav class="flex gap-2">
           <button
             class="px-3 py-2 border rounded"
-            :class="active === 'recipes' ? 'bg-gray-600' : ''"
-            @click="active = 'recipes'"
-          >
-            {{ translate('tabRecipes') }}
-          </button>
-          <button
-            class="px-3 py-2 border rounded"
             :class="active === 'bases' ? 'bg-gray-600' : ''"
             @click="active = 'bases'"
           >
             {{ translate('tabPlayerConfig') }}
+          </button>
+          <button
+            class="px-3 py-2 border rounded"
+            :class="active === 'technology' ? 'bg-gray-600' : ''"
+            @click="active = 'technology'"
+          >
+            {{ translate('tabTechnology') }}
           </button>
         </nav>
         <div class="ml-auto">
@@ -73,7 +73,7 @@ watch(active, (t) => {
         :index="gdIndex"
         :game-data-loaded-at="gdLoadedAt"
       />
-      <RecipeTranslatorPanel v-if="gd && active === 'recipes'" :gameData="gd" />
+      <TechnologyPanel v-if="active === 'technology'" />
     </div>
   </div>
 </template>

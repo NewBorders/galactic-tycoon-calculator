@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { GameData, GdIndex, Planet } from '../../services/gamedata/service.ts'
 import { searchPlanetsByName, useMaterialPricing } from '../../services/gamedata/service.ts'
 import { usePlayerBases } from '../../services/playerBases.ts'
@@ -8,6 +8,7 @@ import { translate } from '../../localisation/localisation.ts'
 
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
+import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
 const {
@@ -25,11 +26,16 @@ const {
   removeRecipe,
   reorderRecipes,
   setOptionalConsumables,
+  setStock,
   isBaseOpen,
   setBaseOpen,
   getSections,
   setSection,
 } = usePlayerBases(props.gameData)
+
+const { state: technologyState } = usePlayerTechnology()
+const technologyLevels = computed(() => technologyState.value.levels ?? {})
+const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
 
 const query = ref('')
 
@@ -39,13 +45,26 @@ const suggestions = computed<Planet[]>(() => {
   return searchPlanetsByName(props.gameData.planets, text)
 })
 
-const { priceResolver, refreshPrices, loading: priceLoading, error: priceError, lastFetched: priceLastFetched } =
-  useMaterialPricing(props.gameData)
+const {
+  priceResolver,
+  refreshPrices,
+  loading: priceLoading,
+  error: priceError,
+  lastFetched: priceLastFetched,
+  nextRefreshAt: priceNextRefreshAt,
+} = useMaterialPricing(props.gameData)
 
 function formatTimestamp(value: number | null | undefined) {
   if (!value) return '—'
   try {
-    return new Date(value).toLocaleString()
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '—'
+    const year = date.getFullYear()
+    const month = `${date.getMonth() + 1}`.padStart(2, '0')
+    const day = `${date.getDate()}`.padStart(2, '0')
+    const hours = `${date.getHours()}`.padStart(2, '0')
+    const minutes = `${date.getMinutes()}`.padStart(2, '0')
+    return `${year}-${month}-${day} ${hours}:${minutes}`
   } catch {
     return '—'
   }
@@ -53,6 +72,50 @@ function formatTimestamp(value: number | null | undefined) {
 
 const formattedPriceTimestamp = computed(() => formatTimestamp(priceLastFetched.value ?? null))
 const formattedGameDataTimestamp = computed(() => formatTimestamp(props.gameDataLoadedAt ?? null))
+
+const refreshCountdown = ref('—')
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
+function formatCountdown(ms: number | null) {
+  if (ms == null || !Number.isFinite(ms)) return '—'
+  if (ms <= 0) return '0:00'
+  const totalSeconds = Math.floor(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${`${seconds}`.padStart(2, '0')}`
+}
+
+function updateCountdown() {
+  if (priceLoading.value) {
+    refreshCountdown.value = '…'
+    return
+  }
+  const target = priceNextRefreshAt.value
+  if (!target) {
+    refreshCountdown.value = '—'
+    return
+  }
+  const msRemaining = target - Date.now()
+  refreshCountdown.value = formatCountdown(msRemaining)
+}
+
+watch([priceNextRefreshAt, priceLoading], () => {
+  updateCountdown()
+})
+
+onMounted(() => {
+  updateCountdown()
+  refreshTimer = setInterval(() => {
+    updateCountdown()
+  }, 1000)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer !== null) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+})
 
 function selectPlanet(planet: Planet) {
   if (!planetHasBase(planet.id)) addBase(planet.id)
@@ -76,6 +139,9 @@ function getPlanetById(id: number) {
         <span>
           {{ translate('priceLastUpdated') }}
           <span class="text-slate-200">{{ formattedPriceTimestamp }}</span>
+          <span class="ml-2 text-slate-500">
+            ({{ translate('nextRefreshIn') }} {{ refreshCountdown }})
+          </span>
         </span>
         <button
           class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -114,6 +180,8 @@ function getPlanetById(id: number) {
           :game-data="props.gameData"
           :index="props.index"
           :price-resolver="priceResolver"
+          :technology-levels="technologyLevels"
+          :starting-bonus="startingBonus"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           @toggleBase="
@@ -185,6 +253,12 @@ function getPlanetById(id: number) {
           @setOptionalConsumables="
             (materialIds) => {
               setOptionalConsumables(base.id, materialIds)
+              persist()
+            }
+          "
+          @updateStock="
+            (stock) => {
+              setStock(base.id, stock)
               persist()
             }
           "
