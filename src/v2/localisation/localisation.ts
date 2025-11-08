@@ -29,6 +29,7 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     requiresBuilding: 'Requires building',
     noRecipesConfigured: 'No recipes configured yet',
     dailySummary: 'Daily summary',
+    summaryForHours: 'Summary for {hours}h',
     sectionProduction: 'Production',
     sectionBuildings: 'Buildings',
     totalRevenue: 'Total revenue',
@@ -42,14 +43,18 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     materialBalance: 'Materials balance',
     material: 'Material',
     perDay: 'per day',
+    perHours: 'per {hours}h',
     unitPrice: 'Unit price',
     totalWorkerCosts: 'Total worker costs',
     workers: 'Workers',
     activeModules: 'Active modules',
     queueTimeShare: 'Queue time share',
     dailyRunsPerModule: 'Runs per module per day',
+    runsPerHours: 'Runs per module per {hours}h',
     outputPerDay: 'Output per day',
+    outputPerHours: 'Output per {hours}h',
     inputsPerDay: 'Inputs',
+    inputsPerHours: 'Inputs per {hours}h',
     cycleTime: 'Cycle time',
     baseCycleTime: 'Base cycle time',
     actualCycleTime: 'Effective cycle time',
@@ -118,6 +123,9 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     stockImportError: 'Import failed – please check the format.',
     stockCoverage: 'Stock coverage',
     lessThanHour: '<1h',
+    toBuy: 'To buy',
+    timeframeHoursLabel: 'Summary window (hours)',
+    timeframeHoursHint: 'Applies to all calculations (max 336h).',
   },
   de: {
     language: 'Sprache',
@@ -143,6 +151,7 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     requiresBuilding: 'Benötigt Gebäude',
     noRecipesConfigured: 'Noch keine Rezepte konfiguriert',
     dailySummary: 'Tägliche Übersicht',
+    summaryForHours: 'Übersicht für {hours}h',
     sectionProduction: 'Produktion',
     sectionBuildings: 'Gebäude',
     totalRevenue: 'Gesamterlös',
@@ -156,14 +165,18 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     materialBalance: 'Materialbilanz',
     material: 'Material',
     perDay: 'pro Tag',
+    perHours: 'pro {hours}h',
     unitPrice: 'Preis',
     totalWorkerCosts: 'Summe Verbrauchskosten',
     workers: 'Arbeiter',
     activeModules: 'Aktive Module',
     queueTimeShare: 'Zeitanteil der Queue',
     dailyRunsPerModule: 'Durchgänge pro Tag',
+    runsPerHours: 'Durchgänge pro Modul pro {hours}h',
     outputPerDay: 'Ausstoß pro Tag',
+    outputPerHours: 'Ausstoß pro {hours}h',
     inputsPerDay: 'Input',
+    inputsPerHours: 'Input pro {hours}h',
     cycleTime: 'Zykluszeit',
     baseCycleTime: 'Normale Zykluszeit',
     actualCycleTime: 'Reale Zykluszeit',
@@ -232,6 +245,9 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     stockImportError: 'Import fehlgeschlagen – bitte Format prüfen.',
     stockCoverage: 'Reichweite Lager',
     lessThanHour: '<1h',
+    toBuy: 'Zukauf',
+    timeframeHoursLabel: 'Berechnungszeitraum (Stunden)',
+    timeframeHoursHint: 'Gilt für alle Berechnungen (max. 336h).',
   },
 }
 
@@ -245,8 +261,16 @@ function detectInitial(): LanguageCode {
   return (['en', 'de'].includes(browser) ? browser : 'en') as LanguageCode
 }
 
-export function translate(key: string): string {
-  return messages[currentLanguage.value]?.[key] ?? key
+export function translate(
+  key: string,
+  vars?: Record<string, string | number>,
+): string {
+  const template = messages[currentLanguage.value]?.[key] ?? key
+  if (!vars) return template
+  return template.replace(/\{(\w+)\}/g, (_, token: string) => {
+    const value = vars[token]
+    return value == null ? '' : String(value)
+  })
 }
 
 export function setLanguage(lang: LanguageCode): void {

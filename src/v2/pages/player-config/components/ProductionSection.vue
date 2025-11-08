@@ -17,6 +17,7 @@ const props = defineProps<{
   priceResolver: (materialId: number) => number
   technologyLevels: Partial<Record<number, number>>
   startingBonus: number
+  timeframeHours: number
 }>()
 
 const emit = defineEmits<{
@@ -67,6 +68,20 @@ const assignment = computed(() => ({
     recipeId: r.recipeId,
   })),
 }))
+
+const timeframeHours = computed(() => {
+  const hours = Number(props.timeframeHours)
+  if (!Number.isFinite(hours)) return 24
+  return Math.min(336, Math.max(1, Math.round(hours)))
+})
+
+const inputsPerHoursLabel = computed(() =>
+  translate('inputsPerHours', { hours: timeframeHours.value }),
+)
+
+const runsPerHoursLabel = computed(() =>
+  translate('runsPerHours', { hours: timeframeHours.value }),
+)
 
 const report = computed(() =>
   computeBaseReport(props.gameData, {
@@ -170,6 +185,12 @@ const suggestions = computed(() => {
         : availabilityBlocked
           ? availability.reason
           : null
+      const minutesPerPeriod = timeframeHours.value * 60
+      const runsPerPeriod =
+        recipe.timeMinutes > 0
+          ? Math.max(0, minutesPerPeriod / recipe.timeMinutes) * Math.max(units, 0)
+          : 0
+      const outputAmount = recipe.output.amount * runsPerPeriod
       return {
         recipe,
         buildingName: building?.name ?? `#${recipe.producedInId}`,
@@ -184,12 +205,13 @@ const suggestions = computed(() => {
         technologySatisfied,
         inputs: recipe.inputs.map((i) => ({
           name: props.index.materialById.get(i.id)?.name ?? `#${i.id}`,
-          amount: i.amount,
+          amount: i.amount * runsPerPeriod,
         })),
         output: {
           name: props.index.materialById.get(recipe.output.id)?.name ?? recipe.output.name,
-          amount: recipe.output.amount,
+          amount: outputAmount,
         },
+        runsPerPeriod,
         timeMinutes: recipe.timeMinutes,
         workers: workerNeeds
           ? `${workerNeeds.worker}/${workerNeeds.technician}/${workerNeeds.engineer}/${workerNeeds.scientist}`
@@ -267,7 +289,7 @@ watch(
           >
             <div class="flex items-center gap-2">
               <div class="font-medium truncate">
-                {{ item.output.amount }} × {{ item.output.name }}
+                {{ formatNumber(item.output.amount) }} × {{ item.output.name }}
               </div>
               <span class="text-xs text-slate-400">→ {{ item.buildingName }}</span>
               <span v-if="item.alreadySelected" class="text-xs text-amber-300">
@@ -275,14 +297,19 @@ watch(
               </span>
             </div>
             <div class="text-xs text-slate-400 flex flex-wrap gap-1">
-              <span>{{ translate('inputsPerDay') }}:</span>
+              <span>{{ inputsPerHoursLabel }}:</span>
               <span class="text-slate-300">
                 {{
                   item.inputs.length
-                    ? item.inputs.map((i) => `${i.amount} × ${i.name}`).join(', ')
+                    ? item.inputs
+                        .map((i) => `${formatNumber(i.amount)} × ${i.name}`)
+                        .join(', ')
                     : '—'
                 }}
               </span>
+            </div>
+            <div class="text-xs text-slate-500">
+              {{ runsPerHoursLabel }}: {{ formatNumber(item.runsPerPeriod) }}
             </div>
             <div class="text-xs text-slate-500">
               {{ translate('cycleTime') }}: {{ item.timeMinutes }} {{ translate('minutes') }} •
@@ -340,6 +367,7 @@ watch(
               :technology-level="cardsById.get(element.id)!.technologyLevel"
               :required-tech="cardsById.get(element.id)!.requiredTech"
               :material-lookup="props.index.materialById"
+              :timeframe-hours="props.timeframeHours"
               @remove="removeRecipe(element.id)"
             />
           </div>

@@ -12,11 +12,20 @@ const props = defineProps<{
   materialLookup: Map<number, { name: string }>
   technologyLevel: number
   requiredTech: number
+  timeframeHours: number
 }>()
 
 const emit = defineEmits<{ remove: [] }>()
 
 const minutesPerDay = 60 * 24
+
+const displayHours = computed(() => {
+  const hours = Number(props.timeframeHours)
+  if (!Number.isFinite(hours)) return 24
+  return Math.min(336, Math.max(1, Math.round(hours)))
+})
+
+const periodFactor = computed(() => displayHours.value / 24)
 
 const activeUnits = computed(() => props.reportRow?.buildingUnits ?? props.units)
 const queueShare = computed(() => props.reportRow?.queueShare ?? 1)
@@ -27,11 +36,13 @@ const adjustedCycleMinutes = computed(
 const actualCycleMinutes = computed(
   () => props.reportRow?.actualTimeMinutes ?? adjustedCycleMinutes.value,
 )
-const dailyRunsPerModule = computed(() =>
+const runsPerModulePerDay = computed(() =>
   props.reportRow?.cyclesPerDayPerUnit ??
   (props.recipe.timeMinutes > 0 ? minutesPerDay / props.recipe.timeMinutes : 0),
 )
-const runsPerDay = computed(() => props.reportRow?.runsPerDay ?? dailyRunsPerModule.value * activeUnits.value)
+const runsPerDay = computed(
+  () => props.reportRow?.runsPerDay ?? runsPerModulePerDay.value * activeUnits.value,
+)
 
 const outputPerDay = computed(() => {
   if (props.reportRow) return props.reportRow.outputPerDay
@@ -45,6 +56,17 @@ const inputsPerDay = computed(() => {
     amount: inp.amount * runsPerDay.value,
   }))
 })
+
+const runsPerModulePerPeriod = computed(() => runsPerModulePerDay.value * periodFactor.value)
+
+const outputPerPeriod = computed(() => outputPerDay.value * periodFactor.value)
+
+const inputsPerPeriod = computed(() =>
+  inputsPerDay.value.map((inp) => ({
+    materialId: inp.materialId,
+    amount: inp.amount * periodFactor.value,
+  })),
+)
 
 const workforce = computed(() => props.reportRow?.workforce ?? [])
 const workforceFactor = computed(() => props.reportRow?.workforceFactor ?? 1)
@@ -120,22 +142,25 @@ function tierLabel(tier: number) {
           <div>
             {{ translate('queueTimeShare') }}: {{ formatShare(queueShare * 100) }}
           </div>
-          <div>{{ translate('dailyRunsPerModule') }}: {{ formatNumber(dailyRunsPerModule) }}</div>
+          <div>
+            {{ translate('runsPerHours', { hours: displayHours }) }}:
+            {{ formatNumber(runsPerModulePerPeriod) }}
+          </div>
         </div>
 
         <div class="mt-3 space-y-2 text-sm">
           <div>
-            {{ translate('outputPerDay') }}:
-            <span class="text-emerald-300">{{ formatNumber(outputPerDay) }}</span>
+            {{ translate('outputPerHours', { hours: displayHours }) }}:
+            <span class="text-emerald-300">{{ formatNumber(outputPerPeriod) }}</span>
             × {{ recipe.output.name }}
           </div>
           <div>
-            {{ translate('inputsPerDay') }}:
+            {{ translate('inputsPerHours', { hours: displayHours }) }}:
             <ul class="ml-4 list-disc text-slate-300">
-              <li v-for="input in inputsPerDay" :key="input.materialId">
+              <li v-for="input in inputsPerPeriod" :key="input.materialId">
                 {{ formatNumber(input.amount) }} × {{ materialName(input.materialId) }}
               </li>
-              <li v-if="!inputsPerDay.length" class="text-slate-500">—</li>
+              <li v-if="!inputsPerPeriod.length" class="text-slate-500">—</li>
             </ul>
           </div>
           <div v-if="workforce.length">
