@@ -254,7 +254,7 @@ function onKey(e: KeyboardEvent) {
         })
       "
     >
-      <summary class="px-3 py-2 cursor-pointer font-medium">Production</summary>
+      <summary class="px-3 py-2 cursor-pointer font-medium">{{ translate('sectionProduction') }}</summary>
       <div class="p-3">
         <ProductionSection
           :base="base"
@@ -296,7 +296,7 @@ function onKey(e: KeyboardEvent) {
         })
       "
     >
-      <summary class="px-3 py-2 cursor-pointer font-medium">Buildings</summary>
+      <summary class="px-3 py-2 cursor-pointer font-medium">{{ translate('sectionBuildings') }}</summary>
       <div class="p-3 space-y-3">
         <BuildingSearch
           :buildings="buildings"

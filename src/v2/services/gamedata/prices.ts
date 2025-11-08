@@ -180,7 +180,9 @@ async function fetchMarketPricesFromApi(): Promise<MarketPriceEntry[]> {
         toDollars(entry.avgPrice ?? entry.averagePrice) ??
         null
       const average = toDollars(entry.avgPrice ?? entry.averagePrice)
-      const weighted = toDollars(entry.weightedAvgPrice ?? entry.weightedAveragePrice ?? entry.weighted_avg_price)
+      const weighted = toDollars(
+        entry.weightedAvgPrice ?? entry.weightedAveragePrice ?? entry.weighted_avg_price,
+      )
       return {
         materialId: id,
         currentPrice: current,
@@ -281,7 +283,11 @@ function resolveMaterialPrice(
     return direct
   }
 
-  if (override?.manualPrice != null && Number.isFinite(override.manualPrice) && override.manualPrice >= 0) {
+  if (
+    override?.manualPrice != null &&
+    Number.isFinite(override.manualPrice) &&
+    override.manualPrice >= 0
+  ) {
     return override.manualPrice
   }
 

@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
       </span>
     </div>
 
-    <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3">
+    <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
       <div class="font-semibold">{{ translate('workforceOverview') }}</div>
       <template v-if="workforceSummary.some((row) => row.required > 0)">
         <table class="w-full text-sm">
