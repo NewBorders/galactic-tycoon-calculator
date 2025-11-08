@@ -72,10 +72,8 @@ function formatNumber(value: number, fractionDigits = 2) {
 </script>
 
 <template>
-  <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
-    <div class="font-semibold">{{ translate('dailySummary') }}</div>
-    <p class="text-xs text-slate-400">{{ translate('dailySummaryDescription') }}</p>
-    <div class="text-sm text-slate-300 flex flex-wrap gap-4">
+  <div class="rounded p-2 space-y-2">
+    <div class="text-lg text-slate-300 flex flex-wrap gap-4">
       <div>
         {{ translate('netResult') }}:
         <span :class="summary.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">{{ formatNumber(summary.net) }}</span>

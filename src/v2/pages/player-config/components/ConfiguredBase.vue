@@ -197,17 +197,6 @@ function onKey(e: KeyboardEvent) {
       </div>
     </summary>
 
-    <div class="mt-2 space-y-2 px-3">
-      <BaseSummaryCard
-        :base="base"
-        :game-data="props.gameData"
-        :index="props.index"
-        :price-resolver="props.priceResolver"
-        :technology-levels="props.technologyLevels"
-        :starting-bonus="props.startingBonus"
-      />
-    </div>
-
     <details
       class="mt-2 border border-slate-700 rounded bg-slate-800"
       :open="getSections(base.id).dailySummary"
@@ -218,7 +207,19 @@ function onKey(e: KeyboardEvent) {
         })
       "
     >
-      <summary class="px-3 py-2 cursor-pointer font-medium">{{ translate('dailySummary') }}</summary>
+      <summary class="px-3 py-2 cursor-pointer font-medium">
+        {{ translate('dailySummary') }}
+<!--        <div class="mt-2 space-y-2 px-3">-->
+          <BaseSummaryCard
+            :base="base"
+            :game-data="props.gameData"
+            :index="props.index"
+            :price-resolver="props.priceResolver"
+            :technology-levels="props.technologyLevels"
+            :starting-bonus="props.startingBonus"
+          />
+<!--        </div>-->
+      </summary>
       <div class="p-3">
         <DailyCalculationsSection
           :base="base"
@@ -254,7 +255,9 @@ function onKey(e: KeyboardEvent) {
         })
       "
     >
-      <summary class="px-3 py-2 cursor-pointer font-medium">{{ translate('sectionProduction') }}</summary>
+      <summary class="px-3 py-2 cursor-pointer font-medium">
+        {{ translate('sectionProduction') }}
+      </summary>
       <div class="p-3">
         <ProductionSection
           :base="base"
@@ -296,7 +299,9 @@ function onKey(e: KeyboardEvent) {
         })
       "
     >
-      <summary class="px-3 py-2 cursor-pointer font-medium">{{ translate('sectionBuildings') }}</summary>
+      <summary class="px-3 py-2 cursor-pointer font-medium">
+        {{ translate('sectionBuildings') }}
+      </summary>
       <div class="p-3 space-y-3">
         <BuildingSearch
           :buildings="buildings"
