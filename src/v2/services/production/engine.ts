@@ -261,9 +261,16 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     const weightedActiveTime = totalWeight > 0 ? totalWeightedTime : 0
     const useWeightedShares = totalWeight > 0 && weightedActiveTime > 0
     const shouldPauseProduction = totalWeight <= 0 && totalUnweightedTime > 0
-    const totalCycleTime = useWeightedShares ? weightedActiveTime : totalUnweightedTime
+    const unweightedCycleDenominator =
+      totalUnweightedTime > 0
+        ? totalUnweightedTime
+        : activeCount > 0
+          ? activeCount
+          : 0
     const nominalCyclesPerDayPerUnit =
-      totalCycleTime > 0 && !shouldPauseProduction ? MINUTES_PER_DAY / totalCycleTime : 0
+      unweightedCycleDenominator > 0 && !shouldPauseProduction
+        ? MINUTES_PER_DAY / unweightedCycleDenominator
+        : 0
     const totalCyclesPerDay = nominalCyclesPerDayPerUnit * productionUnits
 
     const denominatorForShare = shouldPauseProduction
@@ -291,15 +298,12 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       const unweightedContribution = hasTime ? timeContribution : 0
       const queueShare =
         denominatorForShare > 0
-          ? totalWeight > 0 && weightedActiveTime > 0
+          ? useWeightedShares
             ? weightedContribution / denominatorForShare
             : unweightedContribution / denominatorForShare
           : 0
-      const weightScalingFactor = useWeightedShares ? Math.max(share, 0) : 1
       const rawRunsPerDay =
-        blocked || totalCyclesPerDay <= 0
-          ? 0
-          : totalCyclesPerDay * queueShare * weightScalingFactor
+        blocked || totalCyclesPerDay <= 0 ? 0 : totalCyclesPerDay * queueShare
       const rawOutputPerDay = rawRunsPerDay * recipe.output.amount
       const rawInputsPerDay = recipe.inputs.map((input) => ({
         materialId: input.id,
