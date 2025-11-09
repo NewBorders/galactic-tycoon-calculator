@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { Recipe } from '@/v2/services/gamedata/types'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
@@ -13,11 +13,44 @@ const props = defineProps<{
   technologyLevel: number
   requiredTech: number
   timeframeHours: number
+  share: number
 }>()
 
-const emit = defineEmits<{ remove: [] }>()
+const emit = defineEmits<{ remove: []; updateShare: [number] }>()
 
 const minutesPerDay = 60 * 24
+
+function sanitizeShare(value: unknown): number {
+  if (value == null) return 100
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric) || Number.isNaN(numeric)) return 100
+  return Math.min(999, Math.max(0, Math.round(numeric)))
+}
+
+const shareBuffer = ref(sanitizeShare(props.share))
+
+watch(
+  () => props.share,
+  (value) => {
+    shareBuffer.value = sanitizeShare(value)
+  },
+)
+
+function commitShare(value: unknown) {
+  const sanitized = sanitizeShare(value)
+  if (sanitized !== shareBuffer.value) {
+    shareBuffer.value = sanitized
+  }
+  emit('updateShare', sanitized)
+}
+
+function onShareRange(event: Event) {
+  commitShare((event.target as HTMLInputElement).value)
+}
+
+function onShareNumber(event: Event) {
+  commitShare((event.target as HTMLInputElement).value)
+}
 
 const displayHours = computed(() => {
   const hours = Number(props.timeframeHours)
@@ -136,6 +169,35 @@ function tierLabel(tier: number) {
           <button class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700" @click.prevent="emit('remove')">
             {{ translate('delete') }}
           </button>
+        </div>
+
+        <div class="mt-3 space-y-2 text-xs text-slate-400">
+          <label class="block space-y-2">
+            <span class="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-500">
+              {{ translate('recipeShareWeight') }}
+              <span class="text-slate-200">{{ formatNumber(shareBuffer, 0) }}</span>
+            </span>
+            <div class="flex items-center gap-3">
+              <input
+                class="flex-1 accent-emerald-500"
+                type="range"
+                min="0"
+                max="200"
+                step="1"
+                :value="shareBuffer"
+                @input="onShareRange"
+              />
+              <input
+                class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100"
+                type="number"
+                min="0"
+                max="999"
+                :value="shareBuffer"
+                @input="onShareNumber"
+              />
+            </div>
+            <span class="text-[11px] text-slate-500">{{ translate('recipeShareWeightHint') }}</span>
+          </label>
         </div>
 
         <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-400">

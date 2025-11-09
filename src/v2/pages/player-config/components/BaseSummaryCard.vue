@@ -42,6 +42,7 @@ const assignment = computed(() => ({
   })),
   recipes: props.base.recipes.map((r) => ({
     recipeId: r.recipeId,
+    share: r.share,
   })),
 }))
 

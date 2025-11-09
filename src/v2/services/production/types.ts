@@ -4,7 +4,7 @@ import type { GameData } from '../gamedata/service'
 export type BaseAssignment = {
   planetId: number
   buildings: Array<{ buildingId: number; level: number; count?: number }>
-  recipes: Array<{ recipeId: number }>
+  recipes: Array<{ recipeId: number; share?: number }>
 }
 
 export type Horizon = 1 | 7 | 14 | 30

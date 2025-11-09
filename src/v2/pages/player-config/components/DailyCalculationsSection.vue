@@ -74,6 +74,7 @@ const assignment = computed(() => ({
   })),
   recipes: props.base.recipes.map((r) => ({
     recipeId: r.recipeId,
+    share: r.share,
   })),
 }))
 
@@ -198,6 +199,13 @@ function coverageClass(value: number) {
 
 function stockStatusClass(kind: 'success' | 'error') {
   return kind === 'success' ? 'text-emerald-300' : 'text-rose-300'
+}
+
+function stockCoverageClass(row: { balancePerDay: number; daysCoverage: number | null }) {
+  if (row.balancePerDay >= 0) return 'text-slate-300'
+  const coverageDays = row.daysCoverage ?? 0
+  const coverageHours = coverageDays * 24
+  return coverageHours + 1e-6 >= timeframeHours.value ? 'text-emerald-300' : 'text-rose-300'
 }
 
 function handleStockImport() {
@@ -423,7 +431,10 @@ onBeforeUnmount(() => {
               <td class="py-1 text-right">
                 {{ row.toBuy > 0 ? formatNumber(row.toBuy) : '—' }}
               </td>
-              <td class="py-1 text-right">
+              <td
+                class="py-1 text-right"
+                :class="row.balancePerDay < 0 ? stockCoverageClass(row) : 'text-slate-300'"
+              >
                 {{ row.balancePerDay < 0 ? formatCoverage(row.daysCoverage ?? null) : '—' }}
               </td>
               <td class="py-1 text-right">{{ formatNumber(row.valuePerPeriod) }}</td>

@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import type { Building, GameData, Recipe } from './gamedata/service'
 
-export type PlayerRecipe = { id: string; recipeId: number }
+export type PlayerRecipe = { id: string; recipeId: number; share?: number }
 
 export type PlayerBuilding = { id: string; buildingId: number; level: number }
 export type PlayerBase = {
@@ -42,6 +42,16 @@ function sanitizeStock(stock: Record<number, number> | undefined | null): Record
   return result
 }
 
+function sanitizeShare(value: unknown): number {
+  if (typeof value !== 'number') {
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric) || Number.isNaN(numeric)) return 100
+    return Math.max(0, numeric)
+  }
+  if (!Number.isFinite(value) || Number.isNaN(value)) return 100
+  return Math.max(0, value)
+}
+
 function ensureUi(st: Partial<PlayerState>): PlayerState {
   const ui: UiState = {
     basesOpen: st.ui?.basesOpen ?? {},
@@ -58,6 +68,7 @@ function ensureUi(st: Partial<PlayerState>): PlayerState {
       (base.recipes as PlayerRecipe[])?.map((rec) => ({
         id: rec.id ?? uid(),
         recipeId: rec.recipeId,
+        share: sanitizeShare((rec as PlayerRecipe).share),
       })) ?? [],
     optionalConsumables: Array.isArray(base.optionalConsumables)
       ? [...new Set(base.optionalConsumables.filter((id): id is number => typeof id === 'number'))]
@@ -173,7 +184,7 @@ export function usePlayerBases(gd: GameData) {
     if (!recipe) return
     const hasBuilding = b.buildings.some((instance) => instance.buildingId === recipe.producedInId)
     if (!hasBuilding) return
-    b.recipes.push({ id: uid(), recipeId })
+    b.recipes.push({ id: uid(), recipeId, share: 100 })
     syncRecipesWithBuildings(b)
     saveState(state.value)
   }
@@ -190,6 +201,15 @@ export function usePlayerBases(gd: GameData) {
     if (!b) return
     const byId = new Map(b.recipes.map((x) => [x.id, x]))
     b.recipes = orderedIds.map((id) => byId.get(id)!).filter(Boolean)
+    saveState(state.value)
+  }
+
+  function setRecipeShare(baseId: string, recipeInstanceId: string, share: number) {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    const recipe = b.recipes.find((r) => r.id === recipeInstanceId)
+    if (!recipe) return
+    recipe.share = sanitizeShare(share)
     saveState(state.value)
   }
 
@@ -255,6 +275,7 @@ export function usePlayerBases(gd: GameData) {
     addRecipe,
     removeRecipe,
     reorderRecipes,
+    setRecipeShare,
     setOptionalConsumables,
     setStock,
     isBaseOpen,

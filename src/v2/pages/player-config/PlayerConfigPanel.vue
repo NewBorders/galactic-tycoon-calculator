@@ -25,6 +25,7 @@ const {
   addRecipe,
   removeRecipe,
   reorderRecipes,
+  setRecipeShare,
   setOptionalConsumables,
   setStock,
   isBaseOpen,
@@ -301,6 +302,12 @@ watch(
           @reorderRecipes="
             ({ ids }) => {
               reorderRecipes(base.id, ids)
+              persist()
+            }
+          "
+          @updateRecipeShare="
+            ({ id, share }) => {
+              setRecipeShare(base.id, id, share)
               persist()
             }
           "

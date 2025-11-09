@@ -148,7 +148,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       building: Building
       productionUnits: number
       workforceUnits: number
-      recipes: Recipe[]
+      recipes: Array<{ recipe: Recipe; share: number }>
       technologyBonus: number
       technologyLevel: number
     }
@@ -162,9 +162,14 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     const productionUnits = productionUnitsById.get(recipe.producedInId) ?? 0
     if (productionUnits <= 0) return
     const workforceUnits = workforceUnitsById.get(recipe.producedInId) ?? 0
+    const shareRaw = selection.share
+    const share =
+      typeof shareRaw === 'number' && Number.isFinite(shareRaw) && !Number.isNaN(shareRaw)
+        ? Math.max(0, shareRaw)
+        : 100
     const group = buildingGroups.get(recipe.producedInId)
     if (group) {
-      group.recipes.push(recipe)
+      group.recipes.push({ recipe, share })
     } else {
       const techLevelRaw = technologyLevels[building.specialization] ?? 0
       const techLevel = typeof techLevelRaw === 'number' ? Math.max(0, Math.floor(techLevelRaw)) : 0
@@ -173,7 +178,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         building,
         productionUnits,
         workforceUnits,
-        recipes: [recipe],
+        recipes: [{ recipe, share }],
         technologyBonus,
         technologyLevel: techLevel,
       })
@@ -196,16 +201,20 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
 
     type Pending = {
       recipe: Recipe
+      share: number
       abundanceFactor: number
       blocked: boolean
       blockedReason: 'abundance' | 'fertility' | 'technology' | null
       adjustedTime: number
+      timeContribution: number
     }
 
     const pending: Pending[] = []
-    let totalCycleTime = 0
+    let totalUnweightedTime = 0
+    let totalWeightedTime = 0
+    let totalWeight = 0
 
-    recipes.forEach((recipe) => {
+    recipes.forEach(({ recipe, share }) => {
       const material = materialById.get(recipe.output.id)
       const availability = evaluateRecipeAvailability({
         planet,
@@ -228,26 +237,62 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         workforceSatisfaction * buildingProductivity * technologyBonus * startingBonus
       const speedWithAbundance = blocked ? 0 : baseSpeed * abundanceFactor
       const adjustedTime = speedWithAbundance > 0 ? recipe.timeMinutes / speedWithAbundance : Infinity
-      const timeContribution = !blocked ? adjustedTime : 0
-      if (timeContribution > 0 && Number.isFinite(timeContribution)) {
-        totalCycleTime += timeContribution
+      const active = !blocked && Number.isFinite(adjustedTime) && adjustedTime > 0
+      const timeContribution = active ? adjustedTime : 0
+      if (timeContribution > 0) {
+        totalUnweightedTime += timeContribution
+        if (share > 0) {
+          totalWeightedTime += timeContribution * share
+          totalWeight += share
+        }
       }
       pending.push({
         recipe,
+        share,
         abundanceFactor,
         blocked,
         blockedReason,
         adjustedTime,
+        timeContribution,
       })
     })
 
+    const activeCount = pending.filter((entry) => entry.timeContribution > 0).length
+    const weightedActiveTime = totalWeight > 0 ? totalWeightedTime : 0
+    const totalCycleTime =
+      weightedActiveTime > 0 ? weightedActiveTime : totalUnweightedTime
     const nominalCyclesPerDayPerUnit = totalCycleTime > 0 ? MINUTES_PER_DAY / totalCycleTime : 0
     const totalCyclesPerDay = nominalCyclesPerDayPerUnit * productionUnits
 
-    pending.forEach(({ recipe, abundanceFactor, blocked, blockedReason, adjustedTime }) => {
-      const timeContribution = !blocked && Number.isFinite(adjustedTime) ? adjustedTime : 0
-      const queueShare = totalCycleTime > 0 ? timeContribution / totalCycleTime : 0
-      const rawRunsPerDay = blocked || totalCyclesPerDay <= 0 ? 0 : totalCyclesPerDay
+    const denominatorForShare =
+      totalWeight > 0 && weightedActiveTime > 0
+        ? weightedActiveTime
+        : totalUnweightedTime > 0
+          ? totalUnweightedTime
+          : activeCount > 0
+            ? activeCount
+            : 0
+
+    pending.forEach(({
+      recipe,
+      share,
+      abundanceFactor,
+      blocked,
+      blockedReason,
+      adjustedTime,
+      timeContribution,
+    }) => {
+      const hasTime = timeContribution > 0
+      const weightedContribution =
+        totalWeight > 0 && hasTime ? timeContribution * share : 0
+      const unweightedContribution = hasTime ? timeContribution : 0
+      const queueShare =
+        denominatorForShare > 0
+          ? totalWeight > 0 && weightedActiveTime > 0
+            ? weightedContribution / denominatorForShare
+            : unweightedContribution / denominatorForShare
+          : 0
+      const rawRunsPerDay = blocked || totalCyclesPerDay <= 0 ? 0 : totalCyclesPerDay * queueShare
       const rawOutputPerDay = rawRunsPerDay * recipe.output.amount
       const rawInputsPerDay = recipe.inputs.map((input) => ({
         materialId: input.id,

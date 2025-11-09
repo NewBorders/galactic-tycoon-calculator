@@ -24,6 +24,7 @@ const emit = defineEmits<{
   addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
+  updateRecipeShare: [{ id: string; share: number }]
 }>()
 
 const query = ref('')
@@ -66,6 +67,7 @@ const assignment = computed(() => ({
   })),
   recipes: props.base.recipes.map((r) => ({
     recipeId: r.recipeId,
+    share: r.share,
   })),
 }))
 
@@ -118,6 +120,7 @@ const cardsById = computed(() => {
       units: number
       technologyLevel: number
       requiredTech: number
+      share: number
     }
   >()
   props.base.recipes.forEach((selection) => {
@@ -135,6 +138,7 @@ const cardsById = computed(() => {
       units: buildingUnits.value.get(recipe.producedInId) ?? 0,
       technologyLevel,
       requiredTech,
+      share: typeof selection.share === 'number' ? selection.share : 100,
     })
   })
   return map
@@ -244,6 +248,10 @@ function addRecipe(recipe: Recipe) {
 
 function removeRecipe(id: string) {
   emit('removeRecipe', { id })
+}
+
+function updateShare(id: string, share: number) {
+  emit('updateRecipeShare', { id, share })
 }
 
 function formatNumber(value: number, fractionDigits = 2) {
@@ -368,7 +376,9 @@ watch(
               :required-tech="cardsById.get(element.id)!.requiredTech"
               :material-lookup="props.index.materialById"
               :timeframe-hours="props.timeframeHours"
+              :share="cardsById.get(element.id)!.share"
               @remove="removeRecipe(element.id)"
+              @update-share="updateShare(element.id, $event)"
             />
           </div>
         </template>
