@@ -138,7 +138,13 @@ const cardsById = computed(() => {
       units: buildingUnits.value.get(recipe.producedInId) ?? 0,
       technologyLevel,
       requiredTech,
-      share: typeof selection.share === 'number' ? selection.share : 100,
+      share:
+        typeof selection.share === 'number' && Number.isFinite(selection.share)
+          ? Math.min(100, Math.max(0, Math.round(selection.share)))
+          : Math.min(
+              100,
+              Math.max(0, Math.round((reportByRecipeId.value.get(recipe.id)?.queueShare ?? 0) * 100)),
+            ),
     })
   })
   return map

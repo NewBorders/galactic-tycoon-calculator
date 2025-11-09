@@ -201,7 +201,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
 
     type Pending = {
       recipe: Recipe
-      share: number
+      share: number | null
       abundanceFactor: number
       blocked: boolean
       blockedReason: 'abundance' | 'fertility' | 'technology' | null
@@ -211,8 +211,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
 
     const pending: Pending[] = []
     let totalUnweightedTime = 0
-    let totalWeightedTime = 0
-    let totalWeight = 0
+    let activeCount = 0
 
     recipes.forEach(({ recipe, share }) => {
       const material = materialById.get(recipe.output.id)
@@ -241,14 +240,15 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       const timeContribution = active ? adjustedTime : 0
       if (timeContribution > 0) {
         totalUnweightedTime += timeContribution
-        if (share > 0) {
-          totalWeightedTime += timeContribution * share
-          totalWeight += share
-        }
+        activeCount += 1
       }
+      const shareValue =
+        typeof share === 'number' && Number.isFinite(share) && !Number.isNaN(share)
+          ? Math.min(100, Math.max(0, share))
+          : null
       pending.push({
         recipe,
-        share,
+        share: shareValue,
         abundanceFactor,
         blocked,
         blockedReason,
@@ -257,10 +257,12 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       })
     })
 
-    const activeCount = pending.filter((entry) => entry.timeContribution > 0).length
-    const weightedActiveTime = totalWeight > 0 ? totalWeightedTime : 0
-    const useWeightedShares = totalWeight > 0 && weightedActiveTime > 0
-    const shouldPauseProduction = totalWeight <= 0 && totalUnweightedTime > 0
+    const activeEntries = pending.filter((entry) => entry.timeContribution > 0)
+    const explicitShareTotal = activeEntries.reduce(
+      (acc, entry) => acc + (entry.share ?? 0),
+      0,
+    )
+    const useExplicitShares = explicitShareTotal > 0
     const unweightedCycleDenominator =
       totalUnweightedTime > 0
         ? totalUnweightedTime
@@ -268,20 +270,18 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
           ? activeCount
           : 0
     const nominalCyclesPerDayPerUnit =
-      unweightedCycleDenominator > 0 && !shouldPauseProduction
+      unweightedCycleDenominator > 0 && !(useExplicitShares && explicitShareTotal <= 0)
         ? MINUTES_PER_DAY / unweightedCycleDenominator
         : 0
     const totalCyclesPerDay = nominalCyclesPerDayPerUnit * productionUnits
 
-    const denominatorForShare = shouldPauseProduction
-      ? 0
-      : useWeightedShares
-        ? weightedActiveTime
-        : totalUnweightedTime > 0
-          ? totalUnweightedTime
-          : activeCount > 0
-            ? activeCount
-            : 0
+    const denominatorForShare = useExplicitShares
+      ? explicitShareTotal
+      : totalUnweightedTime > 0
+        ? totalUnweightedTime
+        : activeCount > 0
+          ? activeCount
+          : 0
 
     pending.forEach(({
       recipe,
@@ -293,15 +293,14 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       timeContribution,
     }) => {
       const hasTime = timeContribution > 0
-      const weightedContribution =
-        totalWeight > 0 && hasTime ? timeContribution * share : 0
-      const unweightedContribution = hasTime ? timeContribution : 0
-      const queueShare =
-        denominatorForShare > 0
-          ? useWeightedShares
-            ? weightedContribution / denominatorForShare
-            : unweightedContribution / denominatorForShare
-          : 0
+      const queueShare = (() => {
+        if (!hasTime || totalCyclesPerDay <= 0) return 0
+        if (useExplicitShares) {
+          const value = Math.max(0, share ?? 0)
+          return denominatorForShare > 0 ? value / denominatorForShare : 0
+        }
+        return denominatorForShare > 0 ? timeContribution / denominatorForShare : 0
+      })()
       const rawRunsPerDay =
         blocked || totalCyclesPerDay <= 0 ? 0 : totalCyclesPerDay * queueShare
       const rawOutputPerDay = rawRunsPerDay * recipe.output.amount

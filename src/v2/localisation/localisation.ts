@@ -49,8 +49,9 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     workers: 'Workers',
     activeModules: 'Active modules',
     queueTimeShare: 'Queue time share',
-    recipeShareWeight: 'Production weight',
-    recipeShareWeightHint: 'Higher values allocate more building time to this recipe. Set 0 to pause it.',
+    recipeQueueShare: 'Queue time share override',
+    recipeQueueShareHint:
+      'Adjust how much of the building queue this recipe consumes. Shares across recipes always add up to 100%. Set 0 to pause it.',
     dailyRunsPerModule: 'Runs per module per day',
     runsPerHours: 'Runs per module per {hours}h',
     outputPerDay: 'Output per day',
@@ -173,8 +174,9 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     workers: 'Arbeiter',
     activeModules: 'Aktive Module',
     queueTimeShare: 'Zeitanteil der Queue',
-    recipeShareWeight: 'Produktionsgewicht',
-    recipeShareWeightHint: 'Höhere Werte reservieren mehr Produktionszeit für dieses Rezept. Mit 0 pausierst du es.',
+    recipeQueueShare: 'Zeitanteil festlegen',
+    recipeQueueShareHint:
+      'Steuere, wie viel Warteschlangenzeit dieses Rezept erhält. Alle Rezepte zusammen ergeben immer 100 %. Mit 0 pausierst du es.',
     dailyRunsPerModule: 'Durchgänge pro Tag',
     runsPerHours: 'Durchgänge pro Modul pro {hours}h',
     outputPerDay: 'Ausstoß pro Tag',

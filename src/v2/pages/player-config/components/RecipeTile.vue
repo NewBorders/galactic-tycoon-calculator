@@ -20,24 +20,24 @@ const emit = defineEmits<{ remove: []; updateShare: [number] }>()
 
 const minutesPerDay = 60 * 24
 
-function sanitizeShare(value: unknown): number {
-  if (value == null) return 100
+function sanitizeShare(value: unknown, fallback = 0): number {
+  if (value == null) return fallback
   const numeric = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(numeric) || Number.isNaN(numeric)) return 100
-  return Math.min(999, Math.max(0, Math.round(numeric)))
+  if (!Number.isFinite(numeric) || Number.isNaN(numeric)) return fallback
+  return Math.min(100, Math.max(0, Math.round(numeric)))
 }
 
-const shareBuffer = ref(sanitizeShare(props.share))
+const shareBuffer = ref(sanitizeShare(props.share, 0))
 
 watch(
   () => props.share,
   (value) => {
-    shareBuffer.value = sanitizeShare(value)
+    shareBuffer.value = sanitizeShare(value, shareBuffer.value)
   },
 )
 
 function commitShare(value: unknown) {
-  const sanitized = sanitizeShare(value)
+  const sanitized = sanitizeShare(value, shareBuffer.value)
   if (sanitized !== shareBuffer.value) {
     shareBuffer.value = sanitized
   }
@@ -174,15 +174,15 @@ function tierLabel(tier: number) {
         <div class="mt-3 space-y-2 text-xs text-slate-400">
           <label class="block space-y-2">
             <span class="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-500">
-              {{ translate('recipeShareWeight') }}
-              <span class="text-slate-200">{{ formatNumber(shareBuffer, 0) }}</span>
+              {{ translate('recipeQueueShare') }}
+              <span class="text-slate-200">{{ formatShare(shareBuffer) }}</span>
             </span>
             <div class="flex items-center gap-3">
               <input
                 class="flex-1 accent-emerald-500"
                 type="range"
                 min="0"
-                max="200"
+                max="100"
                 step="1"
                 :value="shareBuffer"
                 @input="onShareRange"
@@ -191,12 +191,12 @@ function tierLabel(tier: number) {
                 class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100"
                 type="number"
                 min="0"
-                max="999"
+                max="100"
                 :value="shareBuffer"
                 @input="onShareNumber"
               />
             </div>
-            <span class="text-[11px] text-slate-500">{{ translate('recipeShareWeightHint') }}</span>
+            <span class="text-[11px] text-slate-500">{{ translate('recipeQueueShareHint') }}</span>
           </label>
         </div>
 
