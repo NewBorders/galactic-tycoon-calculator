@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { formatNumber } from '@/v1/utils/formatNumber'
 import type { Recipe } from '@/v2/services/gamedata/types'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
@@ -86,13 +87,6 @@ const hasTechnology = computed(() => technologyLevel.value >= requiredTech.value
 
 function materialName(id: number) {
   return props.materialLookup.get(id)?.name ?? `#${id}`
-}
-
-function formatNumber(value: number, fractionDigits = 2) {
-  return value.toLocaleString(undefined, {
-    maximumFractionDigits: fractionDigits,
-    minimumFractionDigits: 0,
-  })
 }
 
 function formatShare(value: number) {

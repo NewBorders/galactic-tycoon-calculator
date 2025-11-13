@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Draggable from 'vuedraggable'
+import { formatNumber } from '@/v1/utils/formatNumber'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import type { Recipe } from '@/v2/services/gamedata/service'
@@ -246,13 +247,6 @@ function addRecipe(recipe: Recipe) {
 
 function removeRecipe(id: string) {
   emit('removeRecipe', { id })
-}
-
-function formatNumber(value: number, fractionDigits = 2) {
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: fractionDigits,
-  })
 }
 
 watch(

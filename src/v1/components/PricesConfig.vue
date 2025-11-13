@@ -223,10 +223,10 @@
                 />
               </td>
               <td class="py-2 px-2 text-right text-xs text-gray-400">
-                {{ currentPrices[key] ? currentPrices[key].toFixed(2) : '-' }}
+                {{ currentPrices[key] ? formatPrice(currentPrices[key]) : '-' }}
               </td>
               <td class="py-2 px-2 text-right text-xs text-gray-400">
-                {{ avgPrices[key] ? avgPrices[key].toFixed(2) : '-' }}
+                {{ avgPrices[key] ? formatPrice(avgPrices[key]) : '-' }}
               </td>
               <td class="py-2 px-2">
                 <input
@@ -294,10 +294,10 @@
                 />
               </td>
               <td class="py-2 px-2 text-right text-xs text-gray-400">
-                {{ currentPrices[key] ? currentPrices[key].toFixed(2) : '-' }}
+                {{ currentPrices[key] ? formatPrice(currentPrices[key]) : '-' }}
               </td>
               <td class="py-2 px-2 text-right text-xs text-gray-400">
-                {{ avgPrices[key] ? avgPrices[key].toFixed(2) : '-' }}
+                {{ avgPrices[key] ? formatPrice(avgPrices[key]) : '-' }}
               </td>
               <td class="py-2 px-2">
                 <input
@@ -338,6 +338,7 @@ import { MATERIAL_NAME_TO_KEY } from '../data/materialNameMapping'
 import { parseStockData, parsePricesData } from '../utils/parsing'
 import { getIndustryColors } from '../utils/industryColors'
 import { fetchMaterialPrices } from '../services/pricesApi'
+import { formatPrice } from '../utils/formatNumber'
 
 interface Props {
   show: boolean
