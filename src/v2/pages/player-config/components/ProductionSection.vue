@@ -24,6 +24,7 @@ const emit = defineEmits<{
   addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
+  updateRecipe: [{ id: string; patch: { count?: number } }]
 }>()
 
 const query = ref('')
@@ -66,6 +67,7 @@ const assignment = computed(() => ({
   })),
   recipes: props.base.recipes.map((r) => ({
     recipeId: r.recipeId,
+    count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(1, Math.floor(r.count)) : 1,
   })),
 }))
 
@@ -198,7 +200,7 @@ const suggestions = computed(() => {
         abundanceRating: availability.abundanceRating,
         blockedReason,
         alreadySelected,
-        disabled: alreadySelected || !hasBuilding || !technologySatisfied || availabilityBlocked,
+        disabled: !hasBuilding || !technologySatisfied || availabilityBlocked,
         units,
         technologyLevel,
         requiredTech,
@@ -236,8 +238,8 @@ function addRecipe(recipe: Recipe) {
     ? (technologyLevelMap.value.get(building.specialization) ?? 0)
     : 0
   if (technologyLevel < (recipe.reqTech ?? 0)) return
-  if (selectedRecipeIds.value.has(recipe.id)) return
 
+  // Adding again will increment the configured count (handled by playerBases)
   emit('addRecipe', { recipeId: recipe.id })
   query.value = ''
 }
@@ -364,11 +366,13 @@ watch(
               :report-row="cardsById.get(element.id)!.reportRow"
               :building-name="cardsById.get(element.id)!.buildingName"
               :units="cardsById.get(element.id)!.units"
+              :count="element.count ?? 1"
               :technology-level="cardsById.get(element.id)!.technologyLevel"
               :required-tech="cardsById.get(element.id)!.requiredTech"
               :material-lookup="props.index.materialById"
               :timeframe-hours="props.timeframeHours"
               @remove="removeRecipe(element.id)"
+              @updateCount="(count: number) => emit('updateRecipe', { id: element.id, patch: { count } })"
             />
           </div>
         </template>

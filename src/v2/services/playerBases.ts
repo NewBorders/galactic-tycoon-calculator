@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import type { Building, GameData, Recipe } from './gamedata/service'
 
-export type PlayerRecipe = { id: string; recipeId: number }
+export type PlayerRecipe = { id: string; recipeId: number; count?: number }
 
 export type PlayerBuilding = { id: string; buildingId: number; level: number }
 export type PlayerBase = {
@@ -58,6 +58,7 @@ function ensureUi(st: Partial<PlayerState>): PlayerState {
       (base.recipes as PlayerRecipe[])?.map((rec) => ({
         id: rec.id ?? uid(),
         recipeId: rec.recipeId,
+        count: typeof rec.count === 'number' && Number.isFinite(rec.count) && rec.count > 0 ? Math.max(1, Math.floor(rec.count)) : 1,
       })) ?? [],
     optionalConsumables: Array.isArray(base.optionalConsumables)
       ? [...new Set(base.optionalConsumables.filter((id): id is number => typeof id === 'number'))]
@@ -168,13 +169,31 @@ export function usePlayerBases(gd: GameData) {
   function addRecipe(baseId: string, recipeId: number) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return
-    if (b.recipes.some((r) => r.recipeId === recipeId)) return
     const recipe = recipesById.value.get(recipeId)
     if (!recipe) return
     const hasBuilding = b.buildings.some((instance) => instance.buildingId === recipe.producedInId)
     if (!hasBuilding) return
-    b.recipes.push({ id: uid(), recipeId })
+    // If recipe already exists, increment its count
+    const existing = b.recipes.find((r) => r.recipeId === recipeId)
+    if (existing) {
+      existing.count = (existing.count ?? 1) + 1
+    } else {
+      b.recipes.push({ id: uid(), recipeId, count: 1 })
+    }
     syncRecipesWithBuildings(b)
+    saveState(state.value)
+  }
+
+  function setRecipeCount(baseId: string, recipeInstanceId: string, count: number) {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    const it = b.recipes.find((r) => r.id === recipeInstanceId)
+    if (!it) return
+    it.count = Math.max(0, Math.floor(Number(count) || 0))
+    // remove if zero
+    if (it.count <= 0) {
+      b.recipes = b.recipes.filter((r) => r.id !== recipeInstanceId)
+    }
     saveState(state.value)
   }
 
@@ -255,6 +274,7 @@ export function usePlayerBases(gd: GameData) {
     addRecipe,
     removeRecipe,
     reorderRecipes,
+    setRecipeCount,
     setOptionalConsumables,
     setStock,
     isBaseOpen,

@@ -162,18 +162,22 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     const productionUnits = productionUnitsById.get(recipe.producedInId) ?? 0
     if (productionUnits <= 0) return
     const workforceUnits = workforceUnitsById.get(recipe.producedInId) ?? 0
+    const countRaw = (selection as Record<string, unknown>).count
+    const count = typeof countRaw === 'number' && Number.isFinite(countRaw) ? Math.max(1, Math.floor(countRaw)) : 1
     const group = buildingGroups.get(recipe.producedInId)
     if (group) {
-      group.recipes.push(recipe)
+      for (let i = 0; i < count; i++) group.recipes.push(recipe)
     } else {
       const techLevelRaw = technologyLevels[building.specialization] ?? 0
       const techLevel = typeof techLevelRaw === 'number' ? Math.max(0, Math.floor(techLevelRaw)) : 0
       const technologyBonus = 1 + techLevel * 0.05
+      const recipesArr: Recipe[] = []
+      for (let i = 0; i < count; i++) recipesArr.push(recipe)
       buildingGroups.set(recipe.producedInId, {
         building,
         productionUnits,
         workforceUnits,
-        recipes: [recipe],
+        recipes: recipesArr,
         technologyBonus,
         technologyLevel: techLevel,
       })
@@ -301,19 +305,87 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
   const recipeRows: RecipeProductionRow[] = []
   const actualWorkersByTier = new Map<number, number>()
 
+  // Aggregate interim rows by recipe id so multiple identical order-items are combined.
+  // When a recipe appears N times (count=N), each interim row gets the same queue share and runs.
+  // Aggregating them means: queueShare stays the same per instance, but rawRunsPerDay and rawOutputPerDay
+  // are cumulative (N× the per-instance values).
+  const aggregated = new Map<
+    number,
+    {
+      recipe: Recipe
+      buildingId: number
+      buildingUnits: number
+      nominalCyclesPerDayPerUnit: number
+      adjustedTimeMinutes: number
+      rawRunsPerDay: number
+      rawOutputPerDay: number
+      rawInputsById: Map<number, number>
+      workforceDemand: WorkforceDemand
+      productivityFactor: number
+      abundanceFactor: number
+      blockedReason: InterimRow['blockedReason']
+      queueShare: number
+      count: number
+    }
+  >()
+
   interimRows.forEach((raw) => {
+    const id = raw.recipe.id
+    const entry = aggregated.get(id)
+    if (!entry) {
+      const inputsMap = new Map<number, number>()
+      raw.rawInputsPerDay.forEach((inp) => inputsMap.set(inp.materialId, inp.amount))
+      const wf = new Map<number, number>()
+      raw.workforceDemand.forEach((v, k) => wf.set(k, v))
+      aggregated.set(id, {
+        recipe: raw.recipe,
+        buildingId: raw.buildingId,
+        buildingUnits: raw.buildingUnits,
+        nominalCyclesPerDayPerUnit: raw.nominalCyclesPerDayPerUnit,
+        adjustedTimeMinutes: raw.adjustedTimeMinutes,
+        rawRunsPerDay: raw.rawRunsPerDay,
+        rawOutputPerDay: raw.rawOutputPerDay,
+        rawInputsById: inputsMap,
+        workforceDemand: wf,
+        productivityFactor: raw.productivityFactor,
+        abundanceFactor: raw.abundanceFactor,
+        blockedReason: raw.blockedReason,
+        queueShare: raw.queueShare,
+        count: 1,
+      })
+    } else {
+      // accumulate sums: each duplicate instance contributes its runs and outputs
+      entry.rawRunsPerDay += raw.rawRunsPerDay
+      entry.rawOutputPerDay += raw.rawOutputPerDay
+      raw.rawInputsPerDay.forEach((inp) =>
+        entry.rawInputsById.set(inp.materialId, (entry.rawInputsById.get(inp.materialId) ?? 0) + inp.amount),
+      )
+      raw.workforceDemand.forEach((v, k) => addToMap(entry.workforceDemand, k, v))
+      // Note: queueShare does NOT accumulate; it remains the same per instance.
+      // The total queueShare contribution to the queue is: individual queueShare × count
+      entry.count += 1
+      // keep productivity/abundance/blocked from the first occurrence (they should be identical)
+    }
+  })
+
+  // Convert aggregated entries into recipe rows
+  aggregated.forEach((raw) => {
     const tiersUsed = Array.from(raw.workforceDemand.keys())
     const workforceFactor =
       tiersUsed.length > 0
         ? Math.min(...tiersUsed.map((tier) => coverageByTier.get(tier) ?? 1))
         : 1
+
     const adjustedRuns = raw.rawRunsPerDay * workforceFactor
     const adjustedOutput = raw.rawOutputPerDay * workforceFactor
-    const adjustedInputs = raw.rawInputsPerDay.map((input) => ({
-      materialId: input.materialId,
-      amount: input.amount * workforceFactor,
+
+    const adjustedInputs = Array.from(raw.rawInputsById.entries()).map(([materialId, amount]) => ({
+      materialId,
+      amount: amount * workforceFactor,
     }))
-    const effectiveCyclesPerUnit = raw.nominalCyclesPerDayPerUnit * workforceFactor
+
+    // cycles per unit should account for how many times the recipe appears in the queue
+    const effectiveCyclesPerUnit = raw.nominalCyclesPerDayPerUnit * raw.count * workforceFactor
     const actualTimeMinutes =
       workforceFactor > 0 && Number.isFinite(raw.adjustedTimeMinutes)
         ? raw.adjustedTimeMinutes / workforceFactor
@@ -321,7 +393,11 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
           ? raw.adjustedTimeMinutes
           : Infinity
 
-    const workforce = tiersUsed.map((tier) => {
+    // When aggregating identical recipes (count > 1), recalculate queueShare
+    // since each instance contributes its adjusted time to the total queue
+    const finalQueueShare = raw.queueShare * raw.count
+
+    const workforce = Array.from(raw.workforceDemand.keys()).map((tier) => {
       const required = raw.workforceDemand.get(tier) ?? 0
       const assigned = required * workforceFactor
       if (assigned > 0) addToMap(actualWorkersByTier, tier, assigned)
@@ -330,10 +406,10 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
 
     const row: RecipeProductionRow = {
       recipeId: raw.recipe.id,
-      buildingId: raw.recipe.producedInId,
+      buildingId: raw.buildingId,
       timeMinutes: raw.recipe.timeMinutes,
       buildingUnits: raw.buildingUnits,
-      queueShare: raw.queueShare,
+      queueShare: finalQueueShare,
       adjustedTimeMinutes: raw.adjustedTimeMinutes,
       actualTimeMinutes,
       nominalCyclesPerDayPerUnit: raw.nominalCyclesPerDayPerUnit,
