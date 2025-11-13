@@ -420,7 +420,7 @@ onBeforeUnmount(() => {
               </td>
               <td class="py-1 text-right">{{ formatPrice(row.unitPrice,2) }}</td>
               <td class="py-1 text-right">
-                {{ row.toBuy > 0 ? formatNumber(row.toBuy,0) : '—' }}
+                {{ row.toBuy > 0 ? formatNumber(row.toBuy,0,true) : '—' }}
               </td>
               <td
                 class="py-1 text-right"
