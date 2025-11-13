@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { formatNumber } from '@/v1/utils/formatNumber'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
@@ -78,13 +79,6 @@ const summaryForPeriod = computed(() => ({
   workerPurchaseCosts: summary.value.workerPurchaseCosts * periodFactor.value,
   net: summary.value.net * periodFactor.value,
 }))
-
-function formatNumber(value: number, fractionDigits = 2) {
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: fractionDigits,
-  })
-}
 </script>
 
 <template>

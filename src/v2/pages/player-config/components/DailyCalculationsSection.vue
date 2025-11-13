@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { formatNumber, formatPrice } from '@/v1/utils/formatNumber'
 import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
@@ -143,13 +144,6 @@ const optionalConsumables = computed(() => {
 
 function materialName(id: number) {
   return props.index.materialById.get(id)?.name ?? `#${id}`
-}
-
-function formatNumber(value: number, fractionDigits = 2) {
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: fractionDigits,
-  })
 }
 
 function formatShare(value: number) {
@@ -384,7 +378,7 @@ onBeforeUnmount(() => {
                 </span>
               </td>
               <td class="py-1 text-right">{{ formatNumber(row.consumptionPerPeriod) }}</td>
-              <td class="py-1 text-right">{{ formatNumber(row.unitPrice, 2) }}</td>
+              <td class="py-1 text-right">{{ formatPrice(row.unitPrice) }}</td>
               <td class="py-1 text-right">{{ formatNumber(row.costPerPeriod) }}</td>
             </tr>
           </tbody>
@@ -424,7 +418,7 @@ onBeforeUnmount(() => {
               >
                 {{ formatNumber(row.balancePerPeriod) }}
               </td>
-              <td class="py-1 text-right">{{ formatNumber(row.unitPrice, 2) }}</td>
+              <td class="py-1 text-right">{{ formatPrice(row.unitPrice) }}</td>
               <td class="py-1 text-right">
                 {{ row.toBuy > 0 ? formatNumber(row.toBuy) : '—' }}
               </td>

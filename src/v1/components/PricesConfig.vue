@@ -55,7 +55,7 @@
           </button>
         </div>
       </div>
-      
+
       <!-- Price Type Selector -->
       <div class="mb-3 flex items-center gap-4">
         <label class="text-sm text-gray-400">Use price type:</label>
@@ -80,7 +80,7 @@
           <span class="text-sm text-gray-300">Average Price</span>
         </label>
       </div>
-      
+
       <div
         v-if="apiPricesStatus"
         class="mb-3 text-sm"
@@ -88,7 +88,7 @@
       >
         {{ apiPricesStatus.message }}
       </div>
-      
+
       <p class="text-sm text-gray-400 mb-3">
         Paste the prices data copied from the game (will not update locked prices):
       </p>
@@ -223,10 +223,10 @@
                 />
               </td>
               <td class="py-2 px-2 text-right text-xs text-gray-400">
-                {{ currentPrices[key] ? currentPrices[key].toFixed(2) : '-' }}
+                {{ currentPrices[key] ? formatPrice(currentPrices[key]) : '-' }}
               </td>
               <td class="py-2 px-2 text-right text-xs text-gray-400">
-                {{ avgPrices[key] ? avgPrices[key].toFixed(2) : '-' }}
+                {{ avgPrices[key] ? formatPrice(avgPrices[key]) : '-' }}
               </td>
               <td class="py-2 px-2">
                 <input
@@ -294,10 +294,10 @@
                 />
               </td>
               <td class="py-2 px-2 text-right text-xs text-gray-400">
-                {{ currentPrices[key] ? currentPrices[key].toFixed(2) : '-' }}
+                {{ currentPrices[key] ? formatPrice(currentPrices[key]) : '-' }}
               </td>
               <td class="py-2 px-2 text-right text-xs text-gray-400">
-                {{ avgPrices[key] ? avgPrices[key].toFixed(2) : '-' }}
+                {{ avgPrices[key] ? formatPrice(avgPrices[key]) : '-' }}
               </td>
               <td class="py-2 px-2">
                 <input
@@ -338,6 +338,7 @@ import { MATERIAL_NAME_TO_KEY } from '../data/materialNameMapping'
 import { parseStockData, parsePricesData } from '../utils/parsing'
 import { getIndustryColors } from '../utils/industryColors'
 import { fetchMaterialPrices } from '../services/pricesApi'
+import { formatPrice } from '../utils/formatNumber'
 
 interface Props {
   show: boolean
@@ -395,7 +396,7 @@ const clearAllFilters = () => {
 const getTier = (key: string): number => {
   const material = props.materials[key]
   if (!material) return 1
-  
+
   // Use tier from material data
   return material.tier || 1
 }
@@ -422,7 +423,7 @@ const totalMaterialsCount = computed(() => {
 
 const filteredMaterialsAll = computed(() => {
   let materialsArray = Object.entries(props.materials)
-  
+
   // Apply search filter
   if (searchFilter.value) {
     const search = searchFilter.value.toLowerCase()
@@ -430,18 +431,18 @@ const filteredMaterialsAll = computed(() => {
       material.name.toLowerCase().includes(search) || key.toLowerCase().includes(search)
     )
   }
-  
+
   // Apply tier filter
   if (tierFilter.value) {
     const tier = Number(tierFilter.value)
     materialsArray = materialsArray.filter(([key]) => getTier(key) === tier)
   }
-  
+
   // Apply category filter
   if (categoryFilter.value) {
     materialsArray = materialsArray.filter(([key, material]) => material.category === categoryFilter.value)
   }
-  
+
   // Filter out materials without price if hideWithoutPrice is true
   if (hideWithoutPrice.value) {
     materialsArray = materialsArray.filter(([key]) => {
@@ -449,28 +450,28 @@ const filteredMaterialsAll = computed(() => {
       return price && price > 0
     })
   }
-  
+
   // Show only locked prices
   if (showOnlyLocked.value) {
     materialsArray = materialsArray.filter(([key]) => props.lockedPrices[key])
   }
-  
+
   // Sort by: category, tier, name
   return materialsArray.sort(([keyA, a], [keyB, b]) => {
     const categoryOrderA = getCategoryOrder(a.category)
     const categoryOrderB = getCategoryOrder(b.category)
-    
+
     if (categoryOrderA !== categoryOrderB) {
       return categoryOrderA - categoryOrderB
     }
-    
+
     const tierA = getTier(keyA)
     const tierB = getTier(keyB)
-    
+
     if (tierA !== tierB) {
       return tierA - tierB
     }
-    
+
     return a.name.localeCompare(b.name)
   })
 })
@@ -509,11 +510,11 @@ const handleStockImport = () => {
   }
 
   const result = parseStockData(text, MATERIAL_NAME_TO_KEY)
-  
+
   if (result.success && result.data) {
     emit('update:stock', { ...props.stock, ...result.data })
   }
-  
+
   importStockStatus.value = {
     success: result.success,
     message: result.message,
@@ -528,7 +529,7 @@ const handlePricesImport = () => {
   }
 
   const result = parsePricesData(text, MATERIAL_NAME_TO_KEY)
-  
+
   if (result.success && result.data) {
     // Only update prices that are not locked
     const newPrices = { ...props.prices }
@@ -538,7 +539,7 @@ const handlePricesImport = () => {
       }
     }
     emit('update:prices', newPrices)
-    
+
     const lockedCount = Object.keys(result.data).filter(key => props.lockedPrices[key]).length
     if (lockedCount > 0) {
       importPricesStatus.value = {
@@ -548,7 +549,7 @@ const handlePricesImport = () => {
       return
     }
   }
-  
+
   importPricesStatus.value = {
     success: result.success,
     message: result.message,
@@ -558,30 +559,30 @@ const handlePricesImport = () => {
 const fetchApiPrices = async () => {
   isLoadingApiPrices.value = true
   apiPricesStatus.value = null
-  
+
   try {
     const apiPrices = await fetchMaterialPrices()
-    
+
     // Map API material IDs to our material keys
     const newCurrentPrices: Record<string, number> = {}
     const newAvgPrices: Record<string, number> = {}
-    
+
     let updatedCount = 0
     let lockedCount = 0
-    
+
     for (const apiPrice of apiPrices) {
       // Find material by ID
       const materialEntry = Object.entries(props.materials).find(
         ([_, material]) => material.id === apiPrice.matId
       )
-      
+
       if (materialEntry) {
         const [key] = materialEntry
-        
+
         // Convert from cents to currency units
         newCurrentPrices[key] = apiPrice.currentPrice > 0 ? apiPrice.currentPrice / 100 : 0
         newAvgPrices[key] = apiPrice.avgPrice > 0 ? apiPrice.avgPrice / 100 : 0
-        
+
         // Count if locked or updated
         if (props.lockedPrices[key]) {
           lockedCount++
@@ -590,23 +591,23 @@ const fetchApiPrices = async () => {
         }
       }
     }
-    
+
     // Merge with existing prices
     emit('update:currentPrices', { ...props.currentPrices, ...newCurrentPrices })
     emit('update:avgPrices', { ...props.avgPrices, ...newAvgPrices })
-    
+
     // Update active prices based on selected type (only for non-locked prices)
     const pricesToUse = props.usePriceType === 'current' ? newCurrentPrices : newAvgPrices
     const newPrices = { ...props.prices }
-    
+
     for (const [key, value] of Object.entries(pricesToUse)) {
       if (!props.lockedPrices[key]) {
         newPrices[key] = value
       }
     }
-    
+
     emit('update:prices', newPrices)
-    
+
     apiPricesStatus.value = {
       success: true,
       message: `Loaded ${updatedCount} prices from API${lockedCount > 0 ? ` (${lockedCount} locked prices not updated)` : ''}`
@@ -623,17 +624,17 @@ const fetchApiPrices = async () => {
 
 const updatePriceType = (type: 'current' | 'avg') => {
   emit('update:usePriceType', type)
-  
+
   // Update active prices based on selected type
   const newPrices = { ...props.prices }
   const sourceprices = type === 'current' ? props.currentPrices : props.avgPrices
-  
+
   for (const [key, value] of Object.entries(sourceprices)) {
     if (!props.lockedPrices[key] && value > 0) {
       newPrices[key] = value
     }
   }
-  
+
   emit('update:prices', newPrices)
 }
 </script>
