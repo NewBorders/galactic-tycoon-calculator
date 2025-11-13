@@ -74,6 +74,7 @@ const assignment = computed(() => ({
   })),
   recipes: props.base.recipes.map((r) => ({
     recipeId: r.recipeId,
+    count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(1, Math.floor(r.count)) : 1,
   })),
 }))
 
@@ -412,7 +413,11 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
             <tr v-for="row in materialRows" :key="row.materialId" class="border-t border-slate-800/60">
-              <td class="py-1">{{ materialName(row.materialId) }}</td>
+              <td class="py-1">
+                <a v-bind:href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline">
+                {{ materialName(row.materialId) }}
+              </a>
+              </td>
               <td
                 class="py-1 text-right"
                 :class="row.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300'"

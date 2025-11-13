@@ -33,6 +33,7 @@ const emit = defineEmits<{
   addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
+  updateRecipe: [{ id: string; patch: { count?: number } }]
   setOptionalConsumables: [materialIds: number[]]
   updateStock: [Record<number, number>]
   persist: []
@@ -279,6 +280,12 @@ function onKey(e: KeyboardEvent) {
           @removeRecipe="
             (payload) => {
               $emit('removeRecipe', payload)
+              $emit('persist')
+            }
+          "
+          @updateRecipe="
+            (payload) => {
+              $emit('updateRecipe', payload)
               $emit('persist')
             }
           "

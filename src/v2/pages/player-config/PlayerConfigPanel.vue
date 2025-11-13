@@ -25,6 +25,7 @@ const {
   addRecipe,
   removeRecipe,
   reorderRecipes,
+  setRecipeCount,
   setOptionalConsumables,
   setStock,
   isBaseOpen,
@@ -295,6 +296,13 @@ watch(
           @removeRecipe="
             ({ id }) => {
               removeRecipe(base.id, id)
+              persist()
+            }
+          "
+          @updateRecipe="
+            ({ id, patch }) => {
+              // patch.count may be undefined; ensure numeric
+              setRecipeCount(base.id, id, patch.count ?? 0)
               persist()
             }
           "
