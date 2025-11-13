@@ -18,10 +18,17 @@ function numericLocaleFromDocument(): string {
  * Uses dot as thousand separator and comma as decimal separator for 'en'/'de'.
  * @param value - The number to format
  * @param decimals - Number of decimals (default 2)
+ * @param roundUp - decide to always round up the number instead of normal rounding (default false)
  */
-export function formatNumber(value: number, decimals: number = 2): string {
+export function formatNumber(value: number, decimals: number = 2, roundUp: boolean = false): string {
   if (!Number.isFinite(value)) return '—'
   const locale = numericLocaleFromDocument()
+
+  if (roundUp) {
+    const factor = Math.pow(10, decimals)
+    value = Math.ceil(value * factor) / factor
+  }
+
   return value.toLocaleString(locale, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
