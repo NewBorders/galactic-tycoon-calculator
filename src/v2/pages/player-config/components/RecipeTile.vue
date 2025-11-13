@@ -144,7 +144,7 @@ function tierLabel(tier: number) {
                 title="Decrease quantity"
                 aria-label="Decrease recipe quantity"
                 :disabled="(props.count ?? 1) <= 1"
-                aria-disabled="(props.count ?? 1) <= 1"
+                :aria-disabled="(props.count ?? 1) <= 1"
                 @click.prevent="emit('updateCount', Math.max(1, (props.count ?? 1) - 1))"
               >
                 −
