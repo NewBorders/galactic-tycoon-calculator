@@ -7,7 +7,7 @@ import BuildingSearch from './BuildingSearch.vue'
 import BaseBuildingsSection from './BaseBuildingsSection.vue'
 import ProductionSection from './ProductionSection.vue'
 import BaseSummaryCard from './BaseSummaryCard.vue'
-import DailyCalculationsSection from './DailyCalculationsSection.vue'
+import SummaryCalculationsSection from './SummaryCalculationsSection.vue'
 
 const props = defineProps<{
   base: PlayerBase
@@ -224,7 +224,7 @@ function onKey(e: KeyboardEvent) {
 <!--        </div>-->
       </summary>
       <div class="p-3">
-        <DailyCalculationsSection
+        <SummaryCalculationsSection
           :base="base"
           :game-data="props.gameData"
           :index="props.index"

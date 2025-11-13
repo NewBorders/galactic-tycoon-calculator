@@ -307,8 +307,8 @@ onBeforeUnmount(() => {
           <tbody>
             <tr v-for="row in workforceSummary" :key="row.tier" class="border-t border-slate-800/60">
               <td class="py-1 text-slate-400">{{ tierLabel(row.tier) }}</td>
-              <td class="py-1 text-right">{{ formatNumber(row.required, 1) }}</td>
-              <td class="py-1 text-right">{{ formatNumber(row.housing, 1) }}</td>
+              <td class="py-1 text-right">{{ formatNumber(row.required, 0) }}</td>
+              <td class="py-1 text-right">{{ formatNumber(row.housing, 0) }}</td>
               <td class="py-1 text-right" :class="coverageClass(row.coverage)">
                 {{ formatShare(row.coverage * 100) }}
               </td>
@@ -379,13 +379,13 @@ onBeforeUnmount(() => {
               </td>
               <td class="py-1 text-right">{{ formatNumber(row.consumptionPerPeriod) }}</td>
               <td class="py-1 text-right">{{ formatPrice(row.unitPrice) }}</td>
-              <td class="py-1 text-right">{{ formatNumber(row.costPerPeriod) }}</td>
+              <td class="py-1 text-right">{{ formatPrice(row.costPerPeriod, 2) }}</td>
             </tr>
           </tbody>
         </table>
         <div class="text-right text-xs text-slate-400">
           {{ translate('totalWorkerCosts') }}:
-          <span class="text-slate-200">{{ formatNumber(totalWorkerCosts) }}</span>
+          <span class="text-slate-200">{{ formatPrice(totalWorkerCosts, 2) }}</span>
         </div>
       </template>
       <div v-else class="text-sm text-slate-400">—</div>
@@ -418,14 +418,22 @@ onBeforeUnmount(() => {
               >
                 {{ formatNumber(row.balancePerPeriod) }}
               </td>
-              <td class="py-1 text-right">{{ formatPrice(row.unitPrice) }}</td>
+              <td class="py-1 text-right">{{ formatPrice(row.unitPrice,2) }}</td>
               <td class="py-1 text-right">
-                {{ row.toBuy > 0 ? formatNumber(row.toBuy) : '—' }}
+                {{ row.toBuy > 0 ? formatNumber(row.toBuy,0) : '—' }}
               </td>
-              <td class="py-1 text-right">
+              <td
+                class="py-1 text-right"
+                :class="row.toBuy > 0 ? 'text-rose-300' : 'text-emerald-300'"
+              >
                 {{ row.balancePerDay < 0 ? formatCoverage(row.daysCoverage ?? null) : '—' }}
               </td>
-              <td class="py-1 text-right">{{ formatNumber(row.valuePerPeriod) }}</td>
+              <td
+                class="py-1 text-right"
+                :class="row.valuePerPeriod >= 0 ? 'text-emerald-300' : 'text-rose-300'"
+              >
+                {{ formatPrice(row.valuePerPeriod,2) }}
+              </td>
             </tr>
           </tbody>
         </table>

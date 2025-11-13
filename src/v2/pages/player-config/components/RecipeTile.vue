@@ -124,7 +124,11 @@ function tierLabel(tier: number) {
             <div class="font-semibold truncate">{{ recipe.output.name }}</div>
             <div class="text-xs text-slate-400">{{ buildingName }}</div>
             <div class="text-xs" :class="hasTechnology ? 'text-slate-500' : 'text-amber-300'">
-              {{ translate('technologyLevel') }}: {{ technologyLevel }} / {{ requiredTech }}
+              {{ translate('technologyLevel') }}: {{ technologyLevel }} / Req. {{ requiredTech }}
+            </div>
+            <div class="text-xs text-slate-500">
+              {{ translate('productivityFactor') }}: {{ formatShare(productivityFactor * 100) }} ·
+              {{ translate('abundanceFactor') }}: {{ formatShare(abundanceFactor * 100) }}
             </div>
             <div class="text-xs text-slate-500">
               {{ translate('baseCycleTime') }}: {{ formatMinutes(baseCycleMinutes) }} •
@@ -202,13 +206,9 @@ function tierLabel(tier: number) {
                 :class="wf.assigned + 1e-3 < wf.required ? 'text-amber-300' : ''"
               >
                 {{ tierLabel(wf.tier) }}:
-                {{ formatNumber(wf.assigned, 1) }} / {{ formatNumber(wf.required, 1) }}
+                {{ formatNumber(wf.assigned, 0) }} / {{ formatNumber(wf.required, 0) }}
               </li>
             </ul>
-          </div>
-          <div class="text-xs text-slate-500">
-            {{ translate('productivityFactor') }}: {{ formatShare(productivityFactor * 100) }} ·
-            {{ translate('abundanceFactor') }}: {{ formatShare(abundanceFactor * 100) }}
           </div>
         </div>
         <div v-if="blockedReason" class="mt-2 text-xs text-amber-300">

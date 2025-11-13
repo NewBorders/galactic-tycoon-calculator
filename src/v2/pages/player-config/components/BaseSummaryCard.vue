@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatNumber } from '@/v1/utils/formatNumber'
+import { formatPrice } from '@/v1/utils/formatNumber'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
@@ -87,20 +87,20 @@ const summaryForPeriod = computed(() => ({
       <div>
         {{ translate('netResult') }}:
         <span :class="summaryForPeriod.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-          {{ formatNumber(summaryForPeriod.net) }}
+          {{ formatPrice(summaryForPeriod.net,2) }}
         </span>
       </div>
       <div>
         {{ translate('workerPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatNumber(summaryForPeriod.workerPurchaseCosts) }}</span>
+        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.workerPurchaseCosts,2) }}</span>
       </div>
       <div>
         {{ translate('materialPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatNumber(summaryForPeriod.materialPurchaseCosts) }}</span>
+        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.materialPurchaseCosts,2) }}</span>
       </div>
       <div>
         {{ translate('productionRevenue') }}:
-        <span class="text-emerald-300">{{ formatNumber(summaryForPeriod.productionRevenue) }}</span>
+        <span class="text-emerald-300">{{ formatPrice(summaryForPeriod.productionRevenue,2) }}</span>
       </div>
     </div>
   </div>
