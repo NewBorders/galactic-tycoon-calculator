@@ -58,6 +58,7 @@ type InterimRow = {
   productivityFactor: number
   abundanceFactor: number
   blockedReason: 'abundance' | 'fertility' | 'technology' | null
+  requiresFertility: boolean
 }
 
 export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): BaseReport {
@@ -203,6 +204,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       abundanceFactor: number
       blocked: boolean
       blockedReason: 'abundance' | 'fertility' | 'technology' | null
+      requiresFertility: boolean
       adjustedTime: number
     }
 
@@ -216,6 +218,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         building,
         material,
       })
+      const requiresFertility = availability.requiresFertility
       const abundanceFactor = availability.abundanceFactor
       const requiredTech = recipe.reqTech ?? 0
       const technologySatisfied = technologyLevel >= requiredTech
@@ -242,13 +245,14 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         blocked,
         blockedReason,
         adjustedTime,
+        requiresFertility,
       })
     })
 
     const nominalCyclesPerDayPerUnit = totalCycleTime > 0 ? MINUTES_PER_DAY / totalCycleTime : 0
     const totalCyclesPerDay = nominalCyclesPerDayPerUnit * productionUnits
 
-    pending.forEach(({ recipe, abundanceFactor, blocked, blockedReason, adjustedTime }) => {
+    pending.forEach(({ recipe, abundanceFactor, blocked, blockedReason, adjustedTime, requiresFertility }) => {
       const timeContribution = !blocked && Number.isFinite(adjustedTime) ? adjustedTime : 0
       const queueShare = totalCycleTime > 0 ? timeContribution / totalCycleTime : 0
       const rawRunsPerDay = blocked || totalCyclesPerDay <= 0 ? 0 : totalCyclesPerDay
@@ -284,6 +288,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         productivityFactor,
         abundanceFactor,
         blockedReason,
+        requiresFertility,
       })
     })
   })
@@ -324,6 +329,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       productivityFactor: number
       abundanceFactor: number
       blockedReason: InterimRow['blockedReason']
+      requiresFertility: boolean
       queueShare: number
       count: number
     }
@@ -350,6 +356,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
         productivityFactor: raw.productivityFactor,
         abundanceFactor: raw.abundanceFactor,
         blockedReason: raw.blockedReason,
+        requiresFertility: raw.requiresFertility,
         queueShare: raw.queueShare,
         count: 1,
       })
@@ -364,7 +371,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       // Note: queueShare does NOT accumulate; it remains the same per instance.
       // The total queueShare contribution to the queue is: individual queueShare × count
       entry.count += 1
-      // keep productivity/abundance/blocked from the first occurrence (they should be identical)
+      // keep productivity/abundance/blocked/requiresFertility from the first occurrence (they should be identical)
     }
   })
 
@@ -426,6 +433,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       workforceFactor,
       blockedByAbundance: raw.blockedReason === 'abundance',
       blockedReason: raw.blockedReason,
+      requiresFertility: raw.requiresFertility,
     }
     recipeRows.push(row)
 
