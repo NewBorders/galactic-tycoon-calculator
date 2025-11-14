@@ -35,3 +35,15 @@ Recent (Nov 14, 2025) change
 
 Notes
 - I attempted a local TypeScript check (`npm run type-check`) but `vue-tsc` is not installed in this environment; please run `docker compose exec web npm run type-check` in the project's dev container to verify type checks.
+Notes
+- I attempted to run `npm run build` here but required dev tools (`run-p`, `vue-tsc`) are not available in the container environment. I fixed the TypeScript errors reported by `vite build`:
+
+- Fixed possible-undefined assignment when iterating `planet.materials` in `src/v2/services/production/availability.ts` by checking `mat` before use.
+
+Please run the following in your dev environment to verify and finish:
+
+```bash
+docker compose up -d
+docker compose exec web npm run type-check
+docker compose exec web npm run build
+```

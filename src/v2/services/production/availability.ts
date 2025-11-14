@@ -45,6 +45,7 @@ export function evaluateRecipeAvailability({
     if (planet && planet.materials) {
       for (let i = 0; i < planet.materials.length; i++) {
         const mat = planet.materials[i]
+        if (!mat) continue
         if (mat.id === (material as Material | undefined)?.id) {
           entry = mat
           break
