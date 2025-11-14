@@ -55,6 +55,7 @@ export type RecipeProductionRow = {
   workforceFactor: number
   blockedByAbundance: boolean
   blockedReason: 'abundance' | 'fertility' | 'technology' | null
+  requiresFertility: boolean
 }
 
 export type BaseReport = {

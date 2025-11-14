@@ -128,7 +128,7 @@ function tierLabel(tier: number) {
             </div>
             <div class="text-xs text-slate-500">
               {{ translate('productivityFactor') }}: {{ formatShare(productivityFactor * 100) }} ·
-              {{ translate('abundanceFactor') }}: {{ formatShare(abundanceFactor * 100) }}
+              {{ translate(props.reportRow?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}: {{ formatShare(abundanceFactor * 100) }}
             </div>
             <div class="text-xs text-slate-500">
               {{ translate('baseCycleTime') }}: {{ formatMinutes(baseCycleMinutes) }} •
