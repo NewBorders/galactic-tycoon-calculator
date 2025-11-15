@@ -8,6 +8,7 @@ import { translate } from '../../localisation/localisation.ts'
 
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
+import ApiConfigPanel from './components/ApiConfigPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
@@ -28,6 +29,8 @@ const {
   setRecipeCount,
   setOptionalConsumables,
   setStock,
+  syncBaseFromApi,
+  updateBaseStockFromApi,
   isBaseOpen,
   setBaseOpen,
   getSections,
@@ -164,10 +167,43 @@ watch(
   },
   { immediate: false },
 )
+
+function handleBasesLoaded(
+  bases: Array<{ id: number; name: string; planetId: number; warehouseId: number }>,
+) {
+  bases.forEach((apiBase) => {
+    syncBaseFromApi({
+      id: apiBase.id,
+      name: apiBase.name,
+      planetId: apiBase.planetId,
+      warehouseId: apiBase.warehouseId,
+    })
+  })
+  persist()
+}
+
+function handleStocksLoaded(
+  stocks: Array<{
+    baseId: number
+    items: Array<{ materialId: number; quantity: number }>
+  }>,
+) {
+  stocks.forEach((warehouseData) => {
+    const stockRecord: Record<number, number> = {}
+    warehouseData.items.forEach((item) => {
+      stockRecord[item.materialId] = item.quantity
+    })
+    updateBaseStockFromApi(warehouseData.baseId, stockRecord)
+  })
+  persist()
+}
 </script>
 
 <template>
   <div class="space-y-4 text-slate-100">
+    <!-- API Configuration -->
+    <ApiConfigPanel @basesLoaded="handleBasesLoaded" @stocksLoaded="handleStocksLoaded" />
+
     <div class="flex flex-wrap items-center gap-3 justify-end text-xs text-slate-400">
       <div>
         {{ translate('gameDataTimestamp') }}

@@ -1,6 +1,128 @@
-Summary of recent changes (Nov 13, 2025) — COMPLETED
+Summary of recent changes (Nov 15, 2025) — Player API Integration for Warehouse Stocks
 
-Summary of recent changes (Nov 13, 2025) — Number formatting improvements
+## ✅ COMPLETED: Galactic Tycoons API Integration
+
+Implemented full integration with the Galactic Tycoons API to fetch and manage warehouse stocks and player bases automatically.
+
+### What I Changed
+
+#### 1. New API Services (`src/v2/services/api/`)
+- **apiKeyManager.ts** - Secure API key storage in localStorage
+  - `getApiKey()`, `setApiKey()`, `clearApiKey()`, `hasApiKey()`
+  
+- **warehouseService.ts** - API client with intelligent caching
+  - `fetchCompanyBases(apiKey)` calls `/public/company` endpoint
+  - `fetchWarehouseStock(apiKey)` calls `/public/company/warehouse` endpoint
+  - 5-minute TTL cache to respect rate limits
+  - Force refresh capability
+  - Last fetch time tracking
+
+- **types.ts** - TypeScript types for API responses
+
+#### 2. PlayerBase Model Enhancement
+Extended with:
+- `gameBaseId?: number` - Unique ID from API (for matching)
+- `gameWarehouseId?: number` - Warehouse ID from API
+- `lastStockRefresh?: number` - Timestamp of last warehouse update
+
+#### 3. PlayerBases Service (`src/v2/services/playerBases.ts`)
+Added three new functions:
+- **syncBaseFromApi(apiBase)** - Smart base sync
+  - Matches by gameBaseId (primary) or planetId (fallback)
+  - Only sets name if not already set
+  - Places new bases at top of list
+  - Auto-creates entries if needed
+  
+- **updateBaseStockFromApi(gameBaseId, stocks)** - Update warehouse
+  - Updates stock for specific base
+  - Sanitizes negative values
+  - Replaces entire stock object
+  - Tracks refresh timestamp
+
+- **getLastStockRefresh(baseId)** - Get update timestamp
+
+#### 4. UI Component (`src/v2/pages/player-config/components/ApiConfigPanel.vue`)
+New component with:
+- Password input for API key
+- Save/Clear buttons with feedback
+- "Sync Bases" button - fetches all player bases
+- "Load warehouse stocks" button - fetches all warehouse stocks
+- Success/error messaging with timestamps
+- Emits: `basesLoaded`, `stocksLoaded` events
+
+Integrated into `PlayerConfigPanel.vue` at the top with handlers for:
+- `handleBasesLoaded()` - processes synced bases
+- `handleStocksLoaded()` - processes warehouse stocks
+
+#### 5. Localization
+Added comprehensive translations in `src/v2/localisation/localisation.ts`:
+- API configuration labels and hints
+- Sync action buttons
+- Success/error messages
+- Timestamps and status indicators
+
+#### 6. Comprehensive Tests (34 tests, all passing ✅)
+- **apiKeyManager.test.ts** (11 tests) - Storage, retrieval, error handling
+- **warehouseService.test.ts** (10 tests) - API calls, caching, TTL, errors
+- **playerBasesApi.test.ts** (10 tests) - Sync logic, stock updates, workflows
+
+### Architecture Highlights
+
+**Separation of Concerns**
+- API layer separate from UI (services/api/)
+- PlayerBases handles sync logic
+- Components handle user interactions
+
+**Caching Strategy**
+- 5-min TTL prevents excessive API calls
+- Force refresh available
+- Timestamps exposed to UI
+
+**Base Matching Intelligence**
+- Primary: gameBaseId (new API field)
+- Secondary: planetId (backward compatibility)
+- Auto-creates entries if needed
+
+**Stock Management**
+- Replace model: warehouse truth supersedes manual edits
+- Value sanitization: rejects negatives
+- Timestamp tracking for UI feedback
+
+### Files Changed
+
+**New**:
+- src/v2/services/api/index.ts
+- src/v2/services/api/types.ts
+- src/v2/services/api/apiKeyManager.ts
+- src/v2/services/api/warehouseService.ts
+- src/v2/services/api/__tests__/apiKeyManager.test.ts
+- src/v2/services/api/__tests__/warehouseService.test.ts
+- src/v2/services/__tests__/playerBasesApi.test.ts
+- src/v2/pages/player-config/components/ApiConfigPanel.vue
+
+**Modified**:
+- src/v2/services/playerBases.ts (added 3 functions)
+- src/v2/pages/player-config/PlayerConfigPanel.vue (integrated ApiConfigPanel)
+- src/v2/localisation/localisation.ts (added translation keys)
+
+### Verification
+
+✅ All tests pass: `Test Files 4 passed | Tests 34 passed`
+✅ Type checking: `npm run type-check` passes
+✅ Build succeeds: `npm run build` produces dist/
+✅ No new lint errors introduced
+
+### Notes
+
+- API keys stored in plain text in localStorage (consider encryption in future)
+- Manual stock import textarea remains available
+- Both import methods work independently
+- Stock from API replaces entire warehouse (not merged)
+- Smart base matching uses gameBaseId/planetId fallback
+
+---
+
+**Previous changes (Nov 13, 2025) — Number formatting improvements**
 
 What I changed
 

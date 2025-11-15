@@ -13,6 +13,9 @@ export type PlayerBase = {
   recipes: PlayerRecipe[]
   optionalConsumables?: number[]
   stock?: Record<number, number>
+  gameBaseId?: number // API game base ID
+  gameWarehouseId?: number // API warehouse ID
+  lastStockRefresh?: number // Timestamp of last API warehouse stock refresh
 }
 
 type UiSections = { buildings: boolean; production: boolean; dailySummary: boolean }
@@ -49,6 +52,9 @@ function ensureUi(st: Partial<PlayerState>): PlayerState {
   }
   const bases = ((st.bases as PlayerBase[]) ?? []).map((base) => ({
     ...base,
+    gameBaseId: typeof base.gameBaseId === 'number' ? base.gameBaseId : undefined,
+    gameWarehouseId: typeof base.gameWarehouseId === 'number' ? base.gameWarehouseId : undefined,
+    lastStockRefresh: typeof base.lastStockRefresh === 'number' ? base.lastStockRefresh : undefined,
     buildings: (base.buildings as PlayerBuilding[])?.map((bld) => ({
       id: bld.id ?? uid(),
       buildingId: bld.buildingId,
@@ -225,7 +231,74 @@ export function usePlayerBases(gd: GameData) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return
     b.stock = sanitizeStock(stock)
+    b.lastStockRefresh = Date.now()
     saveState(state.value)
+  }
+
+  // API synchronization functions
+  /**
+   * Update or add a base from API data
+   * Matches by gameBaseId, planetId, or creates new entry
+   */
+  function syncBaseFromApi(apiBase: {
+    id: number // gameBaseId
+    warehouseId: number // gameWarehouseId
+    name: string
+    planetId: number
+  }) {
+    // Try to find existing base by gameBaseId
+    let base = state.value.bases.find((b) => b.gameBaseId === apiBase.id)
+
+    if (!base) {
+      // Try to find by planetId (for backward compatibility)
+      base = state.value.bases.find((b) => b.planetId === apiBase.planetId && !b.gameBaseId)
+    }
+
+    if (base) {
+      // Update existing base with API info
+      base.gameBaseId = apiBase.id
+      base.gameWarehouseId = apiBase.warehouseId
+      if (!base.name) {
+        base.name = apiBase.name
+      }
+    } else {
+      // Create new base
+      const newBase: PlayerBase = {
+        id: crypto?.randomUUID?.() ?? `b_${Date.now()}`,
+        planetId: apiBase.planetId,
+        name: apiBase.name,
+        gameBaseId: apiBase.id,
+        gameWarehouseId: apiBase.warehouseId,
+        buildings: [],
+        recipes: [],
+        optionalConsumables: [],
+        stock: {},
+      }
+      // Add at the top of the list
+      state.value.bases.unshift(newBase)
+    }
+
+    saveState(state.value)
+  }
+
+  /**
+   * Update warehouse stocks for a specific base from API data
+   */
+  function updateBaseStockFromApi(gameBaseId: number, stocks: Record<number, number>) {
+    const base = state.value.bases.find((b) => b.gameBaseId === gameBaseId)
+    if (!base) return
+
+    base.stock = sanitizeStock(stocks)
+    base.lastStockRefresh = Date.now()
+    saveState(state.value)
+  }
+
+  /**
+   * Get the timestamp of last warehouse refresh for a base
+   */
+  function getLastStockRefresh(baseId: string): number | null {
+    const base = state.value.bases.find((b) => b.id === baseId)
+    return base?.lastStockRefresh ?? null
   }
 
   // UI-State API
@@ -277,6 +350,9 @@ export function usePlayerBases(gd: GameData) {
     setRecipeCount,
     setOptionalConsumables,
     setStock,
+    syncBaseFromApi,
+    updateBaseStockFromApi,
+    getLastStockRefresh,
     isBaseOpen,
     setBaseOpen,
     getSections,
