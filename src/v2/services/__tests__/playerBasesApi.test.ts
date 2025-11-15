@@ -251,7 +251,7 @@ describe('playerBases API integration', () => {
   describe('full API integration flow', () => {
     it('should handle complete workflow: sync bases and then update stocks', () => {
       const fresh = usePlayerBases(mockGameData)
-      
+
       // Step 1: Sync two bases from API
       fresh.syncBaseFromApi({
         id: 101,
