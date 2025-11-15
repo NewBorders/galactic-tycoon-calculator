@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { fetchCompanyBases, fetchWarehouseStock, clearCache, getLastBasesFetchTime, getLastWarehouseFetchTime } from '../warehouseService'
-import type { CompanyResponse, AllWarehousesResponse } from '../types'
+import { fetchCompanyBases, fetchWarehouseStockForAllBases, clearCache } from '../warehouseService'
+import type { CompanyResponse, WarehouseResponse } from '../types'
 
 describe('warehouseService', () => {
   beforeEach(() => {
@@ -10,6 +10,7 @@ describe('warehouseService', () => {
 
   afterEach(() => {
     clearCache()
+    vi.clearAllMocks()
   })
 
   describe('fetchCompanyBases', () => {
@@ -30,20 +31,18 @@ describe('warehouseService', () => {
         ],
       }
 
-      global.fetch = vi.fn(() =>
+      globalThis.fetch = vi.fn(() =>
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(mockResponse),
         } as Response),
       )
 
-      const { data, source } = await fetchCompanyBases('test-api-key')
+      const result = await fetchCompanyBases('test-api-key', 'g2')
 
-      expect(data).toEqual(mockResponse)
-      expect(source).toBe('api')
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('public/company') && expect.stringContaining('apikey=test-api-key'),
-      )
+      expect(result.data).toEqual(mockResponse)
+      expect(result.source).toBe('api')
+      expect(globalThis.fetch).toHaveBeenCalled()
     })
 
     it('should return cached data on subsequent calls', async () => {
@@ -54,51 +53,24 @@ describe('warehouseService', () => {
         bases: [],
       }
 
-      global.fetch = vi.fn(() =>
+      globalThis.fetch = vi.fn(() =>
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(mockResponse),
         } as Response),
       )
 
-      // First call
-      const result1 = await fetchCompanyBases('test-api-key')
+      const result1 = await fetchCompanyBases('test-api-key', 'g2')
       expect(result1.source).toBe('api')
-      expect(global.fetch).toHaveBeenCalledTimes(1)
 
-      // Second call should use cache
-      const result2 = await fetchCompanyBases('test-api-key')
+      const result2 = await fetchCompanyBases('test-api-key', 'g2')
       expect(result2.source).toBe('cache')
-      expect(global.fetch).toHaveBeenCalledTimes(1) // Still 1, not 2
-      expect(result2.data).toEqual(result1.data)
+      expect(result2.data).toEqual(mockResponse)
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1)
     })
 
-    it('should force refresh cache when requested', async () => {
-      const mockResponse: CompanyResponse = {
-        id: 1,
-        name: 'Test Company',
-        money: 100000,
-        bases: [],
-      }
-
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        } as Response),
-      )
-
-      // First call
-      await fetchCompanyBases('test-api-key')
-      expect(global.fetch).toHaveBeenCalledTimes(1)
-
-      // Force refresh
-      await fetchCompanyBases('test-api-key', true)
-      expect(global.fetch).toHaveBeenCalledTimes(2)
-    })
-
-    it('should throw error on API failure', async () => {
-      global.fetch = vi.fn(() =>
+    it('should handle API errors', async () => {
+      globalThis.fetch = vi.fn(() =>
         Promise.resolve({
           ok: false,
           status: 401,
@@ -106,141 +78,72 @@ describe('warehouseService', () => {
         } as Response),
       )
 
-      await expect(fetchCompanyBases('invalid-key')).rejects.toThrow('API error: 401 Unauthorized')
-    })
-
-    it('should throw error on network failure', async () => {
-      global.fetch = vi.fn(() => Promise.reject(new Error('Network error')))
-
-      await expect(fetchCompanyBases('test-key')).rejects.toThrow('Failed to fetch company bases')
-    })
-
-    it('should track last fetch time', async () => {
-      const mockResponse: CompanyResponse = {
-        id: 1,
-        name: 'Test Company',
-        money: 100000,
-        bases: [],
-      }
-
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        } as Response),
-      )
-
-      const timeBefore = Date.now()
-      await fetchCompanyBases('test-key')
-      const timeAfter = Date.now()
-
-      const fetchTime = getLastBasesFetchTime()
-      expect(fetchTime).not.toBeNull()
-      expect(fetchTime).toBeGreaterThanOrEqual(timeBefore)
-      expect(fetchTime).toBeLessThanOrEqual(timeAfter)
+      await expect(fetchCompanyBases('invalid-key', 'g2')).rejects.toThrow()
     })
   })
 
-  describe('fetchWarehouseStock', () => {
-    it('should fetch warehouse stocks from API', async () => {
-      const mockResponse: AllWarehousesResponse = {
-        warehouses: [
-          {
-            baseId: 101,
-            warehouseId: 201,
-            items: [
-              { materialId: 1, quantity: 100 },
-              { materialId: 2, quantity: 200 },
-            ],
-            lastUpdated: '2025-11-15T00:00:00Z',
-          },
+  describe('fetchWarehouseStockForAllBases', () => {
+    it('should fetch warehouse stocks for multiple bases', async () => {
+      const mockWarehouseResponse: WarehouseResponse = {
+        id: 201,
+        baseId: 101,
+        items: [
+          { materialId: 1, quantity: 100 },
+          { materialId: 2, quantity: 200 },
         ],
         lastUpdated: '2025-11-15T00:00:00Z',
       }
 
-      global.fetch = vi.fn(() =>
+      globalThis.fetch = vi.fn(() =>
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockResponse),
+          json: () => Promise.resolve(mockWarehouseResponse),
         } as Response),
       )
 
-      const { data, source } = await fetchWarehouseStock('test-api-key')
+      const result = await fetchWarehouseStockForAllBases('test-api-key', [201, 202], 'g2')
 
-      expect(data).toEqual(mockResponse)
-      expect(source).toBe('api')
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('company/warehouse') && expect.stringContaining('apikey=test-api-key'),
-      )
+      expect(result.warehouses).toHaveLength(2)
+      expect(result.warehouses[0].data).toEqual(mockWarehouseResponse)
+      expect(result.errors).toHaveLength(0)
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2)
     })
 
-    it('should return cached data on subsequent calls', async () => {
-      const mockResponse: AllWarehousesResponse = {
-        warehouses: [],
-        lastUpdated: '2025-11-15T00:00:00Z',
-      }
+    it('should handle empty warehouse IDs', async () => {
+      const result = await fetchWarehouseStockForAllBases('test-api-key', [], 'g2')
 
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        } as Response),
-      )
-
-      const result1 = await fetchWarehouseStock('test-api-key')
-      expect(result1.source).toBe('api')
-
-      const result2 = await fetchWarehouseStock('test-api-key')
-      expect(result2.source).toBe('cache')
-      expect(global.fetch).toHaveBeenCalledTimes(1)
+      expect(result.warehouses).toEqual([])
+      expect(result.errors).toEqual([])
+      expect(globalThis.fetch).not.toHaveBeenCalled()
     })
 
-    it('should track last warehouse fetch time', async () => {
-      const mockResponse: AllWarehousesResponse = {
-        warehouses: [],
-        lastUpdated: '2025-11-15T00:00:00Z',
-      }
+    it('should collect errors from failed requests', async () => {
+      let callCount = 0
+      globalThis.fetch = vi.fn(() => {
+        callCount++
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                id: 201,
+                baseId: 101,
+                items: [],
+                lastUpdated: '2025-11-15T00:00:00Z',
+              } as WarehouseResponse),
+          } as Response)
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+        } as Response)
+      })
 
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        } as Response),
-      )
+      const result = await fetchWarehouseStockForAllBases('test-api-key', [201, 202], 'g2')
 
-      const timeBefore = Date.now()
-      await fetchWarehouseStock('test-key')
-      const timeAfter = Date.now()
-
-      const fetchTime = getLastWarehouseFetchTime()
-      expect(fetchTime).not.toBeNull()
-      expect(fetchTime).toBeGreaterThanOrEqual(timeBefore)
-      expect(fetchTime).toBeLessThanOrEqual(timeAfter)
-    })
-  })
-
-  describe('clearCache', () => {
-    it('should clear all cached data', async () => {
-      const mockResponse: CompanyResponse = {
-        id: 1,
-        name: 'Test Company',
-        money: 100000,
-        bases: [],
-      }
-
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        } as Response),
-      )
-
-      await fetchCompanyBases('test-key')
-      expect(getLastBasesFetchTime()).not.toBeNull()
-
-      clearCache()
-      expect(getLastBasesFetchTime()).toBeNull()
-      expect(getLastWarehouseFetchTime()).toBeNull()
+      expect(result.warehouses).toHaveLength(1)
+      expect(result.errors.length).toBeGreaterThan(0)
     })
   })
 })

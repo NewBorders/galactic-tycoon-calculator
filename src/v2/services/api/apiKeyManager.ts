@@ -1,9 +1,13 @@
 /**
- * API Key Management Service
- * Handles secure storage and retrieval of API keys from localStorage
+ * API Key and Configuration Management Service
+ * Handles secure storage and retrieval of API keys and world settings from localStorage
  */
 
+import type { World } from './types'
+
 const API_KEY_LS_KEY = 'gt:v2:api:key'
+const WORLD_LS_KEY = 'gt:v2:api:world'
+const DEFAULT_WORLD: World = 'g2'
 
 /**
  * Get stored API key from localStorage
@@ -41,10 +45,31 @@ export function hasApiKey(): boolean {
 }
 
 /**
- * Remove stored API key
+ * Get stored world setting
  */
-export function clearApiKey(): void {
+export function getWorld(): World {
   try {
-    localStorage.removeItem(API_KEY_LS_KEY)
-  } catch {}
+    const world = localStorage.getItem(WORLD_LS_KEY)
+    if (world === 'g1' || world === 'g2') {
+      return world
+    }
+    return DEFAULT_WORLD
+  } catch {
+    return DEFAULT_WORLD
+  }
+}
+
+/**
+ * Store world setting in localStorage
+ */
+export function setWorld(world: World): boolean {
+  try {
+    if (world !== 'g1' && world !== 'g2') {
+      return false
+    }
+    localStorage.setItem(WORLD_LS_KEY, world)
+    return true
+  } catch {
+    return false
+  }
 }

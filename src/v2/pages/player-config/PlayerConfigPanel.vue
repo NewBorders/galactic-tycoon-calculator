@@ -8,7 +8,7 @@ import { translate } from '../../localisation/localisation.ts'
 
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
-import ApiConfigPanel from './components/ApiConfigPanel.vue'
+import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
@@ -42,6 +42,7 @@ const technologyLevels = computed(() => technologyState.value.levels ?? {})
 const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
 
 const query = ref('')
+const apiSyncPanel = ref()
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
@@ -201,9 +202,6 @@ function handleStocksLoaded(
 
 <template>
   <div class="space-y-4 text-slate-100">
-    <!-- API Configuration -->
-    <ApiConfigPanel @basesLoaded="handleBasesLoaded" @stocksLoaded="handleStocksLoaded" />
-
     <div class="flex flex-wrap items-center gap-3 justify-end text-xs text-slate-400">
       <div>
         {{ translate('gameDataTimestamp') }}
@@ -229,6 +227,8 @@ function handleStocksLoaded(
       <div v-if="priceError" class="text-amber-300">
         {{ translate('priceError') }}: {{ priceError }}
       </div>
+      <!-- Warehouse sync button -->
+      <ApiSyncPanel ref="apiSyncPanel" :bases="state.bases" @basesLoaded="handleBasesLoaded" @stocksLoaded="handleStocksLoaded" />
       <div class="flex items-center gap-2">
         <label class="flex items-center gap-2">
           <span>{{ translate('timeframeHoursLabel') }}</span>
@@ -252,6 +252,7 @@ function handleStocksLoaded(
       :suggestions="suggestions"
       :hasBase="planetHasBase"
       @select="selectPlanet"
+      @syncBases="apiSyncPanel?.handleSyncBases?.()"
     />
 
     <!-- Bases -->

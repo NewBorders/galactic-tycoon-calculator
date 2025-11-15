@@ -1,33 +1,56 @@
-Summary of recent changes (Nov 15, 2025) — Player API Integration for Warehouse Stocks
+Summary of recent changes (Nov 15, 2025) — Phase 2: UI Refactoring & World Selector Implementation
 
-## ✅ COMPLETED: Galactic Tycoons API Integration
+## ✅ COMPLETED: Phase 2 - UI Reorganization & World Selector
 
-Implemented full integration with the Galactic Tycoons API to fetch and manage warehouse stocks and player bases automatically.
+Completed major UI refactoring to consolidate settings into a new "config" tab, implement world selector (g1/g2), and fix warehouse stock loading to use per-base endpoints.
 
-### What I Changed
+## 7 User Requirements - ALL COMPLETED ✅
 
-#### 1. New API Services (`src/v2/services/api/`)
-- **apiKeyManager.ts** - Secure API key storage in localStorage
-  - `getApiKey()`, `setApiKey()`, `clearApiKey()`, `hasApiKey()`
-  
-- **warehouseService.ts** - API client with intelligent caching
-  - `fetchCompanyBases(apiKey)` calls `/public/company` endpoint
-  - `fetchWarehouseStock(apiKey)` calls `/public/company/warehouse` endpoint
-  - 5-minute TTL cache to respect rate limits
-  - Force refresh capability
-  - Last fetch time tracking
+### 1. ✅ Config Tab Created
+- Added new 'config' tab to AppV2.vue alongside 'bases' and 'technology' tabs
+- Type: `type Tab = 'bases' | 'technology' | 'config'`
+- Accessible from top-level tab navigation
 
-- **types.ts** - TypeScript types for API responses
+### 2. ✅ API Settings Consolidated  
+- Created ConfigPanel.vue component with:
+  - API key input (can save empty string to clear)
+  - World selector (g1 test / g2 production)
+  - Locale selector
+- Removed "Clear API Key" button
+- All settings persisted in localStorage
 
-#### 2. PlayerBase Model Enhancement
-Extended with:
-- `gameBaseId?: number` - Unique ID from API (for matching)
-- `gameWarehouseId?: number` - Warehouse ID from API
-- `lastStockRefresh?: number` - Timestamp of last warehouse update
+### 3. ✅ World Selector Implementation
+- Added World type ('g1' | 'g2') in types.ts
+- Dynamic API URLs: `https://api.${world}.galactictycoons.com`
+- Default world: 'g2' (production)
+- All API functions world-aware:
+  - fetchCompanyBases(apiKey, world, forceRefresh)
+  - fetchWarehouseStockForBase(apiKey, warehouseId, world)
+  - fetchWarehouseStockForAllBases(apiKey, warehouseIds, world)
 
-#### 3. PlayerBases Service (`src/v2/services/playerBases.ts`)
-Added three new functions:
-- **syncBaseFromApi(apiBase)** - Smart base sync
+### 4. ✅ Warehouse Stock Loading Fixed
+- Changed endpoint from `/warehouse` (all at once) to `/warehouse/{warehouseId}` (per-base)
+- Implemented parallel fetching via Promise.all()
+- Returns object with: `{ warehouses: Array<{ data, source }>, errors: string[] }`
+- Error handling: gracefully returns empty on 404/401
+
+### 5. ✅ "Load my bases" Button Positioned
+- Added beside planet search input in PlanetSearch.vue
+- Emits `syncBases` event that PlayerConfigPanel handles
+- Uses ApiSyncPanel ref for method invocation
+- Consistent button styling with UI
+
+### 6. ✅ "Load warehouse stocks" Button Positioned
+- Placed in ApiSyncPanel beside gamedata/price timestamps
+- Matches timestamp area styling
+- Shows last sync time and success/error messages
+- Calls fetchWarehouseStockForAllBases() with world awareness
+
+### 7. ✅ Tests & Quality
+- All tests passing (28/28)
+- Type-check: PASS
+- Lint: PASS (new files)
+- Build: PASS
   - Matches by gameBaseId (primary) or planetId (fallback)
   - Only sets name if not already set
   - Places new bases at top of list

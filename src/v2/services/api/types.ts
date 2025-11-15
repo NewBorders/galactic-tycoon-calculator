@@ -3,6 +3,8 @@
  * Based on: https://api.g1.galactictycoons.com/swagger/index.html
  */
 
+export type World = 'g1' | 'g2'
+
 /**
  * Company information with bases
  */
@@ -26,7 +28,7 @@ export type CompanyBase = {
 }
 
 /**
- * Warehouse stock response from /public/company/warehouse endpoint
+ * Warehouse stock response from /public/company/warehouse/{warehouseId} endpoint
  */
 export type WarehouseStockResponse = {
   baseId: number // gameBaseId

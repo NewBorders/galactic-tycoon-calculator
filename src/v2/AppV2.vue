@@ -5,20 +5,21 @@ import { translate } from './localisation/localisation'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
+import ConfigPanel from './pages/config/ConfigPanel.vue'
 
-type Tab = 'bases' | 'technology'
+type Tab = 'bases' | 'technology' | 'config'
 const LS_KEY = 'gt:v2:activeTab'
 
 const active = ref<Tab>('bases')
-const gd = ref(null as any)
-const gdIndex = ref(null as any)
+const gd = ref<any>(null)
+const gdIndex = ref<any>(null)
 const gdLoadedAt = ref<number | null>(null)
 const loading = ref(false)
 const err = ref<string | null>(null)
 
 onMounted(async () => {
   const saved = localStorage.getItem(LS_KEY) as Tab | null
-  if (saved === 'bases' || saved === 'technology') active.value = saved
+  if (saved === 'bases' || saved === 'technology' || saved === 'config') active.value = saved
 
   loading.value = true
   try {
@@ -58,6 +59,13 @@ watch(active, (t) => {
           >
             {{ translate('tabTechnology') }}
           </button>
+          <button
+            class="px-3 py-2 border rounded"
+            :class="active === 'config' ? 'bg-gray-600' : ''"
+            @click="active = 'config'"
+          >
+            {{ translate('tabConfig') }}
+          </button>
         </nav>
         <div class="ml-auto">
           <LanguageSwitcher />
@@ -74,6 +82,7 @@ watch(active, (t) => {
         :game-data-loaded-at="gdLoadedAt"
       />
       <TechnologyPanel v-if="active === 'technology'" />
+      <ConfigPanel v-if="active === 'config'" />
     </div>
   </div>
 </template>

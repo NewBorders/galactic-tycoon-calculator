@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { getApiKey, setApiKey, clearApiKey, hasApiKey } from '../apiKeyManager'
+import { getApiKey, setApiKey, hasApiKey } from '../apiKeyManager'
 
 describe('apiKeyManager', () => {
   beforeEach(() => {
@@ -36,7 +36,6 @@ describe('apiKeyManager', () => {
     })
 
     it('should handle localStorage errors gracefully', () => {
-      const originalSetItem = Storage.prototype.setItem
       vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
         throw new Error('Storage full')
       })
@@ -61,7 +60,6 @@ describe('apiKeyManager', () => {
     })
 
     it('should handle localStorage errors gracefully', () => {
-      const originalGetItem = Storage.prototype.getItem
       vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
         throw new Error('Storage access denied')
       })
@@ -81,28 +79,6 @@ describe('apiKeyManager', () => {
     it('should return true when key is stored', () => {
       setApiKey('test-key')
       expect(hasApiKey()).toBe(true)
-    })
-  })
-
-  describe('clearApiKey', () => {
-    it('should remove API key from localStorage', () => {
-      setApiKey('test-key')
-      expect(getApiKey()).not.toBeNull()
-
-      clearApiKey()
-      expect(getApiKey()).toBeNull()
-    })
-
-    it('should handle localStorage errors gracefully', () => {
-      const originalRemoveItem = Storage.prototype.removeItem
-      vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
-        throw new Error('Storage access denied')
-      })
-
-      // Should not throw
-      expect(() => clearApiKey()).not.toThrow()
-
-      vi.restoreAllMocks()
     })
   })
 })

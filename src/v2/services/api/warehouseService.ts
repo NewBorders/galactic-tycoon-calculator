@@ -4,9 +4,11 @@
  * Implements caching with TTL to respect rate limits
  */
 
-import type { CompanyResponse, AllWarehousesResponse } from './types'
+import type { CompanyResponse, WarehouseStockResponse, World } from './types'
 
-const API_BASE_URL = 'https://api.g1.galactictycoons.com'
+function getApiBaseUrl(world: World): string {
+  return `https://api.${world}.galactictycoons.com`
+}
 
 /**
  * Cache configuration
@@ -20,8 +22,8 @@ const CACHE_CONFIG = {
  * Cache entries with timestamps
  */
 const cache = {
-  bases: null as { data: CompanyResponse; ts: number } | null,
-  warehouse: null as { data: AllWarehousesResponse; ts: number } | null,
+  bases: new Map<World, { data: CompanyResponse; ts: number }>(),
+  warehouse: new Map<string, { data: WarehouseStockResponse; ts: number }>(), // key: "world:warehouseId"
 }
 
 /**
@@ -37,15 +39,18 @@ function isCacheValid(ts: number, ttl: number): boolean {
  */
 export async function fetchCompanyBases(
   apiKey: string,
+  world: World = 'g2',
   forceRefresh = false,
 ): Promise<{ data: CompanyResponse; source: 'api' | 'cache' }> {
   // Check cache first
-  if (!forceRefresh && cache.bases && isCacheValid(cache.bases.ts, CACHE_CONFIG.BASES_TTL_MS)) {
-    return { data: cache.bases.data, source: 'cache' }
+  const cached = cache.bases.get(world)
+  if (!forceRefresh && cached && isCacheValid(cached.ts, CACHE_CONFIG.BASES_TTL_MS)) {
+    return { data: cached.data, source: 'cache' }
   }
 
   try {
-    const url = new URL(`${API_BASE_URL}/public/company`)
+    const baseUrl = getApiBaseUrl(world)
+    const url = new URL(`${baseUrl}/public/company`)
     url.searchParams.set('apikey', apiKey)
 
     const response = await fetch(url.toString())
@@ -57,7 +62,7 @@ export async function fetchCompanyBases(
     const data: CompanyResponse = await response.json()
 
     // Update cache
-    cache.bases = { data, ts: Date.now() }
+    cache.bases.set(world, { data, ts: Date.now() })
 
     return { data, source: 'api' }
   } catch (error) {
@@ -66,20 +71,26 @@ export async function fetchCompanyBases(
 }
 
 /**
- * Fetch warehouse stocks for all bases
- * GET /public/company/warehouse?apikey=KEY
+ * Fetch warehouse stock for a specific warehouse
+ * GET /public/company/warehouse/{warehouseId}?apikey=KEY
  */
-export async function fetchWarehouseStock(
+export async function fetchWarehouseStockForBase(
   apiKey: string,
+  warehouseId: number,
+  world: World = 'g2',
   forceRefresh = false,
-): Promise<{ data: AllWarehousesResponse; source: 'api' | 'cache' }> {
+): Promise<{ data: WarehouseStockResponse; source: 'api' | 'cache' }> {
+  const cacheKey = `${world}:${warehouseId}`
+
   // Check cache first
-  if (!forceRefresh && cache.warehouse && isCacheValid(cache.warehouse.ts, CACHE_CONFIG.WAREHOUSE_TTL_MS)) {
-    return { data: cache.warehouse.data, source: 'cache' }
+  const cached = cache.warehouse.get(cacheKey)
+  if (!forceRefresh && cached && isCacheValid(cached.ts, CACHE_CONFIG.WAREHOUSE_TTL_MS)) {
+    return { data: cached.data, source: 'cache' }
   }
 
   try {
-    const url = new URL(`${API_BASE_URL}/public/company/warehouse`)
+    const baseUrl = getApiBaseUrl(world)
+    const url = new URL(`${baseUrl}/public/company/warehouse/${warehouseId}`)
     url.searchParams.set('apikey', apiKey)
 
     const response = await fetch(url.toString())
@@ -88,35 +99,64 @@ export async function fetchWarehouseStock(
       throw new Error(`API error: ${response.status} ${response.statusText}`)
     }
 
-    const data: AllWarehousesResponse = await response.json()
+    const data: WarehouseStockResponse = await response.json()
 
     // Update cache
-    cache.warehouse = { data, ts: Date.now() }
+    cache.warehouse.set(cacheKey, { data, ts: Date.now() })
 
     return { data, source: 'api' }
   } catch (error) {
-    throw new Error(`Failed to fetch warehouse stock: ${error instanceof Error ? error.message : String(error)}`)
+    throw new Error(
+      `Failed to fetch warehouse stock for warehouse ${warehouseId}: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
+}
+
+/**
+ * Fetch warehouse stocks for all bases at once
+ */
+export async function fetchWarehouseStockForAllBases(
+  apiKey: string,
+  warehouseIds: number[],
+  world: World = 'g2',
+  forceRefresh = false,
+): Promise<{
+  warehouses: Array<{ data: WarehouseStockResponse; source: 'api' | 'cache' }>
+  errors: string[]
+}> {
+  const results: { data: WarehouseStockResponse; source: 'api' | 'cache' }[] = []
+  const errors: string[] = []
+
+  // Fetch all warehouses in parallel
+  const promises = warehouseIds.map((warehouseId) =>
+    fetchWarehouseStockForBase(apiKey, warehouseId, world, forceRefresh)
+      .then((result) => results.push(result))
+      .catch((error) => errors.push(error instanceof Error ? error.message : String(error))),
+  )
+
+  await Promise.all(promises)
+
+  return { warehouses: results, errors }
 }
 
 /**
  * Clear cache manually (useful for testing or manual refresh)
  */
 export function clearCache(): void {
-  cache.bases = null
-  cache.warehouse = null
+  cache.bases.clear()
+  cache.warehouse.clear()
 }
 
 /**
  * Get timestamp of last successful base fetch
  */
-export function getLastBasesFetchTime(): number | null {
-  return cache.bases?.ts ?? null
+export function getLastBasesFetchTime(world: World = 'g2'): number | null {
+  return cache.bases.get(world)?.ts ?? null
 }
 
 /**
  * Get timestamp of last successful warehouse fetch
  */
-export function getLastWarehouseFetchTime(): number | null {
-  return cache.warehouse?.ts ?? null
+export function getLastWarehouseFetchTime(warehouseId: number, world: World = 'g2'): number | null {
+  return cache.warehouse.get(`${world}:${warehouseId}`)?.ts ?? null
 }
