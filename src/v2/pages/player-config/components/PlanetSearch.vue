@@ -11,7 +11,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:query': [val: string]
   select: [planet: Planet]
-  syncBases: []
 }>()
 
 const open = computed(() => props.query.trim().length >= 2)
@@ -62,11 +61,5 @@ const open = computed(() => props.query.trim().length >= 2)
         </div>
       </div>
     </div>
-    <button
-      @click="emit('syncBases')"
-      class="px-3 py-2 bg-blue-700 hover:bg-blue-600 rounded text-sm whitespace-nowrap"
-    >
-      {{ translate('syncBases') }}
-    </button>
   </div>
 </template>

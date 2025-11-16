@@ -1,4 +1,50 @@
-Summary of recent changes (Nov 16, 2025) — Phase 2 & 3: UI Refactoring, Bug Fixes & Language Integration
+Summary of recent changes (Nov 16, 2025) — Phase 4 & 5: Button Integration & World-Aware GameData Loading
+
+## ✅ COMPLETED: Phase 4 - Language & Button Integration (DONE Nov 16)
+## ✅ COMPLETED: Phase 5 - Button Repositioning & World-Aware GameData (DONE Nov 16)
+
+### Phase 5 Completion (Nov 16):
+
+#### 1. ✅ "Load my bases" Button Repositioned
+- Issue: Button needed to move beside planet search for better UX
+- Solution: Created standalone `LoadBasesButton.vue` component
+- Integration: Wrapped PlanetSearch and LoadBasesButton in flex container in PlayerConfigPanel
+- Result: Button sits right beside search input for cleaner layout
+
+#### 2. ✅ GameData Service Now World-Aware
+- Added watch for world changes in AppV2.vue:
+  ```typescript
+  watch(getWorld, async () => {
+    const result = await loadGameData(true)  // force reload
+    gd.value = result.data
+    gdIndex.value = result.index
+    gdLoadedAt.value = result.loadedAt
+  })
+  ```
+- When user switches world (g1 ↔ g2), gamedata automatically reloads from correct API
+- extractRawGameData.ts already had getApiUrl() so API calls go to correct server
+- Result: Prices, materials, and buildings now update when world is changed
+
+#### 3. ✅ Component Separation Cleaned
+- LoadBasesButton.vue: Standalone component with handleSyncBases() logic
+- ApiSyncPanel.vue: Now focused only on warehouse stock loading
+- PlanetSearch.vue: Pure search UI, no button logic
+- PlayerConfigPanel.vue: Orchestrates components, imports LoadBasesButton
+- Result: Clean separation of concerns, easier to maintain
+
+## ✅ COMPLETED: Phase 4 - Language & Button Integration (Nov 16)
+
+### Phase 4 Completion (Nov 16):
+
+#### 1. ✅ Language Switcher Moved to Config
+- Removed from AppV2.vue top bar
+- Added to ConfigPanel.vue
+- All settings (API key, World, Locale, Language) now grouped together
+
+#### 2. ✅ "Load my bases" Button Functionality Fixed
+- Created dedicated handler in PlayerConfigPanel: `handleSyncBasesClick()`
+- Properly invokes `apiSyncPanel.value?.handleSyncBases?.()`
+- Button now reliably triggers base synchronization
 
 ## ✅ COMPLETED: Phase 2 - UI Reorganization & World Selector (DONE Nov 15)
 ## ✅ COMPLETED: Phase 3 - Bug Fixes & Language Integration (DONE Nov 16)

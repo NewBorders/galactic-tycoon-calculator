@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
-import { fetchCompanyBases, fetchWarehouseStockForAllBases } from '@/v2/services/api/warehouseService'
+import { fetchWarehouseStockForAllBases } from '@/v2/services/api/warehouseService'
 import { translate } from '@/v2/localisation/localisation'
 import type { PlayerBase } from '@/v2/services/playerBases'
 
@@ -10,7 +10,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  basesLoaded: [bases: Array<{ id: number; name: string; planetId: number; warehouseId: number }>]
   stocksLoaded: [
     stocks: Array<{
       baseId: number
@@ -39,35 +38,6 @@ function formatTimestamp(value: number | null | undefined) {
     return `${year}-${month}-${day} ${hours}:${minutes}`
   } catch {
     return '—'
-  }
-}
-
-async function handleSyncBases() {
-  const key = getApiKey()
-  if (!key) {
-    error.value = translate('apiKeyNotConfigured')
-    return
-  }
-
-  loading.value = true
-  error.value = null
-  success.value = null
-
-  try {
-    const world = getWorld()
-    const result = await fetchCompanyBases(key, world, true)
-    const bases = result.data.bases.map((base) => ({
-      id: base.id,
-      name: base.name,
-      planetId: base.planetId,
-      warehouseId: base.warehouseId,
-    }))
-    emit('basesLoaded', bases)
-    success.value = translate('basesLoadedSuccess', { count: bases.length })
-  } catch (e) {
-    error.value = `${translate('basesLoadError')}: ${e instanceof Error ? e.message : String(e)}`
-  } finally {
-    loading.value = false
   }
 }
 

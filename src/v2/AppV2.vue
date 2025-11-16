@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { loadGameData } from './services/gamedata/service'
 import { translate } from './localisation/localisation'
+import { getWorld } from './services/api/apiKeyManager'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
@@ -35,6 +36,20 @@ onMounted(async () => {
 
 watch(active, (t) => {
   try { localStorage.setItem(LS_KEY, t) } catch {}
+})
+
+watch(getWorld, async () => {
+  loading.value = true
+  try {
+    const result = await loadGameData(true)
+    gd.value = result.data
+    gdIndex.value = result.index
+    gdLoadedAt.value = result.loadedAt
+  } catch (e: any) {
+    err.value = e?.message ?? 'error'
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 

@@ -9,6 +9,7 @@ import { translate } from '../../localisation/localisation.ts'
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
 import ApiSyncPanel from './components/ApiSyncPanel.vue'
+import LoadBasesButton from './components/LoadBasesButton.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
@@ -43,10 +44,6 @@ const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
 
 const query = ref('')
 const apiSyncPanel = ref()
-
-function handleSyncBasesClick() {
-  apiSyncPanel.value?.handleSyncBases?.()
-}
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
@@ -232,7 +229,7 @@ function handleStocksLoaded(
         {{ translate('priceError') }}: {{ priceError }}
       </div>
       <!-- Warehouse sync button -->
-      <ApiSyncPanel ref="apiSyncPanel" :bases="state.bases" @basesLoaded="handleBasesLoaded" @stocksLoaded="handleStocksLoaded" />
+      <ApiSyncPanel ref="apiSyncPanel" :bases="state.bases" @stocksLoaded="handleStocksLoaded" />
       <div class="flex items-center gap-2">
         <label class="flex items-center gap-2">
           <span>{{ translate('timeframeHoursLabel') }}</span>
@@ -251,13 +248,15 @@ function handleStocksLoaded(
       </div>
     </div>
 
-    <PlanetSearch
-      v-model:query="query"
-      :suggestions="suggestions"
-      :hasBase="planetHasBase"
-      @select="selectPlanet"
-      @syncBases="handleSyncBasesClick"
-    />
+    <div class="flex items-center gap-2">
+      <PlanetSearch
+        v-model:query="query"
+        :suggestions="suggestions"
+        :hasBase="planetHasBase"
+        @select="selectPlanet"
+      />
+      <LoadBasesButton :bases="state.bases" @basesLoaded="handleBasesLoaded" />
+    </div>
 
     <!-- Bases -->
     <Draggable
