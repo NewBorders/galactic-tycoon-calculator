@@ -5,7 +5,6 @@ import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { translate } from '@/v2/localisation/localisation'
-import { importStockText } from '@/v2/services/stock/import'
 
 const props = defineProps<{
   base: PlayerBase
@@ -23,9 +22,6 @@ const emit = defineEmits<{
 }>()
 
 const optionalActive = ref<Set<number>>(new Set())
-const stockImportText = ref('')
-const stockImportStatus = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
-let stockImportTimeout: ReturnType<typeof setTimeout> | null = null
 
 const timeframeHours = computed(() => {
   const hours = Number(props.timeframeHours)
@@ -191,33 +187,6 @@ function coverageClass(value: number) {
   return 'text-rose-300'
 }
 
-function stockStatusClass(kind: 'success' | 'error') {
-  return kind === 'success' ? 'text-emerald-300' : 'text-rose-300'
-}
-
-function handleStockImport() {
-  const text = stockImportText.value.trim()
-  if (!text) {
-    stockImportStatus.value = null
-    return
-  }
-
-  const result = importStockText(text, props.gameData.materials)
-  if (result.success) {
-    emit('updateStock', { ...result.stock })
-    const parts = [`${translate('stockImportImported')}: ${result.processed}`]
-    if (result.missing.length) {
-      parts.push(`${translate('stockImportMissing')}: ${result.missing.length}`)
-    }
-    stockImportStatus.value = { kind: 'success', message: parts.join(' · ') }
-  } else {
-    stockImportStatus.value = {
-      kind: 'error',
-      message: result.error === 'empty' ? translate('stockImportNoValid') : translate('stockImportError'),
-    }
-  }
-}
-
 function toggleOptional(materialId: number) {
   const next = new Set(optionalActive.value)
   if (next.has(materialId)) {
@@ -244,54 +213,17 @@ watch(
 watch(
   () => props.base.id,
   () => {
-    stockImportStatus.value = null
-    stockImportText.value = ''
-    if (stockImportTimeout !== null) {
-      clearTimeout(stockImportTimeout)
-      stockImportTimeout = null
-    }
+    // Reset state on base change
   },
 )
 
-watch(stockImportText, (value) => {
-  if (stockImportTimeout !== null) {
-    clearTimeout(stockImportTimeout)
-    stockImportTimeout = null
-  }
-
-  if (!value.trim()) {
-    stockImportStatus.value = null
-    return
-  }
-
-  stockImportTimeout = setTimeout(() => {
-    handleStockImport()
-  }, 300)
-})
-
 onBeforeUnmount(() => {
-  if (stockImportTimeout !== null) {
-    clearTimeout(stockImportTimeout)
-  }
+  // Cleanup if needed
 })
 </script>
 
 <template>
   <div class="grid gap-4 lg:grid-cols-2">
-    <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
-      <div class="font-semibold">{{ translate('stockImportTitle') }}</div>
-      <p class="text-xs text-slate-400">{{ translate('stockImportDescription') }}</p>
-      <textarea
-        v-model="stockImportText"
-        class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-        rows="3"
-        :placeholder="translate('stockImportPlaceholder')"
-      />
-      <span v-if="stockImportStatus" class="block text-xs" :class="stockStatusClass(stockImportStatus.kind)">
-        {{ stockImportStatus.message }}
-      </span>
-    </div>
-
     <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
       <div class="font-semibold">{{ translate('workforceOverview') }}</div>
       <template v-if="workforceSummary.some((row) => row.required > 0)">

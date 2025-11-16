@@ -103,7 +103,7 @@ async function handleSyncWarehouse() {
 
     const stocks = result.warehouses.map((w) => ({
       baseId: w.data.baseId,
-      items: w.data.items,
+      items: w.data.items ?? [],
     }))
 
     emit('stocksLoaded', stocks)
@@ -123,14 +123,6 @@ async function handleSyncWarehouse() {
 
 <template>
   <div class="flex items-center gap-3">
-    <button
-      v-if="isConfigured"
-      @click="handleSyncBases"
-      :disabled="loading"
-      class="px-3 py-2 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 rounded text-sm"
-    >
-      {{ loading ? '…' : translate('syncBases') }}
-    </button>
     <button
       v-if="isConfigured"
       @click="handleSyncWarehouse"
