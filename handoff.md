@@ -1,10 +1,35 @@
-Summary of recent changes (Nov 15, 2025) — Phase 2: UI Refactoring & World Selector Implementation
+Summary of recent changes (Nov 16, 2025) — Phase 2 & 3: UI Refactoring, Bug Fixes & Language Integration
 
-## ✅ COMPLETED: Phase 2 - UI Reorganization & World Selector
+## ✅ COMPLETED: Phase 2 - UI Reorganization & World Selector (DONE Nov 15)
+## ✅ COMPLETED: Phase 3 - Bug Fixes & Language Integration (DONE Nov 16)
 
-Completed major UI refactoring to consolidate settings into a new "config" tab, implement world selector (g1/g2), and fix warehouse stock loading to use per-base endpoints.
+### Phase 3 Fixes (Nov 16):
 
-## 7 User Requirements - ALL COMPLETED ✅
+#### 1. ✅ "Load my bases" Button Fixed
+- Issue: Button was not triggering handleSyncBases
+- Fix: Created dedicated handler function `handleSyncBasesClick()` in PlayerConfigPanel
+- Method invocation now properly calls `apiSyncPanel.value?.handleSyncBases?.()`
+- Button now works reliably when clicked
+
+#### 2. ✅ Warehouse Stocks Error Fixed  
+- Issue: TypeError "Cannot read properties of undefined (reading 'forEach')"
+- Root Cause: `w.data.items` could be undefined
+- Fix: Added fallback `items: w.data.items ?? []` in ApiSyncPanel.vue
+- Prevents forEach on undefined
+
+#### 3. ✅ Language Switcher Moved to Config
+- Removed: LanguageSwitcher from AppV2.vue top bar
+- Added: LanguageSwitcher component to ConfigPanel.vue
+- Language selector now integrated with other settings (API key, World, Locale)
+- Added localization string: `languageLabel` (EN & DE)
+- Better UX: All configuration grouped in one place
+
+#### 4. ✅ World Selector Everywhere
+- extractRawGameData.ts: Uses `getApiUrl()` with dynamic world
+- prices.ts: Uses `getApiUrl()` with dynamic world
+- Gamedata and prices now respect user's world selection (g1/g2)
+
+## Phase 2 Summary (Completed Nov 15):
 
 ### 1. ✅ Config Tab Created
 - Added new 'config' tab to AppV2.vue alongside 'bases' and 'technology' tabs

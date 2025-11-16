@@ -44,6 +44,10 @@ const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
 const query = ref('')
 const apiSyncPanel = ref()
 
+function handleSyncBasesClick() {
+  apiSyncPanel.value?.handleSyncBases?.()
+}
+
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
 
@@ -252,7 +256,7 @@ function handleStocksLoaded(
       :suggestions="suggestions"
       :hasBase="planetHasBase"
       @select="selectPlanet"
-      @syncBases="apiSyncPanel?.handleSyncBases?.()"
+      @syncBases="handleSyncBasesClick"
     />
 
     <!-- Bases -->

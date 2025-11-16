@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { getApiKey, setApiKey, getWorld, setWorld } from '@/v2/services/api/apiKeyManager'
 import { translate } from '@/v2/localisation/localisation'
+import LanguageSwitcher from '@/v2/components/LanguageSwitcher.vue'
 import type { World } from '@/v2/services/api/types'
 
 const apiKey = ref(getApiKey() || '')
@@ -65,6 +66,16 @@ function handleWorldChange() {
         </select>
       </label>
       <p class="text-xs text-slate-400">{{ translate('worldHint') }}</p>
+    </div>
+
+    <!-- Language Selection -->
+    <div class="border-t border-slate-700 pt-4 space-y-2">
+      <div class="text-sm">
+        <span class="text-slate-400">{{ translate('languageLabel') }}</span>
+        <div class="mt-1">
+          <LanguageSwitcher />
+        </div>
+      </div>
     </div>
   </div>
 </template>

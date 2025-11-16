@@ -2,7 +2,6 @@
 import { ref, onMounted, watch } from 'vue'
 import { loadGameData } from './services/gamedata/service'
 import { translate } from './localisation/localisation'
-import LanguageSwitcher from './components/LanguageSwitcher.vue'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
@@ -67,9 +66,6 @@ watch(active, (t) => {
             {{ translate('tabConfig') }}
           </button>
         </nav>
-        <div class="ml-auto">
-          <LanguageSwitcher />
-        </div>
       </div>
 
       <p v-if="err" class="text-red-600 text-sm">{{ err }}</p>
