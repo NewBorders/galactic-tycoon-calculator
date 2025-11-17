@@ -1,22 +1,6 @@
-import { ref } from 'vue'
+import { LanguageCode } from './types'
 
-export type LanguageCode = 'en' | 'de'
-export type LocaleCode = 'en-GB' | 'de-DE'
-
-const LANGUAGE_STORAGE_KEY = 'gt:language'
-const LOCALE_STORAGE_KEY = 'gt:locale'
-
-const localeToLanguage: Record<LocaleCode, LanguageCode> = {
-  'en-GB': 'en',
-  'de-DE': 'de',
-}
-
-const languageToDefaultLocale: Record<LanguageCode, LocaleCode> = {
-  en: 'en-GB',
-  de: 'de-DE',
-}
-
-const messages: Record<LanguageCode, Record<string, string>> = {
+export const messages: Record<LanguageCode, Record<string, string>> = {
   en: {
     language: 'Language',
     tabPlayerConfig: 'Bases',
@@ -329,78 +313,3 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     importBaseError: 'Import fehlgeschlagen',
   },
 }
-
-function detectInitialLocale(): LocaleCode {
-  const savedLocale = localStorage.getItem(LOCALE_STORAGE_KEY) as LocaleCode | null
-  if (savedLocale && savedLocale in localeToLanguage) return savedLocale
-
-  const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY) as LanguageCode | null
-  if (savedLanguage && savedLanguage in languageToDefaultLocale)
-    return languageToDefaultLocale[savedLanguage]
-
-  const browserLocale = navigator.language || 'en-GB'
-  const normalised = browserLocale.toLowerCase()
-
-  const exactMatch = (Object.keys(localeToLanguage) as LocaleCode[]).find(
-    (locale) => locale.toLowerCase() === normalised,
-  )
-  if (exactMatch) return exactMatch
-
-  if (normalised.startsWith('de')) return 'de-DE'
-  return 'en-GB'
-}
-
-const currentLocale = ref<LocaleCode>(detectInitialLocale())
-const currentLanguage = ref<LanguageCode>(localeToLanguage[currentLocale.value])
-
-document.documentElement.lang = currentLanguage.value
-
-export function translate(key: string, vars?: Record<string, string | number>): string {
-  const template = messages[currentLanguage.value]?.[key] ?? key
-  if (!vars) return template
-
-  return template.replace(/\{(\w+)\}/g, (_, token: string) => {
-    const value = vars[token]
-    return value == null ? '' : String(value)
-  })
-}
-
-export function getCurrentLocale(): LocaleCode {
-  return currentLocale.value
-}
-
-export function setLocale(locale: LocaleCode): void {
-  if (!(locale in localeToLanguage)) return
-
-  currentLocale.value = locale
-  currentLanguage.value = localeToLanguage[locale]
-
-  try {
-    localStorage.setItem(LOCALE_STORAGE_KEY, locale)
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLanguage.value)
-  } catch {
-    // going descope storage errors for now
-  }
-
-  document.documentElement.lang = currentLanguage.value
-}
-
-export const availableLocales: Array<{ code: LocaleCode; label: string }> = [
-  { code: 'en-GB', label: 'English (UK)' },
-  { code: 'de-DE', label: 'Deutsch (DE)' },
-]
-
-export function getCurrentLanguage(): LanguageCode {
-  return currentLanguage.value
-}
-
-export function setLanguage(lang: LanguageCode): void {
-  const locale = languageToDefaultLocale[lang]
-  if (!locale) return
-  setLocale(locale)
-}
-
-export const availableLanguages: Array<{ code: LanguageCode; label: string }> = [
-  { code: 'en', label: 'English' },
-  { code: 'de', label: 'Deutsch' },
-]

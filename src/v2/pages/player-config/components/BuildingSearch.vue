@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { Building } from '@/v2/services/gamedata/types'
-import { translate } from '@/v2/localisation/localisation'
+import { translate } from '@/v2/localisation'
 
 const props = defineProps<{ buildings: Building[] }>()
 const emit = defineEmits<{ select: [b: Building] }>()

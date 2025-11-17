@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { getApiKey, getApiKeyRef, getWorld } from '@/v2/services/api/apiKeyManager'
 import { fetchWarehouseStockForBase } from '@/v2/services/api/warehouseService'
-import { translate } from '@/v2/localisation/localisation'
+import { translate } from '@/v2/localisation'
 import type { PlayerBase } from '@/v2/services/playerBases'
 
 const props = defineProps<{

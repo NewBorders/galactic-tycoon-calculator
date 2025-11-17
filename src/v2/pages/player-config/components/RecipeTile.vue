@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { formatNumber } from '@/v2/utils/formatNumber'
 import type { Recipe } from '@/v2/services/gamedata/types'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
-import { translate } from '@/v2/localisation/localisation'
+import { translate } from '@/v2/localisation'
 
 const props = defineProps<{
   recipe: Recipe

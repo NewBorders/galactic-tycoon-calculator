@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Planet } from '@/v2/services/gamedata/types.ts'
-import { translate } from '@/v2/localisation/localisation.ts'
+import { translate } from '@/v2/localisation'
 
 const props = defineProps<{
   suggestions: Planet[]

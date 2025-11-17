@@ -4,7 +4,7 @@ import { formatPrice } from '@/v2/utils/formatNumber'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
-import { translate } from '@/v2/localisation/localisation'
+import { translate } from '@/v2/localisation'
 
 const props = defineProps<{
   base: PlayerBase
