@@ -4,10 +4,10 @@ import type { GameData } from '../../gamedata/types'
 
 /**
  * Integration test for workforce expansion overhead feature.
- * 
+ *
  * Specification:
  * Large workforce causes 1% extra consumption for every 1000 workforce burden above 2000 workforce.
- * 
+ *
  * Examples:
  * - 2000 workforce or less: No extra consumption (multiplier = 1.0)
  * - 3000 workforce: 1% extra consumption (multiplier = 1.01)
@@ -260,7 +260,7 @@ describe('Workforce Expansion Overhead', () => {
   it('should correctly calculate overhead across multiple bases', () => {
     // Simulate scenario: Base 1 has 1000 workers, Base 2 has 1100 workers
     // Total = 2100 workers, overhead = 0.1%
-    
+
     // Base 1 report (with global workforce of 2100)
     const base1Report = computeBaseReport(mockGameData, {
       assignment: {

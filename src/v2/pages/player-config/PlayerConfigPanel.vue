@@ -72,7 +72,7 @@ const globalWorkforceBurden = computed(() => {
       })),
     }
     const activeOptionalConsumables = new Set((base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'))
-    
+
     const report = computeBaseReport(props.gameData, {
       assignment,
       horizonDays: 1,
