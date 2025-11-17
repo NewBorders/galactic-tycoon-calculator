@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { getApiKey, getApiKeyRef, setApiKey, getWorld, setWorld } from '@/v2/services/api/apiKeyManager'
 import { translate } from '@/v2/localisation'
 import LanguageSwitcher from '@/v2/components/LanguageSwitcher.vue'
+import PriceManagement from './components/PriceManagement.vue'
 import type { World } from '@/v2/services/api/types'
 
 const apiKey = ref(getApiKey() || '')
@@ -47,7 +48,15 @@ function handleWorldChange() {
           :placeholder="translate('apiKeyPlaceholder')"
         />
       </label>
-      <p class="text-xs text-slate-400">{{ translate('apiKeyHint') }}</p>
+      <div class="space-y-2">
+        <p class="text-xs text-slate-400">{{ translate('apiKeyHint') }}</p>
+        <div class="bg-blue-900/30 border border-blue-700 rounded p-3">
+          <p class="text-xs text-blue-200">
+            <strong>How to generate API Key:</strong><br>
+            In the game, click your <strong>Company symbol</strong> → Open <strong>Settings</strong> → Generate API Key
+          </p>
+        </div>
+      </div>
       <button
         @click="handleSaveApiKey"
         class="px-3 py-2 bg-emerald-700 hover:bg-emerald-600 rounded text-sm"
@@ -83,6 +92,18 @@ function handleWorldChange() {
           <LanguageSwitcher />
         </div>
       </div>
+    </div>
+
+    <!-- Price Management -->
+    <div class="border-t border-slate-700 pt-4">
+      <Suspense>
+        <PriceManagement />
+        <template #fallback>
+          <div class="flex items-center justify-center py-8">
+            <div class="text-slate-400">Loading price management...</div>
+          </div>
+        </template>
+      </Suspense>
     </div>
   </div>
 </template>

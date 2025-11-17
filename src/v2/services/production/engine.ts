@@ -10,6 +10,11 @@ const MINUTES_PER_DAY = 60 * 24
 const WORKER_BASE_PRODUCTIVITY = 70
 const WORKER_OPTIONAL_BONUS = 10
 
+// Workforce expansion overhead constants
+const WORKFORCE_OVERHEAD_THRESHOLD = 2000
+const WORKFORCE_OVERHEAD_INCREMENT = 1000
+const WORKFORCE_OVERHEAD_RATE = 0.01
+
 const TIER_CONFIG: Array<{ tier: 1 | 2 | 3 | 4; key: 'worker' | 'technician' | 'engineer' | 'scientist' }> = [
   { tier: 1, key: 'worker' },
   { tier: 2, key: 'technician' },
@@ -475,6 +480,18 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     workerConsumptions.set(key, existing)
   }
 
+  // Calculate total assigned workers across all tiers for expansion overhead
+  // Use globalWorkforceBurden if provided (for multi-base scenarios), otherwise sum local workforce
+  const totalWorkforceBurden = options?.globalWorkforceBurden ??
+    Array.from(actualWorkersByTier.values()).reduce((sum, count) => sum + count, 0)
+
+  // Calculate consumption multiplier for large workforce
+  // 1% extra consumption for every 1000 workforce above 2000
+  const workforceConsumptionMultiplier =
+    totalWorkforceBurden > WORKFORCE_OVERHEAD_THRESHOLD
+      ? 1 + ((totalWorkforceBurden - WORKFORCE_OVERHEAD_THRESHOLD) / WORKFORCE_OVERHEAD_INCREMENT) * WORKFORCE_OVERHEAD_RATE
+      : 1
+
   actualWorkersByTier.forEach((count, tier) => {
     const worker = workerByType.get(tier)
     if (!worker || count <= 0) return
@@ -486,7 +503,8 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       if (baseAmount < 0) return
       const optional = !consumable.essential
       const active = !optional || activeOptional.has(consumable.matId)
-      const consumed = active ? baseAmount : 0
+      // Apply workforce burden multiplier
+      const consumed = active ? baseAmount * workforceConsumptionMultiplier : 0
       const price = priceOf(consumable.matId)
       registerWorkerConsumption(
         tier as 1 | 2 | 3 | 4,
