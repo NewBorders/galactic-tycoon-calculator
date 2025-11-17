@@ -58,7 +58,7 @@ function loadState(): PlayerTechnologyState {
     if (!raw) return sanitizeState({})
     return sanitizeState(JSON.parse(raw))
   } catch (error) {
-    console.error('Failed to load technology state', error)
+    // Silently fail on load - use default state
     return sanitizeState({})
   }
 }
@@ -67,7 +67,7 @@ function saveState(state: PlayerTechnologyState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch (error) {
-    console.warn('Failed to persist technology state', error)
+    // Silently fail on save
   }
 }
 

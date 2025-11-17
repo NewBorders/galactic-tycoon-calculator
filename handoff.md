@@ -1,7 +1,269 @@
-Summary of recent changes (Nov 16, 2025) — Phase 4 & 5: Button Integration & World-Aware GameData Loading
+Summary of recent changes (Nov 17, 2025) — Phase 5 Complete: ETL Implementation & Code Cleanup
+
+## ✅ COMPLETED: Phase 5 Part 2 - Code Cleanup & Removal of Unused Code (Nov 17)
+
+**Cleanup Tasks Completed:**
+
+1. ✅ **Removed `fetchWarehouseStockForAllBases` function**
+   - This function was fetching all warehouse stocks in parallel
+   - Now unnecessary since we use per-base fetching (`fetchWarehouseStockForBase`)
+   - Removed from: `src/v2/services/api/warehouseService.ts`
+   - Removed tests for this function from: `src/v2/services/api/__tests__/warehouseService.test.ts`
+   - Result: Simpler, more focused API
+
+2. ✅ **Removed Console Logs**
+   - Removed `console.log` from `fetchWarehouseStockForBase` in `warehouseService.ts`
+   - Cleaned up `console.error` and `console.warn` in `playerTechnology.ts` (replaced with silent failures)
+   - Result: Cleaner, production-ready code
+
+3. ✅ **Identified but NOT Yet Moved: `src/v2/services/stock/import.ts`**
+   - This file is ONLY used by v1 (`src/v1/components/PricesConfig.vue`)
+   - Currently in wrong location (v2 services directory)
+   - Status: v2 is fully independent of this code
+   - Note: File still exists at v2 location but is not imported by any v2 code
+
+**Test Results After Cleanup:**
+- ✅ Test Files: 5 passed
+- ✅ Tests: 28 passed (down from 31, due to removing `fetchWarehouseStockForAllBases` tests)
+- ✅ Type-check: PASS
+- Tests:
+  - warehouseService.test.ts: 3 tests (only `fetchWarehouseStockForBase` tests remain)
+  - playerBasesApi.test.ts: 10 tests
+  - apiKeyManager.test.ts: 9 tests
+  - queue-multiplicity.test.ts: 3 tests
+  - warehouseStockMatching.test.ts: 3 tests
+
+---
+
+## ✅ COMPLETED: Phase 5 Part 1 - ETL Implementation & Test Fixes (Nov 17)
+
+### MAJOR BREAKTHROUGH: API Format Mismatch Discovered & Fixed
+
+**Critical Discovery:** The API returns warehouse stock in a completely different format than expected:
+- **API Actual Format:** `{cap: number, id: number, mats: [{id: number, am: number}]}`
+- **Code Expected:** `{baseId, warehouseId, items: [{materialId, quantity}]}`
+- **Issue:** Stock data was not being matched to bases because of format mismatch
+
+**Solution Implemented:**
+1. ✅ Defined raw API type: `WarehouseStockRawResponse` (matches actual API format)
+2. ✅ Defined internal type: `WarehouseStockResponse` (normalized format)
+3. ✅ Created ETL transform function: `transformWarehouseStock(raw)` 
+4. ✅ Updated `fetchWarehouseStockForBase` to transform raw → internal format
+5. ✅ Fixed test data and test cases to use new format
+6. ✅ Fixed syntax errors in warehouseStockMatching.test.ts
+
+**Transform Process:**
+```typescript
+// Raw from API: {cap: 5000, id: 201, mats: [{id: 26, am: 4}]}
+// → transformWarehouseStock()
+// → Internal: {warehouseId: 201, items: [{materialId: 26, quantity: 4}]}
+```
+
+### Latest Work (Nov 17) - ETL Implementation & Test Fixes
+
+#### 1. ✅ ETL Transformation Layer Implemented
+
+**Files Modified:**
+- **src/v2/services/api/types.ts**
+  - Added `WarehouseStockRawResponse` type for raw API responses
+  - Updated `WarehouseStockResponse` to only have `warehouseId` and `items` fields
+  - Clearly separated raw vs normalized format
+
+- **src/v2/services/api/warehouseService.ts**
+  - Added `transformWarehouseStock(raw: WarehouseStockRawResponse): WarehouseStockResponse`
+  - Updated `fetchWarehouseStockForBase()` to:
+    1. Fetch raw response from API
+    2. Transform raw → internal format
+    3. Cache transformed result
+    4. Return transformed data
+  - Enhanced logging: `[Warehouse] Fetched stock for warehouseId X: {items: Y, materials: [...]}`
+
+- **src/v2/services/api/__tests__/warehouseService.test.ts**
+  - Updated mock data to use raw API format: `{cap: 5000, id: 201, mats: [{id: materialId, am: quantity}]}`
+  - Updated imports to use both `WarehouseStockRawResponse` and `WarehouseStockResponse`
+  - All 6 warehouse service tests passing ✅
+
+- **src/v2/services/api/__tests__/warehouseStockMatching.test.ts**
+  - Fixed syntax errors from accumulated partial edits
+  - Tests now validate correct matching of warehouse→base via gameWarehouseId
+  - All 3 integration tests passing ✅
+
+#### 2. ✅ Test Results
+
+**Test Summary (Nov 17, Final):**
+```
+✅ Test Files: 5 passed (5)
+✅ Tests: 31 passed (31)
+   - playerBasesApi.test.ts: 10/10
+   - warehouseService.test.ts: 6/6
+   - apiKeyManager.test.ts: 9/9
+   - queue-multiplicity.test.ts: 3/3
+   - warehouseStockMatching.test.ts: 3/3
+✅ Type-check: PASS
+```
+
+#### 3. ✅ Console Logging Enhanced
+
+Transformation now provides clear visibility:
+```
+[Warehouse] Fetched stock for warehouseId 201: {
+  items: 2,
+  materials: [
+    { materialId: 1, quantity: 100 },
+    { materialId: 2, quantity: 200 }
+  ]
+}
+```
+
+Helps verify:
+- API response received
+- Transformation completed successfully
+- Number of items in warehouse
+- Material IDs and quantities
+
+### Previous Work (Nov 17) - Part 4: Warehouse Stock Import Refactored
+
+#### 1. ✅ Stock Import Process Simplified
+
+#### 1. ✅ Stock Import Process Simplified
+**New simplified flow:**
+```
+For each configured base:
+  1. Check if gameWarehouseId + gameBaseId exist
+  2. Fetch stock from API using gameWarehouseId
+  3. Convert items[] → stock Record (materialId: quantity)
+  4. Emit {gameBaseId, stock} object
+  5. PlayerConfigPanel calls updateBaseStockFromApi(gameBaseId, stock)
+  6. Stock saved to localStorage with format: base.stock[materialId] = quantity
+```
+
+**Key changes:**
+- Removed parallel batch API calls
+- Direct sequential per-base processing (simpler, clearer flow)
+- Emit format changed from `baseId + items[]` to `gameBaseId + stock Record`
+- No intermediate mapping needed
+- Better logging at each step
+
+#### 2. ✅ Improved Console Logging
+```
+[Warehouse] Starting stock sync for world: g2
+[Warehouse] Fetching stock for base "Base 1" (warehouseId: 201)
+[Warehouse] ✓ Base "Base 1": 45 materials loaded
+[Warehouse] Stock sync complete: 2/2 bases loaded
+[PlayerConfigPanel] Updating base 101 with 45 materials
+[PlayerConfigPanel] All warehouse stocks saved to localStorage
+```
+
+Logs show:
+- World being synced
+- Per-base progress (name + warehouseId)
+- Material count per base
+- Success/error indicators
+- Final sync status
+- PlayerConfigPanel confirmation of localStorage save
+
+#### 3. ✅ Code Cleanup
+- ApiSyncPanel.vue: Reduced from 100+ lines to clean, readable logic
+- Removed unused `fetchWarehouseStockForAllBases` from active code
+- handleStocksLoaded simplified - now just updates via gameBaseId
+- No more intermediate mapping Records
+
+#### Files Modified:
+- src/v2/pages/player-config/components/ApiSyncPanel.vue - Refactored entire handleSyncWarehouse
+- src/v2/pages/player-config/PlayerConfigPanel.vue - Simplified handleStocksLoaded with better logging
+
+### Previous Work (Nov 17):
+
+#### 1. ✅ Warehouse Stock Loading Simplified
+- **Previous Approach**: Complex baseIdMap parameter
+- **New Approach**: Simple warehouseId → gameBaseId mapping
+- **How It Works**:
+  1. Extract all warehouseIds from bases (already have gameBaseId paired)
+  2. Create Record<warehouseId, gameBaseId> mapping
+  3. API returns stocks by warehouseId
+  4. Match stocks to bases using warehouseId as key
+  5. Emit stocks with correct baseId for updateBaseStockFromApi()
+- **Result**: Cleaner, simpler code without baseIdMap parameter
+
+#### 2. ✅ Integration Tests Added
+- Created `warehouseStockMatching.test.ts` with 3 test scenarios:
+  - Correct matching of warehouse stocks to bases using gameWarehouseId
+  - Graceful handling of missing gameWarehouseId
+  - Handling of unmatched warehouse responses
+- All tests passing ✅
+
+#### Files Modified:
+- src/v2/services/api/warehouseService.ts - Removed baseIdMap parameter
+- src/v2/pages/player-config/components/ApiSyncPanel.vue - Simplified with Record instead of Map
+- src/v2/services/api/__tests__/warehouseStockMatching.test.ts - NEW integration tests
+
+### Latest Work (Nov 17) - Part 2:
+
+#### 1. ✅ Warehouse Stock Loading Fixed
+- **Problem**: API doesn't return `baseId`, only `warehouseId`
+- **Solution**: Match using gameWarehouseId that's stored on each base
+- **Result**: Stocks correctly matched to bases
+
+#### 2. ✅ Layout Reordering - Summary Components
+- **Left column**: Materials Balance (spans 2 rows via lg:row-span-2)
+- **Right column top**: Worker Consumption
+- **Right column bottom**: Workforce Coverage
+- **Result**: Better space usage on large screens
+
+### Latest Work (Nov 17) - Part 1:
+
+#### 1. ✅ Console Logging Added for Debugging
+- Added detailed console.log in LoadBasesButton.vue:
+  - Logs world setting and fetchCompanyBases result
+- Added detailed console.log in ApiSyncPanel.vue:
+  - Logs world, bases array, warehouseIds, baseIdMap
+  - Logs fetchWarehouseStockForAllBases result and processed stocks
+- Ready for debugging warehouse stock issues
+
+#### 2. ✅ API Configuration State is Now Reactive
+- **Problem**: isConfigured computed was calling getApiKey() which has no reactive dependencies, so UI didn't update when API key was saved/cleared
+- **Solution**: 
+  - Created reactive `apiKeyState` ref in apiKeyManager.ts
+  - Exported `getApiKeyRef()` function for components to use
+  - Updated LoadBasesButton.vue and ApiSyncPanel.vue to use `computed(() => getApiKeyRef().value !== null)`
+  - Updated ConfigPanel.vue to watch getApiKeyRef() so input stays in sync
+- **Result**: Buttons and controls now immediately show/hide when API key is configured/cleared without page reload
+
+#### 3. ✅ Tests Updated for New Reactive State
+- Added `__resetApiKeyState__()` function for test cleanup
+- Updated apiKeyManager tests to reset state in beforeEach/afterEach
+- Fixed test that was directly writing to localStorage instead of using setApiKey()
+- All 28 tests passing
+
+#### Files Modified:
+- src/v2/services/api/apiKeyManager.ts - Added reactive state
+- src/v2/pages/player-config/components/LoadBasesButton.vue - Updated to use getApiKeyRef
+- src/v2/pages/player-config/components/ApiSyncPanel.vue - Updated to use getApiKeyRef, added console.log
+- src/v2/pages/config/ConfigPanel.vue - Added watch on getApiKeyRef
+- src/v2/services/api/__tests__/apiKeyManager.test.ts - Added state reset in tests
+
+### Phase 5 Summary (Nov 16-17):
+
+#### 1. ✅ "Load my bases" Button Repositioned
+- Created standalone LoadBasesButton.vue component
+- Wrapped with PlanetSearch in flex container in PlayerConfigPanel
+- Button sits right beside search input
+
+#### 2. ✅ GameData Service Now World-Aware
+- Added watch for world changes in AppV2.vue
+- When user switches world (g1 ↔ g2), gamedata automatically reloads
+- extractRawGameData.ts already uses getApiUrl() with dynamic world
+
+#### 3. ✅ Component Separation Cleaned
+- LoadBasesButton: Standalone component with handleSyncBases()
+- ApiSyncPanel: Focused only on warehouse stock loading
+- PlanetSearch: Pure search UI
+- PlayerConfigPanel: Orchestrates components
 
 ## ✅ COMPLETED: Phase 4 - Language & Button Integration (DONE Nov 16)
-## ✅ COMPLETED: Phase 5 - Button Repositioning & World-Aware GameData (DONE Nov 16)
+
+## ✅ COMPLETED: Phase 2 - UI Reorganization & World Selector (DONE Nov 15)
+## ✅ COMPLETED: Phase 3 - Bug Fixes & Language Integration (DONE Nov 16)
 
 ### Phase 5 Completion (Nov 16):
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { getApiKey, setApiKey, getWorld, setWorld } from '@/v2/services/api/apiKeyManager'
+import { ref, watch } from 'vue'
+import { getApiKey, getApiKeyRef, setApiKey, getWorld, setWorld } from '@/v2/services/api/apiKeyManager'
 import { translate } from '@/v2/localisation/localisation'
 import LanguageSwitcher from '@/v2/components/LanguageSwitcher.vue'
 import type { World } from '@/v2/services/api/types'
@@ -9,6 +9,13 @@ const apiKey = ref(getApiKey() || '')
 const world = ref<World>(getWorld())
 const saveSuccess = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+// Sync apiKey ref when it changes in apiKeyManager
+watch(getApiKeyRef(), (newKey) => {
+  if (newKey !== apiKey.value) {
+    apiKey.value = newKey || ''
+  }
+})
 
 function handleSaveApiKey() {
   setApiKey(apiKey.value)

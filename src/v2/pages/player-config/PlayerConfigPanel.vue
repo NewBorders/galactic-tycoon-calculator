@@ -186,18 +186,19 @@ function handleBasesLoaded(
 
 function handleStocksLoaded(
   stocks: Array<{
-    baseId: number
-    items: Array<{ materialId: number; quantity: number }>
+    gameBaseId: number
+    stock: Record<number, number>
   }>,
 ) {
+  console.log('[PlayerConfigPanel] handleStocksLoaded received:', stocks)
   stocks.forEach((warehouseData) => {
-    const stockRecord: Record<number, number> = {}
-    warehouseData.items.forEach((item) => {
-      stockRecord[item.materialId] = item.quantity
-    })
-    updateBaseStockFromApi(warehouseData.baseId, stockRecord)
+    console.log(
+      `[PlayerConfigPanel] Updating base ${warehouseData.gameBaseId} with ${Object.keys(warehouseData.stock).length} materials`,
+    )
+    updateBaseStockFromApi(warehouseData.gameBaseId, warehouseData.stock)
   })
   persist()
+  console.log('[PlayerConfigPanel] All warehouse stocks saved to localStorage')
 }
 </script>
 

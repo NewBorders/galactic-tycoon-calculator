@@ -28,13 +28,25 @@ export type CompanyBase = {
 }
 
 /**
- * Warehouse stock response from /public/company/warehouse/{warehouseId} endpoint
+ * RAW Warehouse stock response from API (before transformation)
+ * Actual format from /public/company/warehouse/{warehouseId} endpoint
+ */
+export type WarehouseStockRawResponse = {
+  cap: number // Warehouse capacity
+  id: number // Warehouse ID
+  mats: Array<{
+    id: number // Material ID
+    am: number // Amount (Bestand)
+  }>
+}
+
+/**
+ * Warehouse stock response (transformed to internal format)
+ * Internal representation after ETL
  */
 export type WarehouseStockResponse = {
-  baseId: number // gameBaseId
   warehouseId: number // gameWarehouseId
   items: WarehouseItem[]
-  lastUpdated: string
 }
 
 /**

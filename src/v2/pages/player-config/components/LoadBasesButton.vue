@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
+import { getApiKey, getApiKeyRef, getWorld } from '@/v2/services/api/apiKeyManager'
 import { fetchCompanyBases } from '@/v2/services/api/warehouseService'
 import { translate } from '@/v2/localisation/localisation'
 import type { PlayerBase } from '@/v2/services/playerBases'
@@ -17,7 +17,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 
-const isConfigured = computed(() => getApiKey() !== null)
+const isConfigured = computed(() => getApiKeyRef().value !== null)
 
 async function handleSyncBases() {
   const key = getApiKey()
@@ -32,7 +32,9 @@ async function handleSyncBases() {
 
   try {
     const world = getWorld()
+    console.log('[LoadBasesButton] Starting handleSyncBases with world:', world)
     const result = await fetchCompanyBases(key, world, true)
+    console.log('[LoadBasesButton] fetchCompanyBases result:', result)
     const bases = result.data.bases.map((b) => ({
       id: b.id,
       name: b.name,

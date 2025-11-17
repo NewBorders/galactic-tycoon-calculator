@@ -1,14 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { getApiKey, setApiKey, hasApiKey } from '../apiKeyManager'
+import { getApiKey, setApiKey, hasApiKey, __resetApiKeyState__ } from '../apiKeyManager'
 
 describe('apiKeyManager', () => {
   beforeEach(() => {
     // Clear localStorage before each test
     localStorage.clear()
+    // Reset reactive state
+    __resetApiKeyState__()
   })
 
   afterEach(() => {
     localStorage.clear()
+    __resetApiKeyState__()
   })
 
   describe('setApiKey', () => {
@@ -54,7 +57,7 @@ describe('apiKeyManager', () => {
 
     it('should return stored API key', () => {
       const key = 'test-api-key'
-      localStorage.setItem('gt:v2:api:key', key)
+      setApiKey(key)
 
       expect(getApiKey()).toBe(key)
     })

@@ -2,12 +2,27 @@
  * Warehouse and Base API Service
  * Handles fetching company bases and warehouse stocks from the Galactic Tycoons API
  * Implements caching with TTL to respect rate limits
+ * Includes ETL transformation from raw API format to internal format
  */
 
-import type { CompanyResponse, WarehouseStockResponse, World } from './types'
+import type { CompanyResponse, WarehouseStockResponse, WarehouseStockRawResponse, World } from './types'
 
 function getApiBaseUrl(world: World): string {
   return `https://api.${world}.galactictycoons.com`
+}
+
+/**
+ * Transform raw warehouse response from API to internal format
+ * ETL: Extract, Transform, Load
+ */
+function transformWarehouseStock(raw: WarehouseStockRawResponse): WarehouseStockResponse {
+  return {
+    warehouseId: raw.id,
+    items: (raw.mats ?? []).map((mat) => ({
+      materialId: mat.id,
+      quantity: mat.am,
+    })),
+  }
 }
 
 /**
@@ -73,6 +88,7 @@ export async function fetchCompanyBases(
 /**
  * Fetch warehouse stock for a specific warehouse
  * GET /public/company/warehouse/{warehouseId}?apikey=KEY
+ * Transforms raw API response to internal format
  */
 export async function fetchWarehouseStockForBase(
   apiKey: string,
@@ -99,7 +115,9 @@ export async function fetchWarehouseStockForBase(
       throw new Error(`API error: ${response.status} ${response.statusText}`)
     }
 
-    const data: WarehouseStockResponse = await response.json()
+    // Get raw response and transform to internal format
+    const rawData: WarehouseStockRawResponse = await response.json()
+    const data = transformWarehouseStock(rawData)
 
     // Update cache
     cache.warehouse.set(cacheKey, { data, ts: Date.now() })
@@ -110,33 +128,6 @@ export async function fetchWarehouseStockForBase(
       `Failed to fetch warehouse stock for warehouse ${warehouseId}: ${error instanceof Error ? error.message : String(error)}`,
     )
   }
-}
-
-/**
- * Fetch warehouse stocks for all bases at once
- */
-export async function fetchWarehouseStockForAllBases(
-  apiKey: string,
-  warehouseIds: number[],
-  world: World = 'g2',
-  forceRefresh = false,
-): Promise<{
-  warehouses: Array<{ data: WarehouseStockResponse; source: 'api' | 'cache' }>
-  errors: string[]
-}> {
-  const results: { data: WarehouseStockResponse; source: 'api' | 'cache' }[] = []
-  const errors: string[] = []
-
-  // Fetch all warehouses in parallel
-  const promises = warehouseIds.map((warehouseId) =>
-    fetchWarehouseStockForBase(apiKey, warehouseId, world, forceRefresh)
-      .then((result) => results.push(result))
-      .catch((error) => errors.push(error instanceof Error ? error.message : String(error))),
-  )
-
-  await Promise.all(promises)
-
-  return { warehouses: results, errors }
 }
 
 /**

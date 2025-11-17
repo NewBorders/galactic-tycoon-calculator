@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
-import { fetchWarehouseStockForAllBases } from '@/v2/services/api/warehouseService'
+import { getApiKey, getApiKeyRef, getWorld } from '@/v2/services/api/apiKeyManager'
+import { fetchWarehouseStockForBase } from '@/v2/services/api/warehouseService'
 import { translate } from '@/v2/localisation/localisation'
 import type { PlayerBase } from '@/v2/services/playerBases'
 
@@ -12,8 +12,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   stocksLoaded: [
     stocks: Array<{
-      baseId: number
-      items: Array<{ materialId: number; quantity: number }>
+      gameBaseId: number
+      stock: Record<number, number>
     }>,
   ]
 }>()
@@ -23,7 +23,7 @@ const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 const lastWarehouseRefresh = ref<number | null>(null)
 
-const isConfigured = computed(() => getApiKey() !== null)
+const isConfigured = computed(() => getApiKeyRef().value !== null)
 
 function formatTimestamp(value: number | null | undefined) {
   if (!value) return '—'
@@ -59,32 +59,60 @@ async function handleSyncWarehouse() {
 
   try {
     const world = getWorld()
-    // Only load stocks for bases that have gameWarehouseId
-    const warehouseIds = props.bases
-      .map((b: PlayerBase) => b.gameWarehouseId)
-      .filter((id: number | undefined): id is number => id !== undefined)
+    console.log('[Warehouse] Starting stock sync for world:', world)
 
-    if (warehouseIds.length === 0) {
-      error.value = 'No bases with warehouse IDs found. Try loading bases first.'
-      return
+    const stocks: Array<{ gameBaseId: number; stock: Record<number, number> }> = []
+    const errors: string[] = []
+
+    // Process each base
+    for (const base of props.bases) {
+      if (!base.gameWarehouseId || !base.gameBaseId) {
+        console.log(`[Warehouse] Skipping base "${base.name}" - missing gameWarehouseId or gameBaseId`)
+        continue
+      }
+
+      try {
+        console.log(`[Warehouse] Fetching stock for base "${base.name}" (warehouseId: ${base.gameWarehouseId})`)
+        const result = await fetchWarehouseStockForBase(key, base.gameWarehouseId, world, true)
+
+        // Convert items array to stock record: materialId → quantity
+        const stockRecord: Record<number, number> = {}
+        if (result.data.items) {
+          result.data.items.forEach((item) => {
+            stockRecord[item.materialId] = item.quantity
+          })
+        }
+
+        console.log(`[Warehouse] ✓ Base "${base.name}": ${Object.keys(stockRecord).length} materials loaded`)
+        stocks.push({
+          gameBaseId: base.gameBaseId,
+          stock: stockRecord,
+        })
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        console.error(`[Warehouse] ✗ Base "${base.name}": ${errorMsg}`)
+        errors.push(errorMsg)
+      }
     }
 
-    const result = await fetchWarehouseStockForAllBases(key, warehouseIds, world, true)
+    console.log(`[Warehouse] Stock sync complete: ${stocks.length}/${props.bases.length} bases loaded`)
 
-    const stocks = result.warehouses.map((w) => ({
-      baseId: w.data.baseId,
-      items: w.data.items ?? [],
-    }))
+    if (stocks.length === 0) {
+      error.value = 'No stocks loaded. Check API response.'
+      return
+    }
 
     emit('stocksLoaded', stocks)
     lastWarehouseRefresh.value = Date.now()
     success.value = translate('warehouseStockLoadedSuccess')
 
-    if (result.errors.length > 0) {
-      error.value = `Partially loaded. Errors: ${result.errors.join(', ')}`
+    if (errors.length > 0) {
+      error.value = `Partially loaded: ${errors.length} error(s)`
+      console.warn('[Warehouse] Errors:', errors)
     }
   } catch (e) {
     error.value = `${translate('warehouseStockLoadError')}: ${e instanceof Error ? e.message : String(e)}`
+    console.error('[Warehouse] Fatal error:', e)
   } finally {
     loading.value = false
   }
