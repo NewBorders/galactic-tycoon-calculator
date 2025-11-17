@@ -2,7 +2,7 @@ import { ref } from 'vue'
 
 import { LOCALE_STORAGE_KEY, LANGUAGE_STORAGE_KEY } from '../constants/keys'
 
-import { LocaleCode, LanguageCode } from './types'
+import type { LanguageCode, LocaleCode } from './types'
 
 const localeToLanguage: Record<LocaleCode, LanguageCode> = {
   'en-GB': 'en',

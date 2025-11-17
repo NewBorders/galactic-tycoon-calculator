@@ -24,3 +24,5 @@ export {
   setLanguage,
   setLocale,
 } from './locale'
+
+export { formatNumber, formatInteger, formatDecimal, formatPercent } from './numbers'

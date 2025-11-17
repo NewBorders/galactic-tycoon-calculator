@@ -1,4 +1,4 @@
-import { LanguageCode } from './types'
+import type { LanguageCode } from './types'
 
 export const messages: Record<LanguageCode, Record<string, string>> = {
   en: {
