@@ -14,6 +14,7 @@ const props = defineProps<{
   technologyLevels: Partial<Record<number, number>>
   startingBonus: number
   timeframeHours: number
+  globalWorkforceBurden: number
 }>()
 
 const emit = defineEmits<{
@@ -84,6 +85,7 @@ const report = computed(() =>
       priceResolver: props.priceResolver,
       technologyLevels: technologyLevelsOption.value,
       startingBonus: props.startingBonus,
+      globalWorkforceBurden: props.globalWorkforceBurden,
     },
   }),
 )
