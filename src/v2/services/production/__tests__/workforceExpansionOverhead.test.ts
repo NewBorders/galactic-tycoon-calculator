@@ -6,7 +6,9 @@ import type { GameData } from '../../gamedata/types'
  * Integration test for workforce expansion overhead feature.
  *
  * Specification:
- * Large workforce causes 1% extra consumption for every 1000 workforce burden above 2000 workforce.
+ * Large workforce causes extra consumption based on total assigned workers across all tiers and bases.
+ * - Threshold: 2000 workers (WORKFORCE_OVERHEAD_THRESHOLD)
+ * - Rate: 1% per 1000 workers above threshold (WORKFORCE_OVERHEAD_RATE / WORKFORCE_OVERHEAD_INCREMENT)
  *
  * Examples:
  * - 2000 workforce or less: No extra consumption (multiplier = 1.0)
