@@ -475,6 +475,19 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     workerConsumptions.set(key, existing)
   }
 
+  // Calculate total workforce burden
+  let totalWorkforceBurden = 0
+  actualWorkersByTier.forEach((count) => {
+    totalWorkforceBurden += count
+  })
+
+  // Calculate consumption multiplier for large workforce
+  // 1% extra consumption for every 1000 workforce above 2000
+  const workforceConsumptionMultiplier =
+    totalWorkforceBurden > 2000
+      ? 1 + ((totalWorkforceBurden - 2000) / 1000) * 0.01
+      : 1
+
   actualWorkersByTier.forEach((count, tier) => {
     const worker = workerByType.get(tier)
     if (!worker || count <= 0) return
@@ -486,7 +499,8 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
       if (baseAmount < 0) return
       const optional = !consumable.essential
       const active = !optional || activeOptional.has(consumable.matId)
-      const consumed = active ? baseAmount : 0
+      // Apply workforce burden multiplier
+      const consumed = active ? baseAmount * workforceConsumptionMultiplier : 0
       const price = priceOf(consumable.matId)
       registerWorkerConsumption(
         tier as 1 | 2 | 3 | 4,
