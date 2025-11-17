@@ -1,6 +1,7 @@
 // src/v2/services/playerBases.ts
 import { computed, ref } from 'vue'
 import type { Building, GameData, Recipe } from './gamedata/service'
+import type { GameBaseTransformed } from './api/types'
 
 export type PlayerRecipe = { id: string; recipeId: number; count?: number }
 
@@ -294,6 +295,45 @@ export function usePlayerBases(gd: GameData) {
   }
 
   /**
+   * Import full base data (buildings + production orders) from API payload
+   * Overwrites existing buildings and recipes for the local base
+   * Uses the unified addBuilding/addRecipe methods to ensure consistency
+   */
+  function importBaseFromApiPayload(
+    baseId: string,
+    payload: GameBaseTransformed,
+  ): boolean {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return false
+
+    // Clear existing buildings and recipes
+    b.buildings = []
+    b.recipes = []
+
+    // Import buildingSlots using addBuilding (preserves sort order)
+    const slots = payload.buildingSlots ?? []
+    slots.forEach((slot) => {
+      const buildingId = Number(slot.buildingId)
+      if (!isFinite(buildingId)) return
+      const level = slot.level != null ? Math.max(1, Math.floor(Number(slot.level))) : 1
+      addBuilding(baseId, buildingId, level)
+    })
+
+    // Import productionOrders: call addRecipe for each order (addRecipe handles duplicates and count internally)
+    const orders = payload.productionOrders ?? []
+    orders.forEach((o) => {
+      const recipeId = Number(o.recipeId)
+      if (!isFinite(recipeId)) return
+      // addRecipe validates recipe existence and building availability
+      // If recipe already exists, it increments count automatically
+      addRecipe(baseId, recipeId)
+    })
+
+    saveState(state.value)
+    return true
+  }
+
+  /**
    * Get the timestamp of last warehouse refresh for a base
    */
   function getLastStockRefresh(baseId: string): number | null {
@@ -357,6 +397,7 @@ export function usePlayerBases(gd: GameData) {
     setBaseOpen,
     getSections,
     setSection,
+    importBaseFromApiPayload,
     persist: () => saveState(state.value),
   }
 }

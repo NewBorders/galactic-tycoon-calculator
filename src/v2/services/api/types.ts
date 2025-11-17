@@ -73,3 +73,39 @@ export type PlayerBaseWithApiInfo = {
   gameWarehouseId?: number
   lastStockRefresh?: number
 }
+
+/** Raw response for a single game base from /public/company/base/{id} */
+export type GameBaseRaw = {
+  id: number
+  name: string
+  planetId: number
+  warehouseId?: number
+  buildingSlots?: Array<{
+    status: number // 0=Undefined, 1=Empty, 2=Building, 3=Debris, 4=Premium
+    building?: {
+      type: number // buildingId
+      level?: number
+    }
+  }>
+  productionOrders?: Array<{
+    rId: number // recipeId
+    amt: number // quantity/amount
+  }>
+}
+
+/** Normalized/Transformed representation used by the app */
+export type GameBaseTransformed = {
+  id: number
+  name: string
+  planetId: number
+  warehouseId?: number
+  buildingSlots: Array<{
+    buildingId: number
+    slot: number
+    level?: number
+  }>
+  productionOrders: Array<{
+    recipeId: number
+    quantity: number
+  }>
+}

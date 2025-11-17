@@ -21,11 +21,13 @@ const props = defineProps<{
   timeframeHours: number
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean; dailySummary: boolean }
+  isImporting?: boolean
 }>()
 
 const emit = defineEmits<{
   rename: [name: string]
   remove: []
+  importFromGame: []
   addBuilding: [{ buildingId: number; level: number }]
   updateBuilding: [{ id: string; patch: { level?: number } }]
   removeBuilding: [{ id: string }]
@@ -40,6 +42,9 @@ const emit = defineEmits<{
   toggleBase: [open: boolean]
   toggleSection: [{ which: 'buildings' | 'production' | 'dailySummary'; open: boolean }]
 }>()
+
+// Emit for importing base data from game API
+// emit('importFromGame', ) will be handled by parent
 
 // Name-Editing
 const editing = ref(false)
@@ -169,9 +174,19 @@ function onKey(e: KeyboardEvent) {
           </template>
         </div>
 
+        <!-- Import from game (manual overwrite) -->
+        <button
+          class="ml-auto px-2 py-1 border border-slate-700 rounded hover:bg-slate-700 mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          @click.stop="emit('importFromGame')"
+          :disabled="props.isImporting"
+          :title="translate('importFromGame')"
+        >
+          {{ props.isImporting ? translate('importBaseLoading') : translate('importFromGameShort') ?? 'Import' }}
+        </button>
+
         <!-- Delete Base -->
         <button
-          class="ml-auto px-2 py-1 border border-slate-700 rounded hover:bg-slate-700"
+          class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700"
           @click.stop="emit('remove')"
         >
           {{ translate('delete') }}

@@ -149,6 +149,13 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     warehouseStockLoadedSuccess: 'Warehouse stocks loaded successfully',
     warehouseStockLoadError: 'Failed to load warehouse stocks',
     lastWarehouseRefresh: 'Warehouse updated',
+    importFromGame: 'Import from game',
+    importFromGameShort: 'Import',
+    importBaseConfirmTitle: 'Import base from game',
+    importBaseConfirmMessage: 'This will overwrite all buildings and production orders for this base. Continue?',
+    importBaseLoading: 'Importing…',
+    importBaseSuccess: 'Base imported successfully',
+    importBaseError: 'Import failed',
   },
   de: {
     language: 'Sprache',
@@ -294,6 +301,13 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     warehouseStockLoadedSuccess: 'Lagerstände erfolgreich geladen',
     warehouseStockLoadError: 'Fehler beim Laden der Lagerstände',
     lastWarehouseRefresh: 'Lagerstand aktualisiert',
+    importFromGame: 'Aus Spiel importieren',
+    importFromGameShort: 'Importieren',
+    importBaseConfirmTitle: 'Basis aus Spiel importieren',
+    importBaseConfirmMessage: 'Dies überschreibt alle Gebäude und Produktionsaufträge dieser Basis. Fortfahren?',
+    importBaseLoading: 'Importiere…',
+    importBaseSuccess: 'Basis erfolgreich importiert',
+    importBaseError: 'Import fehlgeschlagen',
   },
 }
 

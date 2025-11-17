@@ -5,7 +5,14 @@
  * Includes ETL transformation from raw API format to internal format
  */
 
-import type { CompanyResponse, WarehouseStockResponse, WarehouseStockRawResponse, World } from './types'
+import type {
+  CompanyResponse,
+  WarehouseStockResponse,
+  WarehouseStockRawResponse,
+  World,
+  GameBaseRaw,
+  GameBaseTransformed,
+} from './types'
 
 function getApiBaseUrl(world: World): string {
   return `https://api.${world}.galactictycoons.com`
@@ -150,4 +157,89 @@ export function getLastBasesFetchTime(world: World = 'g2'): number | null {
  */
 export function getLastWarehouseFetchTime(warehouseId: number, world: World = 'g2'): number | null {
   return cache.warehouse.get(`${world}:${warehouseId}`)?.ts ?? null
+}
+
+/**
+ * Fetch detailed base information from API
+ * GET /public/company/base/{baseId}?apikey=KEY
+ * Returns the raw API payload for a single base (ETL left to caller)
+ */
+export async function fetchGameBaseDetails(
+  apiKey: string,
+  gameBaseId: number,
+  world: World = 'g2',
+): Promise<{ data: GameBaseRaw; source: 'api' | 'cache' }> {
+  try {
+    const baseUrl = getApiBaseUrl(world)
+    // Try endpoint with id path first
+    const url = new URL(`${baseUrl}/public/company/base/${gameBaseId}`)
+    url.searchParams.set('apikey', apiKey)
+
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      // Fallback: try list endpoint and filter
+      const listUrl = new URL(`${baseUrl}/public/company/base`)
+      listUrl.searchParams.set('apikey', apiKey)
+      const listResp = await fetch(listUrl.toString())
+      if (!listResp.ok) throw new Error(`API error: ${listResp.status} ${listResp.statusText}`)
+      const listData = await listResp.json()
+      // Try to find matching base
+      const found = Array.isArray(listData) ? listData.find((b: Record<string, unknown>) => b.id === gameBaseId) : null
+      if (!found) throw new Error(`Base ${gameBaseId} not found in API response`)
+      return { data: found as GameBaseRaw, source: 'api' }
+    }
+
+    const data = await response.json()
+    return { data: data as GameBaseRaw, source: 'api' }
+  } catch (error) {
+    throw new Error(
+      `Failed to fetch base details for base ${gameBaseId}: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+}
+
+/**
+ * Transform raw game base payload into normalized form used by the app
+ * Performs basic ETL and normalization of keys
+ */
+export function transformGameBase(raw: GameBaseRaw): GameBaseTransformed {
+  const buildingSlotsRaw = Array.isArray(raw.buildingSlots) ? raw.buildingSlots : []
+  const productionOrdersRaw = Array.isArray(raw.productionOrders) ? raw.productionOrders : []
+
+  // Only import slots with status=2 (Building) and extract building.type + building.level
+  const buildingSlots = buildingSlotsRaw
+    .map((s, index) => {
+      if (s.status !== 2 || !s.building) return null
+      const buildingId = Number(s.building.type)
+      const level = s.building.level != null ? Number(s.building.level) : undefined
+      if (!isFinite(buildingId) || buildingId <= 0) return null
+      return {
+        buildingId: Math.floor(buildingId),
+        slot: index,
+        level: level != null ? Math.max(1, Math.floor(level)) : undefined,
+      }
+    })
+    .filter((x) => x !== null) as Array<{ buildingId: number; slot: number; level?: number }>
+
+  // sort by slot to preserve ordering on import
+  buildingSlots.sort((a, b) => a.slot - b.slot)
+
+  // Extract production orders using rId (recipeId) and amt (quantity)
+  const productionOrders = productionOrdersRaw
+    .map((o) => {
+      const recipeId = Number(o.rId)
+      const quantity = Math.max(0, Math.floor(Number(o.amt) || 0))
+      if (!isFinite(recipeId) || quantity <= 0) return null
+      return { recipeId: Math.floor(recipeId), quantity }
+    })
+    .filter((x): x is { recipeId: number; quantity: number } => x !== null)
+
+  return {
+    id: raw.id,
+    name: raw.name,
+    planetId: raw.planetId,
+    warehouseId: raw.warehouseId,
+    buildingSlots,
+    productionOrders,
+  }
 }
