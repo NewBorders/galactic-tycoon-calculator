@@ -2,9 +2,6 @@
 
 A web-based production calculator and planning tool for the game **Galactic Tycoons**.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-
 ## 🚀 Features
 
 - **Production Planning**: Calculate material inputs/outputs for your production buildings
@@ -93,14 +90,6 @@ All configuration is automatically saved to browser localStorage:
 - Game speed settings
 - Optional consumables status
 
-## 🛠️ Tech Stack
-
-- **Vue 3** - Progressive JavaScript framework
-- **TypeScript** - Type-safe development
-- **Vite** - Fast build tool
-- **Tailwind CSS** - Utility-first styling
-- **Lucide Icons** - Beautiful icon library
-
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -108,3 +97,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🎯 Game Information
 
 This calculator is designed for **Galactic Tycoons** game. All game data, materials, buildings, and recipes are property of the game developers.
+
+## GDPR
+All data is stored locally, so no one BUT you have access to it, not even the Devs.
+We also store API Key if user wishes to have player data from the game.
+
+**How long is data and API Key stored?** Forever, user can always delete browser cache. 
+**Who can access the data?** No one but the user or tools the user allows to use its localStorage
+**What is it used for?** The API Key is used to get player's information about: Bases, Buildings, Recipes
+**What access level is needed?** Currently "limited" is fine, since we don't need transaction history, for now.
