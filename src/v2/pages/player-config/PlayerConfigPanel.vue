@@ -8,6 +8,8 @@ import { translate } from '../../localisation/localisation.ts'
 
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
+import ApiSyncPanel from './components/ApiSyncPanel.vue'
+import LoadBasesButton from './components/LoadBasesButton.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
@@ -28,6 +30,8 @@ const {
   setRecipeCount,
   setOptionalConsumables,
   setStock,
+  syncBaseFromApi,
+  updateBaseStockFromApi,
   isBaseOpen,
   setBaseOpen,
   getSections,
@@ -39,6 +43,7 @@ const technologyLevels = computed(() => technologyState.value.levels ?? {})
 const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
 
 const query = ref('')
+const apiSyncPanel = ref()
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
@@ -164,6 +169,37 @@ watch(
   },
   { immediate: false },
 )
+
+function handleBasesLoaded(
+  bases: Array<{ id: number; name: string; planetId: number; warehouseId: number }>,
+) {
+  bases.forEach((apiBase) => {
+    syncBaseFromApi({
+      id: apiBase.id,
+      name: apiBase.name,
+      planetId: apiBase.planetId,
+      warehouseId: apiBase.warehouseId,
+    })
+  })
+  persist()
+}
+
+function handleStocksLoaded(
+  stocks: Array<{
+    gameBaseId: number
+    stock: Record<number, number>
+  }>,
+) {
+  console.log('[PlayerConfigPanel] handleStocksLoaded received:', stocks)
+  stocks.forEach((warehouseData) => {
+    console.log(
+      `[PlayerConfigPanel] Updating base ${warehouseData.gameBaseId} with ${Object.keys(warehouseData.stock).length} materials`,
+    )
+    updateBaseStockFromApi(warehouseData.gameBaseId, warehouseData.stock)
+  })
+  persist()
+  console.log('[PlayerConfigPanel] All warehouse stocks saved to localStorage')
+}
 </script>
 
 <template>
@@ -193,6 +229,8 @@ watch(
       <div v-if="priceError" class="text-amber-300">
         {{ translate('priceError') }}: {{ priceError }}
       </div>
+      <!-- Warehouse sync button -->
+      <ApiSyncPanel ref="apiSyncPanel" :bases="state.bases" @stocksLoaded="handleStocksLoaded" />
       <div class="flex items-center gap-2">
         <label class="flex items-center gap-2">
           <span>{{ translate('timeframeHoursLabel') }}</span>
@@ -211,12 +249,15 @@ watch(
       </div>
     </div>
 
-    <PlanetSearch
-      v-model:query="query"
-      :suggestions="suggestions"
-      :hasBase="planetHasBase"
-      @select="selectPlanet"
-    />
+    <div class="flex items-center gap-2">
+      <PlanetSearch
+        v-model:query="query"
+        :suggestions="suggestions"
+        :hasBase="planetHasBase"
+        @select="selectPlanet"
+      />
+      <LoadBasesButton :bases="state.bases" @basesLoaded="handleBasesLoaded" />
+    </div>
 
     <!-- Bases -->
     <Draggable

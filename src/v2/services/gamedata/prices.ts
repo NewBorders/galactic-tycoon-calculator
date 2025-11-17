@@ -1,9 +1,14 @@
 import { computed, onMounted, onUnmounted, reactive, readonly } from 'vue'
 import type { GameData, Material } from './types'
+import { getWorld } from '../api/apiKeyManager'
 
-const API_URL = import.meta.env.DEV
-  ? 'https://api.g2.galactictycoons.com/public/exchange/mat-prices'
-  : '/api/prices'
+function getApiUrl(): string {
+  if (import.meta.env.DEV) {
+    const world = getWorld()
+    return `https://api.${world}.galactictycoons.com/public/exchange/mat-prices`
+  }
+  return '/api/prices'
+}
 
 const CACHE_KEY = 'gt:v2:prices:market'
 const SETTINGS_KEY = 'gt:v2:prices:settings'
@@ -164,7 +169,7 @@ type ApiResponse = {
 }
 
 async function fetchMarketPricesFromApi(): Promise<MarketPriceEntry[]> {
-  const response = await fetch(API_URL, { headers: { Accept: 'application/json' } })
+  const response = await fetch(getApiUrl(), { headers: { Accept: 'application/json' } })
   if (!response.ok) {
     throw new Error(`Failed to fetch prices: ${response.status}`)
   }
