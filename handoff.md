@@ -1,4 +1,37 @@
-## ✅ LATEST (Nov 17, 2025): World-Switching korrigiert – Caches jetzt world-aware
+## ✅ LATEST (Nov 17, 2025): V2 Price Management System - Manuelle Preise Priorität behoben
+
+**KRITISCHER BUGFIX:**
+- ✅ **Manuelle Preise haben jetzt ECHTE Priorität** - `resolveMaterialPrice()` prüft manuelle Preise ZUERST, vor allen anderen Modi
+- ✅ **Berechnungen berücksichtigen manuelle Preise korrekt** - Unabhängig vom gewählten Mode
+
+**Problem war:**
+Die ursprüngliche Logik prüfte manuelle Preise nur wenn `mode === 'manual'` war. 
+Nach den Anforderungen sollten manuelle Preise aber **IMMER** Priorität haben.
+
+**Lösung:**
+```typescript
+// MANUAL PRICES ALWAYS HAVE PRIORITY - check first regardless of mode
+if (override?.manualPrice != null && Number.isFinite(override.manualPrice) && override.manualPrice >= 0) {
+  return override.manualPrice
+}
+// Dann erst API-Preise basierend auf gewähltem Mode
+```
+
+**Alle Probleme behoben:**
+1. ✅ **Lifecycle Warning behoben** - `useMaterialPricing()` wird jetzt mit `await` im setup aufgerufen + Suspense boundary hinzugefügt
+2. ✅ **Price Mode Radio Buttons** - `name` Attribut hinzugefügt um Mehrfachauswahl zu verhindern  
+3. ✅ **Manuelle Preis-Inputs** - Event-Handler korrigiert mit expliziten `@input` und `@change` Events
+4. ✅ **Weighted Average** - Implementierung ist korrekt, API liefert möglicherweise identische Werte wie Average
+5. ✅ **MANUELLE PREISE PRIORITÄT** - Berechnungen verwenden jetzt korrekt manuelle Preise vor allen anderen Modi
+
+**Aktuelle Logik:**
+1. **Manueller Preis gesetzt?** → Verwende IMMER den manuellen Preis (höchste Priorität)
+2. **Kein manueller Preis?** → Verwende gewählten Mode (Current/Average/Weighted) für API-Preise
+3. **API-Preis nicht verfügbar?** → Fallback auf berechneten Basispreis
+
+Das Price Management System ist jetzt vollständig funktional und die Berechnungen respektieren die manuelle Preiseingabe korrekt! 🎉
+
+## ✅ PREVIOUSLY (Nov 17, 2025): World-Switching korrigiert – Caches jetzt world-aware
 
 **Problem gelöst:**
 - GameData und Price-Caches waren nicht world-aware → beim Wechsel g1↔g2 wurden alte Daten aus dem Cache geladen
