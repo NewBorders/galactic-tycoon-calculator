@@ -1,4 +1,61 @@
-## ✅ LATEST (Nov 17, 2025): World-Switching korrigiert – Caches jetzt world-aware
+## ✅ LATEST (Nov 17, 2025): Workforce Expansion Overhead implementiert
+
+**Feature:** Workforce-Konsum-Anpassung basierend auf gesamter Empire-weiter Workforce Burden.
+
+**Spezifikation:**
+- Große Workforces verursachen 1% zusätzlichen Konsum für je 1000 Workforce Burden über 2000 Workforce
+- **Schwellenwert:** 2000 Workforce
+- **Rate:** 1% Extra-Konsum pro 1000 Workforce über Schwellenwert
+- **Geltungsbereich:** Global (gilt über alle Spielerbasen kombiniert)
+
+**Beispiele:**
+- 2000 Workforce oder weniger: Kein Extra-Konsum (Multiplikator = 1.0)
+- 2100 Workforce: 0,1% Extra-Konsum (Multiplikator = 1.001)
+- 3000 Workforce: 1% Extra-Konsum (Multiplikator = 1.01)
+- 4000 Workforce: 2% Extra-Konsum (Multiplikator = 1.02)
+
+**Implementierung:**
+
+1. **Type Definition** (`src/v2/services/production/types.ts`):
+   - `globalWorkforceBurden?: number` zu `ComputeOptions` hinzugefügt
+   - Ermöglicht Übergabe der gesamten Workforce über alle Basen an individuelle Base-Berechnungen
+
+2. **Production Engine** (`src/v2/services/production/engine.ts`):
+   - Workforce-Konsum-Berechnung nutzt `globalWorkforceBurden` aus Options
+   - Fallback auf lokale Base-Workforce wenn nicht angegeben (Rückwärtskompatibilität)
+   - Formel: `1 + ((totalWorkforceBurden - 2000) / 1000) * 0.01`
+   - Wird nur angewendet wenn total workforce > 2000
+
+3. **Player Config Panel** (`src/v2/pages/player-config/PlayerConfigPanel.vue`):
+   - `globalWorkforceBurden` computed property
+   - Berechnet totale Workforce durch Iteration über alle Basen und Summierung
+   - Übergibt Wert an alle `ConfiguredBase` Komponenten
+
+4. **Komponenten-Hierarchie:**
+   - `ConfiguredBase.vue`: `globalWorkforceBurden` Prop hinzugefügt, weitergegeben an Kind-Komponenten
+   - `BaseSummaryCard.vue`, `SummaryCalculationsSection.vue`, `ProductionSection.vue`: Empfangen und übergeben `globalWorkforceBurden` an `computeBaseReport`
+
+5. **Testing** (`src/v2/services/production/__tests__/workforceExpansionOverhead.test.ts`):
+   - 6 Integration Tests: Alle Szenarien abgedeckt ✅
+   - Tests prüfen korrekte Multiplikator-Berechnung und Multi-Base-Szenario
+
+**Technische Details:**
+- Multiplikator wird einmal auf Empire-Ebene berechnet und konsistent auf alle Basen angewendet
+- Verhindert, dass jede Base ihren eigenen lokalen Multiplikator berechnet (wäre falsch)
+- Workforce-Berechnung erfolgt in `PlayerConfigPanel` bevor Base Reports generiert werden
+- Multiplikator betrifft nur Worker Consumables (Rations, Water, Tools, etc.)
+
+**Quality Assurance:**
+- ✅ Type-Check bestanden
+- ✅ Alle Integration Tests bestanden: 6/6 in `workforceExpansionOverhead.test.ts`
+
+**Nächste Schritte:**
+- V1 Implementierung noch nicht aktualisiert (andere Architektur)
+- UI-Indikator erwägen um aktiven Expansion Overhead anzuzeigen
+
+---
+
+## ✅ Vorheriger Eintrag (Nov 17, 2025): World-Switching korrigiert – Caches jetzt world-aware
 
 **Problem gelöst:**
 - GameData und Price-Caches waren nicht world-aware → beim Wechsel g1↔g2 wurden alte Daten aus dem Cache geladen
