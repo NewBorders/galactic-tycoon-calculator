@@ -77,6 +77,7 @@ export type ComputeOptions = {
   technologyLevels?: Partial<Record<number, number>>
   startingBonus?: number
   priceResolver?: (materialId: number) => number
+  globalWorkforceBurden?: number
 }
 
 export type BaseProductionContext = {

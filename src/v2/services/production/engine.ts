@@ -475,11 +475,15 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     workerConsumptions.set(key, existing)
   }
 
-  // Calculate total workforce burden
-  let totalWorkforceBurden = 0
-  actualWorkersByTier.forEach((count) => {
-    totalWorkforceBurden += count
-  })
+  // Calculate total workforce burden across all bases
+  // Use globalWorkforceBurden if provided (for multi-base scenarios), otherwise sum local workforce
+  const totalWorkforceBurden = options?.globalWorkforceBurden ?? (() => {
+    let localBurden = 0
+    actualWorkersByTier.forEach((count) => {
+      localBurden += count
+    })
+    return localBurden
+  })()
 
   // Calculate consumption multiplier for large workforce
   // 1% extra consumption for every 1000 workforce above 2000

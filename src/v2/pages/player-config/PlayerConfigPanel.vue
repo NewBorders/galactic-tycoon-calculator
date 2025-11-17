@@ -15,6 +15,8 @@ import LoadBasesButton from './components/LoadBasesButton.vue'
 import ImportConfirmDialog from './components/ImportConfirmDialog.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
+import { computeBaseReport } from '@/v2/services/production/engine'
+
 const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
 const {
   state,
@@ -45,6 +47,49 @@ const {
 const { state: technologyState } = usePlayerTechnology()
 const technologyLevels = computed(() => technologyState.value.levels ?? {})
 const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
+
+// Calculate global workforce burden across all bases for expansion overhead
+const globalWorkforceBurden = computed(() => {
+  const technologyLevelsOption: Record<number, number> = {}
+  Object.entries(technologyLevels.value ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    technologyLevelsOption[spec] = Math.max(0, Math.floor(level))
+  })
+
+  let totalWorkforce = 0
+  state.value.bases.forEach((base) => {
+    const assignment = {
+      planetId: base.planetId,
+      buildings: base.buildings.map((b) => ({
+        buildingId: b.buildingId,
+        level: b.level,
+      })),
+      recipes: base.recipes.map((r) => ({
+        recipeId: r.recipeId,
+        count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(1, Math.floor(r.count)) : 1,
+      })),
+    }
+    const activeOptionalConsumables = new Set((base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'))
+    
+    const report = computeBaseReport(props.gameData, {
+      assignment,
+      horizonDays: 1,
+      options: {
+        activeOptionalConsumables,
+        technologyLevels: technologyLevelsOption,
+        startingBonus: startingBonus.value,
+      },
+    })
+
+    // Sum up workforce from all tiers
+    report.workforceSummary.forEach((wf) => {
+      totalWorkforce += wf.required
+    })
+  })
+  return totalWorkforce
+})
 
 const query = ref('')
 const apiSyncPanel = ref()
@@ -410,6 +455,7 @@ function cancelImport() {
           :technology-levels="technologyLevels"
           :starting-bonus="startingBonus"
           :timeframe-hours="timeframeHours"
+          :global-workforce-burden="globalWorkforceBurden"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           :isImporting="importLoading === base.id"
