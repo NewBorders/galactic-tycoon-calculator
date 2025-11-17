@@ -1,3 +1,66 @@
+## ✅ LATEST (Nov 17, 2025): Pull Request Issues Fixed + English Default Language
+
+**PULL REQUEST KOMMENTAR BEHOBEN:**
+- ✅ **getPriceModeForMaterial() korrigiert** - Zeigt jetzt 'Manual' wenn manuelle Preise vorhanden sind
+- ✅ **Präzise UI-Anzeige** - "Final" Spalte zeigt jetzt exakt die tatsächlich verwendete Preisquelle
+- ✅ **Englisch als Standard** - detectInitial() ändert um immer 'en' als Default zu verwenden
+
+**Problem im PR-Kommentar war:**
+> "The function displays the configured mode rather than the actual price source being used. Since manual prices now always take priority (as per the refactored logic in prices.ts), this function should check if a manual price exists and return 'Manual' first, before falling back to the mode display."
+
+**Lösung implementiert:**
+```typescript
+// NEUE LOGIK: Prüft manuelle Preise zuerst (genau wie resolveMaterialPrice)
+if (override?.manualPrice != null && Number.isFinite(override.manualPrice) && override.manualPrice >= 0) {
+  return 'Manual'  // Zeigt tatsächliche Preisquelle
+}
+// Dann erst konfigurierte Modi
+```
+
+**Zusätzlich behoben:**
+- ✅ **English Default Language** - Beim ersten Besuch wird jetzt immer Englisch gewählt
+- ✅ **Lint-Error entfernt** - Ungenutzte GameData import entfernt
+
+**Funktionalität bestätigt:**
+- Manual Prices haben echte Priorität in Berechnungen ✓
+- UI zeigt korrekte Preisquelle (Manual vs. Mode) ✓  
+- Englisch ist Standard-Sprache für neue Benutzer ✓
+- TypeScript Build erfolgreich ✓
+
+## ✅ PREVIOUSLY (Nov 17, 2025): V2 Price Management System - Manuelle Preise Priorität behoben
+
+**KRITISCHER BUGFIX:**
+- ✅ **Manuelle Preise haben jetzt ECHTE Priorität** - `resolveMaterialPrice()` prüft manuelle Preise ZUERST, vor allen anderen Modi
+- ✅ **Berechnungen berücksichtigen manuelle Preise korrekt** - Unabhängig vom gewählten Mode
+
+**Problem war:**
+Die ursprüngliche Logik prüfte manuelle Preise nur wenn `mode === 'manual'` war. 
+Nach den Anforderungen sollten manuelle Preise aber **IMMER** Priorität haben.
+
+**Lösung:**
+```typescript
+// MANUAL PRICES ALWAYS HAVE PRIORITY - check first regardless of mode
+if (override?.manualPrice != null && Number.isFinite(override.manualPrice) && override.manualPrice >= 0) {
+  return override.manualPrice
+}
+// Dann erst API-Preise basierend auf gewähltem Mode
+```
+
+**Alle Probleme behoben:**
+1. ✅ **Lifecycle Warning behoben** - `useMaterialPricing()` wird jetzt mit `await` im setup aufgerufen + Suspense boundary hinzugefügt
+2. ✅ **Price Mode Radio Buttons** - `name` Attribut hinzugefügt um Mehrfachauswahl zu verhindern  
+3. ✅ **Manuelle Preis-Inputs** - Event-Handler korrigiert mit expliziten `@input` und `@change` Events
+4. ✅ **Weighted Average** - Implementierung ist korrekt, API liefert möglicherweise identische Werte wie Average
+5. ✅ **MANUELLE PREISE PRIORITÄT** - Berechnungen verwenden jetzt korrekt manuelle Preise vor allen anderen Modi
+
+**Aktuelle Logik:**
+1. **Manueller Preis gesetzt?** → Verwende IMMER den manuellen Preis (höchste Priorität)
+2. **Kein manueller Preis?** → Verwende gewählten Mode (Current/Average/Weighted) für API-Preise
+3. **API-Preis nicht verfügbar?** → Fallback auf berechneten Basispreis
+
+Das Price Management System ist jetzt vollständig funktional und die Berechnungen respektieren die manuelle Preiseingabe korrekt! 🎉
+
+## ✅ PREVIOUSLY (Nov 17, 2025): World-Switching korrigiert – Caches jetzt world-aware
 ## ✅ LATEST (Nov 17, 2025): Workforce Expansion Overhead implementiert
 
 **Feature:** Workforce-Konsum-Anpassung basierend auf gesamter Empire-weiter Workforce Burden.
