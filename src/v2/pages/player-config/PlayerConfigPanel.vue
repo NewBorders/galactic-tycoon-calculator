@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { GameData, GdIndex, Planet } from '../../services/gamedata/service.ts'
 import { searchPlanetsByName, useMaterialPricing } from '../../services/gamedata/service.ts'
 import { usePlayerBases } from '../../services/playerBases.ts'
+import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
+import { fetchCompanyBases, fetchGameBaseDetails, transformGameBase } from '@/v2/services/api/warehouseService'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/localisation.ts'
 
@@ -10,6 +12,7 @@ import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
 import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import LoadBasesButton from './components/LoadBasesButton.vue'
+import ImportConfirmDialog from './components/ImportConfirmDialog.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
@@ -32,6 +35,7 @@ const {
   setStock,
   syncBaseFromApi,
   updateBaseStockFromApi,
+  importBaseFromApiPayload,
   isBaseOpen,
   setBaseOpen,
   getSections,
@@ -44,6 +48,13 @@ const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
 
 const query = ref('')
 const apiSyncPanel = ref()
+const importLoading = ref<string | null>(null) // baseId of base currently importing
+const importError = ref<string | null>(null)
+const importSuccess = ref<string | null>(null)
+const confirmDialogOpen = ref(false)
+const confirmDialogBaseId = ref<string | null>(null)
+const confirmDialogTitle = ref<string | undefined>(undefined)
+const confirmDialogMessage = ref<string | undefined>(undefined)
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
@@ -170,9 +181,17 @@ watch(
   { immediate: false },
 )
 
-function handleBasesLoaded(
+async function handleBasesLoaded(
   bases: Array<{ id: number; name: string; planetId: number; warehouseId: number }>,
 ) {
+  // Track existing gameBaseIds before sync to detect newly added bases
+  const existingIds = new Set(
+    state.value.bases
+      .map((b) => (typeof b.gameBaseId === 'number' ? b.gameBaseId : null))
+      .filter((x): x is number => x != null),
+  )
+
+  // Sync all bases (adds new ones or updates mapping on existing)
   bases.forEach((apiBase) => {
     syncBaseFromApi({
       id: apiBase.id,
@@ -181,6 +200,31 @@ function handleBasesLoaded(
       warehouseId: apiBase.warehouseId,
     })
   })
+
+  // For bases not present before, auto-import buildings and recipes
+  const key = getApiKey()
+  const world = getWorld()
+  if (key) {
+    const newlyAdded = bases
+      .map((b) => b.id)
+      .filter((id) => !existingIds.has(id))
+
+    for (const gameBaseId of newlyAdded) {
+      try {
+        const details = await fetchGameBaseDetails(key, gameBaseId, world)
+        const transformed = transformGameBase(details.data)
+        const localBase = state.value.bases.find((b) => b.gameBaseId === gameBaseId)
+        if (localBase) {
+          importBaseFromApiPayload(localBase.id, transformed)
+        }
+      } catch (e) {
+        console.warn('[LoadBases] Auto-import failed for base', gameBaseId, e)
+      }
+    }
+  } else {
+    console.warn('[LoadBases] API key not set; skipping auto-import for new bases')
+  }
+
   persist()
 }
 
@@ -200,10 +244,98 @@ function handleStocksLoaded(
   persist()
   console.log('[PlayerConfigPanel] All warehouse stocks saved to localStorage')
 }
+
+// Manual import of full base (buildings + production orders) from game API
+async function handleImportBase(base: typeof state.value.bases[0]) {
+  // This function now performs the import for an already-confirmed base
+  const key = getApiKey()
+  if (!key) {
+    importError.value = translate('apiKeyNotConfigured')
+    console.error('[ImportBase] API key not configured')
+    return
+  }
+
+  const world = getWorld()
+  importLoading.value = base.id
+  importError.value = null
+  importSuccess.value = null
+
+  try {
+    // Ensure we have a mapping to gameBaseId
+    if (!base.gameBaseId) {
+      const company = await fetchCompanyBases(key, world, true)
+      handleBasesLoaded(company.data.bases ?? [])
+    }
+
+    const localBase = state.value.bases.find((b: typeof state.value.bases[0]) => b.id === base.id)
+    if (!localBase) {
+      importError.value = translate('importBaseError')
+      console.error('[ImportBase] Base not found after refresh')
+      return
+    }
+    if (!localBase.gameBaseId) {
+      importError.value = translate('importBaseError')
+      console.error('[ImportBase] Could not determine gameBaseId after refresh')
+      return
+    }
+
+    const details = await fetchGameBaseDetails(key, localBase.gameBaseId, world)
+    // Strict ETL: transform raw API payload to normalized format
+    const transformed = transformGameBase(details.data)
+    const imported = importBaseFromApiPayload(localBase.id, transformed)
+    if (!imported) {
+      importError.value = translate('importBaseError')
+      console.warn('[ImportBase] Import returned false - nothing imported')
+    } else {
+      persist()
+      importSuccess.value = translate('importBaseSuccess')
+      console.log('[ImportBase] Base imported successfully')
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        importSuccess.value = null
+      }, 5000)
+    }
+  } catch (e) {
+    importError.value = `${translate('importBaseError')}: ${e instanceof Error ? e.message : String(e)}`
+    console.error('[ImportBase] Failed to fetch base details:', e)
+  } finally {
+    importLoading.value = null
+  }
+}
+
+function openImportDialog(base: typeof state.value.bases[0]) {
+  confirmDialogBaseId.value = base.id
+  confirmDialogTitle.value = translate('importBaseConfirmTitle')
+  confirmDialogMessage.value = translate('importBaseConfirmMessage')
+  confirmDialogOpen.value = true
+}
+
+async function confirmImport() {
+  confirmDialogOpen.value = false
+  const baseId = confirmDialogBaseId.value
+  if (!baseId) return
+  const base = state.value.bases.find((b) => b.id === baseId)
+  if (!base) return
+  await handleImportBase(base)
+  confirmDialogBaseId.value = null
+}
+
+function cancelImport() {
+  confirmDialogOpen.value = false
+  confirmDialogBaseId.value = null
+}
 </script>
 
 <template>
   <div class="space-y-4 text-slate-100">
+    <!-- Import Feedback (Toast-like) -->
+    <div v-if="importError" class="px-4 py-2 bg-red-900/30 border border-red-700 rounded text-xs text-red-300">
+      {{ importError }}
+    </div>
+    <div v-if="importSuccess" class="px-4 py-2 bg-green-900/30 border border-green-700 rounded text-xs text-green-300">
+      {{ importSuccess }}
+    </div>
+
     <div class="flex flex-wrap items-center gap-3 justify-end text-xs text-slate-400">
       <div>
         {{ translate('gameDataTimestamp') }}
@@ -280,6 +412,7 @@ function handleStocksLoaded(
           :timeframe-hours="timeframeHours"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
+          :isImporting="importLoading === base.id"
           @toggleBase="
             (open) => {
               setBaseOpen(base.id, open)
@@ -353,6 +486,7 @@ function handleStocksLoaded(
               persist()
             }
           "
+          @importFromGame="() => openImportDialog(base)"
           @setOptionalConsumables="
             (materialIds) => {
               setOptionalConsumables(base.id, materialIds)
@@ -369,5 +503,15 @@ function handleStocksLoaded(
         />
       </template>
     </Draggable>
+
+    <!-- Confirm overwrite dialog for manual Import -->
+    <ImportConfirmDialog
+      :open="confirmDialogOpen"
+      :title="confirmDialogTitle"
+      :message="confirmDialogMessage"
+      :loading="false"
+      @confirm="confirmImport"
+      @cancel="cancelImport"
+    />
   </div>
 </template>

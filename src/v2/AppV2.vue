@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { loadGameData } from './services/gamedata/service'
 import { translate } from './localisation/localisation'
 import { getWorld } from './services/api/apiKeyManager'
+import { resetPriceCache } from './services/gamedata/prices'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
@@ -41,6 +42,8 @@ watch(active, (t) => {
 watch(getWorld, async () => {
   loading.value = true
   try {
+    // Reset price cache to force fresh data for new world
+    resetPriceCache()
     const result = await loadGameData(true)
     gd.value = result.data
     gdIndex.value = result.index

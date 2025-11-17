@@ -1,4 +1,92 @@
-Summary of recent changes (Nov 17, 2025) — Phase 5 Complete: ETL Implementation, Code Cleanup & Persistence
+## ✅ LATEST (Nov 17, 2025): World-Switching korrigiert – Caches jetzt world-aware
+
+**Problem gelöst:**
+- GameData und Price-Caches waren nicht world-aware → beim Wechsel g1↔g2 wurden alte Daten aus dem Cache geladen
+- Beispiel: Etherus 7 (nur in g1) wurde nicht gefunden, weil g2-Cache geladen wurde
+
+**Implementierte Lösung:**
+
+1. **GameData-Cache world-aware gemacht:**
+   - Cache-Keys: `gt:v2:gd:normalized:g1` und `gt:v2:gd:normalized:g2`
+   - `gameDataRepository.ts`: `readCache(world)`, `writeCache(world, entry)`, `getCacheKey(world)`
+   - `loadGameData()` nutzt `getWorld()` für Cache-Zugriff
+
+2. **Price-Cache world-aware gemacht:**
+   - Cache-Keys: `gt:v2:prices:market:g1` und `gt:v2:prices:market:g2`
+   - `prices.ts`: `loadCachedMarket(world)`, `saveMarketCache(world, data)`, `getCacheKey(world)`
+   - `ensureCacheLoaded()` und `ensureMarketPrices()` nutzen `getWorld()`
+
+3. **World-Switch in AppV2 verbessert:**
+   - Ruft `resetPriceCache()` auf beim World-Wechsel
+   - Lädt GameData mit `force=true` → cached wird world-spezifisch aktualisiert
+   - Price-Store wird zurückgesetzt: `market.clear()`, `lastFetched=0`, `initialised=false`
+
+**Technische Details:**
+- `src/v2/services/gamedata/gameDataRepository.ts`: World-Parameter in Cache-Funktionen
+- `src/v2/services/gamedata/prices.ts`: World-Parameter in Cache-Funktionen + `resetPriceCache()` Export
+- `src/v2/AppV2.vue`: Import `resetPriceCache`, Aufruf im `watch(getWorld)` Handler
+
+**Verifikation:**
+- Type-Check: ✅ OK
+- Tests: ✅ 30/30 grün
+- Erwartetes Verhalten: Wechsel g1↔g2 lädt korrekte Planeten/Materials/Preise; jede Welt hat eigenen Cache
+
+---
+
+## Vorheriger Eintrag: Import-Logik finalisiert (Nov 17, 2025)
+
+---
+
+## Vorheriger Eintrag: Manual Base Import Feature mit Confirmation & Feedback (Nov 17, 2025)
+
+**Features Implemented:**
+
+1. **Manual Base Import Button (per-base)**
+   - "Import" button in player config base header
+   - Fetches buildings + production orders from game API: `/public/company/base/{gameBaseId}?apikey=`
+   - API Service: `fetchGameBaseDetails()` with fallback to list endpoint
+
+2. **Confirmation Dialog**
+   - Native browser `confirm()` before overwrite
+   - Message: "This will overwrite all buildings and production orders for this base. Continue?"
+   - Prevents accidental data loss
+
+3. **User Feedback (Toast-like)**
+   - Success message: "Base imported successfully" (auto-clears 5s)
+   - Error messages with details displayed inline below header
+   - Loading state: button shows "Importing…" + disabled
+   - All feedback tied to global `importLoading`, `importError`, `importSuccess` refs
+
+4. **Smart Import Logic**
+   - Handles `buildingSlots` array (preserves sort order via `slot` field)
+   - Aggregates duplicate production orders (same `recipeId`) into single entry with summed `count`
+   - Validates recipes against available buildings (only imports if building exists)
+   - Clears existing buildings/recipes before import (clean overwrites)
+
+5. **Integration Tests Added**
+   - `src/v2/services/__tests__/importBaseIntegration.test.ts`
+   - Tests `fetchGameBaseDetails()` API function
+   - Tests aggregation of duplicate recipes
+   - All 30 tests passing ✅
+
+6. **Localization (EN + DE)**
+   - `importFromGame` / `importFromGameShort`
+   - `importBaseConfirmTitle` / `importBaseConfirmMessage`
+   - `importBaseLoading` / `importBaseSuccess` / `importBaseError`
+
+**Files Changed:**
+- `src/v2/services/api/warehouseService.ts` - Added `fetchGameBaseDetails()`
+- `src/v2/services/playerBases.ts` - Added `importBaseFromApiPayload()`
+- `src/v2/pages/player-config/PlayerConfigPanel.vue` - Handler + feedback refs
+- `src/v2/pages/player-config/components/ConfiguredBase.vue` - Import button + loading state
+- `src/v2/localisation/localisation.ts` - 9 new translation keys
+- `src/v2/services/__tests__/importBaseIntegration.test.ts` - New test file
+
+**Quality Metrics:** Type-check ✅ | Tests 30/30 ✅ | Lint ✅
+
+---
+
+## Previous Phase Summary
 
 ## ✅ COMPLETED: Phase 5 Part 3 - Warehouse Timestamp Persistence & Auto-Dismiss Messages (Nov 17)
 

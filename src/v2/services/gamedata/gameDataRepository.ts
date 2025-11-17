@@ -1,15 +1,19 @@
 import { normalize } from './transformRawToTypes'
 import type { GameData, GdIndex } from './types'
 import { extractRaw } from './extractRawGameData'
+import type { World } from '../api/types'
+import { getWorld } from '../api/apiKeyManager'
 
-const LS_KEY = 'gt:v2:gd:normalized'
+const LS_KEY_PREFIX = 'gt:v2:gd:normalized'
 const TTL_MS = 6 * 60 * 60 * 1000
 
 type CacheEntry = { ts: number; data: GameData }
 
-const readCache = (): CacheEntry | null => {
+const getCacheKey = (world: World): string => `${LS_KEY_PREFIX}:${world}`
+
+const readCache = (world: World): CacheEntry | null => {
   try {
-    const s = localStorage.getItem(LS_KEY)
+    const s = localStorage.getItem(getCacheKey(world))
     if (!s) return null
     const e = JSON.parse(s) as CacheEntry
     if (!e || typeof e.ts !== 'number' || !e.data) return null
@@ -19,9 +23,9 @@ const readCache = (): CacheEntry | null => {
     return null
   }
 }
-const writeCache = (entry: CacheEntry) => {
+const writeCache = (world: World, entry: CacheEntry) => {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(entry))
+    localStorage.setItem(getCacheKey(world), JSON.stringify(entry))
   } catch {}
 }
 
@@ -42,13 +46,14 @@ export async function loadGameData(force = false): Promise<{
   source: 'api' | 'fallback' | 'cache'
   loadedAt: number
 }> {
+  const world = getWorld()
   if (!force) {
-    const c = readCache()
+    const c = readCache(world)
     if (c) return { data: c.data, index: buildIndex(c.data), source: 'cache', loadedAt: c.ts }
   }
   const { raw, source } = await extractRaw()
   const data = normalize(raw)
   const ts = Date.now()
-  writeCache({ ts, data })
+  writeCache(world, { ts, data })
   return { data, index: buildIndex(data), source, loadedAt: ts }
 }

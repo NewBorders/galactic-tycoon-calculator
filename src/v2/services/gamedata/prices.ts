@@ -1,6 +1,7 @@
 import { computed, onMounted, onUnmounted, reactive, readonly } from 'vue'
 import type { GameData, Material } from './types'
 import { getWorld } from '../api/apiKeyManager'
+import type { World } from '../api/types'
 
 function getApiUrl(): string {
   if (import.meta.env.DEV) {
@@ -10,7 +11,8 @@ function getApiUrl(): string {
   return '/api/prices'
 }
 
-const CACHE_KEY = 'gt:v2:prices:market'
+const CACHE_KEY_PREFIX = 'gt:v2:prices:market'
+const getCacheKey = (world: World): string => `${CACHE_KEY_PREFIX}:${world}`
 const SETTINGS_KEY = 'gt:v2:prices:settings'
 const CACHE_TTL = 30 * 60 * 1000
 const POLL_INTERVAL = 5 * 60 * 1000
@@ -121,9 +123,9 @@ function saveSettings(settings: PriceSettings) {
   }
 }
 
-function loadCachedMarket(): PriceCache | null {
+function loadCachedMarket(world: World): PriceCache | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY)
+    const raw = localStorage.getItem(getCacheKey(world))
     if (!raw) return null
     const parsed = JSON.parse(raw) as PriceCache
     if (!parsed?.data?.length) return null
@@ -133,10 +135,10 @@ function loadCachedMarket(): PriceCache | null {
   }
 }
 
-function saveMarketCache(data: MarketPriceEntry[]) {
+function saveMarketCache(world: World, data: MarketPriceEntry[]) {
   try {
     const payload: PriceCache = { ts: Date.now(), data }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(payload))
+    localStorage.setItem(getCacheKey(world), JSON.stringify(payload))
   } catch {
     // ignore persistence issues
   }
@@ -201,7 +203,8 @@ async function fetchMarketPricesFromApi(): Promise<MarketPriceEntry[]> {
 
 function ensureCacheLoaded() {
   if (priceStore.initialised) return
-  const cached = loadCachedMarket()
+  const world = getWorld()
+  const cached = loadCachedMarket(world)
   if (cached) {
     priceStore.market = new Map(cached.data.map((entry) => [entry.materialId, entry]))
     priceStore.lastFetched = cached.ts
@@ -222,7 +225,8 @@ async function ensureMarketPrices(force = false): Promise<void> {
     priceStore.market = new Map(data.map((entry) => [entry.materialId, entry]))
     priceStore.lastFetched = Date.now()
     priceStore.error = null
-    saveMarketCache(data)
+    const world = getWorld()
+    saveMarketCache(world, data)
   } catch (error: any) {
     priceStore.error = error?.message ?? 'Failed to fetch prices'
   } finally {
@@ -350,6 +354,16 @@ function setLocked(materialId: number, locked: boolean) {
   priceStore.settings.overrides[materialId].locked = locked
   touchSettings()
   saveSettings(priceStore.settings)
+}
+
+/**
+ * Reset price store state (used when switching worlds)
+ */
+export function resetPriceCache() {
+  priceStore.market.clear()
+  priceStore.lastFetched = 0
+  priceStore.initialised = false
+  priceStore.error = null
 }
 
 export function useMaterialPricing(gameData: GameData) {
