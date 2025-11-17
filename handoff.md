@@ -1,4 +1,65 @@
-Summary of recent changes (Nov 17, 2025) — Phase 5 Complete: ETL Implementation & Code Cleanup
+Summary of recent changes (Nov 17, 2025) — Phase 5 Complete: ETL Implementation, Code Cleanup & Persistence
+
+## ✅ COMPLETED: Phase 5 Part 3 - Warehouse Timestamp Persistence & Auto-Dismiss Messages (Nov 17)
+
+**Features Implemented:**
+
+1. ✅ **Warehouse Updated Timestamp Persistence**
+   - Added localStorage persistence for `lastWarehouseRefresh` timestamp
+   - Storage key: `'warehouseLastRefresh'`
+   - On mount: loads timestamp from localStorage
+   - On update: automatically saves timestamp to localStorage
+   - Displays "—" when never updated
+   - Timestamp format: `YYYY-MM-DD HH:MM`
+   - Example flow:
+     1. User loads app → sees "Warehouse updated: —"
+     2. User clicks "Load warehouse stocks" → success
+     3. Timestamp saved to localStorage: `Date.now()`
+     4. App displays: "Warehouse updated: 2025-11-17 09:56"
+     5. User reloads page → timestamp still shows "2025-11-17 09:56" ✅
+
+2. ✅ **Auto-Dismiss Success Messages**
+   - Success message "Warehouse stocks loaded successfully" now auto-dismisses after 5 seconds
+   - Uses `watch()` on success ref
+   - Automatically clears `success.value = null` after timeout
+   - Error messages remain until next sync (not auto-dismissed)
+   - Keeps UI clean without manual user action
+
+**Implementation Details:**
+
+**src/v2/pages/player-config/components/ApiSyncPanel.vue:**
+- Added `onMounted` hook to load timestamp from localStorage
+- Added `watch()` on `lastWarehouseRefresh` to persist to localStorage
+- Added `watch()` on `success` to auto-dismiss after 5 seconds
+- Updated template to always show timestamp (not v-if) - shows "—" when null
+- Uses `formatTimestamp(null)` → "—" for never-updated state
+
+**Persistence Flow:**
+```
+User clicks "Load warehouse stocks"
+  ↓
+API returns stock data
+  ↓
+lastWarehouseRefresh.value = Date.now()
+  ↓
+watch() triggers → localStorage.setItem('warehouseLastRefresh', timestamp)
+  ↓
+success.value = "Warehouse stocks loaded successfully"
+  ↓
+watch() triggers → setTimeout(() => { success.value = null }, 5000)
+  ↓
+After 5 seconds: success message disappears
+  ↓
+Timestamp persists until next update
+```
+
+**Test Results After Changes:**
+- ✅ Test Files: 5 passed
+- ✅ Tests: 28 passed (no new tests needed - component behavior is UI logic)
+- ✅ Type-check: PASS
+- ✅ Lint: Fixed unused error parameters (removed from catch blocks)
+
+---
 
 ## ✅ COMPLETED: Phase 5 Part 2 - Code Cleanup & Removal of Unused Code (Nov 17)
 

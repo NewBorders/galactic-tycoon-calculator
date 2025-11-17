@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { getApiKey, getApiKeyRef, getWorld } from '@/v2/services/api/apiKeyManager'
 import { fetchWarehouseStockForBase } from '@/v2/services/api/warehouseService'
 import { translate } from '@/v2/localisation/localisation'
@@ -18,10 +18,44 @@ const emit = defineEmits<{
   ]
 }>()
 
+const STORAGE_KEY = 'warehouseLastRefresh'
+const SUCCESS_MESSAGE_TIMEOUT = 5000 // 5 seconds
+
 const loading = ref(false)
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 const lastWarehouseRefresh = ref<number | null>(null)
+
+// Load timestamp from localStorage on mount
+onMounted(() => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      lastWarehouseRefresh.value = Number(stored)
+    }
+  } catch {
+    // Silently fail on storage read
+  }
+})
+
+// Save timestamp to localStorage when it changes
+watch(lastWarehouseRefresh, (newValue) => {
+  if (newValue === null) return
+  try {
+    localStorage.setItem(STORAGE_KEY, String(newValue))
+  } catch {
+    // Silently fail on storage write
+  }
+})
+
+// Auto-dismiss success message after timeout
+watch(success, (newValue) => {
+  if (!newValue) return
+  const timer = setTimeout(() => {
+    success.value = null
+  }, SUCCESS_MESSAGE_TIMEOUT)
+  return () => clearTimeout(timer)
+})
 
 const isConfigured = computed(() => getApiKeyRef().value !== null)
 
@@ -129,7 +163,7 @@ async function handleSyncWarehouse() {
     >
       {{ loading ? '…' : translate('syncWarehouse') }}
     </button>
-    <div v-if="lastWarehouseRefresh" class="text-xs text-slate-400">
+    <div class="text-xs text-slate-400">
       {{ translate('lastWarehouseRefresh') }}: <span class="text-slate-200">{{ formatTimestamp(lastWarehouseRefresh) }}</span>
     </div>
     <div v-if="error" class="text-xs text-rose-400">{{ error }}</div>
