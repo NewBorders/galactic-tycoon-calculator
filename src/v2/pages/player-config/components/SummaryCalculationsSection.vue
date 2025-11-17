@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { formatNumber, formatPrice } from '@/v1/utils/formatNumber'
+import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
 import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'

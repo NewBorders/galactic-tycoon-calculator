@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatPrice } from '@/v1/utils/formatNumber'
+import { formatPrice } from '@/v2/utils/formatNumber'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Draggable from 'vuedraggable'
-import { formatNumber } from '@/v1/utils/formatNumber'
+import { formatNumber } from '@/v2/utils/formatNumber'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import type { Recipe } from '@/v2/services/gamedata/service'

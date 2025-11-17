@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatNumber } from '@/v1/utils/formatNumber'
+import { formatNumber } from '@/v2/utils/formatNumber'
 import type { Recipe } from '@/v2/services/gamedata/types'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation/localisation'
