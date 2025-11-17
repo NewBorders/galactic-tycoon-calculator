@@ -5,7 +5,7 @@ import type { PriceMode } from '@/v2/services/gamedata/prices'
 import type { GameData } from '@/v2/services/gamedata/service'
 import { formatPrice } from '@/v2/utils/formatNumber'
 
-// Load data and initialize pricing immediately 
+// Load data and initialize pricing immediately
 const { data: gameData } = await loadGameData()
 const pricing = useMaterialPricing(gameData)
 
@@ -17,7 +17,7 @@ const sortBy = ref<'name' | 'id' | 'price'>('name')
 // Computed material list with filters and sorting
 const filteredMaterials = computed(() => {
   if (!gameData?.materials || !pricing) return []
-  
+
   const materials = gameData.materials.filter(material => {
     // Search filter
     if (searchTerm.value) {
@@ -26,7 +26,7 @@ const filteredMaterials = computed(() => {
         return false
       }
     }
-    
+
     // Manual only filter
     if (showOnlyManual.value && pricing) {
       const override = pricing.settings.overrides[material.id]
@@ -34,10 +34,10 @@ const filteredMaterials = computed(() => {
         return false
       }
     }
-    
+
     return true
   })
-  
+
   // Sort materials
   materials.sort((a, b) => {
     switch (sortBy.value) {
@@ -55,7 +55,7 @@ const filteredMaterials = computed(() => {
         return 0
     }
   })
-  
+
   return materials
 })
 
@@ -125,7 +125,7 @@ async function refreshPrices() {
 </script>
 
 <template>
-  <div class="space-y-4 text-slate-100">    
+  <div class="space-y-4 text-slate-100">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <h3 class="text-lg font-medium text-slate-100">Price Management</h3>
@@ -195,7 +195,7 @@ async function refreshPrices() {
         </div>
         <div class="bg-slate-700/50 rounded p-3 mt-3">
           <p class="text-xs text-slate-300">
-            <strong>Note:</strong> Manual prices always take priority over any selected mode. 
+            <strong>Note:</strong> Manual prices always take priority over any selected mode.
             When you set a manual price for a material, it will be used regardless of the mode setting.
           </p>
         </div>

@@ -271,12 +271,12 @@ function resolveMaterialPrice(
 ): number {
   const baseFallback = (material.calculatedPriceInCents ?? 0) / 100
   const override = settings.overrides[material.id]
-  
+
   // MANUAL PRICES ALWAYS HAVE PRIORITY - check first regardless of mode
   if (override?.manualPrice != null && Number.isFinite(override.manualPrice) && override.manualPrice >= 0) {
     return override.manualPrice
   }
-  
+
   // Use specified mode or default mode for API prices
   const mode: PriceMode = override?.mode ?? settings.defaultMode ?? 'current'
 
