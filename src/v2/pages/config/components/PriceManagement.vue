@@ -62,12 +62,12 @@ const filteredMaterials = computed(() => {
 function getPriceModeForMaterial(materialId: number): string {
   if (!pricing) return 'Current'
   const override = pricing.settings.overrides[materialId]
-  
+
   // Check if manual price exists and has priority (same logic as resolveMaterialPrice)
   if (override?.manualPrice != null && Number.isFinite(override.manualPrice) && override.manualPrice >= 0) {
     return 'Manual'
   }
-  
+
   // Fall back to configured mode display
   const mode = override?.mode ?? pricing.settings.defaultMode
   switch (mode) {

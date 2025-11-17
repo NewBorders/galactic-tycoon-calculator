@@ -317,7 +317,7 @@ document.documentElement.lang = currentLanguage.value
 function detectInitial(): LanguageCode {
   const saved = localStorage.getItem(STORAGE_KEY) as LanguageCode | null
   if (saved && messages[saved]) return saved
-  
+
   // Default to English on first visit, regardless of browser language
   return 'en'
 }
