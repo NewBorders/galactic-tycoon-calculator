@@ -317,8 +317,9 @@ document.documentElement.lang = currentLanguage.value
 function detectInitial(): LanguageCode {
   const saved = localStorage.getItem(STORAGE_KEY) as LanguageCode | null
   if (saved && messages[saved]) return saved
-  const browser = (navigator.language || 'en').slice(0, 2).toLowerCase()
-  return (['en', 'de'].includes(browser) ? browser : 'en') as LanguageCode
+  
+  // Default to English on first visit, regardless of browser language
+  return 'en'
 }
 
 export function translate(

@@ -2,7 +2,6 @@
 import { ref, computed } from 'vue'
 import { loadGameData, useMaterialPricing } from '@/v2/services/gamedata/service'
 import type { PriceMode } from '@/v2/services/gamedata/prices'
-import type { GameData } from '@/v2/services/gamedata/service'
 import { formatPrice } from '@/v2/utils/formatNumber'
 
 // Load data and initialize pricing immediately
@@ -59,10 +58,17 @@ const filteredMaterials = computed(() => {
   return materials
 })
 
-// Get current price mode for display
+// Get current price mode for display - shows actual price source being used
 function getPriceModeForMaterial(materialId: number): string {
   if (!pricing) return 'Current'
   const override = pricing.settings.overrides[materialId]
+  
+  // Check if manual price exists and has priority (same logic as resolveMaterialPrice)
+  if (override?.manualPrice != null && Number.isFinite(override.manualPrice) && override.manualPrice >= 0) {
+    return 'Manual'
+  }
+  
+  // Fall back to configured mode display
   const mode = override?.mode ?? pricing.settings.defaultMode
   switch (mode) {
     case 'current': return 'Current'
