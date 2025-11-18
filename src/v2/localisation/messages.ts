@@ -1,10 +1,6 @@
-import { ref } from 'vue'
+import type { LanguageCode } from './types'
 
-export type LanguageCode = 'en' | 'de'
-
-const STORAGE_KEY = 'gt:language'
-
-const messages: Record<LanguageCode, Record<string, string>> = {
+export const messages: Record<LanguageCode, Record<string, string>> = {
   en: {
     language: 'Language',
     tabPlayerConfig: 'Bases',
@@ -102,7 +98,8 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     technologyAgriculture: 'Agriculture',
     technologyAgricultureDesc: 'Boosts agriculture-specialised buildings and recipes.',
     technologyResourceExtraction: 'Resource extraction',
-    technologyResourceExtractionDesc: 'Boosts resource extraction-specialised buildings and recipes.',
+    technologyResourceExtractionDesc:
+      'Boosts resource extraction-specialised buildings and recipes.',
     technologyMetallurgy: 'Metallurgy',
     technologyMetallurgyDesc: 'Boosts metallurgy-specialised buildings and recipes.',
     technologyChemistry: 'Chemistry',
@@ -117,7 +114,8 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     technologyTooLow: 'Technology level too low',
     technologyBlockedWarning: 'Technology requirement not met – production halted.',
     stockImportTitle: 'Import stock',
-    stockImportDescription: 'Paste your in-game stock export to estimate how long supplies will last.',
+    stockImportDescription:
+      'Paste your in-game stock export to estimate how long supplies will last.',
     stockImportPlaceholder: 'Paste stock data…',
     stockImportImported: 'Imported items',
     stockImportMissing: 'Not found',
@@ -152,7 +150,8 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     importFromGame: 'Import from game',
     importFromGameShort: 'Import',
     importBaseConfirmTitle: 'Import base from game',
-    importBaseConfirmMessage: 'This will overwrite all buildings and production orders for this base. Continue?',
+    importBaseConfirmMessage:
+      'This will overwrite all buildings and production orders for this base. Continue?',
     importBaseLoading: 'Importing…',
     importBaseSuccess: 'Base imported successfully',
     importBaseError: 'Import failed',
@@ -254,7 +253,8 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     technologyAgriculture: 'Landwirtschaft',
     technologyAgricultureDesc: 'Steigert Gebäude und Rezepte der Spezialisierung Landwirtschaft.',
     technologyResourceExtraction: 'Rohstoffabbau',
-    technologyResourceExtractionDesc: 'Steigert Gebäude und Rezepte der Spezialisierung Rohstoffabbau.',
+    technologyResourceExtractionDesc:
+      'Steigert Gebäude und Rezepte der Spezialisierung Rohstoffabbau.',
     technologyMetallurgy: 'Metallurgie',
     technologyMetallurgyDesc: 'Steigert Gebäude und Rezepte der Spezialisierung Metallurgie.',
     technologyChemistry: 'Chemie',
@@ -262,14 +262,16 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     technologyElectronics: 'Elektronik',
     technologyElectronicsDesc: 'Steigert Gebäude und Rezepte der Spezialisierung Elektronik.',
     technologyFoodProduction: 'Nahrungsproduktion',
-    technologyFoodProductionDesc: 'Steigert Gebäude und Rezepte der Spezialisierung Nahrungsproduktion.',
+    technologyFoodProductionDesc:
+      'Steigert Gebäude und Rezepte der Spezialisierung Nahrungsproduktion.',
     technologyScience: 'Wissenschaft',
     technologyScienceDesc: 'Steigert Gebäude und Rezepte der Spezialisierung Wissenschaft.',
     technologyRequirement: 'Benötigt Technologiestufe',
     technologyTooLow: 'Technologiestufe zu niedrig',
     technologyBlockedWarning: 'Technologievoraussetzung nicht erfüllt – Produktion gestoppt.',
     stockImportTitle: 'Lager importieren',
-    stockImportDescription: 'Füge den Export aus dem Spiel ein, um die Reichweite deiner Vorräte zu berechnen.',
+    stockImportDescription:
+      'Füge den Export aus dem Spiel ein, um die Reichweite deiner Vorräte zu berechnen.',
     stockImportPlaceholder: 'Lagerdaten einfügen…',
     stockImportImported: 'Importierte Einträge',
     stockImportMissing: 'Nicht gefunden',
@@ -304,48 +306,10 @@ const messages: Record<LanguageCode, Record<string, string>> = {
     importFromGame: 'Aus Spiel importieren',
     importFromGameShort: 'Importieren',
     importBaseConfirmTitle: 'Basis aus Spiel importieren',
-    importBaseConfirmMessage: 'Dies überschreibt alle Gebäude und Produktionsaufträge dieser Basis. Fortfahren?',
+    importBaseConfirmMessage:
+      'Dies überschreibt alle Gebäude und Produktionsaufträge dieser Basis. Fortfahren?',
     importBaseLoading: 'Importiere…',
     importBaseSuccess: 'Basis erfolgreich importiert',
     importBaseError: 'Import fehlgeschlagen',
   },
 }
-
-const currentLanguage = ref<LanguageCode>(detectInitial())
-document.documentElement.lang = currentLanguage.value
-
-function detectInitial(): LanguageCode {
-  const saved = localStorage.getItem(STORAGE_KEY) as LanguageCode | null
-  if (saved && messages[saved]) return saved
-
-  // Default to English on first visit, regardless of browser language
-  return 'en'
-}
-
-export function translate(
-  key: string,
-  vars?: Record<string, string | number>,
-): string {
-  const template = messages[currentLanguage.value]?.[key] ?? key
-  if (!vars) return template
-  return template.replace(/\{(\w+)\}/g, (_, token: string) => {
-    const value = vars[token]
-    return value == null ? '' : String(value)
-  })
-}
-
-export function setLanguage(lang: LanguageCode): void {
-  if (!messages[lang]) return
-  currentLanguage.value = lang
-  localStorage.setItem(STORAGE_KEY, lang)
-  document.documentElement.lang = lang
-}
-
-export function getCurrentLanguage(): LanguageCode {
-  return currentLanguage.value
-}
-
-export const availableLanguages: Array<{ code: LanguageCode; label: string }> = [
-  { code: 'en', label: 'English' },
-  { code: 'de', label: 'Deutsch' },
-]

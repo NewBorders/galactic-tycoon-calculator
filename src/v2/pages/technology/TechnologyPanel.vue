@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { translate } from '@/v2/localisation/localisation'
+import { translate } from '@/v2/localisation'
 import {
   TECHNOLOGIES,
   technologyBonusFromLevel,

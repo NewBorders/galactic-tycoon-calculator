@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { loadGameData } from './services/gamedata/service'
-import { translate } from './localisation/localisation'
+import { translate } from './localisation'
 import { getWorld } from './services/api/apiKeyManager'
 import { resetPriceCache } from './services/gamedata/prices'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'

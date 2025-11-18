@@ -8,7 +8,7 @@ import type { Recipe } from '@/v2/services/gamedata/service'
 import { computeBaseReport, productionUnitsFromLevel } from '@/v2/services/production/engine'
 import { evaluateRecipeAvailability } from '@/v2/services/production/availability'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
-import { translate } from '@/v2/localisation/localisation'
+import { translate } from '@/v2/localisation'
 import RecipeTile from './RecipeTile.vue'
 
 const props = defineProps<{

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { availableLanguages, getCurrentLanguage, setLanguage, translate } from '../localisation/localisation';
+import { availableLanguages, getCurrentLanguage, setLanguage, translate } from '../localisation';
 const selected = ref(getCurrentLanguage());
 watch(selected, (v) => setLanguage(v));
 </script>

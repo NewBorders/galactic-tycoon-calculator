@@ -2,7 +2,7 @@
 import { nextTick, ref } from 'vue'
 import type { Building, GameData, GdIndex, Planet } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
-import { translate } from '@/v2/localisation/localisation'
+import { translate } from '@/v2/localisation'
 import BuildingSearch from './BuildingSearch.vue'
 import BaseBuildingsSection from './BaseBuildingsSection.vue'
 import ProductionSection from './ProductionSection.vue'
