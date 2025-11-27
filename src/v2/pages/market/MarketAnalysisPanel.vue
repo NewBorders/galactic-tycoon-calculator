@@ -41,41 +41,22 @@ const materialNames = computed(() => {
   return map
 })
 
-// Filter UI state
-const showFilters = ref(true)
-const selectedMinScore = ref<number | undefined>(undefined)
-const selectedDemandLevels = ref<Array<'high' | 'medium' | 'low'>>([])
-const selectedTrendDirections = ref<Array<'rising' | 'falling' | 'stable'>>([])
-const selectedRecommendations = ref<Array<'excellent' | 'good' | 'neutral' | 'poor' | 'avoid'>>([])
+// Material search
+const materialSearch = ref('')
 
-// Apply filters
-function applyFilters() {
-  setMinScore(selectedMinScore.value)
-  setDemandLevels(selectedDemandLevels.value.length > 0 ? selectedDemandLevels.value : undefined)
-  setTrendDirections(selectedTrendDirections.value.length > 0 ? selectedTrendDirections.value : undefined)
-}
-
-// Clear all filters
-function resetFilters() {
-  selectedMinScore.value = undefined
-  selectedDemandLevels.value = []
-  selectedTrendDirections.value = []
-  selectedRecommendations.value = []
-  clearFilters()
-}
-
-// Toggle recommendation filter (click on stat card)
-function toggleRecommendationFilter(rec: 'excellent' | 'good' | 'neutral' | 'poor' | 'avoid') {
-  const idx = selectedRecommendations.value.indexOf(rec)
-  if (idx >= 0) {
-    selectedRecommendations.value.splice(idx, 1)
-  } else {
-    selectedRecommendations.value.push(rec)
+// Filtered opportunities based on search
+const searchFilteredOpportunities = computed(() => {
+  if (!materialSearch.value.trim()) {
+    return filteredOpportunities.value
   }
-  // Apply filter by mapping to recommendation field
-  // Note: This is a simplified version - you might need to enhance useMarketAnalysis to support this
-  applyFilters()
-}
+  
+  const searchLower = materialSearch.value.toLowerCase()
+  return filteredOpportunities.value.filter(opp => {
+    const materialName = materialNames.value.get(opp.materialId) || ''
+    return materialName.toLowerCase().includes(searchLower) || 
+           opp.materialId.toString().includes(searchLower)
+  })
+})
 
 // Format functions - use locale-aware formatting
 function formatNumber(n: number): string {
@@ -228,164 +209,43 @@ async function refresh() {
       ⚠️ {{ error }}
     </div>
 
-    <!-- Recommendation Stats (Clickable Filters) -->
+    <!-- Recommendation Stats -->
     <div v-if="!loading && !error" class="grid grid-cols-2 md:grid-cols-5 gap-3">
-      <button
-        @click="toggleRecommendationFilter('excellent')"
-        class="bg-gray-800 hover:bg-gray-700 rounded p-3 text-left transition"
-        :class="{ 'ring-2 ring-green-400': selectedRecommendations.includes('excellent') }"
-      >
+      <div class="bg-gray-800 rounded p-3">
         <div class="text-xs text-green-400 uppercase font-semibold">⭐ Excellent</div>
         <div class="text-2xl font-bold text-green-400">{{ statsByRecommendation.excellent }}</div>
-      </button>
-      <button
-        @click="toggleRecommendationFilter('good')"
-        class="bg-gray-800 hover:bg-gray-700 rounded p-3 text-left transition"
-        :class="{ 'ring-2 ring-green-300': selectedRecommendations.includes('good') }"
-      >
+      </div>
+      <div class="bg-gray-800 rounded p-3">
         <div class="text-xs text-green-300 uppercase font-semibold">✓ Good</div>
         <div class="text-2xl font-bold text-green-300">{{ statsByRecommendation.good }}</div>
-      </button>
-      <button
-        @click="toggleRecommendationFilter('neutral')"
-        class="bg-gray-800 hover:bg-gray-700 rounded p-3 text-left transition"
-        :class="{ 'ring-2 ring-yellow-400': selectedRecommendations.includes('neutral') }"
-      >
+      </div>
+      <div class="bg-gray-800 rounded p-3">
         <div class="text-xs text-yellow-400 uppercase font-semibold">→ Neutral</div>
         <div class="text-2xl font-bold text-yellow-400">{{ statsByRecommendation.neutral }}</div>
-      </button>
-      <button
-        @click="toggleRecommendationFilter('poor')"
-        class="bg-gray-800 hover:bg-gray-700 rounded p-3 text-left transition"
-        :class="{ 'ring-2 ring-orange-400': selectedRecommendations.includes('poor') }"
-      >
+      </div>
+      <div class="bg-gray-800 rounded p-3">
         <div class="text-xs text-orange-400 uppercase font-semibold">↓ Poor</div>
         <div class="text-2xl font-bold text-orange-400">{{ statsByRecommendation.poor }}</div>
-      </button>
-      <button
-        @click="toggleRecommendationFilter('avoid')"
-        class="bg-gray-800 hover:bg-gray-700 rounded p-3 text-left transition"
-        :class="{ 'ring-2 ring-red-400': selectedRecommendations.includes('avoid') }"
-      >
+      </div>
+      <div class="bg-gray-800 rounded p-3">
         <div class="text-xs text-red-400 uppercase font-semibold">✗ Avoid</div>
         <div class="text-2xl font-bold text-red-400">{{ statsByRecommendation.avoid }}</div>
-      </button>
+      </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Material Search -->
     <div class="bg-gray-800 rounded p-4">
-      <button
-        @click="showFilters = !showFilters"
-        class="flex items-center justify-between w-full text-left"
-      >
-        <h2 class="text-lg font-semibold text-purple-400">🔍 Advanced Filters</h2>
-        <span class="text-gray-400">{{ showFilters ? '▼' : '▶' }}</span>
-      </button>
-
-      <div v-if="showFilters" class="mt-4 space-y-4">
-        <!-- Min Score Filter -->
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
-            {{ translate('marketAnalysisMinScore') }}
-          </label>
-          <input
-            v-model.number="selectedMinScore"
-            type="number"
-            min="0"
-            max="100"
-            step="10"
-            placeholder="0-100"
-            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
-          />
-        </div>
-
-        <!-- Demand Levels Filter -->
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
-            {{ translate('marketAnalysisDemandLevels') }}
-          </label>
-          <div class="flex gap-3">
-            <label class="flex items-center gap-2">
-              <input
-                v-model="selectedDemandLevels"
-                type="checkbox"
-                value="high"
-                class="rounded"
-              />
-              <span class="text-sm text-green-400">{{ translate('marketAnalysisDemandHigh') }}</span>
-            </label>
-            <label class="flex items-center gap-2">
-              <input
-                v-model="selectedDemandLevels"
-                type="checkbox"
-                value="medium"
-                class="rounded"
-              />
-              <span class="text-sm text-yellow-400">{{ translate('marketAnalysisDemandMedium') }}</span>
-            </label>
-            <label class="flex items-center gap-2">
-              <input
-                v-model="selectedDemandLevels"
-                type="checkbox"
-                value="low"
-                class="rounded"
-              />
-              <span class="text-sm text-red-400">{{ translate('marketAnalysisDemandLow') }}</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Price Trends Filter -->
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
-            {{ translate('marketAnalysisPriceTrends') }}
-          </label>
-          <div class="flex gap-3">
-            <label class="flex items-center gap-2">
-              <input
-                v-model="selectedTrendDirections"
-                type="checkbox"
-                value="rising"
-                class="rounded"
-              />
-              <span class="text-sm text-green-400">📈 {{ translate('marketAnalysisTrendRising') }}</span>
-            </label>
-            <label class="flex items-center gap-2">
-              <input
-                v-model="selectedTrendDirections"
-                type="checkbox"
-                value="stable"
-                class="rounded"
-              />
-              <span class="text-sm text-yellow-400">➡️ {{ translate('marketAnalysisTrendStable') }}</span>
-            </label>
-            <label class="flex items-center gap-2">
-              <input
-                v-model="selectedTrendDirections"
-                type="checkbox"
-                value="falling"
-                class="rounded"
-              />
-              <span class="text-sm text-red-400">📉 {{ translate('marketAnalysisTrendFalling') }}</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="flex gap-3">
-          <button
-            @click="applyFilters"
-            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition"
-          >
-            {{ translate('marketAnalysisApplyFilters') }}
-          </button>
-          <button
-            @click="resetFilters"
-            class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition"
-          >
-            {{ translate('marketAnalysisClearFilters') }}
-          </button>
-        </div>
+      <label class="block text-sm font-medium text-gray-300 mb-2">
+        🔍 Search Material
+      </label>
+      <input
+        v-model="materialSearch"
+        type="text"
+        placeholder="Enter material name or ID..."
+        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+      />
+      <div v-if="materialSearch" class="mt-2 text-xs text-gray-400">
+        Showing {{ searchFilteredOpportunities.length }} of {{ filteredOpportunities.length }} materials
       </div>
     </div>
 
@@ -398,26 +258,41 @@ async function refresh() {
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Material
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Score & Rating
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+                <span class="flex items-center justify-center gap-1">
+                  Score & Rating
+                  <span class="text-purple-400 cursor-help" title="Score (0-100): Rising trend +40, High demand +40, Undersupplied +20. Rating: >=80 Excellent, 60-79 Good, 40-59 Neutral, 20-39 Poor, <20 Avoid">ⓘ</span>
+                </span>
               </th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Avg Price
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+                <span class="flex items-center justify-end gap-1">
+                  Avg Price
+                  <span class="text-purple-400 cursor-help" title="7-day average price with trend percentage (current vs 7-day avg)">ⓘ</span>
+                </span>
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Demand
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+                <span class="flex items-center justify-center gap-1">
+                  Demand
+                  <span class="text-purple-400 cursor-help" title="Demand level based on daily revenue: High >$5k/day, Medium $500-5k/day, Low <$500/day">ⓘ</span>
+                </span>
               </th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Revenue/Day
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+                <span class="flex items-center justify-end gap-1">
+                  Revenue/Day
+                  <span class="text-purple-400 cursor-help" title="Average daily revenue (quantity sold × price per day)">ⓘ</span>
+                </span>
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Supply
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+                <span class="flex items-center justify-center gap-1">
+                  Supply
+                  <span class="text-purple-400 cursor-help" title="Market saturation: Days of supply available (qty available / daily volume). Undersupplied <1d, Balanced 1-3d, Oversupplied >3d">ⓘ</span>
+                </span>
               </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-700">
             <tr
-              v-for="opp in filteredOpportunities"
+              v-for="opp in searchFilteredOpportunities"
               :key="opp.materialId"
               class="hover:bg-gray-750 transition"
             >
@@ -459,14 +334,19 @@ async function refresh() {
                 </div>
               </td>
 
-              <!-- Demand -->
+              <!-- Demand with Daily Volume -->
               <td class="px-4 py-3 text-center">
-                <span
-                  class="inline-block px-2 py-1 rounded text-xs font-medium uppercase"
-                  :class="getDemandColor(opp.demand.demandLevel)"
-                >
-                  {{ getDemandLabel(opp.demand.demandLevel) }}
-                </span>
+                <div class="flex flex-col items-center gap-1">
+                  <span
+                    class="inline-block px-2 py-1 rounded text-xs font-medium uppercase"
+                    :class="getDemandColor(opp.demand.demandLevel)"
+                  >
+                    {{ getDemandLabel(opp.demand.demandLevel) }}
+                  </span>
+                  <span class="text-xs text-gray-400">
+                    {{ formatNumber(Math.round(opp.demand.volumeAvgPerDay)) }} units/day
+                  </span>
+                </div>
               </td>
 
               <!-- Revenue per Day -->
@@ -486,11 +366,12 @@ async function refresh() {
 
         <!-- Empty State -->
         <div
-          v-if="filteredOpportunities.length === 0"
+          v-if="searchFilteredOpportunities.length === 0"
           class="text-center py-12 text-gray-400"
         >
-          <p class="text-lg mb-2">{{ translate('marketAnalysisNoOpportunities') }}</p>
-          <p class="text-sm">{{ translate('marketAnalysisAdjustFilters') }}</p>
+          <div class="text-4xl mb-4">📭</div>
+          <div class="text-lg">{{ translate('marketAnalysisNoOpportunities') }}</div>
+          <div class="text-sm mt-2">{{ materialSearch ? 'Try a different search term' : translate('marketAnalysisAdjustFilters') }}</div>
         </div>
       </div>
     </div>

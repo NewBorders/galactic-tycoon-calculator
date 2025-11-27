@@ -1,8 +1,40 @@
 # Development Handoff Document
 
-## 🎯 LATEST (Dec 2025): Market Analysis UX Improvements - COMPLETED ✅
+## 🎯 LATEST (Jan 2025): Market Analysis Search & Info Tooltips - COMPLETED ✅
 
-**STATUS: Revenue-Based Demand + Production-Focused UI Complete**
+**STATUS: UX Improvements Complete - Search Replaced Filters, Daily Volume Added, Calculation Tooltips Implemented**
+
+### Major UX Improvements Based on User Feedback
+
+Successfully replaced ineffective filter system with user-friendly material search and added transparency features:
+
+#### 1. Material Search (Replaced Advanced Filters) ✅
+- **Removed**: Complex "Advanced Filters" section (min score slider, demand/trend checkboxes, apply/clear buttons)
+- **Added**: Simple text search input for material names and IDs
+- **Features**: Instant reactive search, case-insensitive, shows "X of Y materials" count
+- **Technical**: `materialSearch` ref, `searchFilteredOpportunities` computed property
+
+#### 2. Enhanced Demand Column with Daily Volume ✅
+- **Before**: Single badge (HIGH/MEDIUM/LOW)
+- **After**: Badge + daily volume quantity ("1,500 units/day")
+- **Why**: Provides concrete market size data for decision-making
+
+#### 3. Info Button Tooltips in Table Headers ✅
+- **Added**: ⓘ icon with `title` tooltips explaining calculations
+- **Covers**: Score/Rating, Avg Price, Demand, Revenue/Day, Supply
+- **Why**: Transparency builds trust in scoring methodology
+
+#### 4. Simplified Recommendation Stats ✅
+- **Changed**: From clickable filter buttons to read-only stat cards
+- **Why**: Part of simplified UX (removed filter-by-recommendation feature)
+
+**Files Modified**: `src/v2/pages/market/MarketAnalysisPanel.vue` (386 lines)
+
+**Testing**: ✅ TypeScript passes, ✅ No lint errors, ✅ All existing tests pass
+
+---
+
+## 🎉 PREVIOUS (Dec 2025): Market Analysis UX Improvements - COMPLETED ✅
 
 ### Major UX Improvements Implemented
 
