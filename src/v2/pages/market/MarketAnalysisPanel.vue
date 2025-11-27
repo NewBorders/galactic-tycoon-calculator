@@ -487,6 +487,7 @@ async function refresh() {
   background-color: rgb(31, 41, 55);
   color: rgb(229, 231, 235);
   text-align: center;
+  text-transform: none;
   padding: 8px 12px;
   border-radius: 6px;
   border: 1px solid rgb(75, 85, 99);
