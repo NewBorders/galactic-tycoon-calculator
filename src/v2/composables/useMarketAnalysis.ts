@@ -47,7 +47,7 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
       lastUpdated.value = Date.now()
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to fetch market data'
-      
+
       // Only show error if we have no cached data to display
       if (opportunities.value.length === 0) {
         error.value = errorMessage
@@ -56,7 +56,7 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
         console.warn('[Market Analysis] API error, keeping cached data:', errorMessage)
         error.value = `⚠️ Using cached data - ${errorMessage}`
       }
-      
+
       console.error('Market analysis fetch error:', e)
     } finally {
       loading.value = false
