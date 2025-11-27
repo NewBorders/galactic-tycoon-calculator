@@ -321,7 +321,7 @@ async function refresh() {
 
     <!-- Opportunities Table -->
     <div v-if="!loading && !error" class="bg-gray-800 rounded overflow-visible">
-      <div class="overflow-x-auto max-h-[600px] overflow-y-auto rounded">
+      <div class="overflow-x-auto max-h-[max(200px,calc(100vh-400px))] overflow-y-auto rounded">
         <table class="w-full text-sm">
           <thead class="bg-gray-700 sticky top-0 z-20">
             <tr>
@@ -458,11 +458,16 @@ async function refresh() {
                 {{ formatPrice(opp.demand.revenueAvgPerDay) }}
               </td>
 
-              <!-- Saturation -->
+              <!-- Saturation with Available Supply -->
               <td class="px-4 py-3 text-center">
-                <span class="text-xs text-gray-400 uppercase">
-                  {{ opp.saturation.saturationLevel }}
-                </span>
+                <div class="flex flex-col items-center gap-1">
+                  <span class="text-xs text-gray-400 uppercase">
+                    {{ opp.saturation.saturationLevel }}
+                  </span>
+                  <div v-if="opp.saturation.qtyAvailable !== null" class="text-xs text-gray-500">
+                    {{ formatNumber(Math.round(opp.saturation.qtyAvailable)) }} available
+                  </div>
+                </div>
               </td>
             </tr>
           </tbody>
