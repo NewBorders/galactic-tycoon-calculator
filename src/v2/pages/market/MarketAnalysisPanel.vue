@@ -298,7 +298,7 @@ async function refresh() {
     <div v-if="!loading && !error" class="bg-gray-800 rounded overflow-hidden">
       <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
         <table class="w-full text-sm">
-          <thead class="bg-gray-700 sticky top-0 z-10">
+          <thead class="bg-gray-700 sticky top-0 z-20">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Material
@@ -479,7 +479,7 @@ async function refresh() {
   visibility: hidden;
   opacity: 0;
   position: absolute;
-  z-index: 9999;
+  z-index: 10000;
   bottom: 125%;
   left: 50%;
   transform: translateX(-50%);
