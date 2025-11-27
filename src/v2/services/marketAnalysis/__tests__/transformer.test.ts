@@ -95,9 +95,9 @@ describe('calculateMarketDemand', () => {
 
     const demand = calculateMarketDemand(raw)
     expect(demand).not.toBeNull()
-    // 5000 units/day * 150 cents = 750k cents/day = high (>500k threshold)
+    // 10000 units/day * 200000 cents = 2B cents/day = $20M/day = high (>>$5k threshold)
     expect(demand!.demandLevel).toBe('high')
-    expect(demand!.volumeAvgPerDay).toBe(5000)
+    expect(demand!.volumeAvgPerDay).toBe(10000)
     expect(demand!.revenueAvgPerDay).toBeGreaterThan(500000)
   })
 
@@ -106,9 +106,9 @@ describe('calculateMarketDemand', () => {
 
     const demand = calculateMarketDemand(raw)
     expect(demand).not.toBeNull()
-    // 500 units/day * 100 cents = 50k cents/day = low (not medium with new thresholds)
-    expect(demand!.demandLevel).toBe('low')
-    expect(demand!.volumeAvgPerDay).toBe(500)
+    // 2000 units/day * 50000 cents = 100M cents/day = $1M/day = high (>$500k threshold)
+    expect(demand!.demandLevel).toBe('high')
+    expect(demand!.volumeAvgPerDay).toBe(2000)
   })
 
   it('should classify low demand correctly', () => {
@@ -125,7 +125,7 @@ describe('calculateMarketDemand', () => {
 
     const demand = calculateMarketDemand(raw)
     expect(demand).not.toBeNull()
-    expect(demand!.volume7d).toBe(35000) // 5000 * 7 days
+    expect(demand!.volume7d).toBe(70000) // 10000 * 7 days
   })
 
   it('should return null when history is empty', () => {
@@ -203,8 +203,9 @@ describe('calculateOpportunityScore', () => {
     const saturation = calculateMarketSaturation(createUndersuppliedMaterial())
 
     const score = calculateOpportunityScore(trend, demand, saturation)
-    // 50 + 20 (rising) + 10 (medium demand, not high) + 10 (undersupplied) = 90
+    // Rising trend: ~30 points, High revenue ($750k/day): ~35 points, Undersupplied: 25 points = ~90
     expect(score).toBeGreaterThanOrEqual(80)
+    expect(score).toBeLessThanOrEqual(100)
   })
 
   it('should give low score for falling trend + low demand + oversupplied', () => {
@@ -213,8 +214,8 @@ describe('calculateOpportunityScore', () => {
     const saturation = calculateMarketSaturation(createOversuppliedMaterial())
 
     const score = calculateOpportunityScore(trend, demand, saturation)
-    // 50 - 20 (falling) - 10 (low demand) - 10 (oversupplied) = 10
-    expect(score).toBeLessThan(30)
+    // Falling trend penalty + low revenue + oversupplied = very low score
+    expect(score).toBeLessThan(20)
   })
 
   it('should give neutral score for stable trend + medium demand + balanced', () => {
@@ -223,10 +224,9 @@ describe('calculateOpportunityScore', () => {
     const saturation = calculateMarketSaturation(createBalancedMaterial())
 
     const score = calculateOpportunityScore(trend, demand, saturation)
-    // With current thresholds, medium material is actually low demand
-    // 50 + 0 (stable) - 10 (low) + 0 (balanced) = 40
-    expect(score).toBeGreaterThanOrEqual(35)
-    expect(score).toBeLessThanOrEqual(50)
+    // Stable: 10pts, Medium revenue ($1M/day): ~30pts, Balanced: 10pts = ~50
+    expect(score).toBeGreaterThanOrEqual(40)
+    expect(score).toBeLessThanOrEqual(60)
   })
 
   it('should clamp scores to 0-100 range', () => {
@@ -279,9 +279,10 @@ describe('transformToMarketOpportunity', () => {
     const opportunity = transformToMarketOpportunity(raw)
     expect(opportunity.materialId).toBe(42)
     expect(opportunity.priceTrend.direction).toBe('rising')
-    expect(opportunity.demand.demandLevel).toBe('low') // Volume 500/day with price 120 = low revenue
-    expect(opportunity.opportunityScore).toBeGreaterThan(40)
-    expect(opportunity.recommendation).toMatch(/good|excellent|neutral/)
+    expect(opportunity.demand.demandLevel).toBe('low') // Volume 500/day with price 120 cents = very low revenue
+    // Rising trend adds points, but low revenue keeps it low overall
+    expect(opportunity.opportunityScore).toBeGreaterThan(20)
+    expect(opportunity.recommendation).toMatch(/poor|neutral/)
   })
 
   it('should transform falling trend material correctly', () => {

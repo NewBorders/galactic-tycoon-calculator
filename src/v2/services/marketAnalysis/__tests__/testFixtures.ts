@@ -137,39 +137,44 @@ export function createStableTrendMaterial(matId = 3): MaterialDetailsRaw {
 
 /**
  * Create high demand material
+ * Revenue: 10000 units/day * 200000 cents = 2B cents/day = $20M/day (VERY HIGH)
  */
 export function createHighDemandMaterial(matId = 4): MaterialDetailsRaw {
   return createTestMaterial({
     matId,
-    avgQtySoldDaily: 5000, // High revenue: 5000 * 150 = 750k cents/day (>$5k/day threshold)
-    avgPrice: 150,
+    avgQtySoldDaily: 10000,
+    avgPrice: 200000, // $2000 per unit
+    currentPrice: 200000,
     priceHistory: [
-      { date: '2025-11-27', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-26', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-25', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-24', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-23', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-22', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-21', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
+      { date: '2025-11-27', avgPrice: 200000, qtySold: 10000, qtyRemaining: 1000 },
+      { date: '2025-11-26', avgPrice: 200000, qtySold: 10000, qtyRemaining: 1000 },
+      { date: '2025-11-25', avgPrice: 200000, qtySold: 10000, qtyRemaining: 1000 },
+      { date: '2025-11-24', avgPrice: 200000, qtySold: 10000, qtyRemaining: 1000 },
+      { date: '2025-11-23', avgPrice: 200000, qtySold: 10000, qtyRemaining: 1000 },
+      { date: '2025-11-22', avgPrice: 200000, qtySold: 10000, qtyRemaining: 1000 },
+      { date: '2025-11-21', avgPrice: 200000, qtySold: 10000, qtyRemaining: 1000 },
     ],
   })
 }
 
 /**
  * Create medium demand material
+ * Revenue: 2000 units/day * 50000 cents = 100M cents/day = $1M/day (MEDIUM-HIGH)
  */
 export function createMediumDemandMaterial(matId = 5): MaterialDetailsRaw {
   return createTestMaterial({
     matId,
-    avgQtySoldDaily: 500, // 100-1000 = medium
+    avgQtySoldDaily: 2000,
+    avgPrice: 50000, // $500 per unit
+    currentPrice: 50000,
     priceHistory: [
-      { date: '2025-11-27', avgPrice: 100, qtySold: 500, qtyRemaining: 500 },
-      { date: '2025-11-26', avgPrice: 100, qtySold: 500, qtyRemaining: 500 },
-      { date: '2025-11-25', avgPrice: 100, qtySold: 500, qtyRemaining: 500 },
-      { date: '2025-11-24', avgPrice: 100, qtySold: 500, qtyRemaining: 500 },
-      { date: '2025-11-23', avgPrice: 100, qtySold: 500, qtyRemaining: 500 },
-      { date: '2025-11-22', avgPrice: 100, qtySold: 500, qtyRemaining: 500 },
-      { date: '2025-11-21', avgPrice: 100, qtySold: 500, qtyRemaining: 500 },
+      { date: '2025-11-27', avgPrice: 50000, qtySold: 2000, qtyRemaining: 500 },
+      { date: '2025-11-26', avgPrice: 50000, qtySold: 2000, qtyRemaining: 500 },
+      { date: '2025-11-25', avgPrice: 50000, qtySold: 2000, qtyRemaining: 500 },
+      { date: '2025-11-24', avgPrice: 50000, qtySold: 2000, qtyRemaining: 500 },
+      { date: '2025-11-23', avgPrice: 50000, qtySold: 2000, qtyRemaining: 500 },
+      { date: '2025-11-22', avgPrice: 50000, qtySold: 2000, qtyRemaining: 500 },
+      { date: '2025-11-21', avgPrice: 50000, qtySold: 2000, qtyRemaining: 500 },
     ],
   })
 }

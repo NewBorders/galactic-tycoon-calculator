@@ -63,6 +63,7 @@ export interface MarketSaturation {
   bidPrice: number | null
   spread: number | null
   spreadPercent: number | null
+  daysOfSupply: number | null
   saturationLevel: 'oversupplied' | 'balanced' | 'undersupplied' | 'unknown'
 }
 

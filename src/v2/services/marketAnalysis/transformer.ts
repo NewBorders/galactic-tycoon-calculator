@@ -102,6 +102,7 @@ export function calculateMarketSaturation(raw: MaterialDetailsRaw): MarketSatura
       bidPrice: null,
       spread: null,
       spreadPercent: null,
+      daysOfSupply: null,
       saturationLevel: 'unknown',
     }
   }
@@ -132,6 +133,7 @@ export function calculateMarketSaturation(raw: MaterialDetailsRaw): MarketSatura
     bidPrice,
     spread,
     spreadPercent,
+    daysOfSupply,
     saturationLevel,
   }
 }
@@ -139,50 +141,92 @@ export function calculateMarketSaturation(raw: MaterialDetailsRaw): MarketSatura
 /**
  * Calculate opportunity score (0-100)
  * Higher score = better opportunity
- * Factors: price trend, demand, saturation
+ * Factors: price trend, demand volume/revenue, saturation
+ * 
+ * New approach: Use continuous scaling based on actual values
+ * instead of categorical thresholds to differentiate between
+ * materials in the same category (e.g., both "high demand")
  */
 export function calculateOpportunityScore(
   trend: PriceTrend | null,
   demand: MarketDemand | null,
   saturation: MarketSaturation,
 ): number {
-  let score = 50 // Base score
+  let score = 0
 
-  // Price trend contribution (max ±20 points)
+  // 1. Price Trend Score (0-35 points)
+  // Base: rising +20, stable +10, falling 0
+  // Bonus: Scale with magnitude of change
   if (trend) {
     if (trend.direction === 'rising') {
       score += 20
-    } else if (trend.direction === 'falling') {
-      score -= 20
-    }
-    // Stable = no change
-
-    // Add bonus for strong trends
-    if (Math.abs(trend.changePercent7d) > 15) {
-      score += trend.changePercent7d > 0 ? 10 : -10
-    }
-  }
-
-  // Demand contribution (max ±20 points)
-  if (demand) {
-    if (demand.demandLevel === 'high') {
-      score += 20
-    } else if (demand.demandLevel === 'medium') {
+      // Bonus for strong uptrend: up to +15 points
+      // Scale logarithmically: 5% = +5, 15% = +10, 30%+ = +15
+      const trendBonus = Math.min(15, Math.log10(Math.abs(trend.changePercent7d) + 1) * 8)
+      score += trendBonus
+    } else if (trend.direction === 'stable') {
       score += 10
-    } else {
-      score -= 10
+    } else if (trend.direction === 'falling') {
+      // Falling prices reduce score but not below 0
+      const trendPenalty = Math.min(10, Math.abs(trend.changePercent7d) / 2)
+      score = Math.max(0, score - trendPenalty)
     }
   }
 
-  // Saturation contribution (max ±10 points)
+  // 2. Demand Score (0-45 points) - Most important factor
+  // Use logarithmic scaling based on daily revenue
+  // This ensures $9.9M scores higher than $3.4M even if both are "high"
+  if (demand) {
+    const revenueCents = demand.revenueAvgPerDay
+    if (revenueCents > 0) {
+      // Revenue brackets with smooth scaling:
+      // $10M+     -> 45 points (world-class demand)
+      // $5M-10M   -> 35-45 points (excellent demand)
+      // $1M-5M    -> 25-35 points (high demand)
+      // $500k-1M  -> 15-25 points (medium-high demand)
+      // $100k-500k-> 5-15 points (medium demand)
+      // <$100k    -> 0-5 points (low demand)
+      
+      const revenueDollars = revenueCents / 100
+      if (revenueDollars >= 10_000_000) {
+        score += 45
+      } else if (revenueDollars >= 5_000_000) {
+        // Linear interpolation between 35-45
+        const ratio = (revenueDollars - 5_000_000) / 5_000_000
+        score += 35 + (ratio * 10)
+      } else if (revenueDollars >= 1_000_000) {
+        const ratio = (revenueDollars - 1_000_000) / 4_000_000
+        score += 25 + (ratio * 10)
+      } else if (revenueDollars >= 500_000) {
+        const ratio = (revenueDollars - 500_000) / 500_000
+        score += 15 + (ratio * 10)
+      } else if (revenueDollars >= 100_000) {
+        const ratio = (revenueDollars - 100_000) / 400_000
+        score += 5 + (ratio * 10)
+      } else {
+        // Below $100k: minimal score scaled by revenue
+        score += Math.min(5, revenueDollars / 20_000)
+      }
+    }
+  }
+
+  // 3. Market Saturation Score (0-20 points)
+  // Undersupplied markets are opportunities
   if (saturation.saturationLevel === 'undersupplied') {
+    score += 20
+    // Bonus for severely undersupplied (<0.5 days)
+    if (saturation.daysOfSupply !== null && saturation.daysOfSupply < 0.5) {
+      score += 5
+    }
+  } else if (saturation.saturationLevel === 'balanced') {
     score += 10
   } else if (saturation.saturationLevel === 'oversupplied') {
-    score -= 10
+    // Oversupplied reduces score slightly
+    score += 2
   }
 
   // Clamp to 0-100
-  return Math.max(0, Math.min(100, score))
+  return Math.round(Math.max(0, Math.min(100, score)))
 }
 
 /**

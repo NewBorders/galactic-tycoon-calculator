@@ -81,12 +81,12 @@ const searchFilteredOpportunities = computed(() => {
 // Sorted opportunities
 const sortedOpportunities = computed(() => {
   const opportunities = [...searchFilteredOpportunities.value]
-  
+
   if (!sortColumn.value) return opportunities
-  
+
   return opportunities.sort((a, b) => {
     let comparison = 0
-    
+
     switch (sortColumn.value) {
       case 'score':
         comparison = a.opportunityScore - b.opportunityScore
@@ -98,7 +98,7 @@ const sortedOpportunities = computed(() => {
         comparison = a.demand.revenueAvgPerDay - b.demand.revenueAvgPerDay
         break
     }
-    
+
     return sortDirection.value === 'asc' ? comparison : -comparison
   })
 })
@@ -303,7 +303,7 @@ async function refresh() {
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Material
               </th>
-              <th 
+              <th
                 class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('score')"
               >
@@ -312,7 +312,7 @@ async function refresh() {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Score (0-100): Rising trend +40, High demand +40, Undersupplied +20. Rating: >=80 Excellent, 60-79 Good, 40-59 Neutral, 20-39 Poor, <20 Avoid
+                      Score (0-100): Price trend (0-35pts) + Revenue/day (0-45pts) + Market saturation (0-25pts). Higher revenue = higher score even within same demand level. Rating: ≥80 Excellent, 60-79 Good, 40-59 Neutral, 20-39 Poor, <20 Avoid
                     </span>
                   </span>
                 </span>
@@ -328,7 +328,7 @@ async function refresh() {
                   </span>
                 </span>
               </th>
-              <th 
+              <th
                 class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('demand')"
               >
@@ -337,12 +337,12 @@ async function refresh() {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Demand level based on daily revenue: High >$5k/day, Medium $500-5k/day, Low <$500/day
+                      Demand level based on daily revenue: High ≥$500k/day, Medium $50k-500k/day, Low <$50k/day. Sortable by daily sold units.
                     </span>
                   </span>
                 </span>
               </th>
-              <th 
+              <th
                 class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('revenue')"
               >
@@ -351,7 +351,7 @@ async function refresh() {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Average daily revenue (quantity sold × price per day)
+                      Average daily revenue = quantity sold per day × average price. This is the KEY metric for scoring - higher revenue = higher opportunity score, even within the same demand level.
                     </span>
                   </span>
                 </span>
@@ -362,7 +362,7 @@ async function refresh() {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Market saturation: Days of supply available (qty available / daily volume). Undersupplied <1d, Balanced 1-3d, Oversupplied >3d
+                      Market saturation based on days of supply (available qty ÷ daily volume). Undersupplied <1d (+20-25 score pts), Balanced 1-3d (+10pts), Oversupplied >3d (+2pts). Undersupplied markets are production opportunities.
                     </span>
                   </span>
                 </span>
