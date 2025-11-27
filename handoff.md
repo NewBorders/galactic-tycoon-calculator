@@ -1,6 +1,69 @@
 # Development Handoff Document
 
-## 🎯 LATEST (Jan 2025): Market Analysis Search & Info Tooltips - COMPLETED ✅
+## 🎯 LATEST (Nov 2025): Market Analysis Auto-Refresh & Caching - COMPLETED ✅
+
+**STATUS: Auto-refresh every 5 minutes with rate limit protection**
+
+### Auto-Refresh Implementation
+
+Successfully implemented automatic data refresh with graceful rate limit handling:
+
+#### Key Features ✅
+- **Auto-refresh**: Data refreshes every 5 minutes automatically
+- **Cache TTL**: Increased from 1 minute to 5 minutes
+- **Rate Limit Protection**: When API hits rate limit (429), shows cached data instead of error
+- **Manual Refresh**: Button still available to force immediate refresh
+- **Memory Leak Prevention**: Timer cleaned up on component unmount
+
+#### Technical Implementation
+**Files Modified:**
+1. `src/v2/services/marketAnalysis/extractor.ts`
+   - Changed `MARKET_DETAILS_TTL_MS` from 1 minute to 5 minutes
+   - Enhanced logging to show cache age when using stale data
+   - Already had fallback to cached data on API failure (including rate limits)
+
+2. `src/v2/pages/market/MarketAnalysisPanel.vue`
+   - Added `onUnmounted` import for cleanup
+   - Created `AUTO_REFRESH_INTERVAL_MS` constant (5 minutes = 300,000ms)
+   - Added `setupAutoRefresh()` function using `window.setInterval`
+   - Auto-refresh starts on component mount
+   - Timer restarts when user switches worlds (g1 ↔ g2)
+   - Timer cleared on component unmount
+
+#### Behavior
+- **Initial Load**: Fetches fresh data from API
+- **Every 5 Minutes**: Auto-refreshes (uses cache if still valid, otherwise fetches)
+- **Manual Refresh Button**: Always forces fresh API call (`forceRefresh = true`)
+- **Rate Limit Hit**: Shows cached data with console warning (no error to user)
+- **World Change**: Forces fresh API call and restarts auto-refresh timer
+
+**Testing**: ✅ All 64 market analysis tests pass, ✅ TypeScript compilation clean
+
+---
+
+## 🎉 PREVIOUS (Nov 2025): Market Analysis Tooltip Fixes - COMPLETED ✅
+
+### Tooltip Display Issues Resolved
+
+Fixed multiple tooltip display problems:
+
+#### Issues Fixed ✅
+1. **Z-index layering**: Tooltips appeared behind material search box
+2. **Clipping at top**: Tooltips cut off by container `overflow-hidden`
+3. **Uppercase text**: Tooltips inherited `uppercase` from table headers
+
+#### Solutions Implemented
+- Changed tooltip position from above to below icons (`top: 125%` instead of `bottom: 125%`)
+- Flipped arrow direction to point upward to icon
+- Added `text-transform: none` to override uppercase inheritance
+- Changed container to `overflow-visible`
+- Set tooltip `z-index: 10000`, table header `z-index: 20`
+
+**Files Modified**: `src/v2/pages/market/MarketAnalysisPanel.vue`
+
+---
+
+## 📊 PREVIOUS (Nov 2025): Market Analysis Search & Info Tooltips - COMPLETED ✅
 
 **STATUS: UX Improvements Complete - Search Replaced Filters, Daily Volume Added, Calculation Tooltips Implemented**
 
