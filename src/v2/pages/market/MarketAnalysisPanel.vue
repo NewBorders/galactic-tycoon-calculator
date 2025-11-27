@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from 'vue'
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useMarketAnalysis } from '../../composables/useMarketAnalysis'
 import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
@@ -27,9 +27,25 @@ const {
   clearFilters
 } = useMarketAnalysis({ world: world.value })
 
+// Auto-refresh interval (5 minutes)
+const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000
+let autoRefreshTimer: number | null = null
+
+// Setup auto-refresh
+function setupAutoRefresh() {
+  if (autoRefreshTimer !== null) {
+    clearInterval(autoRefreshTimer)
+  }
+  autoRefreshTimer = window.setInterval(() => {
+    console.log('[Market Analysis] Auto-refreshing data (5min interval)')
+    fetch(false) // Use cache if available, otherwise fetch
+  }, AUTO_REFRESH_INTERVAL_MS)
+}
+
 // Re-fetch data when world changes
 watch(world, () => {
   fetch(true) // Force refresh to get data for new world
+  setupAutoRefresh() // Restart auto-refresh timer
 })
 
 // Material name lookup
@@ -217,6 +233,15 @@ const statsByRecommendation = computed(() => {
 // Auto-fetch on mount
 onMounted(() => {
   fetch()
+  setupAutoRefresh()
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  if (autoRefreshTimer !== null) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
 })
 
 // Refresh handler

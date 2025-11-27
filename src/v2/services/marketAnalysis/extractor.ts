@@ -11,7 +11,7 @@ import type { World } from '../api/types'
  * Cache configuration
  */
 const CACHE_CONFIG = {
-  MARKET_DETAILS_TTL_MS: 1 * 60 * 1000, // 1 minute - respect API rate limits
+  MARKET_DETAILS_TTL_MS: 5 * 60 * 1000, // 5 minutes - auto-refresh interval
 } as const
 
 /**
@@ -101,9 +101,10 @@ export async function extractMarketDetails(
 
     return { data: materials, source: 'api' }
   } catch (error) {
-    // If API fails and we have stale cache, return it
+    // If API fails and we have stale cache, return it (especially for rate limits)
     if (cached) {
-      console.warn('API failed, returning stale cache data', error)
+      const cacheAgeMinutes = Math.floor((Date.now() - cached.ts) / 60000)
+      console.warn(`[Market Analysis] API failed, returning cached data (${cacheAgeMinutes}min old)`, error)
       return { data: cached.data, source: 'cache' }
     }
 
