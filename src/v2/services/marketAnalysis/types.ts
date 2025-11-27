@@ -65,6 +65,8 @@ export interface MarketSaturation {
   spreadPercent: number | null
   daysOfSupply: number | null
   saturationLevel: 'oversupplied' | 'balanced' | 'undersupplied' | 'unknown'
+  qtyAvailable: number | null // Total quantity available for sale
+  qtySoldDaily: number | null // Average quantity sold per day
 }
 
 export interface MarketOpportunity {

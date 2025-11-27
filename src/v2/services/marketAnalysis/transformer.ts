@@ -104,6 +104,8 @@ export function calculateMarketSaturation(raw: MaterialDetailsRaw): MarketSatura
       spreadPercent: null,
       daysOfSupply: null,
       saturationLevel: 'unknown',
+      qtyAvailable: null,
+      qtySoldDaily: null,
     }
   }
 
@@ -135,6 +137,8 @@ export function calculateMarketSaturation(raw: MaterialDetailsRaw): MarketSatura
     spreadPercent,
     daysOfSupply,
     saturationLevel,
+    qtyAvailable: raw.totalQtyAvailable,
+    qtySoldDaily: raw.avgQtySoldDaily,
   }
 }
 
