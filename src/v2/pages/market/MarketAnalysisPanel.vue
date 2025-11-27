@@ -49,11 +49,11 @@ const searchFilteredOpportunities = computed(() => {
   if (!materialSearch.value.trim()) {
     return filteredOpportunities.value
   }
-  
+
   const searchLower = materialSearch.value.toLowerCase()
   return filteredOpportunities.value.filter(opp => {
     const materialName = materialNames.value.get(opp.materialId) || ''
-    return materialName.toLowerCase().includes(searchLower) || 
+    return materialName.toLowerCase().includes(searchLower) ||
            opp.materialId.toString().includes(searchLower)
   })
 })
