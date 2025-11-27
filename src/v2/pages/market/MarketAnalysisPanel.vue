@@ -479,7 +479,7 @@ async function refresh() {
   visibility: hidden;
   opacity: 0;
   position: absolute;
-  z-index: 50;
+  z-index: 9999;
   bottom: 125%;
   left: 50%;
   transform: translateX(-50%);

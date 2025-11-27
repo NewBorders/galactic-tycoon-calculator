@@ -142,7 +142,7 @@ export function calculateMarketSaturation(raw: MaterialDetailsRaw): MarketSatura
  * Calculate opportunity score (0-100)
  * Higher score = better opportunity
  * Factors: price trend, demand volume/revenue, saturation
- * 
+ *
  * New approach: Use continuous scaling based on actual values
  * instead of categorical thresholds to differentiate between
  * materials in the same category (e.g., both "high demand")
@@ -186,7 +186,7 @@ export function calculateOpportunityScore(
       // $500k-1M  -> 15-25 points (medium-high demand)
       // $100k-500k-> 5-15 points (medium demand)
       // <$100k    -> 0-5 points (low demand)
-      
+
       const revenueDollars = revenueCents / 100
       if (revenueDollars >= 10_000_000) {
         score += 45
