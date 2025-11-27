@@ -7,8 +7,9 @@ import { resetPriceCache } from './services/gamedata/prices'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
+import MarketAnalysisPanel from './pages/market/MarketAnalysisPanel.vue'
 
-type Tab = 'bases' | 'technology' | 'config'
+type Tab = 'bases' | 'technology' | 'config' | 'market'
 const LS_KEY = 'gt:v2:activeTab'
 
 const active = ref<Tab>('bases')
@@ -20,7 +21,7 @@ const err = ref<string | null>(null)
 
 onMounted(async () => {
   const saved = localStorage.getItem(LS_KEY) as Tab | null
-  if (saved === 'bases' || saved === 'technology' || saved === 'config') active.value = saved
+  if (saved === 'bases' || saved === 'technology' || saved === 'config' || saved === 'market') active.value = saved
 
   loading.value = true
   try {
@@ -78,6 +79,13 @@ watch(getWorld, async () => {
           </button>
           <button
             class="px-3 py-2 border rounded"
+            :class="active === 'market' ? 'bg-gray-600' : ''"
+            @click="active = 'market'"
+          >
+            📊 Market Analysis
+          </button>
+          <button
+            class="px-3 py-2 border rounded"
             :class="active === 'config' ? 'bg-gray-600' : ''"
             @click="active = 'config'"
           >
@@ -96,6 +104,7 @@ watch(getWorld, async () => {
         :game-data-loaded-at="gdLoadedAt"
       />
       <TechnologyPanel v-if="active === 'technology'" />
+      <MarketAnalysisPanel v-if="gd && gdIndex && active === 'market'" :gameData="gd" :index="gdIndex" />
       <ConfigPanel v-if="active === 'config'" />
     </div>
   </div>
