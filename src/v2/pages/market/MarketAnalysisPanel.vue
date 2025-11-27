@@ -295,7 +295,7 @@ async function refresh() {
     </div>
 
     <!-- Opportunities Table -->
-    <div v-if="!loading && !error" class="bg-gray-800 rounded overflow-visible">
+    <div v-if="!loading && !error" class="bg-gray-800 rounded overflow-visible pt-24">
       <div class="overflow-x-auto max-h-[600px] overflow-y-auto rounded">
         <table class="w-full text-sm">
           <thead class="bg-gray-700 sticky top-0 z-20">
