@@ -49,7 +49,7 @@ export async function extractMarketDetails(
   // Create cache key that includes both world and API key
   // This prevents returning cached data from different account after API key change
   const cacheKey = `${world}:${apiKey}`
-  
+
   // Check cache first
   const cached = cache.marketDetails.get(cacheKey)
   if (!forceRefresh && cached && isCacheValid(cached.ts, CACHE_CONFIG.MARKET_DETAILS_TTL_MS)) {

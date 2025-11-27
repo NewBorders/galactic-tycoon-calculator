@@ -18,7 +18,7 @@ import type {
 export function calculatePriceTrend(raw: MaterialDetailsRaw): PriceTrend | null {
   const current = raw.currentPrice
   const avg7d = raw.avgPrice
-  
+
   if (!raw.priceHistory || raw.priceHistory.length === 0) {
     return null
   }
@@ -108,7 +108,7 @@ export function calculateMarketSaturation(raw: MaterialDetailsRaw): MarketSatura
   // Determine saturation level based on available quantity vs daily volume
   // Prevent division by zero
   const daysOfSupply = raw.avgQtySoldDaily > 0 ? raw.totalQtyAvailable / raw.avgQtySoldDaily : 0
-  
+
   let saturationLevel: 'oversupplied' | 'balanced' | 'undersupplied'
   if (daysOfSupply > 3) {
     saturationLevel = 'oversupplied' // More than 3 days of supply
