@@ -274,9 +274,9 @@ async function refresh() {
       </div>
     </div>
 
-    <!-- Error Message -->
-    <div v-if="error" class="bg-red-900/50 border border-red-700 rounded p-4 text-red-200">
-      ⚠️ {{ error }}
+    <!-- Error/Warning Message -->
+    <div v-if="error" :class="filteredOpportunities.length > 0 ? 'bg-yellow-900/50 border-yellow-700 text-yellow-200' : 'bg-red-900/50 border-red-700 text-red-200'" class="border rounded p-4">
+      {{ error }}
     </div>
 
     <!-- Recommendation Stats -->
