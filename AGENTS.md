@@ -1,3 +1,4 @@
+* Use english language for everything like comments, descriptions or readme/markdown files
 * Use `docker compose up` to have a working environment
 * Always fix issues reported by `docker compose exec web npm run type-check`
 * Try to fix issues reported by `docker compose exec web npm run lint`
@@ -11,3 +12,5 @@
   continue working until you can no longer make progress.
 * Work smart. When debugging, take a step back and think deeply about what might be going wrong.
   When something is not working as intended, add logging to check your assumptions.
+* Use ETL (extraction, transformation/enrichment and load) for external connections like API
+* Use MVC and Service Repository Pattern to keep everything encapsulated and to keep logic out of frontend views
