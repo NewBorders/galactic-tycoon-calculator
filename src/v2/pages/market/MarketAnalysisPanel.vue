@@ -295,7 +295,7 @@ async function refresh() {
     </div>
 
     <!-- Opportunities Table -->
-    <div v-if="!loading && !error" class="bg-gray-800 rounded overflow-visible pt-24">
+    <div v-if="!loading && !error" class="bg-gray-800 rounded overflow-visible">
       <div class="overflow-x-auto max-h-[600px] overflow-y-auto rounded">
         <table class="w-full text-sm">
           <thead class="bg-gray-700 sticky top-0 z-20">
@@ -480,7 +480,7 @@ async function refresh() {
   opacity: 0;
   position: absolute;
   z-index: 10000;
-  bottom: 125%;
+  top: 125%;
   left: 50%;
   transform: translateX(-50%);
   width: 280px;
@@ -500,12 +500,12 @@ async function refresh() {
 .info-tooltip .tooltip-text::after {
   content: "";
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 50%;
   margin-left: -5px;
   border-width: 5px;
   border-style: solid;
-  border-color: rgb(31, 41, 55) transparent transparent transparent;
+  border-color: transparent transparent rgb(31, 41, 55) transparent;
 }
 
 .info-tooltip:hover .tooltip-text {
