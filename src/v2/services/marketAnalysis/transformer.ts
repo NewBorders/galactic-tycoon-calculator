@@ -56,21 +56,28 @@ export function calculatePriceTrend(raw: MaterialDetailsRaw): PriceTrend | null 
 
 /**
  * Calculate market demand from history data
+ * Demand is measured by revenue (quantity × price) not just volume
  */
 export function calculateMarketDemand(raw: MaterialDetailsRaw): MarketDemand | null {
   if (!raw.priceHistory || raw.priceHistory.length === 0) {
     return null
   }
 
-  // Sum up volume from all history entries
+  // Calculate revenue from history entries (qtySold * avgPrice)
+  const revenue7d = raw.priceHistory.reduce((sum, entry) => sum + (entry.qtySold * entry.avgPrice), 0)
+  const revenueAvgPerDay = revenue7d / raw.priceHistory.length
+
+  // Also keep volume for reference
   const volume7d = raw.priceHistory.reduce((sum, entry) => sum + entry.qtySold, 0)
   const volumeAvgPerDay = raw.avgQtySoldDaily
 
-  // Classify demand level based on average daily volume
+  // Classify demand level based on average daily revenue
+  // Note: Prices are in cents
+  // High: >$5k/day (500k cents), Medium: $500-5k/day (50k-500k cents), Low: <$500/day (<50k cents)
   let demandLevel: 'high' | 'medium' | 'low'
-  if (volumeAvgPerDay > 1000) {
+  if (revenueAvgPerDay > 500000) { // >$5k/day
     demandLevel = 'high'
-  } else if (volumeAvgPerDay > 100) {
+  } else if (revenueAvgPerDay > 50000) { // $500-5k/day
     demandLevel = 'medium'
   } else {
     demandLevel = 'low'
@@ -79,6 +86,8 @@ export function calculateMarketDemand(raw: MaterialDetailsRaw): MarketDemand | n
   return {
     volume7d,
     volumeAvgPerDay,
+    revenue7d,
+    revenueAvgPerDay,
     demandLevel,
   }
 }
@@ -178,25 +187,26 @@ export function calculateOpportunityScore(
 
 /**
  * Determine recommendation based on opportunity score
+ * Terminology: Focus on production opportunity, not trading
  */
 export function getRecommendation(
   score: number,
   hasData: boolean,
-): 'strong-buy' | 'buy' | 'hold' | 'sell' | 'strong-sell' | 'no-data' {
+): 'excellent' | 'good' | 'neutral' | 'poor' | 'avoid' | 'no-data' {
   if (!hasData) {
     return 'no-data'
   }
 
   if (score >= 80) {
-    return 'strong-buy'
+    return 'excellent' // Strong production opportunity
   } else if (score >= 60) {
-    return 'buy'
+    return 'good' // Good production opportunity
   } else if (score >= 40) {
-    return 'hold'
+    return 'neutral' // Neutral market
   } else if (score >= 20) {
-    return 'sell'
+    return 'poor' // Poor opportunity
   } else {
-    return 'strong-sell'
+    return 'avoid' // Avoid producing this
   }
 }
 
@@ -226,6 +236,8 @@ export function transformToMarketOpportunity(raw: MaterialDetailsRaw): MarketOpp
     demand: demand ?? {
       volume7d: 0,
       volumeAvgPerDay: raw.avgQtySoldDaily,
+      revenue7d: 0,
+      revenueAvgPerDay: 0,
       demandLevel: 'low',
     },
     saturation,

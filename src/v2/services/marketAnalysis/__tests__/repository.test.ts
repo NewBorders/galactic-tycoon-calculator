@@ -129,7 +129,7 @@ describe('filterOpportunities', () => {
     {
       materialId: 1,
       opportunityScore: 90,
-      recommendation: 'strong-buy',
+      recommendation: 'excellent',
       priceTrend: {
         current: 120,
         avg7d: 100,
@@ -141,6 +141,8 @@ describe('filterOpportunities', () => {
       demand: {
         volume7d: 35000,
         volumeAvgPerDay: 5000,
+        revenue7d: 0,
+        revenueAvgPerDay: 0,
         demandLevel: 'high',
       },
       saturation: {
@@ -154,7 +156,7 @@ describe('filterOpportunities', () => {
     {
       materialId: 2,
       opportunityScore: 30,
-      recommendation: 'sell',
+      recommendation: 'poor',
       priceTrend: {
         current: 80,
         avg7d: 100,
@@ -166,6 +168,8 @@ describe('filterOpportunities', () => {
       demand: {
         volume7d: 350,
         volumeAvgPerDay: 50,
+        revenue7d: 0,
+        revenueAvgPerDay: 0,
         demandLevel: 'low',
       },
       saturation: {
@@ -179,7 +183,7 @@ describe('filterOpportunities', () => {
     {
       materialId: 3,
       opportunityScore: 50,
-      recommendation: 'hold',
+      recommendation: 'neutral',
       priceTrend: {
         current: 102,
         avg7d: 100,
@@ -191,6 +195,8 @@ describe('filterOpportunities', () => {
       demand: {
         volume7d: 3500,
         volumeAvgPerDay: 500,
+        revenue7d: 0,
+        revenueAvgPerDay: 0,
         demandLevel: 'medium',
       },
       saturation: {

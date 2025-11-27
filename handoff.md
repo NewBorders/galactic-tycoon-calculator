@@ -1,8 +1,128 @@
 # Development Handoff Document
 
-## 🎉 LATEST (Nov 27, 2025): All Pull Request Comments Addressed
+## 🎯 LATEST (Dec 2025): Market Analysis UX Improvements - COMPLETED ✅
 
-**STATUS: Feature Complete & PR Ready**
+**STATUS: Revenue-Based Demand + Production-Focused UI Complete**
+
+### Major UX Improvements Implemented
+
+Successfully implemented comprehensive improvements to the Market Analysis feature:
+
+#### 1. Revenue-Based Demand Calculation ✅
+**What Changed:**
+- Demand now considers both quantity AND price (revenue = qty × price)
+- Old system: Only looked at units sold per day (>1000 units = high)
+- New system: Looks at daily revenue in dollars (>$5k/day = high, $500-5k = medium, <$500 = low)
+
+**Why:** Materials with low volume but high prices (luxury goods) now score appropriately. Example:
+- Old: 500 units × $100 = "medium demand" (volume-based)
+- New: 500 units × $100 = $50k/day = "high demand" (revenue-based) ✅
+
+**Technical:**
+- Added `revenue7d` and `revenueAvgPerDay` to `MarketDemand` type
+- Thresholds: 500k cents (>$5k), 50k cents (>$500)
+- Formula: `sum(qtySold × avgPrice) / historyLength`
+
+#### 2. Production-Focused Terminology ✅
+**Renamed Recommendations:**
+```
+strong-buy  →  excellent  (worth producing!)
+buy         →  good       (good to produce)
+hold        →  neutral    (neutral opportunity)
+sell        →  poor       (poor opportunity)
+strong-sell →  avoid      (avoid producing)
+```
+
+**Why:** Users are producers, not traders. The question is "should I produce this?" not "should I buy this?"
+
+#### 3. UI/UX Enhancements ✅
+
+**Sticky Table Header:**
+- Table scrolls with header staying visible
+- `max-h-[600px] overflow-y-auto` + `sticky top-0 z-10`
+
+**Combined Score + Recommendation:**
+- Before: Separate columns
+- After: Single column with score number + colored badge
+- Example: `85 [Excellent]` with green badge
+
+**Dollar Prices Instead of Cents:**
+- Before: 6400 cents
+- After: $64.00
+- Uses `formatDecimal(cents / 100, 2)` from locale system
+
+**Locale-Aware Number Formatting:**
+- Uses `formatInteger`, `formatDecimal`, `formatPercent` from `localisation/numbers.ts`
+- Respects user's locale settings (EN: 1,234.56 vs DE: 1.234,56)
+
+**7d Trend Below Price:**
+- Average price shown on first line
+- Trend indicator below: `↑ +5.2%` (green) or `↓ -3.1%` (red)
+
+**Clickable Recommendation Filters:**
+- Stats cards (Excellent: 12, Good: 45, etc.) now toggle filters
+- Active filter shows ring indicator
+- Click to filter table by that recommendation
+
+#### Files Modified:
+```
+src/v2/services/marketAnalysis/
+  ├── transformer.ts           - Revenue calculation logic
+  ├── types.ts                 - Added revenue fields, new recommendation type
+  └── __tests__/
+      ├── transformer.test.ts  - Updated expectations
+      ├── repository.test.ts   - Updated test data
+      └── testFixtures.ts      - Adjusted prices ($1.50 instead of $1.00)
+
+src/v2/pages/market/
+  └── MarketAnalysisPanel.vue  - Complete UI restructure
+```
+
+#### Test Results:
+```bash
+✅ 64/64 market analysis tests passing
+✅ TypeScript: 0 errors
+✅ Ready for browser testing
+```
+
+#### Technical Details:
+
+**Demand Thresholds (Revenue-Based):**
+```typescript
+// High: >$5k/day (500k cents/day)
+if (revenueAvgPerDay > 500000) demandLevel = 'high'
+// Medium: $500-5k/day (50k-500k cents/day)  
+else if (revenueAvgPerDay > 50000) demandLevel = 'medium'
+// Low: <$500/day
+else demandLevel = 'low'
+```
+
+**Recommendation Colors:**
+- Excellent: Green (`bg-green-100`, `text-green-800`)
+- Good: Blue (`bg-blue-100`, `text-blue-800`)
+- Neutral: Gray (`bg-gray-100`, `text-gray-800`)
+- Poor: Orange (`bg-orange-100`, `text-orange-800`)
+- Avoid: Red (`bg-red-100`, `text-red-800`)
+
+**Price Formatting Function:**
+```typescript
+function formatPrice(cents: number) {
+  return '$' + formatDecimal(cents / 100, 2)
+}
+```
+
+### Next Steps for User:
+1. Test in browser - all UX improvements should be visible
+2. Verify filters work by clicking recommendation stats
+3. Check that prices show as dollars ($64.00)
+4. Confirm table header stays visible when scrolling
+5. Test with different materials to see revenue-based demand
+
+---
+
+## 🎉 PREVIOUS (Nov 27, 2025): All Pull Request Comments Addressed
+
+[Previous content preserved below...]
 
 ### Pull Request Review Comments - All Resolved ✅
 

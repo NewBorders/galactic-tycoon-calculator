@@ -53,6 +53,8 @@ export interface PriceTrend {
 export interface MarketDemand {
   volume7d: number
   volumeAvgPerDay: number
+  revenue7d: number
+  revenueAvgPerDay: number
   demandLevel: 'high' | 'medium' | 'low'
 }
 
@@ -70,7 +72,7 @@ export interface MarketOpportunity {
   demand: MarketDemand
   saturation: MarketSaturation
   opportunityScore: number // 0-100, higher is better
-  recommendation: 'strong-buy' | 'buy' | 'hold' | 'sell' | 'strong-sell' | 'no-data'
+  recommendation: 'excellent' | 'good' | 'neutral' | 'poor' | 'avoid' | 'no-data'
 }
 
 /**

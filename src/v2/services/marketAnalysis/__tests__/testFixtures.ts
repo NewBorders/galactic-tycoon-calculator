@@ -141,15 +141,16 @@ export function createStableTrendMaterial(matId = 3): MaterialDetailsRaw {
 export function createHighDemandMaterial(matId = 4): MaterialDetailsRaw {
   return createTestMaterial({
     matId,
-    avgQtySoldDaily: 5000, // > 1000 = high
+    avgQtySoldDaily: 5000, // High revenue: 5000 * 150 = 750k cents/day (>$5k/day threshold)
+    avgPrice: 150,
     priceHistory: [
-      { date: '2025-11-27', avgPrice: 100, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-26', avgPrice: 100, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-25', avgPrice: 100, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-24', avgPrice: 100, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-23', avgPrice: 100, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-22', avgPrice: 100, qtySold: 5000, qtyRemaining: 1000 },
-      { date: '2025-11-21', avgPrice: 100, qtySold: 5000, qtyRemaining: 1000 },
+      { date: '2025-11-27', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
+      { date: '2025-11-26', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
+      { date: '2025-11-25', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
+      { date: '2025-11-24', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
+      { date: '2025-11-23', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
+      { date: '2025-11-22', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
+      { date: '2025-11-21', avgPrice: 150, qtySold: 5000, qtyRemaining: 1000 },
     ],
   })
 }
