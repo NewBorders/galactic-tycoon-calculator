@@ -458,19 +458,14 @@ async function refresh() {
                 {{ formatPrice(opp.demand.revenueAvgPerDay) }}
               </td>
 
-              <!-- Saturation with Supply/Demand Volume -->
+              <!-- Saturation with Available Supply -->
               <td class="px-4 py-3 text-center">
                 <div class="flex flex-col items-center gap-1">
                   <span class="text-xs text-gray-400 uppercase">
                     {{ opp.saturation.saturationLevel }}
                   </span>
-                  <div class="text-xs text-gray-500">
-                    <div v-if="opp.saturation.qtyAvailable !== null">
-                      {{ formatNumber(Math.round(opp.saturation.qtyAvailable)) }} available
-                    </div>
-                    <div v-if="opp.saturation.qtySoldDaily !== null" class="text-gray-400">
-                      {{ formatNumber(Math.round(opp.saturation.qtySoldDaily)) }} sold/day
-                    </div>
+                  <div v-if="opp.saturation.qtyAvailable !== null" class="text-xs text-gray-500">
+                    {{ formatNumber(Math.round(opp.saturation.qtyAvailable)) }} available
                   </div>
                 </div>
               </td>
