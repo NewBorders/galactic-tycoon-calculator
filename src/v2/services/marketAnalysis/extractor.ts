@@ -60,14 +60,14 @@ export async function extractMarketDetails(
 
     if (!response.ok) {
       let errorMsg = `API error ${response.status}: ${response.statusText}`
-      
+
       // Add specific messages for common errors
       if (response.status === 429) {
         errorMsg += ' - Rate limit exceeded. Please wait a moment before refreshing.'
       } else if (response.status === 401 || response.status === 403) {
         errorMsg += ' - Invalid or missing API key. Please check your configuration.'
       }
-      
+
       throw new Error(errorMsg)
     }
 

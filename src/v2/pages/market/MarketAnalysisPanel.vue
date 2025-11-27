@@ -11,10 +11,10 @@ const props = defineProps<{
 }>()
 
 const world = getWorld()
-const { 
-  filteredOpportunities, 
-  loading, 
-  error, 
+const {
+  filteredOpportunities,
+  loading,
+  error,
   lastUpdated,
   filters,
   stats,
@@ -22,7 +22,7 @@ const {
   setMinScore,
   setDemandLevels,
   setTrendDirections,
-  clearFilters 
+  clearFilters
 } = useMarketAnalysis({ world })
 
 // Material name lookup
@@ -61,17 +61,17 @@ function formatNumber(n: number): string {
 }
 
 function formatPercent(n: number): string {
-  return new Intl.NumberFormat('en-US', { 
+  return new Intl.NumberFormat('en-US', {
     style: 'percent',
     minimumFractionDigits: 1,
-    maximumFractionDigits: 1 
+    maximumFractionDigits: 1
   }).format(n / 100)
 }
 
 function formatPrice(n: number): string {
-  return new Intl.NumberFormat('en-US', { 
+  return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2 
+    maximumFractionDigits: 2
   }).format(n)
 }
 
@@ -211,14 +211,14 @@ async function refresh() {
 
     <!-- Filters -->
     <div class="bg-gray-800 rounded p-4">
-      <button 
+      <button
         @click="showFilters = !showFilters"
         class="flex items-center justify-between w-full text-left"
       >
         <h2 class="text-lg font-semibold text-purple-400">🔍 Filters</h2>
         <span class="text-gray-400">{{ showFilters ? '▼' : '▶' }}</span>
       </button>
-      
+
       <div v-if="showFilters" class="mt-4 space-y-4">
         <!-- Min Score Filter -->
         <div>
@@ -243,7 +243,7 @@ async function refresh() {
           </label>
           <div class="flex gap-3">
             <label class="flex items-center gap-2">
-              <input 
+              <input
                 v-model="selectedDemandLevels"
                 type="checkbox"
                 value="high"
@@ -252,7 +252,7 @@ async function refresh() {
               <span class="text-sm text-green-400">High</span>
             </label>
             <label class="flex items-center gap-2">
-              <input 
+              <input
                 v-model="selectedDemandLevels"
                 type="checkbox"
                 value="medium"
@@ -261,7 +261,7 @@ async function refresh() {
               <span class="text-sm text-yellow-400">Medium</span>
             </label>
             <label class="flex items-center gap-2">
-              <input 
+              <input
                 v-model="selectedDemandLevels"
                 type="checkbox"
                 value="low"
@@ -279,7 +279,7 @@ async function refresh() {
           </label>
           <div class="flex gap-3">
             <label class="flex items-center gap-2">
-              <input 
+              <input
                 v-model="selectedTrendDirections"
                 type="checkbox"
                 value="rising"
@@ -288,7 +288,7 @@ async function refresh() {
               <span class="text-sm text-green-400">📈 Rising</span>
             </label>
             <label class="flex items-center gap-2">
-              <input 
+              <input
                 v-model="selectedTrendDirections"
                 type="checkbox"
                 value="stable"
@@ -297,7 +297,7 @@ async function refresh() {
               <span class="text-sm text-yellow-400">➡️ Stable</span>
             </label>
             <label class="flex items-center gap-2">
-              <input 
+              <input
                 v-model="selectedTrendDirections"
                 type="checkbox"
                 value="falling"
@@ -359,8 +359,8 @@ async function refresh() {
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-700">
-            <tr 
-              v-for="opp in filteredOpportunities" 
+            <tr
+              v-for="opp in filteredOpportunities"
               :key="opp.materialId"
               class="hover:bg-gray-750 transition"
             >
@@ -371,7 +371,7 @@ async function refresh() {
 
               <!-- Score -->
               <td class="px-4 py-3 text-center">
-                <span 
+                <span
                   class="inline-block px-3 py-1 rounded font-bold text-lg"
                   :class="getScoreColor(opp.opportunityScore)"
                 >
@@ -381,7 +381,7 @@ async function refresh() {
 
               <!-- Recommendation -->
               <td class="px-4 py-3 text-center">
-                <span 
+                <span
                   class="inline-block px-3 py-1 rounded text-sm font-medium"
                   :class="getRecommendationColor(opp.recommendation)"
                 >
@@ -398,7 +398,7 @@ async function refresh() {
               <td class="px-4 py-3 text-center">
                 <div class="flex flex-col items-center gap-1">
                   <span class="text-lg">{{ getTrendIcon(opp.priceTrend.direction) }}</span>
-                  <span 
+                  <span
                     class="text-xs font-mono"
                     :class="opp.priceTrend.changePercent7d >= 0 ? 'text-green-400' : 'text-red-400'"
                   >
@@ -409,7 +409,7 @@ async function refresh() {
 
               <!-- Demand -->
               <td class="px-4 py-3 text-center">
-                <span 
+                <span
                   class="inline-block px-2 py-1 rounded text-xs font-medium uppercase"
                   :class="getDemandColor(opp.demand.demandLevel)"
                 >
@@ -434,8 +434,8 @@ async function refresh() {
       </div>
 
       <!-- Empty State -->
-      <div 
-        v-if="filteredOpportunities.length === 0" 
+      <div
+        v-if="filteredOpportunities.length === 0"
         class="text-center py-12 text-gray-400"
       >
         <div class="text-4xl mb-4">📭</div>
