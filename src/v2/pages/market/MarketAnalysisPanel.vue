@@ -44,6 +44,26 @@ const materialNames = computed(() => {
 // Material search
 const materialSearch = ref('')
 
+// Sorting state
+const sortColumn = ref<'score' | 'demand' | 'revenue' | null>(null)
+const sortDirection = ref<'asc' | 'desc'>('desc')
+
+// Toggle sort
+function toggleSort(column: 'score' | 'demand' | 'revenue') {
+  if (sortColumn.value === column) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortColumn.value = column
+    sortDirection.value = 'desc'
+  }
+}
+
+// Get sort indicator
+function getSortIndicator(column: 'score' | 'demand' | 'revenue'): string {
+  if (sortColumn.value !== column) return ''
+  return sortDirection.value === 'asc' ? ' ▲' : ' ▼'
+}
+
 // Filtered opportunities based on search
 const searchFilteredOpportunities = computed(() => {
   if (!materialSearch.value.trim()) {
@@ -55,6 +75,31 @@ const searchFilteredOpportunities = computed(() => {
     const materialName = materialNames.value.get(opp.materialId) || ''
     return materialName.toLowerCase().includes(searchLower) ||
            opp.materialId.toString().includes(searchLower)
+  })
+})
+
+// Sorted opportunities
+const sortedOpportunities = computed(() => {
+  const opportunities = [...searchFilteredOpportunities.value]
+  
+  if (!sortColumn.value) return opportunities
+  
+  return opportunities.sort((a, b) => {
+    let comparison = 0
+    
+    switch (sortColumn.value) {
+      case 'score':
+        comparison = a.opportunityScore - b.opportunityScore
+        break
+      case 'demand':
+        comparison = a.demand.volumeAvgPerDay - b.demand.volumeAvgPerDay
+        break
+      case 'revenue':
+        comparison = a.demand.revenueAvgPerDay - b.demand.revenueAvgPerDay
+        break
+    }
+    
+    return sortDirection.value === 'asc' ? comparison : -comparison
   })
 })
 
@@ -245,7 +290,7 @@ async function refresh() {
         class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
       />
       <div v-if="materialSearch" class="mt-2 text-xs text-gray-400">
-        Showing {{ searchFilteredOpportunities.length }} of {{ filteredOpportunities.length }} materials
+        Showing {{ sortedOpportunities.length }} of {{ filteredOpportunities.length }} materials
       </div>
     </div>
 
@@ -258,41 +303,75 @@ async function refresh() {
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Material
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+              <th 
+                class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                @click="toggleSort('score')"
+              >
                 <span class="flex items-center justify-center gap-1">
-                  Score & Rating
-                  <span class="text-purple-400 cursor-help" title="Score (0-100): Rising trend +40, High demand +40, Undersupplied +20. Rating: >=80 Excellent, 60-79 Good, 40-59 Neutral, 20-39 Poor, <20 Avoid">ⓘ</span>
+                  Score & Rating{{ getSortIndicator('score') }}
+                  <span class="info-tooltip text-purple-400 cursor-help">
+                    ⓘ
+                    <span class="tooltip-text">
+                      Score (0-100): Rising trend +40, High demand +40, Undersupplied +20. Rating: >=80 Excellent, 60-79 Good, 40-59 Neutral, 20-39 Poor, <20 Avoid
+                    </span>
+                  </span>
                 </span>
               </th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
                 <span class="flex items-center justify-end gap-1">
                   Avg Price
-                  <span class="text-purple-400 cursor-help" title="7-day average price with trend percentage (current vs 7-day avg)">ⓘ</span>
+                  <span class="info-tooltip text-purple-400 cursor-help">
+                    ⓘ
+                    <span class="tooltip-text">
+                      7-day average price with trend percentage (current vs 7-day avg)
+                    </span>
+                  </span>
                 </span>
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+              <th 
+                class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                @click="toggleSort('demand')"
+              >
                 <span class="flex items-center justify-center gap-1">
-                  Demand
-                  <span class="text-purple-400 cursor-help" title="Demand level based on daily revenue: High >$5k/day, Medium $500-5k/day, Low <$500/day">ⓘ</span>
+                  Demand{{ getSortIndicator('demand') }}
+                  <span class="info-tooltip text-purple-400 cursor-help">
+                    ⓘ
+                    <span class="tooltip-text">
+                      Demand level based on daily revenue: High >$5k/day, Medium $500-5k/day, Low <$500/day
+                    </span>
+                  </span>
                 </span>
               </th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+              <th 
+                class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                @click="toggleSort('revenue')"
+              >
                 <span class="flex items-center justify-end gap-1">
-                  Revenue/Day
-                  <span class="text-purple-400 cursor-help" title="Average daily revenue (quantity sold × price per day)">ⓘ</span>
+                  Revenue/Day{{ getSortIndicator('revenue') }}
+                  <span class="info-tooltip text-purple-400 cursor-help">
+                    ⓘ
+                    <span class="tooltip-text">
+                      Average daily revenue (quantity sold × price per day)
+                    </span>
+                  </span>
                 </span>
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider group relative">
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
                 <span class="flex items-center justify-center gap-1">
                   Supply
-                  <span class="text-purple-400 cursor-help" title="Market saturation: Days of supply available (qty available / daily volume). Undersupplied <1d, Balanced 1-3d, Oversupplied >3d">ⓘ</span>
+                  <span class="info-tooltip text-purple-400 cursor-help">
+                    ⓘ
+                    <span class="tooltip-text">
+                      Market saturation: Days of supply available (qty available / daily volume). Undersupplied <1d, Balanced 1-3d, Oversupplied >3d
+                    </span>
+                  </span>
                 </span>
               </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-700">
             <tr
-              v-for="opp in searchFilteredOpportunities"
+              v-for="opp in sortedOpportunities"
               :key="opp.materialId"
               class="hover:bg-gray-750 transition"
             >
@@ -366,7 +445,7 @@ async function refresh() {
 
         <!-- Empty State -->
         <div
-          v-if="searchFilteredOpportunities.length === 0"
+          v-if="sortedOpportunities.length === 0"
           class="text-center py-12 text-gray-400"
         >
           <div class="text-4xl mb-4">📭</div>
@@ -387,5 +466,50 @@ async function refresh() {
 <style scoped>
 .hover\:bg-gray-750:hover {
   background-color: rgb(31 36 44);
+}
+
+/* Instant tooltip on hover */
+.info-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.info-tooltip .tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  z-index: 50;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  background-color: rgb(31, 41, 55);
+  color: rgb(229, 231, 235);
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgb(75, 85, 99);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: normal;
+  pointer-events: none;
+  transition: opacity 0s, visibility 0s;
+}
+
+.info-tooltip .tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgb(31, 41, 55) transparent transparent transparent;
+}
+
+.info-tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
 }
 </style>
