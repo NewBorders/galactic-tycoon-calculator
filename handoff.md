@@ -1,6 +1,85 @@
 # Development Handoff Document
 
-## ✅ LATEST (Nov 27, 2025): Market Analysis Feature - API Key Integration & Error Handling Fixed
+## 🔍 LATEST (Nov 27, 2025): Market Analysis - Debug Logging Added
+
+**DEBUGGING: Data loads but table shows nothing**
+
+### Problem Reported
+User waited 5 minutes (rate limit cooldown), API call succeeded (HTTP 200), but:
+- ✅ No error in console
+- ✅ No error message displayed
+- ❌ Table shows nothing / appears empty
+- ❌ Stats show 0 for everything
+
+### Debug Logging Added
+
+Added comprehensive console logging throughout the data pipeline to identify where data is lost:
+
+**Files Modified:**
+- `src/v2/services/marketAnalysis/extractor.ts` - Logs API response with material count
+- `src/v2/services/marketAnalysis/repository.ts` - Logs before/after transformation
+- `src/v2/composables/useMarketAnalysis.ts` - Logs data received in composable
+- `src/v2/pages/market/MarketAnalysisPanel.vue` - Watches filteredOpportunities changes
+
+**Expected Console Output:**
+```
+[Market Analysis] API Response: { totalMaterials: 250, world: 'g2', sampleMaterial: {...} }
+[Market Analysis] Repository: { rawMaterialsCount: 250, world: 'g2', forceRefresh: true }
+[Market Analysis] Transformed: { opportunitiesCount: 250, sampleOpportunity: {...} }
+[Market Analysis] Composable received: { dataLength: 250, options: {...}, forceRefresh: true }
+[MarketAnalysisPanel] filteredOpportunities changed: { count: 250, sample: {...} }
+```
+
+### Next Steps for User
+
+1. **Open Browser DevTools Console** (F12)
+2. **Go to Market Analysis Tab**
+3. **Click "Refresh" Button**
+4. **Check Console Output** - Look for the `[Market Analysis]` logs
+5. **Report Findings:**
+   - How many materials at each step?
+   - Where does the count drop to 0?
+   - Any errors or warnings?
+
+### Possible Issues to Check
+
+1. **API Response Format Changed**
+   - Expected: `{ mats: [ { id, lp, avg7d, history, ... } ] }`
+   - Check: `apiResponse.mats` is an array
+
+2. **Transformation Fails Silently**
+   - Check: All materials have required fields (id, lp or avg7d, history)
+   - Fallback values might create "no-data" entries
+
+3. **Filter Removes All Data**
+   - Check: Default filters might be too restrictive
+   - Filters: `minOpportunityScore`, `demandLevels`, `trendDirections`
+
+4. **World Mismatch**
+   - Check: User's API key world matches `getWorld()` selection
+   - G1 key can't access G2 data and vice versa
+
+5. **Cache Returns Empty Array**
+   - Check: Previous failed request cached empty array
+   - Solution: Force refresh or clear cache
+
+### Quick Fix to Try
+
+If logs show data at API level but not at UI level, try clearing cache:
+
+```typescript
+import { clearMarketDetailsCache } from '../../services/marketAnalysis'
+
+// In component:
+function hardRefresh() {
+  clearMarketDetailsCache()
+  fetch(true)
+}
+```
+
+---
+
+## ✅ PREVIOUS: Market Analysis Feature - API Key Integration & Error Handling Fixed
 
 **BUGFIX: 429 Rate Limit Error resolved + Better Error Messages**
 

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useMarketAnalysis } from '../../composables/useMarketAnalysis'
-import { translate } from '../../localisation'
 import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
 
@@ -16,7 +15,6 @@ const {
   loading,
   error,
   lastUpdated,
-  filters,
   stats,
   fetch,
   setMinScore,
@@ -24,6 +22,17 @@ const {
   setTrendDirections,
   clearFilters
 } = useMarketAnalysis({ world })
+
+// Debug: Watch filteredOpportunities changes
+watch(filteredOpportunities, (newVal) => {
+  console.log('[MarketAnalysisPanel] filteredOpportunities changed:', {
+    count: newVal.length,
+    sample: newVal[0] ? {
+      materialId: newVal[0].materialId,
+      score: newVal[0].opportunityScore
+    } : null
+  })
+}, { immediate: true })
 
 // Material name lookup
 const materialNames = computed(() => {

@@ -38,10 +38,16 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
         ...options,
         forceRefresh,
       })
+      console.log('[Market Analysis] Composable received:', {
+        dataLength: data.length,
+        options,
+        forceRefresh
+      })
       opportunities.value = data
       lastUpdated.value = Date.now()
-    } catch (e: any) {
-      error.value = e?.message ?? 'Failed to fetch market data'
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Failed to fetch market data'
+      error.value = errorMessage
       console.error('Market analysis fetch error:', e)
     } finally {
       loading.value = false

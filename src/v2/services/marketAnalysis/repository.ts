@@ -7,7 +7,6 @@
 import { extractMarketDetails } from './extractor'
 import { transformMarketData } from './transformer'
 import type { MarketOpportunity, FetchMarketDetailsOptions, MarketAnalysisFilters } from './types'
-import type { World } from '../api/types'
 import { getApiKey } from '../api/apiKeyManager'
 
 /**
@@ -28,8 +27,23 @@ export async function fetchMarketOpportunities(
   // Extract raw data from API
   const { data: rawMaterials } = await extractMarketDetails(apiKey, world, forceRefresh)
 
+  console.log('[Market Analysis] Repository:', {
+    rawMaterialsCount: rawMaterials.length,
+    world,
+    forceRefresh
+  })
+
   // Transform to domain models
   const opportunities = transformMarketData(rawMaterials)
+
+  console.log('[Market Analysis] Transformed:', {
+    opportunitiesCount: opportunities.length,
+    sampleOpportunity: opportunities[0] ? {
+      materialId: opportunities[0].materialId,
+      score: opportunities[0].opportunityScore,
+      recommendation: opportunities[0].recommendation
+    } : null
+  })
 
   return opportunities
 }

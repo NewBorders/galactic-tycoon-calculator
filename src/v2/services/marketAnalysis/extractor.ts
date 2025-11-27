@@ -76,6 +76,12 @@ export async function extractMarketDetails(
     // Extract materials array, default to empty array if missing
     const materials = apiResponse.mats ?? []
 
+    console.log('[Market Analysis] API Response:', {
+      totalMaterials: materials.length,
+      world,
+      sampleMaterial: materials[0] ? { id: materials[0].id, lp: materials[0].lp, avg7d: materials[0].avg7d } : null
+    })
+
     // Update cache
     cache.marketDetails.set(world, {
       data: materials,
