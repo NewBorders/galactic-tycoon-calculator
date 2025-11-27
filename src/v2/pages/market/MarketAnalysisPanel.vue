@@ -3,13 +3,16 @@ import { onMounted, ref, computed, watch } from 'vue'
 import { useMarketAnalysis } from '../../composables/useMarketAnalysis'
 import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
+import { translate } from '../../localisation'
 
 const props = defineProps<{
   gameData: GameData
   index: GdIndex
 }>()
 
-const world = getWorld()
+// Make world reactive so it updates when user switches g1 <-> g2
+const world = computed(() => getWorld())
+
 const {
   filteredOpportunities,
   loading,
@@ -21,7 +24,12 @@ const {
   setDemandLevels,
   setTrendDirections,
   clearFilters
-} = useMarketAnalysis({ world })
+} = useMarketAnalysis({ world: world.value })
+
+// Re-fetch data when world changes
+watch(world, () => {
+  fetch(true) // Force refresh to get data for new world
+})
 
 // Debug: Watch filteredOpportunities changes
 watch(filteredOpportunities, (newVal) => {
@@ -85,13 +93,13 @@ function formatPrice(n: number): string {
 }
 
 function formatTimeAgo(ts: number | null): string {
-  if (!ts) return 'Never'
+  if (!ts) return translate('marketAnalysisTimeAgoNever')
   const seconds = Math.floor((Date.now() - ts) / 1000)
-  if (seconds < 60) return `${seconds}s ago`
+  if (seconds < 60) return translate('marketAnalysisTimeAgoSeconds', { seconds })
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 60) return translate('marketAnalysisTimeAgoMinutes', { minutes })
   const hours = Math.floor(minutes / 60)
-  return `${hours}h ago`
+  return translate('marketAnalysisTimeAgoHours', { hours })
 }
 
 // Styling helpers
@@ -108,11 +116,11 @@ function getRecommendationColor(rec: string): string {
 
 function getRecommendationLabel(rec: string): string {
   switch (rec) {
-    case 'strong-buy': return '⬆️ Strong Buy'
-    case 'buy': return '↗️ Buy'
-    case 'hold': return '➡️ Hold'
-    case 'sell': return '↘️ Sell'
-    case 'strong-sell': return '⬇️ Strong Sell'
+    case 'strong-buy': return `⬆️ ${translate('marketAnalysisStrongBuy')}`
+    case 'buy': return `↗️ ${translate('marketAnalysisBuy')}`
+    case 'hold': return `➡️ ${translate('marketAnalysisHold')}`
+    case 'sell': return `↘️ ${translate('marketAnalysisSell')}`
+    case 'strong-sell': return `⬇️ ${translate('marketAnalysisStrongSell')}`
     case 'no-data': return '❓ No Data'
     default: return rec
   }
@@ -124,6 +132,15 @@ function getDemandColor(level: string): string {
     case 'medium': return 'text-yellow-400'
     case 'low': return 'text-red-400'
     default: return 'text-gray-400'
+  }
+}
+
+function getDemandLabel(level: string): string {
+  switch (level) {
+    case 'high': return translate('marketAnalysisDemandHigh')
+    case 'medium': return translate('marketAnalysisDemandMedium')
+    case 'low': return translate('marketAnalysisDemandLow')
+    default: return level
   }
 }
 
@@ -160,21 +177,21 @@ async function refresh() {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-purple-400">📊 Market Analysis</h1>
+        <h1 class="text-2xl font-bold text-purple-400">📊 {{ translate('marketAnalysisTitle') }}</h1>
         <p class="text-sm text-gray-400 mt-1">
-          Analyze market opportunities based on demand, price trends, and saturation
+          {{ translate('marketAnalysisDescription') }}
         </p>
       </div>
       <div class="flex gap-2 items-center">
         <span class="text-xs text-gray-500">
-          Updated: {{ formatTimeAgo(lastUpdated) }}
+          {{ translate('marketAnalysisUpdated') }}: {{ formatTimeAgo(lastUpdated) }}
         </span>
         <button
           @click="refresh"
           :disabled="loading"
           class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded transition"
         >
-          {{ loading ? '⏳ Loading...' : '🔄 Refresh' }}
+          {{ loading ? `⏳ ${translate('marketAnalysisLoading')}` : `🔄 ${translate('marketAnalysisRefresh')}` }}
         </button>
       </div>
     </div>
@@ -187,33 +204,33 @@ async function refresh() {
     <!-- Stats Summary -->
     <div v-if="!loading && !error" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
       <div class="bg-gray-800 rounded p-3">
-        <div class="text-xs text-gray-400 uppercase">Total</div>
+        <div class="text-xs text-gray-400 uppercase">{{ translate('marketAnalysisTotal') }}</div>
         <div class="text-2xl font-bold text-white">{{ stats.total }}</div>
       </div>
       <div class="bg-gray-800 rounded p-3">
-        <div class="text-xs text-gray-400 uppercase">Avg Score</div>
+        <div class="text-xs text-gray-400 uppercase">{{ translate('marketAnalysisAvgScore') }}</div>
         <div class="text-2xl font-bold" :class="getScoreColor(stats.avgScore)">
           {{ stats.avgScore }}
         </div>
       </div>
       <div class="bg-gray-800 rounded p-3">
-        <div class="text-xs text-green-400 uppercase">Strong Buy</div>
+        <div class="text-xs text-green-400 uppercase">{{ translate('marketAnalysisStrongBuy') }}</div>
         <div class="text-2xl font-bold text-green-400">{{ stats.strongBuy }}</div>
       </div>
       <div class="bg-gray-800 rounded p-3">
-        <div class="text-xs text-green-300 uppercase">Buy</div>
+        <div class="text-xs text-green-300 uppercase">{{ translate('marketAnalysisBuy') }}</div>
         <div class="text-2xl font-bold text-green-300">{{ stats.buy }}</div>
       </div>
       <div class="bg-gray-800 rounded p-3">
-        <div class="text-xs text-yellow-400 uppercase">Hold</div>
+        <div class="text-xs text-yellow-400 uppercase">{{ translate('marketAnalysisHold') }}</div>
         <div class="text-2xl font-bold text-yellow-400">{{ stats.hold }}</div>
       </div>
       <div class="bg-gray-800 rounded p-3">
-        <div class="text-xs text-orange-400 uppercase">Sell</div>
+        <div class="text-xs text-orange-400 uppercase">{{ translate('marketAnalysisSell') }}</div>
         <div class="text-2xl font-bold text-orange-400">{{ stats.sell }}</div>
       </div>
       <div class="bg-gray-800 rounded p-3">
-        <div class="text-xs text-red-400 uppercase">Strong Sell</div>
+        <div class="text-xs text-red-400 uppercase">{{ translate('marketAnalysisStrongSell') }}</div>
         <div class="text-2xl font-bold text-red-400">{{ stats.strongSell }}</div>
       </div>
     </div>
@@ -224,7 +241,7 @@ async function refresh() {
         @click="showFilters = !showFilters"
         class="flex items-center justify-between w-full text-left"
       >
-        <h2 class="text-lg font-semibold text-purple-400">🔍 Filters</h2>
+        <h2 class="text-lg font-semibold text-purple-400">🔍 {{ translate('marketAnalysisFilters') }}</h2>
         <span class="text-gray-400">{{ showFilters ? '▼' : '▶' }}</span>
       </button>
 
@@ -232,7 +249,7 @@ async function refresh() {
         <!-- Min Score Filter -->
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-2">
-            Minimum Opportunity Score
+            {{ translate('marketAnalysisMinScore') }}
           </label>
           <input
             v-model.number="selectedMinScore"
@@ -248,7 +265,7 @@ async function refresh() {
         <!-- Demand Levels Filter -->
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-2">
-            Demand Levels
+            {{ translate('marketAnalysisDemandLevels') }}
           </label>
           <div class="flex gap-3">
             <label class="flex items-center gap-2">
@@ -258,7 +275,7 @@ async function refresh() {
                 value="high"
                 class="rounded"
               />
-              <span class="text-sm text-green-400">High</span>
+              <span class="text-sm text-green-400">{{ translate('marketAnalysisDemandHigh') }}</span>
             </label>
             <label class="flex items-center gap-2">
               <input
@@ -267,7 +284,7 @@ async function refresh() {
                 value="medium"
                 class="rounded"
               />
-              <span class="text-sm text-yellow-400">Medium</span>
+              <span class="text-sm text-yellow-400">{{ translate('marketAnalysisDemandMedium') }}</span>
             </label>
             <label class="flex items-center gap-2">
               <input
@@ -276,7 +293,7 @@ async function refresh() {
                 value="low"
                 class="rounded"
               />
-              <span class="text-sm text-red-400">Low</span>
+              <span class="text-sm text-red-400">{{ translate('marketAnalysisDemandLow') }}</span>
             </label>
           </div>
         </div>
@@ -284,7 +301,7 @@ async function refresh() {
         <!-- Trend Directions Filter -->
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-2">
-            Price Trends
+            {{ translate('marketAnalysisPriceTrends') }}
           </label>
           <div class="flex gap-3">
             <label class="flex items-center gap-2">
@@ -294,7 +311,7 @@ async function refresh() {
                 value="rising"
                 class="rounded"
               />
-              <span class="text-sm text-green-400">📈 Rising</span>
+              <span class="text-sm text-green-400">📈 {{ translate('marketAnalysisTrendRising') }}</span>
             </label>
             <label class="flex items-center gap-2">
               <input
@@ -303,7 +320,7 @@ async function refresh() {
                 value="stable"
                 class="rounded"
               />
-              <span class="text-sm text-yellow-400">➡️ Stable</span>
+              <span class="text-sm text-yellow-400">➡️ {{ translate('marketAnalysisTrendStable') }}</span>
             </label>
             <label class="flex items-center gap-2">
               <input
@@ -312,7 +329,7 @@ async function refresh() {
                 value="falling"
                 class="rounded"
               />
-              <span class="text-sm text-red-400">📉 Falling</span>
+              <span class="text-sm text-red-400">📉 {{ translate('marketAnalysisTrendFalling') }}</span>
             </label>
           </div>
         </div>
@@ -323,13 +340,13 @@ async function refresh() {
             @click="applyFilters"
             class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition"
           >
-            Apply Filters
+            {{ translate('marketAnalysisApplyFilters') }}
           </button>
           <button
             @click="resetFilters"
             class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition"
           >
-            Clear All
+            {{ translate('marketAnalysisClearFilters') }}
           </button>
         </div>
       </div>
@@ -342,28 +359,28 @@ async function refresh() {
           <thead class="bg-gray-700">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Material
+                {{ translate('marketAnalysisMaterial') }}
               </th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Score
+                {{ translate('marketAnalysisScore') }}
               </th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Recommendation
+                {{ translate('marketAnalysisRecommendation') }}
               </th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Current Price
+                {{ translate('marketAnalysisCurrentPrice') }}
               </th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
-                7d Trend
+                {{ translate('marketAnalysis7dTrend') }}
               </th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Demand
+                {{ translate('marketAnalysisDemand') }}
               </th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Volume/Day
+                {{ translate('marketAnalysisVolumePerDay') }}
               </th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Saturation
+                {{ translate('marketAnalysisSaturation') }}
               </th>
             </tr>
           </thead>
@@ -422,7 +439,7 @@ async function refresh() {
                   class="inline-block px-2 py-1 rounded text-xs font-medium uppercase"
                   :class="getDemandColor(opp.demand.demandLevel)"
                 >
-                  {{ opp.demand.demandLevel }}
+                  {{ getDemandLabel(opp.demand.demandLevel) }}
                 </span>
               </td>
 
@@ -448,15 +465,15 @@ async function refresh() {
         class="text-center py-12 text-gray-400"
       >
         <div class="text-4xl mb-4">📭</div>
-        <div class="text-lg">No opportunities found</div>
-        <div class="text-sm mt-2">Try adjusting your filters</div>
+        <div class="text-lg">{{ translate('marketAnalysisNoOpportunities') }}</div>
+        <div class="text-sm mt-2">{{ translate('marketAnalysisAdjustFilters') }}</div>
       </div>
     </div>
 
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-12 text-gray-400">
       <div class="text-4xl mb-4 animate-pulse">⏳</div>
-      <div class="text-lg">Loading market data...</div>
+      <div class="text-lg">{{ translate('marketAnalysisLoadingData') }}</div>
     </div>
   </div>
 </template>

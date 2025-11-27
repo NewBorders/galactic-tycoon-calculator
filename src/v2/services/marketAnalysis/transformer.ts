@@ -16,16 +16,23 @@ import type {
  * Calculate price trend from raw material data
  */
 export function calculatePriceTrend(raw: MaterialDetailsRaw): PriceTrend | null {
-  const current = raw.lp ?? raw.avg1d ?? raw.avg7d
-  const avg7d = raw.avg7d
-  const avg1d = raw.avg1d
-
-  if (current === null || avg7d === null) {
+  const current = raw.currentPrice
+  const avg7d = raw.avgPrice
+  
+  if (!raw.priceHistory || raw.priceHistory.length === 0) {
     return null
   }
 
+  // Prevent division by zero
+  if (avg7d === 0) {
+    return null
+  }
+
+  // Get 1-day average (yesterday's price)
+  const avg1d = raw.priceHistory[0]?.avgPrice ?? avg7d
+
   const changePercent7d = ((current - avg7d) / avg7d) * 100
-  const changePercent1d = avg1d !== null ? ((current - avg1d) / avg1d) * 100 : 0
+  const changePercent1d = avg1d !== 0 ? ((current - avg1d) / avg1d) * 100 : 0
 
   // Determine direction based on 7-day trend
   let direction: 'rising' | 'falling' | 'stable'
@@ -40,7 +47,7 @@ export function calculatePriceTrend(raw: MaterialDetailsRaw): PriceTrend | null 
   return {
     current,
     avg7d,
-    avg1d: avg1d ?? avg7d,
+    avg1d,
     changePercent7d,
     changePercent1d,
     direction,
@@ -51,13 +58,13 @@ export function calculatePriceTrend(raw: MaterialDetailsRaw): PriceTrend | null 
  * Calculate market demand from history data
  */
 export function calculateMarketDemand(raw: MaterialDetailsRaw): MarketDemand | null {
-  if (!raw.history || raw.history.length === 0) {
+  if (!raw.priceHistory || raw.priceHistory.length === 0) {
     return null
   }
 
   // Sum up volume from all history entries
-  const volume7d = raw.history.reduce((sum, entry) => sum + entry.v, 0)
-  const volumeAvgPerDay = volume7d / 7
+  const volume7d = raw.priceHistory.reduce((sum, entry) => sum + entry.qtySold, 0)
+  const volumeAvgPerDay = raw.avgQtySoldDaily
 
   // Classify demand level based on average daily volume
   let demandLevel: 'high' | 'medium' | 'low'
@@ -77,31 +84,36 @@ export function calculateMarketDemand(raw: MaterialDetailsRaw): MarketDemand | n
 }
 
 /**
- * Calculate market saturation from bid/ask spread
+ * Calculate market saturation from order book
  */
 export function calculateMarketSaturation(raw: MaterialDetailsRaw): MarketSaturation {
-  const askPrice = raw.ask
-  const bidPrice = raw.bid
-
-  if (askPrice === null || bidPrice === null) {
+  if (!raw.orders || raw.orders.length === 0) {
     return {
-      askPrice,
-      bidPrice,
+      askPrice: null,
+      bidPrice: null,
       spread: null,
       spreadPercent: null,
       saturationLevel: 'unknown',
     }
   }
 
-  const spread = askPrice - bidPrice
-  const spreadPercent = (spread / bidPrice) * 100
+  // Find lowest ask (sell order) and highest bid (buy order)
+  // In this API, all orders appear to be sell orders, so we use current price as reference
+  const askPrice = raw.currentPrice
+  const bidPrice = raw.currentPrice * 0.95 // Estimate bid as 5% below ask
 
-  // Determine saturation level based on spread
+  const spread = askPrice - bidPrice
+  const spreadPercent = bidPrice !== 0 ? (spread / bidPrice) * 100 : 0
+
+  // Determine saturation level based on available quantity vs daily volume
+  // Prevent division by zero
+  const daysOfSupply = raw.avgQtySoldDaily > 0 ? raw.totalQtyAvailable / raw.avgQtySoldDaily : 0
+  
   let saturationLevel: 'oversupplied' | 'balanced' | 'undersupplied'
-  if (spreadPercent > 20) {
-    saturationLevel = 'oversupplied' // Wide spread = low demand
-  } else if (spreadPercent < 5) {
-    saturationLevel = 'undersupplied' // Narrow spread = high demand
+  if (daysOfSupply > 3) {
+    saturationLevel = 'oversupplied' // More than 3 days of supply
+  } else if (daysOfSupply < 1) {
+    saturationLevel = 'undersupplied' // Less than 1 day of supply
   } else {
     saturationLevel = 'balanced'
   }
@@ -202,18 +214,18 @@ export function transformToMarketOpportunity(raw: MaterialDetailsRaw): MarketOpp
   const recommendation = getRecommendation(opportunityScore, hasData)
 
   return {
-    materialId: raw.id,
+    materialId: raw.matId,
     priceTrend: priceTrend ?? {
-      current: 0,
-      avg7d: 0,
-      avg1d: 0,
+      current: raw.currentPrice,
+      avg7d: raw.avgPrice,
+      avg1d: raw.avgPrice,
       changePercent7d: 0,
       changePercent1d: 0,
       direction: 'stable',
     },
     demand: demand ?? {
       volume7d: 0,
-      volumeAvgPerDay: 0,
+      volumeAvgPerDay: raw.avgQtySoldDaily,
       demandLevel: 'low',
     },
     saturation,

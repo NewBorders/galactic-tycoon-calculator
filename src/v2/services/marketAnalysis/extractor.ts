@@ -16,9 +16,10 @@ const CACHE_CONFIG = {
 
 /**
  * Cache entries with timestamps
+ * Cache key includes world + API key to prevent returning wrong account's data
  */
 const cache = {
-  marketDetails: new Map<World, { data: MaterialDetailsRaw[]; ts: number }>(),
+  marketDetails: new Map<string, { data: MaterialDetailsRaw[]; ts: number }>(),
 }
 
 /**
@@ -45,8 +46,12 @@ export async function extractMarketDetails(
   world: World = 'g2',
   forceRefresh = false,
 ): Promise<{ data: MaterialDetailsRaw[]; source: 'api' | 'cache' }> {
+  // Create cache key that includes both world and API key
+  // This prevents returning cached data from different account after API key change
+  const cacheKey = `${world}:${apiKey}`
+  
   // Check cache first
-  const cached = cache.marketDetails.get(world)
+  const cached = cache.marketDetails.get(cacheKey)
   if (!forceRefresh && cached && isCacheValid(cached.ts, CACHE_CONFIG.MARKET_DETAILS_TTL_MS)) {
     return { data: cached.data, source: 'cache' }
   }
@@ -73,17 +78,23 @@ export async function extractMarketDetails(
 
     const apiResponse: MarketDetailsApiResponse = await response.json()
 
-    // Extract materials array, default to empty array if missing
-    const materials = apiResponse.mats ?? []
+    // Extract materials array
+    const materials = apiResponse.materials ?? []
 
     console.log('[Market Analysis] API Response:', {
       totalMaterials: materials.length,
       world,
-      sampleMaterial: materials[0] ? { id: materials[0].id, lp: materials[0].lp, avg7d: materials[0].avg7d } : null
+      sampleMaterial: materials[0] ? {
+        matId: materials[0].matId,
+        matName: materials[0].matName,
+        currentPrice: materials[0].currentPrice,
+        avgPrice: materials[0].avgPrice,
+        historyLength: materials[0].priceHistory?.length
+      } : null
     })
 
-    // Update cache
-    cache.marketDetails.set(world, {
+    // Update cache with world+apikey as key
+    cache.marketDetails.set(cacheKey, {
       data: materials,
       ts: Date.now(),
     })
@@ -102,10 +113,18 @@ export async function extractMarketDetails(
 
 /**
  * Clear cache for a specific world or all worlds
+ * Note: Since cache keys now include API key, this clears all entries for the world regardless of API key
  */
 export function clearMarketDetailsCache(world?: World): void {
   if (world) {
-    cache.marketDetails.delete(world)
+    // Clear all cache entries for this world (across all API keys)
+    const keysToDelete: string[] = []
+    for (const key of cache.marketDetails.keys()) {
+      if (key.startsWith(`${world}:`)) {
+        keysToDelete.push(key)
+      }
+    }
+    keysToDelete.forEach(key => cache.marketDetails.delete(key))
   } else {
     cache.marketDetails.clear()
   }

@@ -7,28 +7,34 @@ import type { World } from '../api/types'
 
 /**
  * Raw API Response Types (Internal - from API)
+ * Based on /public/exchange/mat-details actual response
  */
 
+export interface PriceHistoryEntry {
+  date: string
+  avgPrice: number
+  qtySold: number
+  qtyRemaining: number
+}
+
 export interface MaterialDetailsRaw {
-  id: number
-  minprice: number | null
-  maxprice: number | null
-  avg7d: number | null
-  avg1d: number | null
-  ask: number | null
-  bid: number | null
-  ls: string | null // last sale timestamp
-  lp: number | null // last price
-  lv: number | null // last volume
-  history?: Array<{
-    t: string // timestamp
-    v: number // volume
-    p: number // price
+  matId: number
+  matName: string
+  currentPrice: number
+  avgPrice: number
+  totalQtyAvailable: number
+  orders: Array<{
+    cId: number
+    cName: string
+    unitPrice: number
+    qty: number
   }>
+  avgQtySoldDaily: number
+  priceHistory: PriceHistoryEntry[]
 }
 
 export interface MarketDetailsApiResponse {
-  mats?: MaterialDetailsRaw[]
+  materials: MaterialDetailsRaw[]
 }
 
 /**

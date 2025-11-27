@@ -13,209 +13,120 @@ import {
   transformToMarketOpportunity,
   transformMarketData,
 } from '../transformer'
-import type { MaterialDetailsRaw } from '../types'
+import {
+  createRisingTrendMaterial,
+  createFallingTrendMaterial,
+  createStableTrendMaterial,
+  createHighDemandMaterial,
+  createMediumDemandMaterial,
+  createLowDemandMaterial,
+  createNoHistoryMaterial,
+  createOversuppliedMaterial,
+  createUndersuppliedMaterial,
+  createBalancedMaterial,
+} from './testFixtures'
 
 describe('calculatePriceTrend', () => {
   it('should calculate rising trend when current price is higher than avg7d', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 120,
-      avg7d: 100,
-      avg1d: 110,
-      minprice: null,
-      maxprice: null,
-      ask: null,
-      bid: null,
-      ls: null,
-      lv: null,
-    }
+    const raw = createRisingTrendMaterial()
 
     const trend = calculatePriceTrend(raw)
     expect(trend).not.toBeNull()
     expect(trend!.direction).toBe('rising')
-    expect(trend!.changePercent7d).toBe(20)
-    expect(trend!.changePercent1d).toBeCloseTo(9.09, 1)
+    expect(trend!.changePercent7d).toBe(20) // (120-100)/100 * 100
+    expect(trend!.current).toBe(120)
+    expect(trend!.avg7d).toBe(100)
   })
 
   it('should calculate falling trend when current price is lower than avg7d', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 80,
-      avg7d: 100,
-      avg1d: 90,
-      minprice: null,
-      maxprice: null,
-      ask: null,
-      bid: null,
-      ls: null,
-      lv: null,
-    }
+    const raw = createFallingTrendMaterial()
 
     const trend = calculatePriceTrend(raw)
     expect(trend).not.toBeNull()
     expect(trend!.direction).toBe('falling')
-    expect(trend!.changePercent7d).toBe(-20)
+    expect(trend!.changePercent7d).toBe(-20) // (80-100)/100 * 100
   })
 
   it('should calculate stable trend for small price changes', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 102,
-      avg7d: 100,
-      avg1d: 101,
-      minprice: null,
-      maxprice: null,
-      ask: null,
-      bid: null,
-      ls: null,
-      lv: null,
-    }
+    const raw = createStableTrendMaterial()
 
     const trend = calculatePriceTrend(raw)
     expect(trend).not.toBeNull()
     expect(trend!.direction).toBe('stable')
-    expect(trend!.changePercent7d).toBe(2)
+    expect(trend!.changePercent7d).toBe(2) // (102-100)/100 * 100
   })
 
-  it('should return null when essential data is missing', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: null,
-      avg7d: null,
-      avg1d: null,
-      minprice: null,
-      maxprice: null,
-      ask: null,
-      bid: null,
-      ls: null,
-      lv: null,
-    }
+  it('should return null when price history is empty', () => {
+    const raw = createNoHistoryMaterial()
 
     const trend = calculatePriceTrend(raw)
     expect(trend).toBeNull()
   })
 
-  it('should use avg1d as current when lp is not available', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: null,
-      avg7d: 100,
-      avg1d: 105,
-      minprice: null,
-      maxprice: null,
-      ask: null,
-      bid: null,
-      ls: null,
-      lv: null,
-    }
+  it('should use first history entry as avg1d', () => {
+    const raw = createRisingTrendMaterial()
 
     const trend = calculatePriceTrend(raw)
     expect(trend).not.toBeNull()
-    expect(trend!.current).toBe(105)
-    expect(trend!.direction).toBe('stable')
+    expect(trend!.avg1d).toBe(110) // First history entry
+  })
+
+  it('should return null when avgPrice is zero (division by zero protection)', () => {
+    const raw = createRisingTrendMaterial()
+    raw.avgPrice = 0
+
+    const trend = calculatePriceTrend(raw)
+    expect(trend).toBeNull()
+  })
+
+  it('should handle avg1d of zero without crashing', () => {
+    const raw = createRisingTrendMaterial()
+    raw.priceHistory[0].avgPrice = 0
+
+    const trend = calculatePriceTrend(raw)
+    expect(trend).not.toBeNull()
+    expect(trend!.changePercent1d).toBe(0) // Fallback to 0 when division by zero
   })
 })
 
 describe('calculateMarketDemand', () => {
-  it('should calculate high demand for high volume', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 100,
-      avg7d: 100,
-      avg1d: 100,
-      minprice: null,
-      maxprice: null,
-      ask: null,
-      bid: null,
-      ls: null,
-      lv: null,
-      history: [
-        { t: '2024-01-01', v: 2000, p: 100 },
-        { t: '2024-01-02', v: 1500, p: 100 },
-        { t: '2024-01-03', v: 1800, p: 100 },
-        { t: '2024-01-04', v: 2200, p: 100 },
-        { t: '2024-01-05', v: 1900, p: 100 },
-        { t: '2024-01-06', v: 2100, p: 100 },
-        { t: '2024-01-07', v: 2000, p: 100 },
-      ],
-    }
+  it('should classify high demand correctly', () => {
+    const raw = createHighDemandMaterial()
 
     const demand = calculateMarketDemand(raw)
     expect(demand).not.toBeNull()
-    expect(demand!.volume7d).toBe(13500)
-    expect(demand!.volumeAvgPerDay).toBeCloseTo(1928.57, 1)
     expect(demand!.demandLevel).toBe('high')
+    expect(demand!.volumeAvgPerDay).toBe(5000)
   })
 
-  it('should calculate medium demand for medium volume', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 100,
-      avg7d: 100,
-      avg1d: 100,
-      minprice: null,
-      maxprice: null,
-      ask: null,
-      bid: null,
-      ls: null,
-      lv: null,
-      history: [
-        { t: '2024-01-01', v: 200, p: 100 },
-        { t: '2024-01-02', v: 150, p: 100 },
-        { t: '2024-01-03', v: 180, p: 100 },
-        { t: '2024-01-04', v: 220, p: 100 },
-        { t: '2024-01-05', v: 190, p: 100 },
-        { t: '2024-01-06', v: 210, p: 100 },
-        { t: '2024-01-07', v: 200, p: 100 },
-      ],
-    }
+  it('should classify medium demand correctly', () => {
+    const raw = createMediumDemandMaterial()
 
     const demand = calculateMarketDemand(raw)
     expect(demand).not.toBeNull()
     expect(demand!.demandLevel).toBe('medium')
+    expect(demand!.volumeAvgPerDay).toBe(500)
   })
 
-  it('should calculate low demand for low volume', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 100,
-      avg7d: 100,
-      avg1d: 100,
-      minprice: null,
-      maxprice: null,
-      ask: null,
-      bid: null,
-      ls: null,
-      lv: null,
-      history: [
-        { t: '2024-01-01', v: 20, p: 100 },
-        { t: '2024-01-02', v: 15, p: 100 },
-        { t: '2024-01-03', v: 18, p: 100 },
-        { t: '2024-01-04', v: 22, p: 100 },
-        { t: '2024-01-05', v: 19, p: 100 },
-        { t: '2024-01-06', v: 21, p: 100 },
-        { t: '2024-01-07', v: 20, p: 100 },
-      ],
-    }
+  it('should classify low demand correctly', () => {
+    const raw = createLowDemandMaterial()
 
     const demand = calculateMarketDemand(raw)
     expect(demand).not.toBeNull()
     expect(demand!.demandLevel).toBe('low')
+    expect(demand!.volumeAvgPerDay).toBe(50)
   })
 
-  it('should return null when history is missing', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 100,
-      avg7d: 100,
-      avg1d: 100,
-      minprice: null,
-      maxprice: null,
-      ask: null,
-      bid: null,
-      ls: null,
-      lv: null,
-    }
+  it('should calculate total 7-day volume from history', () => {
+    const raw = createHighDemandMaterial()
+
+    const demand = calculateMarketDemand(raw)
+    expect(demand).not.toBeNull()
+    expect(demand!.volume7d).toBe(35000) // 5000 * 7 days
+  })
+
+  it('should return null when history is empty', () => {
+    const raw = createNoHistoryMaterial()
 
     const demand = calculateMarketDemand(raw)
     expect(demand).toBeNull()
@@ -223,293 +134,183 @@ describe('calculateMarketDemand', () => {
 })
 
 describe('calculateMarketSaturation', () => {
-  it('should calculate oversupplied market for wide spread', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 100,
-      avg7d: 100,
-      avg1d: 100,
-      ask: 130,
-      bid: 100,
-      minprice: null,
-      maxprice: null,
-      ls: null,
-      lv: null,
-    }
+  it('should detect oversupplied market (>3 days supply)', () => {
+    const raw = createOversuppliedMaterial()
 
     const saturation = calculateMarketSaturation(raw)
     expect(saturation.saturationLevel).toBe('oversupplied')
-    expect(saturation.spread).toBe(30)
-    expect(saturation.spreadPercent).toBe(30)
   })
 
-  it('should calculate undersupplied market for narrow spread', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 100,
-      avg7d: 100,
-      avg1d: 100,
-      ask: 103,
-      bid: 100,
-      minprice: null,
-      maxprice: null,
-      ls: null,
-      lv: null,
-    }
+  it('should detect undersupplied market (<1 day supply)', () => {
+    const raw = createUndersuppliedMaterial()
 
     const saturation = calculateMarketSaturation(raw)
     expect(saturation.saturationLevel).toBe('undersupplied')
-    expect(saturation.spread).toBe(3)
-    expect(saturation.spreadPercent).toBe(3)
   })
 
-  it('should calculate balanced market for medium spread', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 100,
-      avg7d: 100,
-      avg1d: 100,
-      ask: 110,
-      bid: 100,
-      minprice: null,
-      maxprice: null,
-      ls: null,
-      lv: null,
-    }
+  it('should detect balanced market (1-3 days supply)', () => {
+    const raw = createBalancedMaterial()
 
     const saturation = calculateMarketSaturation(raw)
     expect(saturation.saturationLevel).toBe('balanced')
-    expect(saturation.spreadPercent).toBe(10)
   })
 
-  it('should return unknown when ask or bid is missing', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 1,
-      lp: 100,
-      avg7d: 100,
-      avg1d: 100,
-      ask: null,
-      bid: null,
-      minprice: null,
-      maxprice: null,
-      ls: null,
-      lv: null,
-    }
+  it('should calculate prices and spread', () => {
+    const raw = createBalancedMaterial()
+
+    const saturation = calculateMarketSaturation(raw)
+    expect(saturation.askPrice).toBe(raw.currentPrice)
+    expect(saturation.bidPrice).toBeCloseTo(raw.currentPrice * 0.95)
+    expect(saturation.spread).toBeGreaterThan(0)
+    expect(saturation.spreadPercent).toBeCloseTo(5.26, 1)
+  })
+
+  it('should handle empty orders', () => {
+    const raw = createNoHistoryMaterial()
+    raw.orders = []
 
     const saturation = calculateMarketSaturation(raw)
     expect(saturation.saturationLevel).toBe('unknown')
-    expect(saturation.spread).toBeNull()
+    expect(saturation.askPrice).toBeNull()
+    expect(saturation.bidPrice).toBeNull()
+  })
+
+  it('should handle avgQtySoldDaily of zero (division by zero protection)', () => {
+    const raw = createBalancedMaterial()
+    raw.avgQtySoldDaily = 0
+
+    const saturation = calculateMarketSaturation(raw)
+    // Should not crash, should set daysOfSupply to 0
+    expect(saturation.saturationLevel).toBe('undersupplied') // 0 days = undersupplied
+  })
+
+  it('should handle bidPrice of zero (division by zero protection)', () => {
+    const raw = createBalancedMaterial()
+    raw.currentPrice = 0
+
+    const saturation = calculateMarketSaturation(raw)
+    expect(saturation.spreadPercent).toBe(0) // Fallback to 0 when bidPrice is 0
   })
 })
 
 describe('calculateOpportunityScore', () => {
-  it('should give high score for rising trend, high demand, undersupplied', () => {
-    const trend = {
-      current: 120,
-      avg7d: 100,
-      avg1d: 110,
-      changePercent7d: 20,
-      changePercent1d: 9.09,
-      direction: 'rising' as const,
-    }
-    const demand = {
-      volume7d: 14000,
-      volumeAvgPerDay: 2000,
-      demandLevel: 'high' as const,
-    }
-    const saturation = {
-      askPrice: 125,
-      bidPrice: 120,
-      spread: 5,
-      spreadPercent: 4.17,
-      saturationLevel: 'undersupplied' as const,
-    }
+  it('should give high score for rising trend + high demand + undersupplied', () => {
+    const trend = calculatePriceTrend(createRisingTrendMaterial())!
+    const demand = calculateMarketDemand(createHighDemandMaterial())!
+    const saturation = calculateMarketSaturation(createUndersuppliedMaterial())
 
     const score = calculateOpportunityScore(trend, demand, saturation)
-    expect(score).toBeGreaterThan(80)
+    expect(score).toBeGreaterThan(80) // 50 + 20 (rising) + 20 (high demand) + 10 (undersupplied)
   })
 
-  it('should give low score for falling trend, low demand, oversupplied', () => {
-    const trend = {
-      current: 80,
-      avg7d: 100,
-      avg1d: 90,
-      changePercent7d: -20,
-      changePercent1d: -11.11,
-      direction: 'falling' as const,
-    }
-    const demand = {
-      volume7d: 350,
-      volumeAvgPerDay: 50,
-      demandLevel: 'low' as const,
-    }
-    const saturation = {
-      askPrice: 130,
-      bidPrice: 100,
-      spread: 30,
-      spreadPercent: 30,
-      saturationLevel: 'oversupplied' as const,
-    }
+  it('should give low score for falling trend + low demand + oversupplied', () => {
+    const trend = calculatePriceTrend(createFallingTrendMaterial())!
+    const demand = calculateMarketDemand(createLowDemandMaterial())!
+    const saturation = calculateMarketSaturation(createOversuppliedMaterial())
 
     const score = calculateOpportunityScore(trend, demand, saturation)
-    expect(score).toBeLessThan(30)
+    expect(score).toBeLessThan(30) // 50 - 20 (falling) - 10 (low demand) - 10 (oversupplied)
   })
 
-  it('should give medium score for stable trend, medium demand, balanced', () => {
-    const trend = {
-      current: 102,
-      avg7d: 100,
-      avg1d: 101,
-      changePercent7d: 2,
-      changePercent1d: 1,
-      direction: 'stable' as const,
-    }
-    const demand = {
-      volume7d: 1400,
-      volumeAvgPerDay: 200,
-      demandLevel: 'medium' as const,
-    }
-    const saturation = {
-      askPrice: 110,
-      bidPrice: 100,
-      spread: 10,
-      spreadPercent: 10,
-      saturationLevel: 'balanced' as const,
-    }
+  it('should give neutral score for stable trend + medium demand + balanced', () => {
+    const trend = calculatePriceTrend(createStableTrendMaterial())!
+    const demand = calculateMarketDemand(createMediumDemandMaterial())!
+    const saturation = calculateMarketSaturation(createBalancedMaterial())
 
     const score = calculateOpportunityScore(trend, demand, saturation)
-    expect(score).toBeGreaterThan(40)
-    expect(score).toBeLessThan(70)
+    expect(score).toBeGreaterThanOrEqual(50)
+    expect(score).toBeLessThanOrEqual(65) // 50 + 0 (stable) + 10 (medium) + 0 (balanced)
   })
 
-  it('should handle null trend and demand', () => {
-    const saturation = {
-      askPrice: 110,
-      bidPrice: 100,
-      spread: 10,
-      spreadPercent: 10,
-      saturationLevel: 'balanced' as const,
-    }
+  it('should clamp scores to 0-100 range', () => {
+    const trend = calculatePriceTrend(createFallingTrendMaterial())!
+    const demand = calculateMarketDemand(createLowDemandMaterial())!
+    const saturation = calculateMarketSaturation(createOversuppliedMaterial())
 
-    const score = calculateOpportunityScore(null, null, saturation)
+    const score = calculateOpportunityScore(trend, demand, saturation)
     expect(score).toBeGreaterThanOrEqual(0)
     expect(score).toBeLessThanOrEqual(100)
   })
 })
 
 describe('getRecommendation', () => {
-  it('should return no-data when hasData is false', () => {
-    expect(getRecommendation(50, false)).toBe('no-data')
+  it('should recommend strong-buy for score >= 80', () => {
+    expect(getRecommendation(90, true)).toBe('strong-buy')
+    expect(getRecommendation(80, true)).toBe('strong-buy')
   })
 
-  it('should return strong-buy for score >= 80', () => {
-    expect(getRecommendation(85, true)).toBe('strong-buy')
+  it('should recommend buy for score 60-79', () => {
+    expect(getRecommendation(70, true)).toBe('buy')
+    expect(getRecommendation(60, true)).toBe('buy')
   })
 
-  it('should return buy for score >= 60', () => {
-    expect(getRecommendation(65, true)).toBe('buy')
-  })
-
-  it('should return hold for score >= 40', () => {
+  it('should recommend hold for score 40-59', () => {
     expect(getRecommendation(50, true)).toBe('hold')
+    expect(getRecommendation(40, true)).toBe('hold')
   })
 
-  it('should return sell for score >= 20', () => {
-    expect(getRecommendation(25, true)).toBe('sell')
+  it('should recommend sell for score 20-39', () => {
+    expect(getRecommendation(30, true)).toBe('sell')
+    expect(getRecommendation(20, true)).toBe('sell')
   })
 
-  it('should return strong-sell for score < 20', () => {
-    expect(getRecommendation(15, true)).toBe('strong-sell')
+  it('should recommend strong-sell for score < 20', () => {
+    expect(getRecommendation(10, true)).toBe('strong-sell')
+    expect(getRecommendation(0, true)).toBe('strong-sell')
+  })
+
+  it('should recommend no-data when hasData is false', () => {
+    expect(getRecommendation(90, false)).toBe('no-data')
+    expect(getRecommendation(50, false)).toBe('no-data')
   })
 })
 
 describe('transformToMarketOpportunity', () => {
-  it('should transform complete raw data to market opportunity', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 42,
-      lp: 120,
-      avg7d: 100,
-      avg1d: 110,
-      ask: 125,
-      bid: 120,
-      minprice: null,
-      maxprice: null,
-      ls: null,
-      lv: null,
-      history: [
-        { t: '2024-01-01', v: 2000, p: 100 },
-        { t: '2024-01-02', v: 1500, p: 100 },
-        { t: '2024-01-03', v: 1800, p: 100 },
-        { t: '2024-01-04', v: 2200, p: 100 },
-        { t: '2024-01-05', v: 1900, p: 100 },
-        { t: '2024-01-06', v: 2100, p: 100 },
-        { t: '2024-01-07', v: 2000, p: 100 },
-      ],
-    }
+  it('should transform rising trend material correctly', () => {
+    const raw = createRisingTrendMaterial(42)
 
     const opportunity = transformToMarketOpportunity(raw)
     expect(opportunity.materialId).toBe(42)
     expect(opportunity.priceTrend.direction).toBe('rising')
-    expect(opportunity.demand.demandLevel).toBe('high')
-    expect(opportunity.saturation.saturationLevel).toBe('undersupplied')
-    expect(opportunity.opportunityScore).toBeGreaterThan(70)
+    expect(opportunity.demand.demandLevel).toBe('medium')
+    expect(opportunity.opportunityScore).toBeGreaterThan(50)
     expect(opportunity.recommendation).toMatch(/buy|strong-buy/)
   })
 
-  it('should handle incomplete data gracefully', () => {
-    const raw: MaterialDetailsRaw = {
-      id: 42,
-      lp: null,
-      avg7d: null,
-      avg1d: null,
-      ask: null,
-      bid: null,
-      minprice: null,
-      maxprice: null,
-      ls: null,
-      lv: null,
-    }
+  it('should transform falling trend material correctly', () => {
+    const raw = createFallingTrendMaterial(99)
 
     const opportunity = transformToMarketOpportunity(raw)
-    expect(opportunity.materialId).toBe(42)
+    expect(opportunity.materialId).toBe(99)
+    expect(opportunity.priceTrend.direction).toBe('falling')
+    expect(opportunity.opportunityScore).toBeLessThan(50)
+    expect(opportunity.recommendation).toMatch(/sell|strong-sell/)
+  })
+
+  it('should handle materials with no history', () => {
+    const raw = createNoHistoryMaterial(123)
+
+    const opportunity = transformToMarketOpportunity(raw)
+    expect(opportunity.materialId).toBe(123)
     expect(opportunity.recommendation).toBe('no-data')
   })
 })
 
 describe('transformMarketData', () => {
   it('should transform array of materials', () => {
-    const materials: MaterialDetailsRaw[] = [
-      {
-        id: 1,
-        lp: 120,
-        avg7d: 100,
-        avg1d: 110,
-        ask: 125,
-        bid: 120,
-        minprice: null,
-        maxprice: null,
-        ls: null,
-        lv: null,
-        history: [{ t: '2024-01-01', v: 2000, p: 100 }],
-      },
-      {
-        id: 2,
-        lp: 80,
-        avg7d: 100,
-        avg1d: 90,
-        ask: 130,
-        bid: 100,
-        minprice: null,
-        maxprice: null,
-        ls: null,
-        lv: null,
-        history: [{ t: '2024-01-01', v: 20, p: 100 }],
-      },
+    const materials = [
+      createRisingTrendMaterial(1),
+      createFallingTrendMaterial(2),
     ]
 
     const opportunities = transformMarketData(materials)
     expect(opportunities).toHaveLength(2)
     expect(opportunities[0].materialId).toBe(1)
     expect(opportunities[1].materialId).toBe(2)
+  })
+
+  it('should handle empty array', () => {
+    const opportunities = transformMarketData([])
+    expect(opportunities).toHaveLength(0)
   })
 })

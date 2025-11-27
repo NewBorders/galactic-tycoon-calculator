@@ -70,17 +70,20 @@ export function filterOpportunities(
 
   // Filter by minimum opportunity score
   if (filters.minOpportunityScore !== undefined) {
-    filtered = filtered.filter((o) => o.opportunityScore >= filters.minOpportunityScore!)
+    const minScore = filters.minOpportunityScore
+    filtered = filtered.filter((o) => o.opportunityScore >= minScore)
   }
 
   // Filter by demand levels
   if (filters.demandLevels && filters.demandLevels.length > 0) {
-    filtered = filtered.filter((o) => filters.demandLevels!.includes(o.demand.demandLevel))
+    const levels = filters.demandLevels
+    filtered = filtered.filter((o) => levels.includes(o.demand.demandLevel))
   }
 
   // Filter by trend directions
   if (filters.trendDirections && filters.trendDirections.length > 0) {
-    filtered = filtered.filter((o) => filters.trendDirections!.includes(o.priceTrend.direction))
+    const directions = filters.trendDirections
+    filtered = filtered.filter((o) => directions.includes(o.priceTrend.direction))
   }
 
   return filtered

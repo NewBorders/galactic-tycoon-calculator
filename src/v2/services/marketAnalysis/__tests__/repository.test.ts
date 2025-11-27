@@ -1,6 +1,6 @@
 /**
  * Market Analysis Repository Tests
- * Tests the main interface and data orchestration
+ * Tests ETL orchestration and filtering logic
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -11,164 +11,125 @@ import {
   sortByOpportunityScore,
   getTopOpportunities,
 } from '../repository'
-import { clearMarketDetailsCache } from '../extractor'
-import type { MarketDetailsApiResponse, MarketOpportunity } from '../types'
-import * as apiKeyManager from '../../api/apiKeyManager'
+import type { MarketOpportunity } from '../types'
+import {
+  createRisingTrendMaterial,
+  createFallingTrendMaterial,
+  createStableTrendMaterial,
+  createHighDemandMaterial,
+  createMediumDemandMaterial,
+  createLowDemandMaterial,
+} from './testFixtures'
 
-// Mock fetch
-const mockFetch = vi.fn()
-global.fetch = mockFetch
+// Mock the extractor
+vi.mock('../extractor', () => ({
+  extractMarketDetails: vi.fn(),
+  clearMarketDetailsCache: vi.fn(),
+}))
 
-// Mock API key
+// Mock API key manager
 vi.mock('../../api/apiKeyManager', () => ({
   getApiKey: vi.fn(() => 'test-api-key-12345'),
 }))
 
+import { extractMarketDetails } from '../extractor'
+
+const mockExtractMarketDetails = extractMarketDetails as ReturnType<typeof vi.fn>
+
 describe('fetchMarketOpportunities', () => {
   beforeEach(() => {
-    mockFetch.mockReset()
-    clearMarketDetailsCache()
-    vi.mocked(apiKeyManager.getApiKey).mockReturnValue('test-api-key-12345')
+    mockExtractMarketDetails.mockReset()
   })
 
   it('should fetch and transform market opportunities', async () => {
-    const mockResponse: MarketDetailsApiResponse = {
-      mats: [
-        {
-          id: 1,
-          lp: 120,
-          avg7d: 100,
-          avg1d: 110,
-          ask: 125,
-          bid: 120,
-          minprice: null,
-          maxprice: null,
-          ls: null,
-          lv: null,
-          history: [
-            { t: '2024-01-01', v: 2000, p: 100 },
-            { t: '2024-01-02', v: 1500, p: 100 },
-            { t: '2024-01-03', v: 1800, p: 100 },
-            { t: '2024-01-04', v: 2200, p: 100 },
-            { t: '2024-01-05', v: 1900, p: 100 },
-            { t: '2024-01-06', v: 2100, p: 100 },
-            { t: '2024-01-07', v: 2000, p: 100 },
-          ],
-        },
-        {
-          id: 2,
-          lp: 80,
-          avg7d: 100,
-          avg1d: 90,
-          ask: 130,
-          bid: 100,
-          minprice: null,
-          maxprice: null,
-          ls: null,
-          lv: null,
-          history: [
-            { t: '2024-01-01', v: 20, p: 100 },
-            { t: '2024-01-02', v: 15, p: 100 },
-            { t: '2024-01-03', v: 18, p: 100 },
-            { t: '2024-01-04', v: 22, p: 100 },
-            { t: '2024-01-05', v: 19, p: 100 },
-            { t: '2024-01-06', v: 21, p: 100 },
-            { t: '2024-01-07', v: 20, p: 100 },
-          ],
-        },
-      ],
-    }
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [createRisingTrendMaterial(1), createFallingTrendMaterial(2)],
+      source: 'api' as const,
     })
 
     const opportunities = await fetchMarketOpportunities({ world: 'g2' })
 
     expect(opportunities).toHaveLength(2)
     expect(opportunities[0].materialId).toBe(1)
-    expect(opportunities[0].priceTrend.direction).toBe('rising')
-    expect(opportunities[0].demand.demandLevel).toBe('high')
     expect(opportunities[1].materialId).toBe(2)
-    expect(opportunities[1].priceTrend.direction).toBe('falling')
-    expect(opportunities[1].demand.demandLevel).toBe('low')
   })
 
   it('should handle empty response', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ mats: [] }),
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [],
+      source: 'api' as const,
     })
 
     const opportunities = await fetchMarketOpportunities()
     expect(opportunities).toHaveLength(0)
   })
+
+  it('should pass forceRefresh to extractor', async () => {
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [createRisingTrendMaterial()],
+      source: 'api' as const,
+    })
+
+    await fetchMarketOpportunities({ forceRefresh: true })
+
+    expect(mockExtractMarketDetails).toHaveBeenCalledWith(
+      'test-api-key-12345',
+      'g2',
+      true
+    )
+  })
+
+  it('should use default world g2', async () => {
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [],
+      source: 'api' as const,
+    })
+
+    await fetchMarketOpportunities()
+
+    expect(mockExtractMarketDetails).toHaveBeenCalledWith(
+      'test-api-key-12345',
+      'g2',
+      false
+    )
+  })
 })
 
 describe('fetchMaterialOpportunity', () => {
   beforeEach(() => {
-    mockFetch.mockReset()
-    clearMarketDetailsCache()
-    vi.mocked(apiKeyManager.getApiKey).mockReturnValue('test-api-key-12345')
+    mockExtractMarketDetails.mockReset()
   })
 
   it('should fetch opportunity for specific material', async () => {
-    const mockResponse: MarketDetailsApiResponse = {
-      mats: [
-        {
-          id: 42,
-          lp: 120,
-          avg7d: 100,
-          avg1d: 110,
-          ask: 125,
-          bid: 120,
-          minprice: null,
-          maxprice: null,
-          ls: null,
-          lv: null,
-          history: [{ t: '2024-01-01', v: 2000, p: 100 }],
-        },
-        {
-          id: 99,
-          lp: 80,
-          avg7d: 100,
-          avg1d: 90,
-          ask: null,
-          bid: null,
-          minprice: null,
-          maxprice: null,
-          ls: null,
-          lv: null,
-        },
-      ],
-    }
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [createRisingTrendMaterial(42), createFallingTrendMaterial(99)],
+      source: 'api' as const,
     })
 
     const opportunity = await fetchMaterialOpportunity(42)
+
     expect(opportunity).not.toBeNull()
     expect(opportunity!.materialId).toBe(42)
   })
 
-  it('should return null for non-existent material', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ mats: [] }),
+  it('should return null if material not found', async () => {
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [createRisingTrendMaterial(1)],
+      source: 'api' as const,
     })
 
     const opportunity = await fetchMaterialOpportunity(999)
+
     expect(opportunity).toBeNull()
   })
 })
 
 describe('filterOpportunities', () => {
-  const mockOpportunities: MarketOpportunity[] = [
+  const opportunities: MarketOpportunity[] = [
     {
       materialId: 1,
+      opportunityScore: 90,
+      recommendation: 'strong-buy',
       priceTrend: {
         current: 120,
         avg7d: 100,
@@ -178,47 +139,22 @@ describe('filterOpportunities', () => {
         direction: 'rising',
       },
       demand: {
-        volume7d: 14000,
-        volumeAvgPerDay: 2000,
+        volume7d: 35000,
+        volumeAvgPerDay: 5000,
         demandLevel: 'high',
       },
       saturation: {
-        askPrice: 125,
-        bidPrice: 120,
-        spread: 5,
-        spreadPercent: 4.17,
-        saturationLevel: 'undersupplied',
+        askPrice: 120,
+        bidPrice: 114,
+        spread: 6,
+        spreadPercent: 5.26,
+        saturationLevel: 'balanced',
       },
-      opportunityScore: 90,
-      recommendation: 'strong-buy',
     },
     {
       materialId: 2,
-      priceTrend: {
-        current: 102,
-        avg7d: 100,
-        avg1d: 101,
-        changePercent7d: 2,
-        changePercent1d: 1,
-        direction: 'stable',
-      },
-      demand: {
-        volume7d: 1400,
-        volumeAvgPerDay: 200,
-        demandLevel: 'medium',
-      },
-      saturation: {
-        askPrice: 110,
-        bidPrice: 100,
-        spread: 10,
-        spreadPercent: 10,
-        saturationLevel: 'balanced',
-      },
-      opportunityScore: 60,
-      recommendation: 'buy',
-    },
-    {
-      materialId: 3,
+      opportunityScore: 30,
+      recommendation: 'sell',
       priceTrend: {
         current: 80,
         avg7d: 100,
@@ -233,29 +169,56 @@ describe('filterOpportunities', () => {
         demandLevel: 'low',
       },
       saturation: {
-        askPrice: 130,
-        bidPrice: 100,
-        spread: 30,
-        spreadPercent: 30,
+        askPrice: 80,
+        bidPrice: 76,
+        spread: 4,
+        spreadPercent: 5.26,
         saturationLevel: 'oversupplied',
       },
-      opportunityScore: 20,
-      recommendation: 'sell',
+    },
+    {
+      materialId: 3,
+      opportunityScore: 50,
+      recommendation: 'hold',
+      priceTrend: {
+        current: 102,
+        avg7d: 100,
+        avg1d: 101,
+        changePercent7d: 2,
+        changePercent1d: 0.99,
+        direction: 'stable',
+      },
+      demand: {
+        volume7d: 3500,
+        volumeAvgPerDay: 500,
+        demandLevel: 'medium',
+      },
+      saturation: {
+        askPrice: 102,
+        bidPrice: 96.9,
+        spread: 5.1,
+        spreadPercent: 5.26,
+        saturationLevel: 'balanced',
+      },
     },
   ]
 
   it('should filter by minimum opportunity score', () => {
-    const filtered = filterOpportunities(mockOpportunities, {
-      minOpportunityScore: 50,
-    })
+    const filtered = filterOpportunities(opportunities, { minOpportunityScore: 50 })
     expect(filtered).toHaveLength(2)
     expect(filtered[0].materialId).toBe(1)
-    expect(filtered[1].materialId).toBe(2)
+    expect(filtered[1].materialId).toBe(3)
   })
 
   it('should filter by demand levels', () => {
-    const filtered = filterOpportunities(mockOpportunities, {
-      demandLevels: ['high', 'low'],
+    const filtered = filterOpportunities(opportunities, { demandLevels: ['high'] })
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0].materialId).toBe(1)
+  })
+
+  it('should filter by multiple demand levels', () => {
+    const filtered = filterOpportunities(opportunities, {
+      demandLevels: ['high', 'medium'],
     })
     expect(filtered).toHaveLength(2)
     expect(filtered[0].materialId).toBe(1)
@@ -263,162 +226,112 @@ describe('filterOpportunities', () => {
   })
 
   it('should filter by trend directions', () => {
-    const filtered = filterOpportunities(mockOpportunities, {
+    const filtered = filterOpportunities(opportunities, { trendDirections: ['rising'] })
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0].materialId).toBe(1)
+  })
+
+  it('should filter by multiple trend directions', () => {
+    const filtered = filterOpportunities(opportunities, {
+      trendDirections: ['rising', 'stable'],
+    })
+    expect(filtered).toHaveLength(2)
+    expect(filtered[0].materialId).toBe(1)
+    expect(filtered[1].materialId).toBe(3)
+  })
+
+  it('should apply multiple filters together', () => {
+    const filtered = filterOpportunities(opportunities, {
+      minOpportunityScore: 40,
+      demandLevels: ['high', 'medium'],
       trendDirections: ['rising'],
     })
     expect(filtered).toHaveLength(1)
     expect(filtered[0].materialId).toBe(1)
   })
 
-  it('should combine multiple filters', () => {
-    const filtered = filterOpportunities(mockOpportunities, {
-      minOpportunityScore: 50,
-      demandLevels: ['high'],
-      trendDirections: ['rising'],
-    })
-    expect(filtered).toHaveLength(1)
-    expect(filtered[0].materialId).toBe(1)
-  })
-
-  it('should return all opportunities with no filters', () => {
-    const filtered = filterOpportunities(mockOpportunities, {})
+  it('should return all opportunities when no filters applied', () => {
+    const filtered = filterOpportunities(opportunities, {})
     expect(filtered).toHaveLength(3)
   })
 })
 
 describe('sortByOpportunityScore', () => {
   it('should sort opportunities by score descending', () => {
-    const opportunities: MarketOpportunity[] = [
-      { materialId: 1, opportunityScore: 60 } as MarketOpportunity,
+    const opportunities = [
+      { materialId: 1, opportunityScore: 30 } as MarketOpportunity,
       { materialId: 2, opportunityScore: 90 } as MarketOpportunity,
-      { materialId: 3, opportunityScore: 30 } as MarketOpportunity,
+      { materialId: 3, opportunityScore: 60 } as MarketOpportunity,
     ]
 
     const sorted = sortByOpportunityScore(opportunities)
-    expect(sorted[0].materialId).toBe(2) // 90
-    expect(sorted[1].materialId).toBe(1) // 60
-    expect(sorted[2].materialId).toBe(3) // 30
+    expect(sorted[0].opportunityScore).toBe(90)
+    expect(sorted[1].opportunityScore).toBe(60)
+    expect(sorted[2].opportunityScore).toBe(30)
   })
 
-  it('should not modify original array', () => {
-    const opportunities: MarketOpportunity[] = [
-      { materialId: 1, opportunityScore: 60 } as MarketOpportunity,
+  it('should not mutate original array', () => {
+    const opportunities = [
+      { materialId: 1, opportunityScore: 30 } as MarketOpportunity,
       { materialId: 2, opportunityScore: 90 } as MarketOpportunity,
     ]
 
-    const sorted = sortByOpportunityScore(opportunities)
-    expect(opportunities[0].materialId).toBe(1) // Original unchanged
-    expect(sorted[0].materialId).toBe(2) // Sorted
+    const original = [...opportunities]
+    sortByOpportunityScore(opportunities)
+
+    expect(opportunities).toEqual(original)
   })
 })
 
 describe('getTopOpportunities', () => {
   beforeEach(() => {
-    mockFetch.mockReset()
-    clearMarketDetailsCache()
-    vi.mocked(apiKeyManager.getApiKey).mockReturnValue('test-api-key-12345')
+    mockExtractMarketDetails.mockReset()
   })
 
-  it('should get top N opportunities', async () => {
-    const mockResponse: MarketDetailsApiResponse = {
-      mats: [
-        {
-          id: 1,
-          lp: 120,
-          avg7d: 100,
-          avg1d: 110,
-          ask: 125,
-          bid: 120,
-          minprice: null,
-          maxprice: null,
-          ls: null,
-          lv: null,
-          history: [{ t: '2024-01-01', v: 2000, p: 100 }],
-        },
-        {
-          id: 2,
-          lp: 102,
-          avg7d: 100,
-          avg1d: 101,
-          ask: 110,
-          bid: 100,
-          minprice: null,
-          maxprice: null,
-          ls: null,
-          lv: null,
-          history: [{ t: '2024-01-01', v: 200, p: 100 }],
-        },
-        {
-          id: 3,
-          lp: 80,
-          avg7d: 100,
-          avg1d: 90,
-          ask: 130,
-          bid: 100,
-          minprice: null,
-          maxprice: null,
-          ls: null,
-          lv: null,
-          history: [{ t: '2024-01-01', v: 20, p: 100 }],
-        },
+  it('should return top N opportunities', async () => {
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [
+        createRisingTrendMaterial(1),
+        createFallingTrendMaterial(2),
+        createStableTrendMaterial(3),
+        createHighDemandMaterial(4),
       ],
-    }
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
+      source: 'api' as const,
     })
 
-    const top = await getTopOpportunities(2)
-    expect(top).toHaveLength(2)
-    expect(top[0].opportunityScore).toBeGreaterThanOrEqual(top[1].opportunityScore)
-  })
+    const topOpportunities = await getTopOpportunities(2)
 
-  it('should apply filters before selecting top', async () => {
-    const mockResponse: MarketDetailsApiResponse = {
-      mats: [
-        {
-          id: 1,
-          lp: 120,
-          avg7d: 100,
-          avg1d: 110,
-          ask: 125,
-          bid: 120,
-          minprice: null,
-          maxprice: null,
-          ls: null,
-          lv: null,
-          history: [{ t: '2024-01-01', v: 2000, p: 100 }],
-        },
-        {
-          id: 2,
-          lp: 80,
-          avg7d: 100,
-          avg1d: 90,
-          ask: 130,
-          bid: 100,
-          minprice: null,
-          maxprice: null,
-          ls: null,
-          lv: null,
-          history: [{ t: '2024-01-01', v: 20, p: 100 }],
-        },
-      ],
-    }
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
-    })
-
-    const top = await getTopOpportunities(
-      10,
-      {},
-      {
-        trendDirections: ['rising'],
-      },
+    expect(topOpportunities).toHaveLength(2)
+    // Should be sorted by score, so highest scores first
+    expect(topOpportunities[0].opportunityScore).toBeGreaterThanOrEqual(
+      topOpportunities[1].opportunityScore
     )
-    expect(top.length).toBeGreaterThan(0)
-    expect(top.every((o) => o.priceTrend.direction === 'rising')).toBe(true)
+  })
+
+  it('should apply filters before limiting', async () => {
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [
+        createHighDemandMaterial(1),
+        createMediumDemandMaterial(2),
+        createLowDemandMaterial(3),
+      ],
+      source: 'api' as const,
+    })
+
+    const topOpportunities = await getTopOpportunities(5, {}, { demandLevels: ['high'] })
+
+    expect(topOpportunities).toHaveLength(1)
+    expect(topOpportunities[0].demand.demandLevel).toBe('high')
+  })
+
+  it('should handle empty results', async () => {
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [],
+      source: 'api' as const,
+    })
+
+    const topOpportunities = await getTopOpportunities(10)
+
+    expect(topOpportunities).toHaveLength(0)
   })
 })
