@@ -272,23 +272,16 @@ async function refreshPrices() {
                 :key="material.id"
                 class="border-b border-slate-700 hover:bg-slate-700/50"
               >
-                <!-- Material Name -->
+                <!-- Material Name with Icon -->
                 <td class="py-2 px-3">
-                  <div class="flex flex-col">
-                    <span class="text-slate-100">{{ material.name }}</span>
-                    <span class="text-xs text-slate-400">ID: {{ material.id }}</span>
+                  <div class="flex items-center gap-2">
+                    <MaterialIcon :name="material.name" variant="sm" />
+                    <div class="flex flex-col min-w-0">
+                      <span class="text-slate-100 truncate">{{ material.name }}</span>
+                      <span class="text-xs text-slate-400">ID: {{ material.id }}</span>
+                    </div>
                   </div>
                 </td>
-                  <!-- Material Name with Icon -->
-                  <td class="py-2 px-3">
-                    <div class="flex items-center gap-2">
-                      <MaterialIcon :name="material.name" variant="sm" />
-                      <div class="flex flex-col min-w-0">
-                        <span class="text-slate-100 truncate">{{ material.name }}</span>
-                        <span class="text-xs text-slate-400">ID: {{ material.id }}</span>
-                      </div>
-                    </div>
-                  </td>
 
                 <!-- Price Mode -->
                 <td class="text-center py-2 px-3">
