@@ -227,8 +227,8 @@ async function ensureMarketPrices(force = false): Promise<void> {
     priceStore.error = null
     const world = getWorld()
     saveMarketCache(world, data)
-  } catch (error: any) {
-    priceStore.error = error?.message ?? 'Failed to fetch prices'
+  } catch (error: unknown) {
+    priceStore.error = error instanceof Error ? error.message : 'Failed to fetch prices'
   } finally {
     priceStore.loading = false
   }

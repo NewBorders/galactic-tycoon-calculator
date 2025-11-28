@@ -5,7 +5,7 @@ import { fetchCompanyBases } from '@/v2/services/api/warehouseService'
 import { translate } from '@/v2/localisation'
 import type { PlayerBase } from '@/v2/services/playerBases'
 
-const props = defineProps<{
+defineProps<{
   bases: PlayerBase[]
 }>()
 

@@ -10,7 +10,7 @@ function numericLocaleFromDocument(): string {
       return 'de-DE'
     }
     return docLang || 'en-US'
-  } catch (e) {
+  } catch {
     return 'en-US'
   }
 }

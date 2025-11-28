@@ -1,6 +1,28 @@
 # Development Handoff Document
 
-## 🎯 LATEST (Nov 28, 2025): Material Icons + Table UX Fixes — COMPLETED ✅
+## 🎯 LATEST (Nov 28, 2025): V2 Lint Cleanup + Final Sprite — COMPLETED ✅
+
+**STATUS: V2 lint-clean, final sprite in public, checks green**
+
+### Changes
+- V2 ESLint bereinigt (keine Errors/Warnungen in V2):
+   - `src/v2/AppV2.vue`: `any` entfernt, strikteres Error-Handling.
+   - `src/v2/pages/player-config/components/LoadBasesButton.vue`: ungenutztes `props` entfernt.
+   - `src/v2/services/gamedata/extractRawGameData.ts`: generisches `fetchJson<T>`, `extractRaw()` typisiert.
+   - `src/v2/services/gamedata/prices.ts`: `catch unknown` + sichere Fehlermeldung.
+   - `src/v2/utils/formatNumber.ts`: ungenutzte Catch-Variable entfernt.
+- Finales SVG-Sprite ersetzt:
+   - Quelle: `v2/galactic_tycoon_sprites.svg`
+   - Ziel: `public/galactic_tycoon_sprites.svg` (App referenziert `/galactic_tycoon_sprites.svg`).
+
+### Checks
+- Type-Check: OK.
+- Tests: 100/100.
+- ESLint: Nur V1 meldet noch Fehler; V2 ist sauber.
+
+---
+
+## 🎯 PREVIOUS (Nov 28, 2025): Material Icons + Table UX Fixes — COMPLETED ✅
 
 **STATUS: Icons integrated across V2, tooltip parsing fixed, tests passing**
 

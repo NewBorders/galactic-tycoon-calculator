@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { loadGameData } from './services/gamedata/service'
+import type { GameData, GdIndex } from './services/gamedata/service'
 import { translate } from './localisation'
 import { getWorld } from './services/api/apiKeyManager'
 import { resetPriceCache } from './services/gamedata/prices'
@@ -13,8 +14,8 @@ type Tab = 'bases' | 'technology' | 'config' | 'market'
 const LS_KEY = 'gt:v2:activeTab'
 
 const active = ref<Tab>('bases')
-const gd = ref<any>(null)
-const gdIndex = ref<any>(null)
+const gd = ref<GameData | null>(null)
+const gdIndex = ref<GdIndex | null>(null)
 const gdLoadedAt = ref<number | null>(null)
 const loading = ref(false)
 const err = ref<string | null>(null)
@@ -29,8 +30,8 @@ onMounted(async () => {
     gd.value = data
     gdIndex.value = index
     gdLoadedAt.value = loadedAt
-  } catch (e: any) {
-    err.value = e?.message ?? 'error'
+  } catch (e: unknown) {
+    err.value = e instanceof Error ? e.message : 'error'
   } finally {
     loading.value = false
   }
@@ -49,8 +50,8 @@ watch(getWorld, async () => {
     gd.value = result.data
     gdIndex.value = result.index
     gdLoadedAt.value = result.loadedAt
-  } catch (e: any) {
-    err.value = e?.message ?? 'error'
+  } catch (e: unknown) {
+    err.value = e instanceof Error ? e.message : 'error'
   } finally {
     loading.value = false
   }

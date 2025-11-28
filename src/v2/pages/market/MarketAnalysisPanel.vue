@@ -21,7 +21,7 @@ const {
   error,
   lastUpdated,
   fetch,
-  
+
 } = useMarketAnalysis({ world: world.value })
 
 // Auto-refresh interval (5 minutes)
