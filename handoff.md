@@ -48,11 +48,14 @@
 
 ## 🎯 PREVIOUS (Nov 28, 2025): Dynamic Sprite Index + Icon Coverage — COMPLETED ✅
 ### PR #57 Review Notes
-- MarketAnalysisPanel: time label should use locale datetime → changed
-- Remove unused helper `formatTimeAgo` → changed
-- Import fix: use `getCurrentLocale` instead of `getLocale` in dates → changed
-- Lint: ensure V2 clean, exclude legacy V1 & add-tiers.js → changed
-- Icon resolution: favor dynamic sprite index before expanding overrides → obsolete (superseded by new `spriteIndex.ts`)
+- MarketAnalysisPanel: time label uses locale datetime → **DONE**
+- Remove unused helper `formatTimeAgo` → **DONE**
+- Import fix: use `getCurrentLocale` instead of `getLocale` in dates → **DONE**
+- Lint: ensure V2 clean, exclude legacy V1 & add-tiers.js → **DONE**
+- Icon resolution: favor dynamic sprite index before expanding overrides → **OBSOLETE** (superseded by new `spriteIndex.ts`)
+- PriceManagement duplicate Material column bug → **DONE** (removed duplicate cell)
+- Test imports using removed `resolveIconIdFromName` → **DONE** (updated to use `resolveIconId` from spriteIndex)
+- Code refactoring: formatting helpers, sprite loading optimization → **DONE**
 
 
 **STATUS: Icon resolution is robust; tests and type-check green**

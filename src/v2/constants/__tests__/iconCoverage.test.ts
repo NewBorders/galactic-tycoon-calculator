@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { resolveIconIdFromName } from '../iconOverrides'
+import { resolveIconId } from '../spriteIndex'
 
 type FallbackGameData = {
   materials: Array<{ id: number; name: string }>
@@ -26,7 +26,7 @@ describe('icon coverage snapshot (non-failing)', () => {
 
     const missing: Array<{ id: number; name: string; resolved: string }> = []
     materials.forEach((m) => {
-      const resolved = resolveIconIdFromName(m.name)
+      const resolved = resolveIconId(m.name)
       if (!svgIds.has(resolved)) {
         missing.push({ id: m.id, name: m.name, resolved })
       }
