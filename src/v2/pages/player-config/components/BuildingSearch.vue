@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { Building } from '@/v2/services/gamedata/types'
 import { translate } from '@/v2/localisation'
+import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
 const props = defineProps<{ buildings: Building[] }>()
 const emit = defineEmits<{ select: [b: Building] }>()
@@ -38,7 +39,10 @@ function choose(b: Building) {
           class="w-full text-left p-3 hover:bg-slate-700 grid grid-cols-3 gap-2"
           @click="choose(b)"
         >
-          <div class="font-medium truncate">{{ b.name }}</div>
+          <div class="font-medium truncate inline-flex items-center gap-1">
+            <MaterialIcon :name="b.name" variant="md" />
+            <span class="truncate">{{ b.name }}</span>
+          </div>
           <div class="text-xs text-slate-400">Tier {{ b.tier }} • Spec {{ b.specialization }}</div>
           <div class="text-xs text-slate-500 truncate">
             Needs: {{ b.workersNeeded?.worker ?? 0 }}/{{ b.workersNeeded?.technician ?? 0 }}/{{

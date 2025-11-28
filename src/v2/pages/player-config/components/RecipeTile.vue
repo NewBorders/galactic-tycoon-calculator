@@ -122,7 +122,10 @@ function tierLabel(tier: number) {
       <div class="flex-1 min-w-0">
         <div class="flex items-start gap-2">
           <div class="flex-1 min-w-0">
-            <div class="font-semibold truncate">{{ recipe.output.name }}</div>
+            <div class="font-semibold truncate inline-flex items-center gap-1">
+              <MaterialIcon :name="recipe.output.name" variant="md" />
+              <span class="truncate">{{ recipe.output.name }}</span>
+            </div>
             <div class="text-xs text-slate-400">{{ buildingName }}</div>
             <div class="text-xs" :class="hasTechnology ? 'text-slate-500' : 'text-amber-300'">
               {{ translate('technologyLevel') }}: {{ technologyLevel }} / Req. {{ requiredTech }}

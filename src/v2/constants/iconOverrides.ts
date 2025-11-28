@@ -43,7 +43,21 @@ export const MATERIAL_ICON_OVERRIDES: Record<string, string> = {
   "Medicine Shipment": "N_A",
   "Scientific Instruments Shipment": "N_A",
   "Ship Parts Shipment": "N_A",
-    "TEMP": "N_A",
+  "TEMP": "N_A",
+}
+
+// Buildings-specific overrides (same resolution logic; kept separate for curation)
+export const BUILDING_ICON_OVERRIDES: Record<string, string> = {
+  "Assembly Plant": "BasicAssemblyPlant",
+  "Chemical Plant": "ChemistryPlant",
+  "Micronics Factory": "MicroelectronicsFactory",
+  "Quantum Nexus": "QuantumComputingCenter",
+}
+
+// Combined overrides used by the resolver
+export const ALL_ICON_OVERRIDES: Record<string, string> = {
+  ...BUILDING_ICON_OVERRIDES,
+  ...MATERIAL_ICON_OVERRIDES,
 }
 
 // Default normalization: remove whitespace only (preserve original casing/characters)
@@ -54,7 +68,7 @@ export function normalizeIconId(name: string): string {
 export function resolveIconIdFromName(materialName: string): string {
   if (!materialName) return '_fallback'
   // 1) Manual override wins
-  const override = MATERIAL_ICON_OVERRIDES[materialName]
+  const override = ALL_ICON_OVERRIDES[materialName]
   if (override) return override
   // 2) Default normalization: remove spaces only
   return normalizeIconId(materialName)

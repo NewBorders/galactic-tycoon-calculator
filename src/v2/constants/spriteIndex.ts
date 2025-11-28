@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { MATERIAL_ICON_OVERRIDES, normalizeIconId } from './iconOverrides'
+import { ALL_ICON_OVERRIDES, normalizeIconId } from './iconOverrides'
 
 const loaded = ref(false)
 const symbolIds = new Set<string>()
@@ -39,7 +39,7 @@ export function ensureSpriteIndexLoaded(): void {
 export function resolveIconId(name: string): string {
   if (!name) return '_fallback'
   // 1) manual overrides
-  const o = MATERIAL_ICON_OVERRIDES[name]
+  const o = ALL_ICON_OVERRIDES[name]
   if (o) return o
   // 2) direct candidate: remove spaces only
   const candidate = normalizeIconId(name)
