@@ -5,7 +5,7 @@
 
 import { ref, computed } from 'vue'
 import {
-  fetchMarketOpportunities,
+  fetchMarketOpportunitiesWithTs,
   filterOpportunities,
   sortByOpportunityScore,
   type MarketOpportunity,
@@ -34,17 +34,12 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
     error.value = null
 
     try {
-      const data = await fetchMarketOpportunities({
+      const { opportunities: data, ts } = await fetchMarketOpportunitiesWithTs({
         ...options,
         forceRefresh,
       })
-      console.log('[Market Analysis] Composable received:', {
-        dataLength: data.length,
-        options,
-        forceRefresh
-      })
       opportunities.value = data
-      lastUpdated.value = Date.now()
+      lastUpdated.value = ts
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to fetch market data'
 
@@ -53,11 +48,8 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
         error.value = errorMessage
       } else {
         // Show warning but keep displaying cached data
-        console.warn('[Market Analysis] API error, keeping cached data:', errorMessage)
         error.value = `⚠️ Using cached data - ${errorMessage}`
       }
-
-      console.error('Market analysis fetch error:', e)
     } finally {
       loading.value = false
     }

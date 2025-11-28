@@ -1,3 +1,14 @@
+/* Icon size variables for consistent sizing across v2 */
+:root {
+	--icon-size-sm: 14px;
+	--icon-size-md: 16px;
+	--icon-size-lg: 18px;
+}
+
+.icon-sm { width: var(--icon-size-sm); height: var(--icon-size-sm); }
+.icon-md { width: var(--icon-size-md); height: var(--icon-size-md); }
+.icon-lg { width: var(--icon-size-lg); height: var(--icon-size-lg); }
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

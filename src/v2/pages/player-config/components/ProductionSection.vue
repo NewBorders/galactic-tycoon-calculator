@@ -10,6 +10,7 @@ import { evaluateRecipeAvailability } from '@/v2/services/production/availabilit
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation'
 import RecipeTile from './RecipeTile.vue'
+import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
 const props = defineProps<{
   base: PlayerBase
@@ -286,25 +287,26 @@ watch(
             @click="addRecipe(item.recipe)"
           >
             <div class="flex items-center gap-2">
-              <div class="font-medium truncate">
-                {{ formatNumber(item.output.amount) }} × {{ item.output.name }}
+              <div class="font-medium truncate inline-flex items-center gap-1">
+                {{ formatNumber(item.output.amount) }} ×
+                <MaterialIcon :name="item.output.name" variant="md" />
+                <span class="truncate">{{ item.output.name }}</span>
               </div>
               <span class="text-xs text-slate-400">→ {{ item.buildingName }}</span>
               <span v-if="item.alreadySelected" class="text-xs text-amber-300">
                 {{ translate('alreadyAdded') }}
               </span>
             </div>
-            <div class="text-xs text-slate-400 flex flex-wrap gap-1">
+            <div class="text-xs text-slate-400 flex flex-wrap items-center gap-2">
               <span>{{ inputsPerHoursLabel }}:</span>
-              <span class="text-slate-300">
-                {{
-                  item.inputs.length
-                    ? item.inputs
-                        .map((i) => `${formatNumber(i.amount)} × ${i.name}`)
-                        .join(', ')
-                    : '—'
-                }}
-              </span>
+              <template v-if="item.inputs.length">
+                <span v-for="i in item.inputs" :key="i.name" class="inline-flex items-center gap-1 text-slate-300">
+                  {{ formatNumber(i.amount) }} ×
+                  <MaterialIcon :name="i.name" variant="sm" />
+                  <span>{{ i.name }}</span>
+                </span>
+              </template>
+              <span v-else class="text-slate-500">—</span>
             </div>
             <div class="text-xs text-slate-500">
               {{ runsPerHoursLabel }}: {{ formatNumber(item.runsPerPeriod) }}

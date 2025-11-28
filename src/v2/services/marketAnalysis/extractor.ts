@@ -45,7 +45,7 @@ export async function extractMarketDetails(
   apiKey: string,
   world: World = 'g2',
   forceRefresh = false,
-): Promise<{ data: MaterialDetailsRaw[]; source: 'api' | 'cache' }> {
+): Promise<{ data: MaterialDetailsRaw[]; source: 'api' | 'cache'; ts: number }> {
   // Create cache key that includes both world and API key
   // This prevents returning cached data from different account after API key change
   const cacheKey = `${world}:${apiKey}`
@@ -53,7 +53,7 @@ export async function extractMarketDetails(
   // Check cache first
   const cached = cache.marketDetails.get(cacheKey)
   if (!forceRefresh && cached && isCacheValid(cached.ts, CACHE_CONFIG.MARKET_DETAILS_TTL_MS)) {
-    return { data: cached.data, source: 'cache' }
+    return { data: cached.data, source: 'cache', ts: cached.ts }
   }
 
   try {
@@ -81,31 +81,22 @@ export async function extractMarketDetails(
     // Extract materials array
     const materials = apiResponse.materials ?? []
 
-    console.log('[Market Analysis] API Response:', {
-      totalMaterials: materials.length,
-      world,
-      sampleMaterial: materials[0] ? {
-        matId: materials[0].matId,
-        matName: materials[0].matName,
-        currentPrice: materials[0].currentPrice,
-        avgPrice: materials[0].avgPrice,
-        historyLength: materials[0].priceHistory?.length
-      } : null
-    })
+    // Debug logging removed
 
     // Update cache with world+apikey as key
+    const now = Date.now()
     cache.marketDetails.set(cacheKey, {
       data: materials,
-      ts: Date.now(),
+      ts: now,
     })
 
-    return { data: materials, source: 'api' }
+    return { data: materials, source: 'api', ts: now }
   } catch (error) {
     // If API fails and we have stale cache, return it (especially for rate limits)
     if (cached) {
       const cacheAgeMinutes = Math.floor((Date.now() - cached.ts) / 60000)
       console.warn(`[Market Analysis] API failed, returning cached data (${cacheAgeMinutes}min old)`, error)
-      return { data: cached.data, source: 'cache' }
+        return { data: cached.data, source: 'cache', ts: cached.ts }
     }
 
     throw error

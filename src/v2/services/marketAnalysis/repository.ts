@@ -27,25 +27,30 @@ export async function fetchMarketOpportunities(
   // Extract raw data from API
   const { data: rawMaterials } = await extractMarketDetails(apiKey, world, forceRefresh)
 
-  console.log('[Market Analysis] Repository:', {
-    rawMaterialsCount: rawMaterials.length,
-    world,
-    forceRefresh
-  })
+  // Debug logging removed
 
   // Transform to domain models
   const opportunities = transformMarketData(rawMaterials)
 
-  console.log('[Market Analysis] Transformed:', {
-    opportunitiesCount: opportunities.length,
-    sampleOpportunity: opportunities[0] ? {
-      materialId: opportunities[0].materialId,
-      score: opportunities[0].opportunityScore,
-      recommendation: opportunities[0].recommendation
-    } : null
-  })
+  // Debug logging removed
 
   return opportunities
+}
+
+/**
+ * Fetch opportunities with last updated timestamp
+ */
+export async function fetchMarketOpportunitiesWithTs(
+  options: FetchMarketDetailsOptions = {},
+): Promise<{ opportunities: MarketOpportunity[]; ts: number }> {
+  const { world = 'g2', forceRefresh = false } = options
+  const apiKey = getApiKey()
+  if (!apiKey) {
+    throw new Error('API key is required. Please configure it in the Config tab.')
+  }
+  const { data: rawMaterials, ts } = await extractMarketDetails(apiKey, world, forceRefresh)
+  const opportunities = transformMarketData(rawMaterials)
+  return { opportunities, ts }
 }
 
 /**

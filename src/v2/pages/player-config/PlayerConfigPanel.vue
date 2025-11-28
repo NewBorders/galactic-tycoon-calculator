@@ -62,16 +62,18 @@ const globalWorkforceBurden = computed(() => {
   state.value.bases.forEach((base) => {
     const assignment = {
       planetId: base.planetId,
-      buildings: base.buildings.map((b) => ({
+      buildings: (base.buildings ?? []).map((b: { buildingId: number; level: number }) => ({
         buildingId: b.buildingId,
         level: b.level,
       })),
-      recipes: base.recipes.map((r) => ({
+      recipes: (base.recipes ?? []).map((r: { id: string; recipeId: number; count?: number }) => ({
         recipeId: r.recipeId,
         count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(1, Math.floor(r.count)) : 1,
       })),
     }
-    const activeOptionalConsumables = new Set((base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'))
+    const activeOptionalConsumables = new Set(
+      (base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'),
+    )
 
     const report = computeBaseReport(props.gameData, {
       assignment,
@@ -279,15 +281,10 @@ function handleStocksLoaded(
     stock: Record<number, number>
   }>,
 ) {
-  console.log('[PlayerConfigPanel] handleStocksLoaded received:', stocks)
   stocks.forEach((warehouseData) => {
-    console.log(
-      `[PlayerConfigPanel] Updating base ${warehouseData.gameBaseId} with ${Object.keys(warehouseData.stock).length} materials`,
-    )
     updateBaseStockFromApi(warehouseData.gameBaseId, warehouseData.stock)
   })
   persist()
-  console.log('[PlayerConfigPanel] All warehouse stocks saved to localStorage')
 }
 
 // Manual import of full base (buildings + production orders) from game API
@@ -296,7 +293,6 @@ async function handleImportBase(base: typeof state.value.bases[0]) {
   const key = getApiKey()
   if (!key) {
     importError.value = translate('apiKeyNotConfigured')
-    console.error('[ImportBase] API key not configured')
     return
   }
 
@@ -315,12 +311,10 @@ async function handleImportBase(base: typeof state.value.bases[0]) {
     const localBase = state.value.bases.find((b: typeof state.value.bases[0]) => b.id === base.id)
     if (!localBase) {
       importError.value = translate('importBaseError')
-      console.error('[ImportBase] Base not found after refresh')
       return
     }
     if (!localBase.gameBaseId) {
       importError.value = translate('importBaseError')
-      console.error('[ImportBase] Could not determine gameBaseId after refresh')
       return
     }
 
@@ -334,7 +328,6 @@ async function handleImportBase(base: typeof state.value.bases[0]) {
     } else {
       persist()
       importSuccess.value = translate('importBaseSuccess')
-      console.log('[ImportBase] Base imported successfully')
       // Clear success message after 5 seconds
       setTimeout(() => {
         importSuccess.value = null
@@ -342,7 +335,6 @@ async function handleImportBase(base: typeof state.value.bases[0]) {
     }
   } catch (e) {
     importError.value = `${translate('importBaseError')}: ${e instanceof Error ? e.message : String(e)}`
-    console.error('[ImportBase] Failed to fetch base details:', e)
   } finally {
     importLoading.value = null
   }

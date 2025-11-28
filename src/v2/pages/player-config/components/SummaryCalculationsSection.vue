@@ -5,6 +5,7 @@ import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { translate } from '@/v2/localisation'
+import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
 const props = defineProps<{
   base: PlayerBase
@@ -183,6 +184,21 @@ function tierLabel(tier: number) {
   }
 }
 
+function tierIconName(tier: number) {
+  switch (tier) {
+    case 1:
+      return 'Worker'
+    case 2:
+      return 'Technician'
+    case 3:
+      return 'Engineer'
+    case 4:
+      return 'Scientist'
+    default:
+      return 'Worker'
+  }
+}
+
 function coverageClass(value: number) {
   if (value >= 0.99) return 'text-emerald-300'
   if (value >= 0.75) return 'text-amber-300'
@@ -244,9 +260,10 @@ onBeforeUnmount(() => {
           <tbody>
             <tr v-for="row in materialRows" :key="row.materialId" class="border-t border-slate-800/60">
               <td class="py-1">
-                <a v-bind:href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline">
-                {{ materialName(row.materialId) }}
-              </a>
+                <a v-bind:href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
+                  <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
+                  <span>{{ materialName(row.materialId) }}</span>
+                </a>
               </td>
               <td
                 class="py-1 text-right"
@@ -300,8 +317,9 @@ onBeforeUnmount(() => {
                 :checked="isOptionalActive(opt.materialId)"
                 @change="toggleOptional(opt.materialId)"
               />
-              <span class="text-slate-300">
-                {{ materialName(opt.materialId) }} ({{ formatNumber(opt.amount) }})
+              <span class="text-slate-300 inline-flex items-center gap-1">
+                <MaterialIcon :name="materialName(opt.materialId)" variant="sm" />
+                <span>{{ materialName(opt.materialId) }} ({{ formatNumber(opt.amount) }})</span>
               </span>
             </label>
           </div>
@@ -325,9 +343,16 @@ onBeforeUnmount(() => {
               class="border-t border-slate-800/60"
               :class="{ 'opacity-60': row.optional && !row.active }"
             >
-              <td class="py-1 text-slate-400">{{ tierLabel(row.tier) }}</td>
+              <td class="py-1 text-slate-400">
+                <span class="inline-flex items-center" :title="`${tierIconName(row.tier)} (${tierLabel(row.tier)})`">
+                  <MaterialIcon :name="tierIconName(row.tier)" variant="sm" />
+                </span>
+              </td>
               <td class="py-1">
-                {{ materialName(row.materialId) }}
+                <span class="inline-flex items-center gap-1">
+                  <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
+                  <span>{{ materialName(row.materialId) }}</span>
+                </span>
                 <span
                   v-if="row.optional"
                   class="ml-2 text-[11px]"
@@ -365,7 +390,11 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
             <tr v-for="row in workforceSummary" :key="row.tier" class="border-t border-slate-800/60">
-              <td class="py-1 text-slate-400">{{ tierLabel(row.tier) }}</td>
+              <td class="py-1 text-slate-400">
+                <span class="inline-flex items-center" :title="`${tierIconName(row.tier)} (${tierLabel(row.tier)})`">
+                  <MaterialIcon :name="tierIconName(row.tier)" variant="sm" />
+                </span>
+              </td>
               <td class="py-1 text-right">{{ formatNumber(row.required, 0) }}</td>
               <td class="py-1 text-right">{{ formatNumber(row.housing, 0) }}</td>
               <td class="py-1 text-right" :class="coverageClass(row.coverage)">

@@ -1,5 +1,169 @@
 # Development Handoff Document
 
+## 🎯 LATEST (Nov 28, 2025): Code Refactoring & Optimization — COMPLETED ✅
+
+**STATUS: Cleaner, more maintainable code; tests and type-check green**
+
+### Refactorings Applied
+
+#### 1. Formatting Logic Consolidation
+- **Before**: MarketAnalysisPanel had local wrapper functions (`formatNumber`, `formatPercent`, `formatPrice`) that duplicated localisation utilities.
+- **After**: Directly use `formatInteger`, `formatDecimal`, `formatPercentLocale` from `@/v2/localisation/numbers`; added slim helpers for cents→dollars conversion.
+- **Benefit**: Single source of truth for number formatting; reduced code duplication.
+
+#### 2. Icon Resolution Simplification
+- **Before**: Two separate resolvers: `iconOverrides.ts::resolveIconIdFromName()` and `spriteIndex.ts::resolveIconId()`.
+- **After**: Removed `resolveIconIdFromName`; all components now use `spriteIndex.ts::resolveIconId()` as single resolver.
+- **Benefit**: Unified resolution logic; easier to maintain overrides and dynamic sprite index.
+
+#### 3. Sprite Index Loading Optimization
+- **Before**: Simple boolean flag `started` prevented re-init; no error recovery or caching.
+- **After**: 
+  - Promise-based loading with `loadPromise` cache to prevent duplicate fetches.
+  - Automatic retry on error (clears `loadPromise` on failure).
+  - Added `cache: 'force-cache'` header hint for browser caching.
+- **Benefit**: Robust loading, retry on transient errors, performance boost from browser cache.
+
+#### 4. Production Console Cleanup
+- **Before**: `useMarketAnalysis.ts` had `console.warn` on API error with cached data.
+- **After**: Removed console noise; error message shown in UI via `error.value` ref.
+- **Benefit**: Cleaner production logs; user-facing warning preserved in UI.
+
+### Files Modified
+- `src/v2/pages/market/MarketAnalysisPanel.vue` — refactored formatting helpers
+- `src/v2/composables/useMarketAnalysis.ts` — removed console.warn
+- `src/v2/constants/spriteIndex.ts` — Promise caching, retry logic
+- `src/v2/constants/iconOverrides.ts` — removed redundant resolver
+
+### Validation
+- Type-Check: OK (`vue-tsc --build`).
+- Lint: OK (ESLint clean).
+- Tests: 104/104 passing (existing integration/unit tests confirm no regression).
+
+### Next
+- Monitor sprite index performance in production; consider adding preload hints if critical.
+- Optionally expand icon overrides as new materials are added to the game.
+
+---
+
+## 🎯 PREVIOUS (Nov 28, 2025): Dynamic Sprite Index + Icon Coverage — COMPLETED ✅
+### PR #57 Review Notes
+- MarketAnalysisPanel: time label uses locale datetime → **DONE**
+- Remove unused helper `formatTimeAgo` → **DONE**
+- Import fix: use `getCurrentLocale` instead of `getLocale` in dates → **DONE**
+- Lint: ensure V2 clean, exclude legacy V1 & add-tiers.js → **DONE**
+- Icon resolution: favor dynamic sprite index before expanding overrides → **OBSOLETE** (superseded by new `spriteIndex.ts`)
+- PriceManagement duplicate Material column bug → **DONE** (removed duplicate cell)
+- Test imports using removed `resolveIconIdFromName` → **DONE** (updated to use `resolveIconId` from spriteIndex)
+- Code refactoring: formatting helpers, sprite loading optimization → **DONE**
+
+
+**STATUS: Icon resolution is robust; tests and type-check green**
+
+### What’s New
+- Runtime sprite indexing to maximize icon coverage:
+   - Added `src/v2/constants/spriteIndex.ts` to fetch `/galactic_tycoon_sprites.svg`, index `<symbol id>` entries, and expose a normalized lookup map.
+   - Exported `spriteIndexReady` (ref) so components recompute once the sprite index is ready.
+   - `resolveIconId()` now tries: manual overrides → space-only normalization → dynamic index match.
+- `src/v2/components/MaterialIcon.vue` updated to use the dynamic resolver and react to `spriteIndexReady`.
+- Informational coverage test added:
+   - `src/v2/constants/__tests__/iconCoverage.test.ts` parses the sprite and reports a small sample of unmapped materials to guide manual overrides.
+
+### Normalization & Overrides
+- Default normalization removes spaces only (e.g., `"Advanced Research Data" → "AdvancedResearchData"`).
+- Manual overrides remain in `src/v2/constants/iconOverrides.ts` (e.g., `Iron → IronBar`, `Tools → BasicTools`).
+- Dynamic sprite index bridges most remaining differences (case or small character variations) without growing the override map.
+
+### Validation
+- Type-Check: OK (`docker compose exec web npm run type-check`).
+- Tests: 104/104 passing (`docker compose exec web npm test -- --run`).
+- Lint: V2 clean; V1 nun explizit vom Lint ausgeschlossen; verbleibend nur `add-tiers.js` (CommonJS) Fehler.
+
+### Next
+- If desired, expand `MATERIAL_ICON_OVERRIDES` with entries from the coverage test’s sample list.
+- Optionally export a fuller `missing-icons.md` report for ongoing curation.
+
+### Additions (Report & Overrides)
+- Script `scripts/generate-missing-icons.mjs` erzeugt vollständigen Report und ergänzt Overrides:
+   - Output: `missing-icons.md` (alphabetisch, Name → Resolved ID)
+   - Aktualisiert: `src/v2/constants/iconOverrides.ts` — fehlende Materialien alphabetisch mit Zielwert `'N/A'` ergänzt.
+
+---
+
+## 🎯 LATEST (Nov 28, 2025): V2 Lint Cleanup + Final Sprite — COMPLETED ✅
+
+**STATUS: V2 lint-clean, final sprite in public, checks green**
+
+### Changes
+- V2 ESLint bereinigt (keine Errors/Warnungen in V2):
+   - `src/v2/AppV2.vue`: `any` entfernt, strikteres Error-Handling.
+   - `src/v2/pages/player-config/components/LoadBasesButton.vue`: ungenutztes `props` entfernt.
+   - `src/v2/services/gamedata/extractRawGameData.ts`: generisches `fetchJson<T>`, `extractRaw()` typisiert.
+   - `src/v2/services/gamedata/prices.ts`: `catch unknown` + sichere Fehlermeldung.
+   - `src/v2/utils/formatNumber.ts`: ungenutzte Catch-Variable entfernt.
+- Finales SVG-Sprite ersetzt:
+   - Quelle: `v2/galactic_tycoon_sprites.svg`
+   - Ziel: `public/galactic_tycoon_sprites.svg` (App referenziert `/galactic_tycoon_sprites.svg`).
+
+### Icon Mapping & Normalization
+- Neu: `src/v2/constants/iconOverrides.ts`
+   - `resolveIconIdFromName(name)`: nutzt Overrides, sonst PascalCase-Normalisierung (entfernt Leerzeichen/ Sonderzeichen)
+   - Overrides enthalten u. a.: `Iron → IronBar`, `Tools → BasicTools`, `Advanced Research Data → AdvancedResearchData`
+- `MaterialIcon.vue` nutzt nun den Resolver, damit mehr Symbole korrekt angezeigt werden.
+- Tests: `src/v2/constants/__tests__/iconOverrides.test.ts` (PascalCase/Overrides/Fallback)
+
+### Checks
+- Type-Check: OK.
+- Tests: 100/100.
+- ESLint: Nur V1 meldet noch Fehler; V2 ist sauber.
+
+---
+
+## 🎯 PREVIOUS (Nov 28, 2025): Material Icons + Table UX Fixes — COMPLETED ✅
+
+**STATUS: Icons integrated across V2, tooltip parsing fixed, tests passing**
+
+### What’s Done
+- Added `src/v2/components/MaterialIcon.vue` using the SVG sprite (`/galactic_tycoon_sprites.svg#<name>`), with size variants (`sm`, `md`, `lg`).
+- Integrated icons in key V2 views:
+   - `src/v2/pages/market/MarketAnalysisPanel.vue` — icon next to material names.
+   - `src/v2/pages/player-config/components/RecipeTile.vue` — icons for inputs/outputs.
+   - `src/v2/pages/player-config/components/ProductionSection.vue` — icons in search suggestions.
+   - `src/v2/pages/config/components/PriceManagement.vue` — icons in pricing table.
+- Added CSS size variables/classes in `src/v2/style.css` for consistent icon sizing.
+- Ensured sprite exists at `public/galactic_tycoon_sprites.svg` and referenced with absolute path `/galactic_tycoon_sprites.svg`.
+
+### Lint/UX Fixes
+- Escaped raw `<` sequences inside tooltip texts in `MarketAnalysisPanel.vue` (`&lt;1d`, `&lt;$50k/day`, `&lt;20`) to fix `vue/no-parsing-error`.
+- Removed unused values from `useMarketAnalysis` destructuring and unused helper functions in `MarketAnalysisPanel.vue`.
+
+### Validation
+- Type-check: `docker compose exec web npm run type-check` → passed.
+- Tests: `docker compose exec web npm test -- --run` → 100/100 tests passed.
+- ESLint: Remaining issues (36) are outside touched files (mainly legacy v1). Parsing errors in `MarketAnalysisPanel.vue` resolved.
+
+### Additional Fixes (Nov 28)
+- Removed unnecessary `console.log`/`console.error` across V2 to keep console clean:
+   - `src/v2/pages/market/MarketAnalysisPanel.vue` (auto-refresh log)
+   - `src/v2/composables/useMarketAnalysis.ts`
+   - `src/v2/services/marketAnalysis/{extractor.ts,repository.ts}`
+   - `src/v2/pages/player-config/{PlayerConfigPanel.vue}`
+   - `src/v2/pages/player-config/components/{ApiSyncPanel.vue,LoadBasesButton.vue}`
+- Fixed “Updated: 0s ago” not progressing by adding a UI tick:
+   - `MarketAnalysisPanel.vue`: `nowTick` + interval every 30s; computed `lastUpdatedLabel` re-renders time-ago.
+- Repaired a corrupted block in `PlayerConfigPanel.vue` (global workforce burden):
+   - Reconstructed `assignment` (includes `planetId`, buildings, recipes), mapped safe `count`, and summed `workforceSummary`.
+   - Type-check confirmed on this module.
+
+### Pending
+- Replace placeholder sprite at `public/galactic_tycoon_sprites.svg` with the final asset (file currently not available in repo). Once provided, overwrite the file and verify icon IDs match material names.
+
+### Next
+- Replace placeholder `public/galactic_tycoon_sprites.svg` with the final asset if available.
+- Optionally integrate icons in additional V2 views (e.g., stock/market-detail) when material lists are present.
+
+---
+
 ## 🎯 LATEST (Nov 2025): Market Analysis Auto-Refresh & Caching - COMPLETED ✅
 
 **STATUS: Auto-refresh every 5 minutes with rate limit protection**

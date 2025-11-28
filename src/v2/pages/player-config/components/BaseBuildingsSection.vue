@@ -3,6 +3,7 @@ import Draggable from 'vuedraggable'
 import { computed } from 'vue'
 import type { Building } from '@/v2/services/gamedata/types'
 import type { PlayerBuilding } from '@/v2/services/playerBases'
+import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
 const props = defineProps<{
   baseId: string
@@ -38,7 +39,10 @@ const list = computed<PlayerBuilding[]>({
         <span class="dnd-handle-bld cursor-move px-2 py-1 border border-slate-700 rounded select-none">↕</span>
         <div class="flex-1 min-w-0">
           <div class="font-medium truncate">
-            {{ buildingById.get(inst.buildingId)?.name ?? ('#'+inst.buildingId) }}
+            <span class="inline-flex items-center gap-1">
+              <MaterialIcon :name="buildingById.get(inst.buildingId)?.name ?? ('#'+inst.buildingId)" variant="md" />
+              <span class="truncate">{{ buildingById.get(inst.buildingId)?.name ?? ('#'+inst.buildingId) }}</span>
+            </span>
           </div>
           <div class="text-xs text-slate-400">
             Tier {{ buildingById.get(inst.buildingId)?.tier ?? '-' }} • Spec {{ buildingById.get(inst.buildingId)?.specialization ?? '-' }}
