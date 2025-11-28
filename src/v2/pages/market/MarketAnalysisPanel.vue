@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useMarketAnalysis } from '../../composables/useMarketAnalysis'
+import MaterialIcon from '../../components/MaterialIcon.vue'
 import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
 import { translate } from '../../localisation'
@@ -232,8 +233,9 @@ const statsByRecommendation = computed(() => {
 
 // Auto-fetch on mount
 onMounted(() => {
-  fetch()
+  // Starte den Auto-Refresh sicher bevor der erste Fetch läuft
   setupAutoRefresh()
+  fetch()
 })
 
 // Cleanup on unmount
@@ -321,15 +323,15 @@ async function refresh() {
 
     <!-- Opportunities Table -->
     <div v-if="!loading && !error" class="bg-gray-800 rounded overflow-visible">
-      <div class="overflow-x-auto max-h-[max(200px,calc(100vh-400px))] overflow-y-auto rounded">
-        <table class="w-full text-sm">
+      <div class="overflow-x-hidden max-h-[max(200px,calc(100vh-400px))] overflow-y-auto rounded">
+        <table class="table-fixed w-full text-xs">
           <thead class="bg-gray-700 sticky top-0 z-20">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[32%] px-3 py-2 text-left text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 Material
               </th>
               <th
-                class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                class="w-[12%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('score')"
               >
                 <span class="flex items-center justify-center gap-1">
@@ -342,7 +344,7 @@ async function refresh() {
                   </span>
                 </span>
               </th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[14%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 <span class="flex items-center justify-end gap-1">
                   Avg Price
                   <span class="info-tooltip text-purple-400 cursor-help">
@@ -354,7 +356,7 @@ async function refresh() {
                 </span>
               </th>
               <th
-                class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                class="w-[14%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('demand')"
               >
                 <span class="flex items-center justify-center gap-1">
@@ -368,7 +370,7 @@ async function refresh() {
                 </span>
               </th>
               <th
-                class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                class="w-[14%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('revenue')"
               >
                 <span class="flex items-center justify-end gap-1">
@@ -381,7 +383,7 @@ async function refresh() {
                   </span>
                 </span>
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[14%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 <span class="flex items-center justify-center gap-1">
                   Supply
                   <span class="info-tooltip text-purple-400 cursor-help">
@@ -400,22 +402,27 @@ async function refresh() {
               :key="opp.materialId"
               class="hover:bg-gray-750 transition"
             >
-              <!-- Material Name -->
-              <td class="px-4 py-3 text-white font-medium">
-                {{ materialNames.get(opp.materialId) || `ID ${opp.materialId}` }}
+              <!-- Material Name with Icon -->
+              <td class="w-[32%] px-3 py-2 text-white font-medium truncate">
+                <div class="flex items-center gap-2 min-w-0">
+                  <MaterialIcon :name="materialNames.get(opp.materialId) || `ID ${opp.materialId}`" variant="lg" />
+                  <span class="block truncate" :title="materialNames.get(opp.materialId) || `ID ${opp.materialId}`">
+                    {{ materialNames.get(opp.materialId) || `ID ${opp.materialId}` }}
+                  </span>
+                </div>
               </td>
 
               <!-- Score & Recommendation Combined -->
-              <td class="px-4 py-3">
-                <div class="flex flex-col items-center gap-1">
+              <td class="w-[12%] px-3 py-2">
+                <div class="flex flex-col items-center gap-0.5">
                   <span
-                    class="text-2xl font-bold"
+                    class="text-xl font-bold"
                     :class="getScoreColor(opp.opportunityScore)"
                   >
                     {{ opp.opportunityScore }}
                   </span>
                   <span
-                    class="px-2 py-0.5 rounded text-xs font-semibold"
+                    class="px-1.5 py-0.5 rounded text-[11px] font-semibold"
                     :class="getRecommendationBgColor(opp.recommendation)"
                   >
                     {{ getRecommendationLabel(opp.recommendation) }}
@@ -424,13 +431,13 @@ async function refresh() {
               </td>
 
               <!-- Average Price with 7d Trend -->
-              <td class="px-4 py-3 text-right">
+              <td class="w-[14%] px-3 py-2 text-right whitespace-nowrap">
                 <div class="flex flex-col items-end gap-0.5">
-                  <span class="text-white font-mono font-semibold">
+                  <span class="text-white font-mono font-semibold text-sm">
                     {{ formatPrice(opp.priceTrend.avg7d) }}
                   </span>
                   <span
-                    class="text-xs font-mono font-semibold"
+                    class="text-[11px] font-mono font-semibold"
                     :class="opp.priceTrend.changePercent7d >= 0 ? 'text-green-400' : 'text-red-400'"
                   >
                     {{ opp.priceTrend.changePercent7d >= 0 ? '+' : '' }}{{ formatPercent(opp.priceTrend.changePercent7d) }}
@@ -439,32 +446,32 @@ async function refresh() {
               </td>
 
               <!-- Demand with Daily Volume -->
-              <td class="px-4 py-3 text-center">
-                <div class="flex flex-col items-center gap-1">
+              <td class="w-[14%] px-3 py-2 text-center whitespace-nowrap">
+                <div class="flex flex-col items-center gap-0.5">
                   <span
-                    class="inline-block px-2 py-1 rounded text-xs font-medium uppercase"
+                    class="inline-block px-2 py-0.5 rounded text-[11px] font-medium uppercase"
                     :class="getDemandColor(opp.demand.demandLevel)"
                   >
                     {{ getDemandLabel(opp.demand.demandLevel) }}
                   </span>
-                  <span class="text-xs text-gray-400">
+                  <span class="text-[11px] text-gray-400">
                     {{ formatNumber(Math.round(opp.demand.volumeAvgPerDay)) }} units/day
                   </span>
                 </div>
               </td>
 
               <!-- Revenue per Day -->
-              <td class="px-4 py-3 text-right text-white font-mono">
+              <td class="w-[14%] px-3 py-2 text-right text-white font-mono whitespace-nowrap text-sm">
                 {{ formatPrice(opp.demand.revenueAvgPerDay) }}
               </td>
 
               <!-- Saturation with Available Supply -->
-              <td class="px-4 py-3 text-center">
-                <div class="flex flex-col items-center gap-1">
-                  <span class="text-xs text-gray-400 uppercase">
+              <td class="w-[14%] px-3 py-2 text-center whitespace-nowrap">
+                <div class="flex flex-col items-center gap-0.5">
+                  <span class="text-[11px] text-gray-400 uppercase">
                     {{ opp.saturation.saturationLevel }}
                   </span>
-                  <div v-if="opp.saturation.qtyAvailable !== null" class="text-xs text-gray-500">
+                  <div v-if="opp.saturation.qtyAvailable !== null" class="text-[11px] text-gray-500">
                     {{ formatNumber(Math.round(opp.saturation.qtyAvailable)) }} available
                   </div>
                 </div>

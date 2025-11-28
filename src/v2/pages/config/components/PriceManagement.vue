@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { loadGameData, useMaterialPricing } from '@/v2/services/gamedata/service'
 import type { PriceMode } from '@/v2/services/gamedata/prices'
 import { formatPrice } from '@/v2/utils/formatNumber'
+import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
 // Load data and initialize pricing immediately
 const { data: gameData } = await loadGameData()
@@ -278,6 +279,16 @@ async function refreshPrices() {
                     <span class="text-xs text-slate-400">ID: {{ material.id }}</span>
                   </div>
                 </td>
+                  <!-- Material Name with Icon -->
+                  <td class="py-2 px-3">
+                    <div class="flex items-center gap-2">
+                      <MaterialIcon :name="material.name" variant="sm" />
+                      <div class="flex flex-col min-w-0">
+                        <span class="text-slate-100 truncate">{{ material.name }}</span>
+                        <span class="text-xs text-slate-400">ID: {{ material.id }}</span>
+                      </div>
+                    </div>
+                  </td>
 
                 <!-- Price Mode -->
                 <td class="text-center py-2 px-3">

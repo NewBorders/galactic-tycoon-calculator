@@ -1,0 +1,8 @@
+<!-- Placeholder sprite sheet. Replace with the provided galactic_tycoon_sprites.svg content. -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <!-- Example symbol (fallback) -->
+  <symbol id="_fallback" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10" fill="#4B5563"/>
+    <text x="12" y="16" text-anchor="middle" font-size="10" fill="#E5E7EB">?</text>
+  </symbol>
+</svg>

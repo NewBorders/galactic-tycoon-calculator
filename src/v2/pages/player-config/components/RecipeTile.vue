@@ -4,6 +4,7 @@ import { formatNumber } from '@/v2/utils/formatNumber'
 import type { Recipe } from '@/v2/services/gamedata/types'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation'
+import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
 const props = defineProps<{
   recipe: Recipe
@@ -186,15 +187,21 @@ function tierLabel(tier: number) {
           <div>
             {{ translate('outputPerHours', { hours: displayHours }) }}:
             <span class="text-emerald-300">{{ formatNumber(outputPerPeriod) }}</span>
-            × {{ recipe.output.name }}
+            ×
+            <span class="inline-flex items-center gap-1">
+              <MaterialIcon :name="recipe.output.name" variant="md" />
+              {{ recipe.output.name }}
+            </span>
           </div>
           <div>
             {{ translate('inputsPerHours', { hours: displayHours }) }}:
-            <ul class="ml-4 list-disc text-slate-300">
-              <li v-for="input in inputsPerPeriod" :key="input.materialId">
-                {{ formatNumber(input.amount) }} × {{ materialName(input.materialId) }}
+            <ul class="ml-0 pl-0 text-slate-300">
+              <li v-for="input in inputsPerPeriod" :key="input.materialId" class="flex items-center gap-1">
+                <span class="min-w-[64px] text-right">{{ formatNumber(input.amount) }} ×</span>
+                <MaterialIcon :name="materialName(input.materialId)" variant="md" />
+                <span>{{ materialName(input.materialId) }}</span>
               </li>
-              <li v-if="!inputsPerPeriod.length" class="text-slate-500">—</li>
+              <li v-if="!inputsPerPeriod.length" class="text-slate-500 list-none">—</li>
             </ul>
           </div>
           <div v-if="workforce.length">
