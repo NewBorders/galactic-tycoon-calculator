@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { resolveIconIdFromName } from '@/v2/constants/iconOverrides'
+import { computed } from 'vue'
+import { resolveIconId, spriteIndexReady } from '@/v2/constants/spriteIndex'
 
 const props = defineProps<{
   name: string
@@ -10,8 +11,12 @@ const props = defineProps<{
 
 const iconSize = props.size ?? undefined
 const variantClass = props.variant ? `icon-${props.variant}` : 'icon-md'
-const symbolId = resolveIconIdFromName(props.name)
-const href = `/galactic_tycoon_sprites.svg#${symbolId}`
+const symbolId = computed(() => {
+  // Depend on spriteIndexReady so we recompute after index load
+  void spriteIndexReady.value
+  return resolveIconId(props.name)
+})
+const href = computed(() => `/galactic_tycoon_sprites.svg#${symbolId.value}`)
 </script>
 
 <template>

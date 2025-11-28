@@ -1,5 +1,39 @@
 # Development Handoff Document
 
+## 🎯 LATEST (Nov 28, 2025): Dynamic Sprite Index + Icon Coverage — COMPLETED ✅
+
+**STATUS: Icon resolution is robust; tests and type-check green**
+
+### What’s New
+- Runtime sprite indexing to maximize icon coverage:
+   - Added `src/v2/constants/spriteIndex.ts` to fetch `/galactic_tycoon_sprites.svg`, index `<symbol id>` entries, and expose a normalized lookup map.
+   - Exported `spriteIndexReady` (ref) so components recompute once the sprite index is ready.
+   - `resolveIconId()` now tries: manual overrides → space-only normalization → dynamic index match.
+- `src/v2/components/MaterialIcon.vue` updated to use the dynamic resolver and react to `spriteIndexReady`.
+- Informational coverage test added:
+   - `src/v2/constants/__tests__/iconCoverage.test.ts` parses the sprite and reports a small sample of unmapped materials to guide manual overrides.
+
+### Normalization & Overrides
+- Default normalization removes spaces only (e.g., `"Advanced Research Data" → "AdvancedResearchData"`).
+- Manual overrides remain in `src/v2/constants/iconOverrides.ts` (e.g., `Iron → IronBar`, `Tools → BasicTools`).
+- Dynamic sprite index bridges most remaining differences (case or small character variations) without growing the override map.
+
+### Validation
+- Type-Check: OK (`docker compose exec web npm run type-check`).
+- Tests: 104/104 passing (`docker compose exec web npm test -- --run`).
+- Lint: V2 clean; V1 nun explizit vom Lint ausgeschlossen; verbleibend nur `add-tiers.js` (CommonJS) Fehler.
+
+### Next
+- If desired, expand `MATERIAL_ICON_OVERRIDES` with entries from the coverage test’s sample list.
+- Optionally export a fuller `missing-icons.md` report for ongoing curation.
+
+### Additions (Report & Overrides)
+- Script `scripts/generate-missing-icons.mjs` erzeugt vollständigen Report und ergänzt Overrides:
+   - Output: `missing-icons.md` (alphabetisch, Name → Resolved ID)
+   - Aktualisiert: `src/v2/constants/iconOverrides.ts` — fehlende Materialien alphabetisch mit Zielwert `'N/A'` ergänzt.
+
+---
+
 ## 🎯 LATEST (Nov 28, 2025): V2 Lint Cleanup + Final Sprite — COMPLETED ✅
 
 **STATUS: V2 lint-clean, final sprite in public, checks green**

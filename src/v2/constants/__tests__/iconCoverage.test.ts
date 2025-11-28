@@ -35,7 +35,7 @@ describe('icon coverage snapshot (non-failing)', () => {
     // Log small sample for manual override curation; keep test non-failing
     const sample = missing.slice(0, 20)
     if (sample.length) {
-      // eslint-disable-next-line no-console
+
       console.warn('[IconCoverage] Missing icons (sample):', sample)
     }
 
