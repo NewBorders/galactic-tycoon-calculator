@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
+import { onMounted, onUnmounted, computed, watch } from 'vue'
 import { useMarketAnalysis } from '../../composables/useMarketAnalysis'
 import MaterialIcon from '../../components/MaterialIcon.vue'
 import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
-import { translate } from '../../localisation'
+import { translate, formatDateTime as formatDateTimeLocale } from '../../localisation'
 import { formatInteger, formatDecimal, formatPercent as formatPercentLocale } from '../../localisation/numbers'
 
 const props = defineProps<{
@@ -27,8 +27,6 @@ const {
 // Auto-refresh interval (5 minutes)
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 let autoRefreshTimer: number | null = null
-let uiTickTimer: number | null = null
-const nowTick = ref<number>(Date.now())
 
 // Setup auto-refresh
 function setupAutoRefresh() {
@@ -212,11 +210,6 @@ const statsByRecommendation = computed(() => {
 onMounted(() => {
   // Starte den Auto-Refresh sicher bevor der erste Fetch läuft
   setupAutoRefresh()
-  // UI-Tick für "Updated: x ago" – re-render alle 30s
-  if (uiTickTimer !== null) clearInterval(uiTickTimer)
-  uiTickTimer = window.setInterval(() => {
-    nowTick.value = Date.now()
-  }, 30_000)
   fetch()
 })
 
@@ -226,10 +219,6 @@ onUnmounted(() => {
     clearInterval(autoRefreshTimer)
     autoRefreshTimer = null
   }
-  if (uiTickTimer !== null) {
-    clearInterval(uiTickTimer)
-    uiTickTimer = null
-  }
 })
 
 // Refresh handler
@@ -237,11 +226,10 @@ async function refresh() {
   await fetch(true)
 }
 
-// Computed Label, abhängig von nowTick, damit es periodisch neu rendert
+// Locale-aware datetime formatting for last update timestamp
 const lastUpdatedLabel = computed(() => {
-  // Referenzierung erzwingt Reaktivität in Intervallen
-  void nowTick.value
-  return formatTimeAgo(lastUpdated.value)
+  if (!lastUpdated.value) return translate('marketAnalysisTimeAgoNever')
+  return formatDateTimeLocale(lastUpdated.value)
 })
 </script>
 

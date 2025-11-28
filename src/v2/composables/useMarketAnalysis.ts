@@ -5,7 +5,7 @@
 
 import { ref, computed } from 'vue'
 import {
-  fetchMarketOpportunities,
+  fetchMarketOpportunitiesWithTs,
   filterOpportunities,
   sortByOpportunityScore,
   type MarketOpportunity,
@@ -34,12 +34,12 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
     error.value = null
 
     try {
-      const data = await fetchMarketOpportunities({
+      const { opportunities: data, ts } = await fetchMarketOpportunitiesWithTs({
         ...options,
         forceRefresh,
       })
       opportunities.value = data
-      lastUpdated.value = Date.now()
+      lastUpdated.value = ts
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to fetch market data'
 

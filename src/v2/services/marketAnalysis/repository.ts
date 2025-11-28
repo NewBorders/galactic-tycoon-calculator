@@ -38,6 +38,22 @@ export async function fetchMarketOpportunities(
 }
 
 /**
+ * Fetch opportunities with last updated timestamp
+ */
+export async function fetchMarketOpportunitiesWithTs(
+  options: FetchMarketDetailsOptions = {},
+): Promise<{ opportunities: MarketOpportunity[]; ts: number }> {
+  const { world = 'g2', forceRefresh = false } = options
+  const apiKey = getApiKey()
+  if (!apiKey) {
+    throw new Error('API key is required. Please configure it in the Config tab.')
+  }
+  const { data: rawMaterials, ts } = await extractMarketDetails(apiKey, world, forceRefresh)
+  const opportunities = transformMarketData(rawMaterials)
+  return { opportunities, ts }
+}
+
+/**
  * Fetch single material opportunity
  */
 export async function fetchMaterialOpportunity(

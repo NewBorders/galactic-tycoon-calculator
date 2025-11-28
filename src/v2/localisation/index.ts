@@ -26,3 +26,4 @@ export {
 } from './locale'
 
 export { formatNumber, formatInteger, formatDecimal, formatPercent } from './numbers'
+export { formatDateTime } from './dates'
