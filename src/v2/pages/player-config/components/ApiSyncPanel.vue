@@ -93,7 +93,6 @@ async function handleSyncWarehouse() {
 
   try {
     const world = getWorld()
-    console.log('[Warehouse] Starting stock sync for world:', world)
 
     const stocks: Array<{ gameBaseId: number; stock: Record<number, number> }> = []
     const errors: string[] = []
@@ -101,12 +100,10 @@ async function handleSyncWarehouse() {
     // Process each base
     for (const base of props.bases) {
       if (!base.gameWarehouseId || !base.gameBaseId) {
-        console.log(`[Warehouse] Skipping base "${base.name}" - missing gameWarehouseId or gameBaseId`)
         continue
       }
 
       try {
-        console.log(`[Warehouse] Fetching stock for base "${base.name}" (warehouseId: ${base.gameWarehouseId})`)
         const result = await fetchWarehouseStockForBase(key, base.gameWarehouseId, world, true)
 
         // Convert items array to stock record: materialId → quantity
@@ -117,19 +114,15 @@ async function handleSyncWarehouse() {
           })
         }
 
-        console.log(`[Warehouse] ✓ Base "${base.name}": ${Object.keys(stockRecord).length} materials loaded`)
         stocks.push({
           gameBaseId: base.gameBaseId,
           stock: stockRecord,
         })
       } catch (e) {
         const errorMsg = e instanceof Error ? e.message : String(e)
-        console.error(`[Warehouse] ✗ Base "${base.name}": ${errorMsg}`)
         errors.push(errorMsg)
       }
     }
-
-    console.log(`[Warehouse] Stock sync complete: ${stocks.length}/${props.bases.length} bases loaded`)
 
     if (stocks.length === 0) {
       error.value = 'No stocks loaded. Check API response.'
@@ -146,7 +139,6 @@ async function handleSyncWarehouse() {
     }
   } catch (e) {
     error.value = `${translate('warehouseStockLoadError')}: ${e instanceof Error ? e.message : String(e)}`
-    console.error('[Warehouse] Fatal error:', e)
   } finally {
     loading.value = false
   }

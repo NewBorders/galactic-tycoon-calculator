@@ -81,17 +81,7 @@ export async function extractMarketDetails(
     // Extract materials array
     const materials = apiResponse.materials ?? []
 
-    console.log('[Market Analysis] API Response:', {
-      totalMaterials: materials.length,
-      world,
-      sampleMaterial: materials[0] ? {
-        matId: materials[0].matId,
-        matName: materials[0].matName,
-        currentPrice: materials[0].currentPrice,
-        avgPrice: materials[0].avgPrice,
-        historyLength: materials[0].priceHistory?.length
-      } : null
-    })
+    // Debug logging removed
 
     // Update cache with world+apikey as key
     cache.marketDetails.set(cacheKey, {

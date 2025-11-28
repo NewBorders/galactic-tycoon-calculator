@@ -1,5 +1,50 @@
 # Development Handoff Document
 
+## 🎯 LATEST (Nov 28, 2025): Material Icons + Table UX Fixes — COMPLETED ✅
+
+**STATUS: Icons integrated across V2, tooltip parsing fixed, tests passing**
+
+### What’s Done
+- Added `src/v2/components/MaterialIcon.vue` using the SVG sprite (`/galactic_tycoon_sprites.svg#<name>`), with size variants (`sm`, `md`, `lg`).
+- Integrated icons in key V2 views:
+   - `src/v2/pages/market/MarketAnalysisPanel.vue` — icon next to material names.
+   - `src/v2/pages/player-config/components/RecipeTile.vue` — icons for inputs/outputs.
+   - `src/v2/pages/player-config/components/ProductionSection.vue` — icons in search suggestions.
+   - `src/v2/pages/config/components/PriceManagement.vue` — icons in pricing table.
+- Added CSS size variables/classes in `src/v2/style.css` for consistent icon sizing.
+- Ensured sprite exists at `public/galactic_tycoon_sprites.svg` and referenced with absolute path `/galactic_tycoon_sprites.svg`.
+
+### Lint/UX Fixes
+- Escaped raw `<` sequences inside tooltip texts in `MarketAnalysisPanel.vue` (`&lt;1d`, `&lt;$50k/day`, `&lt;20`) to fix `vue/no-parsing-error`.
+- Removed unused values from `useMarketAnalysis` destructuring and unused helper functions in `MarketAnalysisPanel.vue`.
+
+### Validation
+- Type-check: `docker compose exec web npm run type-check` → passed.
+- Tests: `docker compose exec web npm test -- --run` → 100/100 tests passed.
+- ESLint: Remaining issues (36) are outside touched files (mainly legacy v1). Parsing errors in `MarketAnalysisPanel.vue` resolved.
+
+### Additional Fixes (Nov 28)
+- Removed unnecessary `console.log`/`console.error` across V2 to keep console clean:
+   - `src/v2/pages/market/MarketAnalysisPanel.vue` (auto-refresh log)
+   - `src/v2/composables/useMarketAnalysis.ts`
+   - `src/v2/services/marketAnalysis/{extractor.ts,repository.ts}`
+   - `src/v2/pages/player-config/{PlayerConfigPanel.vue}`
+   - `src/v2/pages/player-config/components/{ApiSyncPanel.vue,LoadBasesButton.vue}`
+- Fixed “Updated: 0s ago” not progressing by adding a UI tick:
+   - `MarketAnalysisPanel.vue`: `nowTick` + interval every 30s; computed `lastUpdatedLabel` re-renders time-ago.
+- Repaired a corrupted block in `PlayerConfigPanel.vue` (global workforce burden):
+   - Reconstructed `assignment` (includes `planetId`, buildings, recipes), mapped safe `count`, and summed `workforceSummary`.
+   - Type-check confirmed on this module.
+
+### Pending
+- Replace placeholder sprite at `public/galactic_tycoon_sprites.svg` with the final asset (file currently not available in repo). Once provided, overwrite the file and verify icon IDs match material names.
+
+### Next
+- Replace placeholder `public/galactic_tycoon_sprites.svg` with the final asset if available.
+- Optionally integrate icons in additional V2 views (e.g., stock/market-detail) when material lists are present.
+
+---
+
 ## 🎯 LATEST (Nov 2025): Market Analysis Auto-Refresh & Caching - COMPLETED ✅
 
 **STATUS: Auto-refresh every 5 minutes with rate limit protection**

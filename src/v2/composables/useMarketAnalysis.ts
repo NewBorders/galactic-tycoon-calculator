@@ -38,11 +38,6 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
         ...options,
         forceRefresh,
       })
-      console.log('[Market Analysis] Composable received:', {
-        dataLength: data.length,
-        options,
-        forceRefresh
-      })
       opportunities.value = data
       lastUpdated.value = Date.now()
     } catch (e: unknown) {
@@ -57,7 +52,7 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
         error.value = `⚠️ Using cached data - ${errorMessage}`
       }
 
-      console.error('Market analysis fetch error:', e)
+      // keep UI-friendly message via error ref; omit noisy console.error
     } finally {
       loading.value = false
     }

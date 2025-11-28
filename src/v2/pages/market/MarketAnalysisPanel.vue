@@ -20,17 +20,15 @@ const {
   loading,
   error,
   lastUpdated,
-  stats,
   fetch,
-  setMinScore,
-  setDemandLevels,
-  setTrendDirections,
-  clearFilters
+  
 } = useMarketAnalysis({ world: world.value })
 
 // Auto-refresh interval (5 minutes)
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 let autoRefreshTimer: number | null = null
+let uiTickTimer: number | null = null
+const nowTick = ref<number>(Date.now())
 
 // Setup auto-refresh
 function setupAutoRefresh() {
@@ -38,7 +36,6 @@ function setupAutoRefresh() {
     clearInterval(autoRefreshTimer)
   }
   autoRefreshTimer = window.setInterval(() => {
-    console.log('[Market Analysis] Auto-refreshing data (5min interval)')
     fetch(false) // Use cache if available, otherwise fetch
   }, AUTO_REFRESH_INTERVAL_MS)
 }
@@ -145,17 +142,6 @@ function formatTimeAgo(ts: number | null): string {
 }
 
 // Styling helpers
-function getRecommendationColor(rec: string): string {
-  switch (rec) {
-    case 'excellent': return 'text-green-400'
-    case 'good': return 'text-green-300'
-    case 'neutral': return 'text-yellow-400'
-    case 'poor': return 'text-orange-400'
-    case 'avoid': return 'text-red-400'
-    default: return 'text-gray-400'
-  }
-}
-
 function getRecommendationBgColor(rec: string): string {
   switch (rec) {
     case 'excellent': return 'bg-green-600'
@@ -197,15 +183,6 @@ function getDemandLabel(level: string): string {
   }
 }
 
-function getTrendIcon(direction: string): string {
-  switch (direction) {
-    case 'rising': return '📈'
-    case 'falling': return '📉'
-    case 'stable': return '➡️'
-    default: return '❓'
-  }
-}
-
 function getScoreColor(score: number): string {
   if (score >= 80) return 'text-green-400 font-bold'
   if (score >= 60) return 'text-green-300'
@@ -235,6 +212,11 @@ const statsByRecommendation = computed(() => {
 onMounted(() => {
   // Starte den Auto-Refresh sicher bevor der erste Fetch läuft
   setupAutoRefresh()
+  // UI-Tick für "Updated: x ago" – re-render alle 30s
+  if (uiTickTimer !== null) clearInterval(uiTickTimer)
+  uiTickTimer = window.setInterval(() => {
+    nowTick.value = Date.now()
+  }, 30_000)
   fetch()
 })
 
@@ -244,12 +226,23 @@ onUnmounted(() => {
     clearInterval(autoRefreshTimer)
     autoRefreshTimer = null
   }
+  if (uiTickTimer !== null) {
+    clearInterval(uiTickTimer)
+    uiTickTimer = null
+  }
 })
 
 // Refresh handler
 async function refresh() {
   await fetch(true)
 }
+
+// Computed Label, abhängig von nowTick, damit es periodisch neu rendert
+const lastUpdatedLabel = computed(() => {
+  // Referenzierung erzwingt Reaktivität in Intervallen
+  void nowTick.value
+  return formatTimeAgo(lastUpdated.value)
+})
 </script>
 
 <template>
@@ -264,7 +257,7 @@ async function refresh() {
       </div>
       <div class="flex gap-2 items-center">
         <span class="text-xs text-gray-500">
-          {{ translate('marketAnalysisUpdated') }}: {{ formatTimeAgo(lastUpdated) }}
+          {{ translate('marketAnalysisUpdated') }}: {{ lastUpdatedLabel }}
         </span>
         <button
           @click="refresh"
@@ -339,7 +332,7 @@ async function refresh() {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Score (0-100): Price trend (0-35pts) + Revenue/day (0-45pts) + Market saturation (0-25pts). Higher revenue = higher score even within same demand level. Rating: ≥80 Excellent, 60-79 Good, 40-59 Neutral, 20-39 Poor, <20 Avoid
+                      Score (0-100): Price trend (0-35pts) + Revenue/day (0-45pts) + Market saturation (0-25pts). Higher revenue = higher score even within same demand level. Rating: ≥80 Excellent, 60-79 Good, 40-59 Neutral, 20-39 Poor, &lt;20 Avoid
                     </span>
                   </span>
                 </span>
@@ -364,7 +357,7 @@ async function refresh() {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Demand level based on daily revenue: High ≥$500k/day, Medium $50k-500k/day, Low <$50k/day. Sortable by daily sold units.
+                      Demand level based on daily revenue: High ≥$500k/day, Medium $50k-500k/day, Low &lt;$50k/day. Sortable by daily sold units.
                     </span>
                   </span>
                 </span>
@@ -389,7 +382,7 @@ async function refresh() {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Market saturation based on days of supply (available qty ÷ daily volume). Undersupplied <1d (+20-25 score pts), Balanced 1-3d (+10pts), Oversupplied >3d (+2pts). Undersupplied markets are production opportunities.
+                      Market saturation based on days of supply (available qty ÷ daily volume). Undersupplied &lt;1d (+20-25 score pts), Balanced 1-3d (+10pts), Oversupplied >3d (+2pts). Undersupplied markets are production opportunities.
                     </span>
                   </span>
                 </span>

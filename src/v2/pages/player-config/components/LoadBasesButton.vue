@@ -32,9 +32,7 @@ async function handleSyncBases() {
 
   try {
     const world = getWorld()
-    console.log('[LoadBasesButton] Starting handleSyncBases with world:', world)
     const result = await fetchCompanyBases(key, world, true)
-    console.log('[LoadBasesButton] fetchCompanyBases result:', result)
     const bases = result.data.bases.map((b) => ({
       id: b.id,
       name: b.name,
