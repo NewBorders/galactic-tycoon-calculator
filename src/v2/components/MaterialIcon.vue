@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { resolveIconIdFromName } from '@/v2/constants/iconOverrides'
+
 const props = defineProps<{
   name: string
   size?: number
@@ -8,7 +10,8 @@ const props = defineProps<{
 
 const iconSize = props.size ?? undefined
 const variantClass = props.variant ? `icon-${props.variant}` : 'icon-md'
-const href = `/galactic_tycoon_sprites.svg#${props.name}`
+const symbolId = resolveIconIdFromName(props.name)
+const href = `/galactic_tycoon_sprites.svg#${symbolId}`
 </script>
 
 <template>

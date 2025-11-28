@@ -15,6 +15,13 @@
    - Quelle: `v2/galactic_tycoon_sprites.svg`
    - Ziel: `public/galactic_tycoon_sprites.svg` (App referenziert `/galactic_tycoon_sprites.svg`).
 
+### Icon Mapping & Normalization
+- Neu: `src/v2/constants/iconOverrides.ts`
+   - `resolveIconIdFromName(name)`: nutzt Overrides, sonst PascalCase-Normalisierung (entfernt Leerzeichen/ Sonderzeichen)
+   - Overrides enthalten u. a.: `Iron → IronBar`, `Tools → BasicTools`, `Advanced Research Data → AdvancedResearchData`
+- `MaterialIcon.vue` nutzt nun den Resolver, damit mehr Symbole korrekt angezeigt werden.
+- Tests: `src/v2/constants/__tests__/iconOverrides.test.ts` (PascalCase/Overrides/Fallback)
+
 ### Checks
 - Type-Check: OK.
 - Tests: 100/100.
