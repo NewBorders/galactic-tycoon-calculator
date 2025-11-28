@@ -9,31 +9,44 @@ function normKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
+let loadPromise: Promise<void> | null = null
+
 async function loadSpriteIndex(): Promise<void> {
-  try {
-    const res = await fetch('/galactic_tycoon_sprites.svg', { headers: { Accept: 'image/svg+xml' } })
-    if (!res.ok) return
-    const text = await res.text()
-    const re = /<symbol\s+[^>]*id="([^"]+)"/g
-    symbolIds.clear()
-    normalizedToId.clear()
-    for (const m of text.matchAll(re)) {
-      const id = m[1]
-      if (!id) continue
-      symbolIds.add(String(id))
-      normalizedToId.set(normKey(String(id)), String(id))
+  if (loadPromise) return loadPromise
+  
+  loadPromise = (async () => {
+    try {
+      const res = await fetch('/galactic_tycoon_sprites.svg', { 
+        headers: { Accept: 'image/svg+xml' },
+        cache: 'force-cache'
+      })
+      if (!res.ok) {
+        loadPromise = null // Allow retry on next call
+        return
+      }
+      const text = await res.text()
+      const re = /<symbol\s+[^>]*id="([^"]+)"/g
+      symbolIds.clear()
+      normalizedToId.clear()
+      for (const m of text.matchAll(re)) {
+        const id = m[1]
+        if (!id) continue
+        symbolIds.add(String(id))
+        normalizedToId.set(normKey(String(id)), String(id))
+      }
+      loaded.value = true
+    } catch {
+      loadPromise = null // Allow retry on error
     }
-    loaded.value = true
-  } catch {
-    // ignore fetch errors; fallback resolver will apply
-  }
+  })()
+  
+  return loadPromise
 }
 
-let started = false
 export function ensureSpriteIndexLoaded(): void {
-  if (started) return
-  started = true
-  if (typeof window !== 'undefined') void loadSpriteIndex()
+  if (typeof window !== 'undefined' && !loadPromise) {
+    void loadSpriteIndex()
+  }
 }
 
 export function resolveIconId(name: string): string {

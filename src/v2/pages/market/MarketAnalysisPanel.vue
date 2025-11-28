@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, watch } from 'vue'
+import { onMounted, onUnmounted, computed, watch, ref } from 'vue'
 import { useMarketAnalysis } from '../../composables/useMarketAnalysis'
 import MaterialIcon from '../../components/MaterialIcon.vue'
 import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
 import { translate, formatDateTime as formatDateTimeLocale } from '../../localisation'
 import { formatInteger, formatDecimal, formatPercent as formatPercentLocale } from '../../localisation/numbers'
+
+// Format price helper: cents → dollars with $ prefix
+const formatPrice = (cents: number): string => '$' + formatDecimal(cents / 100, 2)
 
 const props = defineProps<{
   gameData: GameData
@@ -115,29 +118,8 @@ const sortedOpportunities = computed(() => {
   })
 })
 
-// Format functions - use locale-aware formatting
-function formatNumber(n: number): string {
-  return formatInteger(n)
-}
-
-function formatPercent(n: number): string {
-  return formatPercentLocale(n / 100, 1)
-}
-
-function formatPrice(cents: number): string {
-  // Convert cents to dollars
-  return '$' + formatDecimal(cents / 100, 2)
-}
-
-function formatTimeAgo(ts: number | null): string {
-  if (!ts) return translate('marketAnalysisTimeAgoNever')
-  const seconds = Math.floor((Date.now() - ts) / 1000)
-  if (seconds < 60) return translate('marketAnalysisTimeAgoSeconds', { seconds })
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return translate('marketAnalysisTimeAgoMinutes', { minutes })
-  const hours = Math.floor(minutes / 60)
-  return translate('marketAnalysisTimeAgoHours', { hours })
-}
+// Percent helper: convert ratio to percentage
+const formatPercent = (n: number): string => formatPercentLocale(n / 100, 1)
 
 // Styling helpers
 function getRecommendationBgColor(rec: string): string {
@@ -436,7 +418,7 @@ const lastUpdatedLabel = computed(() => {
                     {{ getDemandLabel(opp.demand.demandLevel) }}
                   </span>
                   <span class="text-[11px] text-gray-400">
-                    {{ formatNumber(Math.round(opp.demand.volumeAvgPerDay)) }} units/day
+                    {{ formatInteger(Math.round(opp.demand.volumeAvgPerDay)) }} units/day
                   </span>
                 </div>
               </td>
@@ -453,7 +435,7 @@ const lastUpdatedLabel = computed(() => {
                     {{ opp.saturation.saturationLevel }}
                   </span>
                   <div v-if="opp.saturation.qtyAvailable !== null" class="text-[11px] text-gray-500">
-                    {{ formatNumber(Math.round(opp.saturation.qtyAvailable)) }} available
+                    {{ formatInteger(Math.round(opp.saturation.qtyAvailable)) }} available
                   </div>
                 </div>
               </td>

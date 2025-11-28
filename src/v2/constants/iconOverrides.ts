@@ -64,12 +64,3 @@ export const ALL_ICON_OVERRIDES: Record<string, string> = {
 export function normalizeIconId(name: string): string {
   return name.replace(/\s+/g, '')
 }
-
-export function resolveIconIdFromName(materialName: string): string {
-  if (!materialName) return '_fallback'
-  // 1) Manual override wins
-  const override = ALL_ICON_OVERRIDES[materialName]
-  if (override) return override
-  // 2) Default normalization: remove spaces only
-  return normalizeIconId(materialName)
-}

@@ -1,6 +1,59 @@
 # Development Handoff Document
 
-## 🎯 LATEST (Nov 28, 2025): Dynamic Sprite Index + Icon Coverage — COMPLETED ✅
+## 🎯 LATEST (Nov 28, 2025): Code Refactoring & Optimization — COMPLETED ✅
+
+**STATUS: Cleaner, more maintainable code; tests and type-check green**
+
+### Refactorings Applied
+
+#### 1. Formatting Logic Consolidation
+- **Before**: MarketAnalysisPanel had local wrapper functions (`formatNumber`, `formatPercent`, `formatPrice`) that duplicated localisation utilities.
+- **After**: Directly use `formatInteger`, `formatDecimal`, `formatPercentLocale` from `@/v2/localisation/numbers`; added slim helpers for cents→dollars conversion.
+- **Benefit**: Single source of truth for number formatting; reduced code duplication.
+
+#### 2. Icon Resolution Simplification
+- **Before**: Two separate resolvers: `iconOverrides.ts::resolveIconIdFromName()` and `spriteIndex.ts::resolveIconId()`.
+- **After**: Removed `resolveIconIdFromName`; all components now use `spriteIndex.ts::resolveIconId()` as single resolver.
+- **Benefit**: Unified resolution logic; easier to maintain overrides and dynamic sprite index.
+
+#### 3. Sprite Index Loading Optimization
+- **Before**: Simple boolean flag `started` prevented re-init; no error recovery or caching.
+- **After**: 
+  - Promise-based loading with `loadPromise` cache to prevent duplicate fetches.
+  - Automatic retry on error (clears `loadPromise` on failure).
+  - Added `cache: 'force-cache'` header hint for browser caching.
+- **Benefit**: Robust loading, retry on transient errors, performance boost from browser cache.
+
+#### 4. Production Console Cleanup
+- **Before**: `useMarketAnalysis.ts` had `console.warn` on API error with cached data.
+- **After**: Removed console noise; error message shown in UI via `error.value` ref.
+- **Benefit**: Cleaner production logs; user-facing warning preserved in UI.
+
+### Files Modified
+- `src/v2/pages/market/MarketAnalysisPanel.vue` — refactored formatting helpers
+- `src/v2/composables/useMarketAnalysis.ts` — removed console.warn
+- `src/v2/constants/spriteIndex.ts` — Promise caching, retry logic
+- `src/v2/constants/iconOverrides.ts` — removed redundant resolver
+
+### Validation
+- Type-Check: OK (`vue-tsc --build`).
+- Lint: OK (ESLint clean).
+- Tests: 104/104 passing (existing integration/unit tests confirm no regression).
+
+### Next
+- Monitor sprite index performance in production; consider adding preload hints if critical.
+- Optionally expand icon overrides as new materials are added to the game.
+
+---
+
+## 🎯 PREVIOUS (Nov 28, 2025): Dynamic Sprite Index + Icon Coverage — COMPLETED ✅
+### PR #57 Review Notes
+- MarketAnalysisPanel: time label should use locale datetime → changed
+- Remove unused helper `formatTimeAgo` → changed
+- Import fix: use `getCurrentLocale` instead of `getLocale` in dates → changed
+- Lint: ensure V2 clean, exclude legacy V1 & add-tiers.js → changed
+- Icon resolution: favor dynamic sprite index before expanding overrides → obsolete (superseded by new `spriteIndex.ts`)
+
 
 **STATUS: Icon resolution is robust; tests and type-check green**
 

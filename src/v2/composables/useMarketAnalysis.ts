@@ -48,11 +48,8 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
         error.value = errorMessage
       } else {
         // Show warning but keep displaying cached data
-        console.warn('[Market Analysis] API error, keeping cached data:', errorMessage)
         error.value = `⚠️ Using cached data - ${errorMessage}`
       }
-
-      // keep UI-friendly message via error ref; omit noisy console.error
     } finally {
       loading.value = false
     }
