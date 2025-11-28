@@ -13,10 +13,10 @@ let loadPromise: Promise<void> | null = null
 
 async function loadSpriteIndex(): Promise<void> {
   if (loadPromise) return loadPromise
-  
+
   loadPromise = (async () => {
     try {
-      const res = await fetch('/galactic_tycoon_sprites.svg', { 
+      const res = await fetch('/galactic_tycoon_sprites.svg', {
         headers: { Accept: 'image/svg+xml' },
         cache: 'force-cache'
       })
@@ -39,7 +39,7 @@ async function loadSpriteIndex(): Promise<void> {
       loadPromise = null // Allow retry on error
     }
   })()
-  
+
   return loadPromise
 }
 
