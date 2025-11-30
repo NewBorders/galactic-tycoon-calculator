@@ -1,8 +1,77 @@
 # Development Handoff Document
 
-## 🎯 LATEST (Dec 2024): Fixed Production/Consumption Display & Made Calculations Reactive — COMPLETED ✅
+## 🎯 LATEST (Dec 2024): Refactored Worker Consumables as Single Source of Truth — COMPLETED ✅
 
-**STATUS: Global Summary calculations are now reactive to config changes, and per-base production/consumption shows actual values**
+**STATUS: Worker consumable identification now uses GameData as single source of truth, Global Summary split into two tables, removed /d suffix**
+
+### What Was Implemented
+
+We refactored the worker consumables logic and enhanced the Global Summary display:
+
+1. **Worker Consumables Utilities (REFACTORING)**
+   - **Problem:** Hardcoded Set of material IDs in GlobalSummary component to identify worker consumables
+   - **Solution:** Created `src/v2/utils/workerConsumables.ts` with utility functions that extract material IDs from GameData
+   - **Single Source of Truth:** GameData `workers` array with `consumables` property
+   - **Impact:** More maintainable, automatically updates when game data changes, no hardcoded IDs
+
+2. **Global Material Tables Split (UX IMPROVEMENT)**
+   - **Left Table:** Regular materials (all except worker consumables)
+   - **Right Table:** Worker consumables with dedicated "Worker consumption" header
+   - **Merged Columns:** Balance and Value combined into single column to save space
+   - **Responsive Layout:** Two-column grid on large screens, stacks on mobile
+
+3. **Removed /d Suffix in Per Base Summary**
+   - Export materials and their values no longer show "/d" suffix
+   - Cleaner display: "+150.5" instead of "+150.5/d"
+
+### Technical Implementation
+
+**Files Created:**
+- `src/v2/utils/workerConsumables.ts` - Utility functions for worker consumable identification
+- `src/v2/utils/__tests__/workerConsumables.test.ts` - Comprehensive unit tests (8 tests, all passing)
+
+**Files Modified:**
+- `src/v2/pages/player-config/components/GlobalSummary.vue` - Uses new utility, split tables, removed /d
+
+**Available Functions:**
+```typescript
+// Get all worker consumable material IDs
+getWorkerConsumableMaterialIds(gameData: GameData): Set<number>
+
+// Get worker consumables grouped by tier
+getWorkerConsumablesByTier(gameData: GameData): Map<number, Set<number>>
+
+// Get only essential worker consumables
+getEssentialWorkerConsumableMaterialIds(gameData: GameData): Set<number>
+
+// Get only optional worker consumables
+getOptionalWorkerConsumableMaterialIds(gameData: GameData): Set<number>
+
+// Check if material is worker consumable
+isWorkerConsumable(gameData: GameData, materialId: number): boolean
+```
+
+**Data Flow:**
+```
+GameData.workers[].consumables[] (Single Source of Truth)
+    ↓
+workerConsumables.ts utilities
+    ↓
+GlobalSummary.vue (computed: workerConsumableIds)
+    ↓
+Split materials into regularMaterials & workerConsumableMaterials
+```
+
+**Validation:**
+- ✅ All 8 unit tests passing for workerConsumables utilities
+- ✅ TypeScript type-check passes
+- ✅ ESLint passes
+- ✅ Handles materials appearing in multiple tiers (e.g., Drinking Water in T1 and T2)
+- ✅ Handles materials with different essential flags across tiers (e.g., Workwear)
+
+---
+
+## 📋 Previous Work: Production/Consumption Display & Reactive Calculations (Dec 2024)
 
 ### What Was Fixed
 

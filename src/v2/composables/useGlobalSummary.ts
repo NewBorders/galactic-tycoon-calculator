@@ -121,7 +121,7 @@ export function useGlobalSummary(
     })
   })
 
-  // Calculate consumption overhead: difference between current net (with expansion overhead) 
+  // Calculate consumption overhead: difference between current net (with expansion overhead)
   // vs net with 0% expansion overhead
   const baseReportsWithoutOverhead = computed(() => {
     // Only calculate if we have expansion overhead (> 2000 workers)
@@ -179,14 +179,14 @@ export function useGlobalSummary(
       const materialsRunningOut: BaseSummaryData['materialsRunningOut'] = []
       const stock = base.stock ?? {}
       const timeframeDays = periodFactor.value
-      
+
       report.materials.forEach((material) => {
         if (material.balancePerDay >= 0) return // producing or balanced
         const currentStock = stock[material.materialId] ?? 0
         if (currentStock <= 0) return // already empty
         const consumptionPerDay = Math.abs(material.balancePerDay)
         const daysUntilEmpty = currentStock / consumptionPerDay
-        
+
         // Warn if material will run out within the configured timeframe
         if (daysUntilEmpty <= timeframeDays) {
           materialsRunningOut.push({
@@ -201,17 +201,17 @@ export function useGlobalSummary(
 
       // Find export materials: materials where less than threshold% is consumed locally
       const exportMaterials: ExportMaterial[] = []
-      
+
       // Build production and consumption maps from recipes and workers
       const productionMap = new Map<number, number>()
       const consumptionMap = new Map<number, number>()
-      
+
       // Get production from recipe outputs
       report.recipes.forEach((recipe) => {
         const current = productionMap.get(recipe.outputMaterialId) || 0
         productionMap.set(recipe.outputMaterialId, current + recipe.outputPerDay)
       })
-      
+
       // Get consumption from recipe inputs
       report.recipes.forEach((recipe) => {
         recipe.inputsPerDay.forEach((input) => {
@@ -219,21 +219,21 @@ export function useGlobalSummary(
           consumptionMap.set(input.materialId, current + input.amount)
         })
       })
-      
+
       // Add worker consumption
       report.workers.forEach((worker) => {
         const current = consumptionMap.get(worker.materialId) || 0
         consumptionMap.set(worker.materialId, current + worker.consumptionPerDay)
       })
-      
+
       // Calculate export materials
       productionMap.forEach((production, materialId) => {
         const consumption = consumptionMap.get(materialId) || 0
-        
+
         if (production > 0) {
           const localConsumptionRatio = consumption / production
           const exportRatio = 1 - localConsumptionRatio
-          
+
           // Material is exported if less than threshold is consumed locally
           // exportRatio > threshold means: (1 - consumption/production) > threshold
           // which means: consumption/production < (1 - threshold)
@@ -280,10 +280,10 @@ export function useGlobalSummary(
 
     const actualNet = baseReports.value.reduce((sum, { report }) => sum + report.summary.net, 0)
     const netWithoutOverhead = baseReportsWithoutOverhead.value.reduce((sum, { report }) => sum + report.summary.net, 0)
-    
+
     // Overhead cost is the difference (should be negative, meaning we pay more)
     const overheadCost = netWithoutOverhead - actualNet
-    
+
     return overheadCost * periodFactor.value
   })
 
@@ -295,13 +295,13 @@ export function useGlobalSummary(
       // Build production and consumption maps from recipes and workers for this base
       const productionMap = new Map<number, number>()
       const consumptionMap = new Map<number, number>()
-      
+
       // Get production from recipe outputs
       report.recipes.forEach((recipe) => {
         const current = productionMap.get(recipe.outputMaterialId) || 0
         productionMap.set(recipe.outputMaterialId, current + recipe.outputPerDay)
       })
-      
+
       // Get consumption from recipe inputs
       report.recipes.forEach((recipe) => {
         recipe.inputsPerDay.forEach((input) => {
@@ -309,7 +309,7 @@ export function useGlobalSummary(
           consumptionMap.set(input.materialId, current + input.amount)
         })
       })
-      
+
       // Add worker consumption
       report.workers.forEach((worker) => {
         const current = consumptionMap.get(worker.materialId) || 0
@@ -318,14 +318,14 @@ export function useGlobalSummary(
 
       // Process all materials that have either production or consumption
       const allMaterialIds = new Set([...productionMap.keys(), ...consumptionMap.keys()])
-      
+
       allMaterialIds.forEach((materialId) => {
         const production = productionMap.get(materialId) || 0
         const consumption = consumptionMap.get(materialId) || 0
-        
+
         // Skip if neither production nor consumption
         if (production === 0 && consumption === 0) return
-        
+
         let summary = materialMap.get(materialId)
         if (!summary) {
           summary = {
