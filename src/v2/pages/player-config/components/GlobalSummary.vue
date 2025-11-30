@@ -189,6 +189,13 @@ function formatDays(days: number): string {
                 <div>
                   <div class="text-sm font-semibold text-emerald-300 mb-2">{{ translate('exportMaterials') }}:</div>
                   <div v-if="baseSummary.exportMaterials.length > 0" class="space-y-1">
+                    <!-- Header -->
+                    <div class="flex items-center gap-2 text-xs text-slate-400 border-b border-slate-600 pb-1">
+                      <div class="w-4"></div>
+                      <span class="flex-1">Material</span>
+                      <span class="text-right w-28">Balance / Value</span>
+                      <span class="text-right w-14">Export %</span>
+                    </div>
                     <div
                       v-for="material in baseSummary.exportMaterials.slice(0, 10)"
                       :key="material.materialId"
@@ -196,11 +203,8 @@ function formatDays(days: number): string {
                     >
                       <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
                       <span class="text-slate-300 flex-1 truncate">{{ getMaterialName(material.materialId) }}</span>
-                      <span class="text-emerald-400 font-medium text-right">
-                        +{{ formatNumber(material.exportPerDay, 1) }}
-                      </span>
-                      <span class="text-slate-400 text-xs text-right w-20">
-                        {{ formatPrice(material.valuePerDay, 0) }}
+                      <span class="text-emerald-400 font-medium text-right w-28">
+                        +{{ formatNumber(material.exportPerDay, 1) }} / {{ formatPrice(material.valuePerDay, 0) }}
                       </span>
                       <span class="text-slate-500 text-xs text-right w-14">
                         {{ formatNumber(material.exportRatio, 0) }}%
@@ -219,6 +223,12 @@ function formatDays(days: number): string {
                 <div>
                   <div class="text-sm font-semibold text-rose-300 mb-2">{{ translate('materialsRunningOut') }}:</div>
                   <div v-if="baseSummary.materialsRunningOut.length > 0" class="space-y-1">
+                    <!-- Header -->
+                    <div class="flex items-center gap-2 text-xs text-slate-400 border-b border-slate-600 pb-1">
+                      <div class="w-4"></div>
+                      <span class="flex-1">Material</span>
+                      <span class="text-right w-24">Time Left / Stock</span>
+                    </div>
                     <div
                       v-for="material in baseSummary.materialsRunningOut.slice(0, 10)"
                       :key="material.materialId"
@@ -226,11 +236,8 @@ function formatDays(days: number): string {
                     >
                       <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
                       <span class="text-slate-300 flex-1 truncate">{{ getMaterialName(material.materialId) }}</span>
-                      <span class="text-rose-400 font-medium text-right">
-                        {{ formatDays(material.daysUntilEmpty) }}
-                      </span>
-                      <span class="text-slate-500 text-xs text-right">
-                        {{ formatNumber(material.currentStock, 0) }}
+                      <span class="text-rose-400 font-medium text-right w-24">
+                        {{ formatDays(material.daysUntilEmpty) }} / {{ formatNumber(material.currentStock, 0) }}
                       </span>
                     </div>
                     <div v-if="baseSummary.materialsRunningOut.length > 10" class="text-xs text-slate-500 pl-6">
