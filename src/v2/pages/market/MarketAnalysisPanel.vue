@@ -6,8 +6,6 @@ import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
 import { translate, formatDateTime as formatDateTimeLocale } from '../../localisation'
 import { formatInteger, formatDecimal, formatPercent as formatPercentLocale } from '../../localisation/numbers'
-import { usePriceAlerts } from '../../services/priceAlerts/alertManager'
-import { useMaterialPricing } from '../../services/gamedata/prices'
 
 // Format price helper: cents → dollars with $ prefix
 const formatPrice = (cents: number): string => '$' + formatDecimal(cents / 100, 2)
@@ -29,30 +27,17 @@ const {
 
 } = useMarketAnalysis({ world: world.value })
 
-// Alert management
-const { checkAlerts, playAlertSound, showNotification } = usePriceAlerts()
-const { priceResolver } = useMaterialPricing(props.gameData)
-
 // Auto-refresh interval (5 minutes)
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 let autoRefreshTimer: number | null = null
 
-// Setup auto-refresh with alert checking
+// Setup auto-refresh
 function setupAutoRefresh() {
   if (autoRefreshTimer !== null) {
     clearInterval(autoRefreshTimer)
   }
   autoRefreshTimer = window.setInterval(async () => {
     await fetch(false) // Use cache if available, otherwise fetch
-
-    // Check alerts after fetching new prices
-    const triggeredAlerts = checkAlerts(priceResolver.value)
-
-    // Handle triggered alerts
-    for (const result of triggeredAlerts) {
-      playAlertSound(result.alert.type)
-      showNotification(result.alert, result.currentPrice)
-    }
   }, AUTO_REFRESH_INTERVAL_MS)
 }
 

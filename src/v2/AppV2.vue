@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { loadGameData } from './services/gamedata/service'
 import type { GameData, GdIndex } from './services/gamedata/service'
 import { translate } from './localisation'
 import { getWorld } from './services/api/apiKeyManager'
 import { resetPriceCache } from './services/gamedata/prices'
+import { usePriceAlerts } from './services/priceAlerts/alertManager'
+import { useMaterialPricing } from './services/gamedata/prices'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
@@ -21,6 +23,38 @@ const gdLoadedAt = ref<number | null>(null)
 const loading = ref(false)
 const err = ref<string | null>(null)
 
+// Global alert checking (runs regardless of active tab)
+const { checkAlerts, playAlertSound, showNotification, reloadAlertsForWorld } = usePriceAlerts()
+let alertCheckTimer: number | null = null
+const ALERT_CHECK_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
+
+function setupAlertChecking() {
+  if (alertCheckTimer !== null) {
+    clearInterval(alertCheckTimer)
+  }
+
+  // Check alerts every 5 minutes if we have gameData
+  alertCheckTimer = window.setInterval(() => {
+    if (!gd.value) return
+
+    const { priceResolver } = useMaterialPricing(gd.value)
+    const triggeredAlerts = checkAlerts(priceResolver.value)
+
+    // Handle triggered alerts
+    for (const result of triggeredAlerts) {
+      playAlertSound(result.alert.type)
+      showNotification(result.alert, result.currentPrice)
+    }
+  }, ALERT_CHECK_INTERVAL_MS)
+}
+
+onBeforeUnmount(() => {
+  if (alertCheckTimer !== null) {
+    clearInterval(alertCheckTimer)
+    alertCheckTimer = null
+  }
+})
+
 onMounted(async () => {
   const saved = localStorage.getItem(LS_KEY) as Tab | null
   if (saved === 'bases' || saved === 'technology' || saved === 'config' || saved === 'market' || saved === 'alerts') active.value = saved
@@ -31,6 +65,8 @@ onMounted(async () => {
     gd.value = data
     gdIndex.value = index
     gdLoadedAt.value = loadedAt
+    // Start global alert checking once gameData is loaded
+    setupAlertChecking()
   } catch (e: unknown) {
     err.value = e instanceof Error ? e.message : 'error'
   } finally {
@@ -47,10 +83,14 @@ watch(getWorld, async () => {
   try {
     // Reset price cache to force fresh data for new world
     resetPriceCache()
+    // Reload alerts for new world
+    reloadAlertsForWorld()
     const result = await loadGameData(true)
     gd.value = result.data
     gdIndex.value = result.index
     gdLoadedAt.value = result.loadedAt
+    // Restart alert checking for new world
+    setupAlertChecking()
   } catch (e: unknown) {
     err.value = e instanceof Error ? e.message : 'error'
   } finally {

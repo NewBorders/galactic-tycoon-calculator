@@ -33,6 +33,7 @@ const {
   addAlert,
   requestNotificationPermission,
   getNotificationPermission,
+  sortAlerts,
 } = usePriceAlerts()
 
 // Notification permission
@@ -163,27 +164,8 @@ const filteredAlerts = computed(() => {
     })
   }
 
-  // Sort
-  return filtered.slice().sort((a, b) => {
-    let comparison = 0
-
-    switch (sortColumn.value) {
-      case 'material':
-        comparison = materialName(a.materialId).localeCompare(materialName(b.materialId))
-        break
-      case 'type':
-        comparison = a.type.localeCompare(b.type)
-        break
-      case 'price':
-        comparison = a.targetPrice - b.targetPrice
-        break
-      case 'status':
-        comparison = a.status.localeCompare(b.status)
-        break
-    }
-
-    return sortDirection.value === 'asc' ? comparison : -comparison
-  })
+  // Sort using composable function
+  return sortAlerts(filtered, sortColumn.value, sortDirection.value)
 })
 
 // Toggle sort

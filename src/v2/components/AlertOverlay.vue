@@ -24,7 +24,7 @@ const targetPrice = ref<number>(0)
 
 // Existing alerts
 const existingBuyAlert = computed(() => getAlert(props.materialId, 'buy'))
-const existingSelAlert = computed(() => getAlert(props.materialId, 'sell'))
+const existingSellAlert = computed(() => getAlert(props.materialId, 'sell'))
 
 // Initialize target price
 onMounted(() => {
@@ -159,7 +159,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Existing Alerts Info -->
-          <div v-if="existingBuyAlert || existingSelAlert" class="text-xs text-gray-400">
+          <div v-if="existingBuyAlert || existingSellAlert" class="text-xs text-gray-400">
             <div class="font-medium mb-1">Existing Alerts:</div>
             <div v-if="existingBuyAlert" class="flex items-center justify-between py-1">
               <span>💰 Buy: {{ formatPrice(existingBuyAlert.targetPrice) }}</span>
@@ -170,8 +170,8 @@ onUnmounted(() => {
                 Delete
               </button>
             </div>
-            <div v-if="existingSelAlert" class="flex items-center justify-between py-1">
-              <span>📈 Sell: {{ formatPrice(existingSelAlert.targetPrice) }}</span>
+            <div v-if="existingSellAlert" class="flex items-center justify-between py-1">
+              <span>📈 Sell: {{ formatPrice(existingSellAlert.targetPrice) }}</span>
               <button
                 @click="deleteAlert('sell')"
                 class="text-red-400 hover:text-red-300"
@@ -194,7 +194,7 @@ onUnmounted(() => {
             @click="saveAlert"
             class="px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded transition"
           >
-            {{ existingBuyAlert || existingSelAlert ? 'Update' : 'Create' }} Alert
+            {{ existingBuyAlert || existingSellAlert ? 'Update' : 'Create' }} Alert
           </button>
         </div>
       </div>

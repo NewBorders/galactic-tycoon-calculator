@@ -10,34 +10,44 @@ import { getWorld } from '../api/apiKeyManager'
 
 // State
 const alerts = ref<PriceAlert[]>([])
-const world = computed(() => getWorld())
 const lastCheck = ref<number | null>(null)
+
+// Track current world
+let currentWorld = getWorld()
 
 // Sound files - will be added to public folder
 const SOUND_BUY = '/sounds/alert-buy.mp3'
 const SOUND_SELL = '/sounds/alert-sell.mp3'
 
-// Load alerts on init and when world changes
+// Load alerts on init
 function init() {
-  alerts.value = loadAlerts(world.value)
+  currentWorld = getWorld()
+  alerts.value = loadAlerts(currentWorld)
 }
 
-watch(world, () => {
-  alerts.value = loadAlerts(world.value)
-})
+/**
+ * Reload alerts for current world (call this after world changes)
+ */
+export function reloadAlertsForWorld(): void {
+  const newWorld = getWorld()
+  if (newWorld !== currentWorld) {
+    currentWorld = newWorld
+    alerts.value = loadAlerts(currentWorld)
+  }
+}
 
 // Persist on change
 watch(
   alerts,
   () => {
-    saveAlerts(world.value, alerts.value)
+    saveAlerts(currentWorld, alerts.value)
   },
   { deep: true }
 )
 
 // Generate unique ID
 function generateId(): string {
-  return `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  return `alert_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 }
 
 /**
@@ -300,5 +310,6 @@ export function usePriceAlerts() {
     sortAlerts,
     requestNotificationPermission,
     getNotificationPermission,
+    reloadAlertsForWorld,
   }
 }
