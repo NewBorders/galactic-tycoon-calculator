@@ -13,6 +13,7 @@ import ConfiguredBase from './components/ConfiguredBase.vue'
 import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import LoadBasesButton from './components/LoadBasesButton.vue'
 import ImportConfirmDialog from './components/ImportConfirmDialog.vue'
+import GlobalSummary from './components/GlobalSummary.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 import { computeBaseReport } from '@/v2/services/production/engine'
@@ -105,11 +106,20 @@ const confirmDialogMessage = ref<string | undefined>(undefined)
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
+const EXPORT_THRESHOLD_STORAGE_KEY = 'gt:v2:exportThreshold'
+const DEFAULT_EXPORT_THRESHOLD = 50
 
 function sanitizeTimeframe(value: unknown): number {
   const numeric = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(numeric)) return DEFAULT_TIMEFRAME_HOURS
   const clamped = Math.min(336, Math.max(1, Math.round(numeric)))
+  return clamped
+}
+
+function sanitizeExportThreshold(value: unknown): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) return DEFAULT_EXPORT_THRESHOLD
+  const clamped = Math.min(100, Math.max(0, Math.round(numeric)))
   return clamped
 }
 
@@ -123,7 +133,18 @@ function loadTimeframe(): number {
   }
 }
 
+function loadExportThreshold(): number {
+  try {
+    const raw = localStorage.getItem(EXPORT_THRESHOLD_STORAGE_KEY)
+    if (raw == null) return DEFAULT_EXPORT_THRESHOLD
+    return sanitizeExportThreshold(Number(raw))
+  } catch {
+    return DEFAULT_EXPORT_THRESHOLD
+  }
+}
+
 const timeframeHours = ref(loadTimeframe())
+const exportThreshold = ref(loadExportThreshold())
 
 const suggestions = computed<Planet[]>(() => {
   const text = query.value.trim()
@@ -223,6 +244,21 @@ watch(
     }
     try {
       localStorage.setItem(TIMEFRAME_STORAGE_KEY, String(sanitized))
+    } catch {}
+  },
+  { immediate: false },
+)
+
+watch(
+  exportThreshold,
+  (value) => {
+    const sanitized = sanitizeExportThreshold(value)
+    if (sanitized !== value) {
+      exportThreshold.value = sanitized
+      return
+    }
+    try {
+      localStorage.setItem(EXPORT_THRESHOLD_STORAGE_KEY, String(sanitized))
     } catch {}
   },
   { immediate: false },
@@ -400,21 +436,23 @@ function cancelImport() {
       </div>
       <!-- Warehouse sync button -->
       <ApiSyncPanel ref="apiSyncPanel" :bases="state.bases" @stocksLoaded="handleStocksLoaded" />
-      <div class="flex items-center gap-2">
-        <label class="flex items-center gap-2">
-          <span>{{ translate('timeframeHoursLabel') }}</span>
-          <input
-            v-model.number="timeframeHours"
-            type="number"
-            min="1"
-            max="336"
-            step="1"
-            class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100"
-          />
-        </label>
-        <span class="text-slate-500 hidden md:inline">
-          {{ translate('timeframeHoursHint') }}
-        </span>
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          <label class="flex items-center gap-2">
+            <span>{{ translate('timeframeHoursLabel') }}</span>
+            <input
+              v-model.number="timeframeHours"
+              type="number"
+              min="1"
+              max="336"
+              step="1"
+              class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100"
+            />
+          </label>
+          <span class="text-slate-500 hidden md:inline">
+            {{ translate('timeframeHoursHint') }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -427,6 +465,20 @@ function cancelImport() {
       />
       <LoadBasesButton :bases="state.bases" @basesLoaded="handleBasesLoaded" />
     </div>
+
+    <!-- Global Summary -->
+    <GlobalSummary
+      v-if="state.bases.length > 0"
+      :bases="state.bases"
+      :game-data="props.gameData"
+      :index="props.index"
+      :price-resolver="priceResolver"
+      :technology-levels="technologyLevels"
+      :starting-bonus="startingBonus"
+      :timeframe-hours="timeframeHours"
+      :global-workforce-burden="globalWorkforceBurden"
+      v-model:export-threshold="exportThreshold"
+    />
 
     <!-- Bases -->
     <Draggable

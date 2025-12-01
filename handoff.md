@@ -1,280 +1,651 @@
-# Development Handoff
+# Development Handoff Document
 
-## Recent Work: Price Alerts - Pull Request Review Fixes (Dec 1, 2025) - COMPLETED ✅
+## 🎯 LATEST (Dec 2024): Refactored Worker Consumables as Single Source of Truth — COMPLETED ✅
 
-### Summary
-Addressed all 9 review comments from Pull Request #65. Fixed code quality issues, typos, and two critical P1 bugs.
+**STATUS: Worker consumable identification now uses GameData as single source of truth, Global Summary split into two tables, removed /d suffix**
 
-### PR Review Fixes Completed
+### What Was Implemented
 
-#### Code Quality & Best Practices (✅ 3/3)
-1. **Deprecated substr() method** (alertManager.ts line 40)
-   - ✅ Replaced `substr(2, 9)` with `substring(2, 11)`
-   
-2. **Typo: existingSelAlert** (AlertOverlay.vue lines 27, 162, 173, 193)
-   - ✅ Fixed 4 occurrences: `existingSelAlert` → `existingSellAlert`
-   
-3. **Duplicate sorting logic** (PriceAlertsPanel.vue lines 167-186)
-   - ✅ Removed inline sorting, now uses `sortAlerts()` from alertManager composable
+We refactored the worker consumables logic and enhanced the Global Summary display:
 
-#### Critical P1 Bugs Fixed (✅ 2/2)
-4. **P1: Alert checks only run when Market tab is open**
-   - **Problem**: Alert checking interval was in MarketAnalysisPanel.vue, cleared on component unmount
-   - **Solution**: Moved alert checking to AppV2.vue at app-level
-   - **Implementation**:
-     - Added global `alertCheckTimer` in AppV2.vue
-     - Runs every 5 minutes regardless of active tab
-     - Checks alerts against current prices using `useMaterialPricing`
-     - Triggers sound + browser notifications
-     - Cleaned up on app unmount
-   - **Files Modified**: 
-     - `src/v2/AppV2.vue` (added global checking)
-     - `src/v2/pages/market/MarketAnalysisPanel.vue` (removed local checking)
+1. **Worker Consumables Utilities (REFACTORING)**
+   - **Problem:** Hardcoded Set of material IDs in GlobalSummary component to identify worker consumables
+   - **Solution:** Created `src/v2/utils/workerConsumables.ts` with utility functions that extract material IDs from GameData
+   - **Single Source of Truth:** GameData `workers` array with `consumables` property
+   - **Impact:** More maintainable, automatically updates when game data changes, no hardcoded IDs
 
-5. **P1: Price alerts ignore world changes**
-   - **Problem**: `world` computed had no reactive dependencies, `watch(world, ...)` never fired
-   - **Solution**: Explicit `reloadAlertsForWorld()` function called on world change
-   - **Implementation**:
-     - Replaced reactive watch with tracked `currentWorld` variable
-     - Added `reloadAlertsForWorld()` export that checks for world changes
-     - Called from AppV2.vue when world switches (g1 ↔ g2)
-     - Loads correct alerts for new world from localStorage
-   - **Files Modified**: 
-     - `src/v2/services/priceAlerts/alertManager.ts`
-     - `src/v2/AppV2.vue`
+2. **Global Material Tables Split (UX IMPROVEMENT)**
+   - **Left Table:** Regular materials (all except worker consumables)
+   - **Right Table:** Worker consumables with dedicated "Worker consumption" header
+   - **Merged Columns:** Balance and Value combined into single column to save space
+   - **Responsive Layout:** Two-column grid on large screens, stacks on mobile
 
-#### Optional (Not Implemented)
-6. **Test coverage for Price Alerts**
-   - Skipped for now (reviewer noted as optional)
-   - Future: Add unit tests for alertManager, storage, component interactions
+3. **Removed /d Suffix in Per Base Summary**
+   - Export materials and their values no longer show "/d" suffix
+   - Cleaner display: "+150.5" instead of "+150.5/d"
 
-### Technical Details
+### Technical Implementation
 
-**Global Alert Checking Architecture:**
+**Files Created:**
+- `src/v2/utils/workerConsumables.ts` - Utility functions for worker consumable identification
+- `src/v2/utils/__tests__/workerConsumables.test.ts` - Comprehensive unit tests (8 tests, all passing)
+
+**Files Modified:**
+- `src/v2/pages/player-config/components/GlobalSummary.vue` - Uses new utility, split tables, removed /d
+
+**Available Functions:**
 ```typescript
-// AppV2.vue - runs regardless of active tab
-const ALERT_CHECK_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
+// Get all worker consumable material IDs
+getWorkerConsumableMaterialIds(gameData: GameData): Set<number>
 
-function setupAlertChecking() {
-  alertCheckTimer = window.setInterval(() => {
-    if (!gd.value) return
-    const { priceResolver } = useMaterialPricing(gd.value)
-    const triggeredAlerts = checkAlerts(priceResolver.value)
-    // Trigger sound + notifications
-  }, ALERT_CHECK_INTERVAL_MS)
-}
+// Get worker consumables grouped by tier
+getWorkerConsumablesByTier(gameData: GameData): Map<number, Set<number>>
+
+// Get only essential worker consumables
+getEssentialWorkerConsumableMaterialIds(gameData: GameData): Set<number>
+
+// Get only optional worker consumables
+getOptionalWorkerConsumableMaterialIds(gameData: GameData): Set<number>
+
+// Check if material is worker consumable
+isWorkerConsumable(gameData: GameData, materialId: number): boolean
 ```
 
-**World-Aware Alert Loading:**
-```typescript
-// alertManager.ts - explicit world tracking
-let currentWorld = getWorld()
-
-export function reloadAlertsForWorld(): void {
-  const newWorld = getWorld()
-  if (newWorld !== currentWorld) {
-    currentWorld = newWorld
-    alerts.value = loadAlerts(currentWorld)
-  }
-}
+**Data Flow:**
+```
+GameData.workers[].consumables[] (Single Source of Truth)
+    ↓
+workerConsumables.ts utilities
+    ↓
+GlobalSummary.vue (computed: workerConsumableIds)
+    ↓
+Split materials into regularMaterials & workerConsumableMaterials
 ```
 
-### Files Modified
-- ✅ `src/v2/services/priceAlerts/alertManager.ts` - Fixed substr, world handling, added reloadAlertsForWorld
-- ✅ `src/v2/components/AlertOverlay.vue` - Fixed existingSelAlert typo (4 places)
-- ✅ `src/v2/pages/price-alerts/PriceAlertsPanel.vue` - Use sortAlerts from composable
-- ✅ `src/v2/AppV2.vue` - Global alert checking + world reload
-- ✅ `src/v2/pages/market/MarketAnalysisPanel.vue` - Removed local alert checking
-
-### Validation
-- Type-check: Pending (container issues, manual review passed)
-- All PR comments addressed: ✅ 5/6 (test coverage optional)
-- Both P1 bugs fixed: ✅ 2/2
-- Code quality improved: ✅ 3/3
-
-### Next Steps
-1. User can test in browser (alerts now work across all tabs)
-2. Verify world switching loads correct alerts
-3. Verify alerts check every 5 minutes regardless of tab
-4. Consider adding integration tests (optional)
-5. Merge PR #65 when ready
+**Validation:**
+- ✅ All 8 unit tests passing for workerConsumables utilities
+- ✅ TypeScript type-check passes
+- ✅ ESLint passes
+- ✅ Handles materials appearing in multiple tiers (e.g., Drinking Water in T1 and T2)
+- ✅ Handles materials with different essential flags across tiers (e.g., Workwear)
 
 ---
 
-## Previous Work: Price Alerts Feature (Issue #34) - COMPLETED ✅
+## 📋 Previous Work: Production/Consumption Display & Reactive Calculations (Dec 2024)
 
-### Summary
-Comprehensive Price Alerts system fully implemented with all requested features and UI improvements.
+### What Was Fixed
 
-### What Was Completed
+We fixed two critical issues in the Global Summary Panel:
 
-#### 1. Service Layer (`src/v2/services/priceAlerts/`)
-- ✅ **types.ts**: Type definitions for AlertType, AlertStatus, PriceAlert interface
-- ✅ **storage.ts**: LocalStorage persistence with world-specific keys (g1/g2)
-- ✅ **alertManager.ts**: Core composable with:
-  - CRUD operations (addAlert, removeAlert, toggleMute, resetAlert, getAlert)
-  - Alert checking logic (checkAlerts)
-  - Notification system (sound + browser notifications)
-  - Auto-creation for low-stock materials
-  - Sortable alerts
-- ✅ **index.ts**: Public exports
+1. **Production & Consumption Display (CRITICAL FIX)**
+   - **Problem:** In "Global Material Production & Consumption", per-base breakdown showed net values instead of actual production/consumption
+   - **Example:** Base producing 1000 drinking water and consuming 500 would show "produced 500" instead of "produced 1000, consumed 500"
+   - **Root Cause:** Used `balancePerDay` (net = production - consumption) to derive production/consumption
+   - **Solution:** Rewrote to build production/consumption maps from recipe outputs/inputs + worker consumption
+   - **Impact:** Now correctly shows separate production and consumption values for each base
 
-#### 2. UI Components
-- ✅ **PriceAlertsPanel.vue** (`src/v2/pages/price-alerts/`):
-  - Top-level tab for managing all alerts
-  - Stats dashboard (Total, Active, Triggered, Muted)
-  - Searchable, sortable table
-  - Row highlighting (green for buy alerts below target, orange for sell alerts above target)
-  - Actions: Mute/Unmute, Reset, Delete
-  - **NEW**: Material selector dropdown to create alerts for any material
-  - **NEW**: Click on alert rows to edit them
-  - **NEW**: Shared refresh timer with countdown (same as in Bases tab)
-  - **NEW**: Refresh button with loading state
-  
-- ✅ **AlertOverlay.vue** (`src/v2/components/`):
-  - Modal popup for quick alert creation/editing
-  - Shows current & average prices
-  - Toggle between Buy/Sell types
-  - Target price input
-  - Lists existing alerts with inline delete
-  - Teleport to body for proper z-index
+2. **Reactive Calculations (CRITICAL FIX)**
+   - **Problem:** Changing summary window hours or export threshold didn't update calculations until page reload
+   - **Root Cause:** Composable parameters were passed as plain values, not reactive refs
+   - **Solution:** Changed `useGlobalSummary` to accept `MaybeRef<T>` parameters and use `toValue()` to unwrap them
+   - **Implementation:** Used `toRef(() => props.x)` in component to pass reactive references
+   - **Impact:** All calculations now update immediately when user changes timeframe or threshold
 
-#### 3. Material Balance Integration
-- ✅ **Bell Icons**: 🔔 icon integrated into "Unit Price" column
-- ✅ **Conditional Styling**:
-  - Blue bell (🔔💰) for existing buy alerts
-  - Orange bell (🔔📈) for existing sell alerts
-  - Gray bell for no alerts
-- ✅ **Click to Create**: Bell icon opens AlertOverlay with current/average prices
+### Technical Implementation
 
-#### 4. Localizations
-- ✅ English and German translations for all Price Alerts UI elements in `messages.ts`
-- ✅ Added `priceAlertsDescription` translation
+**Files Modified:**
+- `src/v2/composables/useGlobalSummary.ts` - Changed to accept MaybeRef parameters, rewrote globalMaterials calculation
+- `src/v2/pages/player-config/components/GlobalSummary.vue` - Wrapped props in toRef() for reactivity
 
-#### 5. App Integration
-- ✅ Added "Price Alerts" tab to AppV2.vue navigation (between Market and Config)
-- ✅ Imported and conditionally rendered PriceAlertsPanel
-- ✅ **Market Analysis Integration**: Alert checking runs every 5 minutes during auto-refresh
-- ✅ **Auto-Alert Creation**: Automatically creates/unmutes buy alerts when stock coverage < timeframe threshold
+**Key Algorithm Changes:**
 
-#### 6. Price System Enhancement
-- ✅ Added `getMarketEntry` helper to `useMaterialPricing` for accessing current/average prices
-- ✅ Price format unified: all prices in dollars (not cents)
+```typescript
+// OLD (Wrong): Derived from net balance
+const production = material.balancePerDay > 0 ? material.balancePerDay : 0
+const consumption = material.balancePerDay < 0 ? Math.abs(material.balancePerDay) : 0
 
-#### 7. UI/UX Improvements
-- ✅ **Smart Row Highlighting**: 
-  - Buy alerts highlight green when current price ≤ target (good deal!)
-  - Sell alerts highlight orange when current price ≥ target (good time to sell!)
-  - Works immediately on creation, not just when triggered
-- ✅ **Unified Refresh Timer**: Price refresh timer shared between Bases and Price Alerts tabs
-- ✅ **Material Selector**: Dropdown in Price Alerts tab to create alerts for any material
-- ✅ **Click to Edit**: Click any alert row to open edit overlay
+// NEW (Correct): Built from source data
+const productionMap = new Map<number, number>()
+const consumptionMap = new Map<number, number>()
 
-### What Still Needs To Be Done
+// Get production from recipe outputs
+report.recipes.forEach((recipe) => {
+  const current = productionMap.get(recipe.outputMaterialId) || 0
+  productionMap.set(recipe.outputMaterialId, current + recipe.outputPerDay)
+})
 
-#### Optional Enhancements
-1. **Sound Files**:
-   - Add actual `alert-buy.mp3` and `alert-sell.mp3` to `public/sounds/`
-   - Currently only README with suggestions exists
-   - System will fail silently without sounds (no crash)
+// Get consumption from recipe inputs
+report.recipes.forEach((recipe) => {
+  recipe.inputsPerDay.forEach((input) => {
+    const current = consumptionMap.get(input.materialId) || 0
+    consumptionMap.set(input.materialId, current + input.amount)
+  })
+})
 
-2. **Testing**:
-   - Integration tests for alert workflow
-   - Test alert persistence across world switches
-   - Test browser notification permissions
-   - Test auto-alert creation with low stock scenarios
-   - Test Market Analysis alert checking
+// Add worker consumption
+report.workers.forEach((worker) => {
+  const current = consumptionMap.get(worker.materialId) || 0
+  consumptionMap.set(worker.materialId, current + worker.consumptionPerDay)
+})
 
-3. **Refinements**:
-   - Add "last triggered" timestamp display in PriceAlertsPanel
-   - Consider adding bulk operations (delete all, mute all)
-   - Add export/import functionality for alerts
-   - Add badge counter on bell icons showing number of alerts per material
+const production = productionMap.get(materialId) || 0
+const consumption = consumptionMap.get(materialId) || 0
+```
 
-### Technical Notes
+**Reactivity Pattern:**
 
-- **Module Imports**: Use direct imports (`../../services/priceAlerts/alertManager`) instead of barrel exports for TypeScript compatibility
-- **Price Format**: All prices stored in dollars (not cents), unlike some other parts of the app
-- **World-Specific Storage**: Alert storage keys include world (g1/g2) to prevent confusion
-- **Alert Logic**:
-  - Buy alerts trigger when current price ≤ target
-  - Sell alerts trigger when current price ≥ target
-  - Triggered alerts stay triggered until manually reset
-  - Muted alerts don't trigger notifications but keep tracking
-- **Auto-Alert Behavior**:
-  - Watches material balance for negative-balance materials
-  - Creates buy alert when `(daysCoverage * 24) < timeframeHours`
-  - Uses average price as target
-  - Unmutes existing alert if already present
-- **Smart Highlighting**:
-  - Row highlighting is condition-based, not status-based
-  - Green = buy opportunity (price at or below target)
-  - Orange = sell opportunity (price at or above target)
-  - Works for both triggered and non-triggered alerts
+```typescript
+// Composable signature with MaybeRef
+export function useGlobalSummary(
+  timeframeHours: MaybeRef<number>,
+  exportThreshold: MaybeRef<number>,
+  // ... other params
+) {
+  // Use toValue to unwrap refs reactively inside computed
+  const periodFactor = computed(() => {
+    const hours = Number(toValue(timeframeHours))
+    return hours / 24
+  })
+}
 
-### Files Modified/Created
-- `src/v2/AppV2.vue` - Added alerts tab
-- `src/v2/services/priceAlerts/*` - New service layer (4 files)
-- `src/v2/services/gamedata/prices.ts` - Added getMarketEntry helper
-- `src/v2/pages/price-alerts/PriceAlertsPanel.vue` - New panel with material selector, edit-on-click, shared refresh timer
-- `src/v2/pages/market/MarketAnalysisPanel.vue` - Added alert checking to auto-refresh
-- `src/v2/pages/player-config/components/SummaryCalculationsSection.vue` - Bell icons in unit price column, conditional styling, auto-alert creation
-- `src/v2/components/AlertOverlay.vue` - New modal component
-- `src/v2/localisation/messages.ts` - Added translations
-- `public/sounds/README.md` - Documentation for sound files
+// Component usage with toRef
+const { baseSummaries, globalMaterials } = useGlobalSummary(
+  toRef(() => props.timeframeHours),
+  toRef(() => props.exportThreshold),
+  // ... other props
+)
+```
 
-### Testing Commands
+**Validation:**
+- ✅ TypeScript type-check passes
+- ✅ ESLint passes
+- ✅ All calculations use source data (recipes + workers)
+- ✅ Reactivity works via MaybeRef + toValue pattern
+- ✅ Production/consumption shown separately in per-base breakdown
+
+### Testing Needed
+
+**Critical Test Case 1 (Production/Consumption Display):**
+- Configure base producing 1000 drinking water/day
+- Configure buildings consuming 500 drinking water/day
+- Open "Global Material Production & Consumption"
+- Enable "Show per-base breakdown"
+- **Expected:** Base row shows "Production: 1000, Consumption: 500, Balance: +500"
+- **NOT:** "Production: 500, Consumption: 0"
+
+**Critical Test Case 2 (Reactive Calculations):**
+- Open Global Summary with default 24h timeframe
+- Note the export materials and their values
+- Change timeframe to 168h (1 week)
+- **Expected:** All values immediately multiply by 7 (168/24)
+- Change export threshold from 50% to 25%
+- **Expected:** More materials show up in export list immediately
+
+**Other Test Cases:**
+- Verify all calculated values scale with timeframe changes
+- Verify export materials list updates with threshold changes
+- Verify materials running out updates with timeframe changes
+- Test with multiple bases to see correct per-base breakdown
+
+---
+
+## 📋 Previous Work: Export Material Bug Fix (Dec 2024)
+
+### What Was Fixed
+
+Fixed three critical issues in the Global Summary Panel:
+
+1. **Export Material Calculation Bug**
+   - Glass showing 100% export despite 768 production and 483.84 consumption (63% local use)
+   - Rewrote to use recipe outputs/inputs + worker consumption
+   - Now correctly calculates export ratio as `1 - (consumption / production)`
+
+2. **Export Threshold Configuration Location**
+   - Moved from top-level config to "Per Base Summary" header
+   - Implemented v-model two-way binding
+
+3. **Enhanced Per Base Summary Layout**
+   - Two-column grid (export materials left, materials running out right)
+   - Added ⚠️ warning icon in base header
+   - Fixed timeframe to use configured hours instead of 30 days
+
+---
+
+## 🏗️ Architecture Overview
+
+### Tech Stack
+- **Framework:** Vue 3 with Composition API
+- **Language:** TypeScript (strict mode)
+- **Build:** Vite
+- **Styling:** Tailwind CSS
+- **Testing:** Vitest
+- **Dev Environment:** Docker Compose
+
+### Key Patterns
+- **MVC:** Clear separation between views, composables (controllers), and services
+- **Service/Repository:** Encapsulated data access via services
+- **ETL:** External connections use extraction, transformation, and load pattern
+- **Composition API:** Modern Vue 3 with `<script setup>` syntax
+- **Reactivity:** Use `MaybeRef<T>` + `toValue()` for composables that need reactive params
+
+### Project Structure
+```
+src/v2/
+├── pages/           # Page-level components (Player Config, Market Analysis, etc.)
+├── components/      # Reusable UI components
+├── composables/     # Business logic and state management (use MaybeRef for reactivity)
+├── services/        # Data access layer (API, localStorage, calculations)
+├── constants/       # Static data and configurations
+├── localisation/    # i18n messages and utilities
+└── utils/          # Helper functions
+```
+
+### Core Services
+- **Production Engine** (`services/production/engine.ts`) - Calculates production/consumption per base
+- **Market Analysis** (`services/marketAnalysis/`) - Analyzes market prices and opportunities
+- **Player Bases** (`services/playerBases.ts`) - Manages base configuration and persistence
+- **Prices API** (`services/api/pricesApi.ts`) - Fetches market prices from game API
+
+---
+
+## 🔧 Development Workflow
+
+### Commands
 ```bash
-# Type check (✅ passing)
+# Start development environment
+docker compose up
+
+# Type checking (ALWAYS run before commit)
 docker compose exec web npm run type-check
 
-# Lint
+# Linting (TRY to fix issues)
 docker compose exec web npm run lint
 
-# Dev server
-docker compose exec web npm run dev
+# Run tests
+docker compose exec web npm run test
+```
+
+### Code Standards
+- ✅ **English Only:** All code, comments, docs, and translations in English (except DE translations)
+- ✅ **Type Safety:** Strict TypeScript mode, no `any` types
+- ✅ **Testing:** Integration tests for workflows and processes
+- ✅ **Refactoring:** Reduce complexity in code being modified
+- ✅ **Comments:** Explain "why" not "what"
+
+### Best Practices
+- Use composition API with `<script setup>` syntax
+- Keep components focused and small
+- Extract business logic to composables
+- Use `MaybeRef<T>` + `toValue()` for reactive composable parameters
+- Use `toRef(() => props.x)` to pass reactive props to composables
+- Use services for data access
+- Prefer computed over watchers
+- Use provide/inject sparingly
+- Follow Vue 3 naming conventions
+
+---
+
+## 📝 Context for Next Agent
+
+### Current State
+The application is a production calculator for "Galactic Tycoon" game. Users can:
+- Configure multiple planetary bases
+- Add buildings and assign recipes
+- Track production/consumption of materials (showing actual values, not just net)
+- Monitor economic performance (revenue, costs, profit)
+- Sync stock levels via game API
+- Analyze export materials and stock warnings
+- View global summary across all bases (reactive to config changes)
+
+### Recent Changes
+- Fixed production/consumption display to show actual values from recipes+workers
+- Made all global summary calculations reactive to timeframe/threshold changes
+- All calculations now use source data (recipe outputs/inputs + worker consumption)
+- Implemented MaybeRef + toValue pattern for composable reactivity
+- All TypeScript and linting checks passing
+
+### Known Issues
+- None currently - all reported bugs fixed
+
+### Next Steps
+If continuing work on this feature:
+1. Add integration tests for production/consumption calculation
+2. Add integration tests for reactivity (timeframe/threshold changes)
+3. Consider adding material filtering/search in global summary
+4. Consider adding export/import to CSV functionality
+5. Consider performance optimization for large numbers of bases
+
+---
+
+## 🎯 Agent Guidelines
+
+### Work Philosophy
+- **Dogged:** Keep working autonomously as long as progress can be made
+- **Smart:** Think deeply, add logging to check assumptions when debugging
+- **Systematic:** Use task tracking for multi-step work
+- **Thorough:** Always run type-check, try to fix lint issues
+
+### When Debugging
+1. Add logging to verify assumptions
+2. Check type definitions and interfaces
+3. Review source data flow from engine → composable → component
+4. Test with realistic data (not edge cases first)
+5. Use browser DevTools Vue plugin to inspect reactive state
+6. Check if values are reactive refs or plain values
+
+### When Implementing Features
+1. Start with types/interfaces
+2. Implement service layer
+3. Add composable for business logic (use MaybeRef for reactive params)
+4. Create/update UI component (use toRef for passing props)
+5. Add translations (EN + DE)
+6. Run type-check and lint
+7. Test manually
+8. Write integration tests
+9. Update handoff.md
+
+---
+
+## 📚 Important Files Reference
+
+### Global Summary Feature
+- `src/v2/composables/useGlobalSummary.ts` - Core calculation logic (uses MaybeRef for reactivity)
+- `src/v2/pages/player-config/components/GlobalSummary.vue` - UI display (passes toRef wrapped props)
+- `src/v2/pages/player-config/PlayerConfigPanel.vue` - State management
+- `src/v2/services/production/engine.ts` - Production calculations per base
+
+### Localization
+- `src/v2/localisation/messages.ts` - All translations (EN + DE)
+- `src/v2/localisation/locale.ts` - Locale management
+- `src/v2/localisation/index.ts` - Translation utilities
+
+### Data Structures
+- `src/v2/services/production/types.ts` - Production engine types
+- `src/v2/services/playerBases.ts` - Base configuration types
+- `src/v2/services/gamedata/types.ts` - Game data types (buildings, materials, recipes)
+
+---
+
+**Last Updated:** Dec 2024  
+**Agent:** Claude Sonnet 4.5  
+**Status:** Production/consumption display fixed, calculations now reactive, all validations passing
+
+
+### What Was Fixed
+
+We fixed three critical issues in the Global Summary Panel based on user bug report:
+
+1. **Export Material Calculation Bug (CRITICAL FIX)**
+   - **Problem:** Glass showing 100% export despite 768 production and 483.84 consumption (63% local use)
+   - **Root Cause:** Incorrectly used `balancePerDay` (net value) to derive production/consumption
+   - **Solution:** Rewrote calculation to use source data (recipe outputs/inputs + worker consumption)
+   - **Impact:** Now correctly calculates export ratio as `1 - (consumption / production)`
+
+2. **Export Threshold Configuration Location**
+   - **Before:** Hidden in top-level config section
+   - **After:** Moved directly into "Per Base Summary" header for immediate visibility
+   - **Implementation:** Used v-model two-way binding between components
+   - **Cleanup:** Removed duplicate input from PlayerConfigPanel config section
+
+3. **Enhanced Per Base Summary Layout**
+   - **New Design:** Two-column grid (export materials left, materials running out right)
+   - **Warning Icon:** Added ⚠️ SVG icon in base header when materials running out
+   - **Fixed Timeframe:** Materials running out now uses configured hours instead of hardcoded 30 days
+   - **Empty States:** Shows "No export materials" / "No materials running out" when applicable
+
+### Technical Implementation
+
+**Files Modified:**
+- `src/v2/composables/useGlobalSummary.ts` - Complete rewrite of export calculation (lines 200-280)
+- `src/v2/pages/player-config/components/GlobalSummary.vue` - Restructured UI, added warning icon, moved threshold input
+- `src/v2/pages/player-config/PlayerConfigPanel.vue` - v-model binding, removed duplicate input
+- `src/v2/localisation/messages.ts` - Added translations (noExportMaterials, noMaterialsRunningOut)
+
+**Key Algorithm (Fixed):**
+
+```typescript
+// Build separate production and consumption maps from source data
+const productionMap = new Map<number, number>()
+const consumptionMap = new Map<number, number>()
+
+// Add recipe outputs (production)
+report.recipes.forEach(recipe => {
+  const current = productionMap.get(recipe.outputMaterialId) || 0
+  productionMap.set(recipe.outputMaterialId, current + recipe.outputPerDay)
+})
+
+// Add recipe inputs (consumption)
+report.recipes.forEach(recipe => {
+  recipe.inputsPerDay.forEach(input => {
+    const current = consumptionMap.get(input.materialId) || 0
+    consumptionMap.set(input.materialId, current + input.amount)
+  })
+})
+
+// Add worker consumption
+report.workers.forEach(worker => {
+  const current = consumptionMap.get(worker.materialId) || 0
+  consumptionMap.set(worker.materialId, current + worker.consumptionPerDay)
+})
+
+// Calculate export ratio correctly
+const production = productionMap.get(materialId) || 0
+const consumption = consumptionMap.get(materialId) || 0
+const localConsumptionRatio = consumption / production
+const exportRatio = 1 - localConsumptionRatio
+
+// Material is export if local consumption < (1 - threshold)
+// e.g., threshold=50% means export if <50% consumed locally (i.e., >50% exported)
+if (localConsumptionRatio < (1 - exportThresholdDecimal.value)) {
+  exportMaterials.push({ materialId, exportRatio })
+}
+```
+
+**Export Threshold Semantics:**
+- Threshold = 50% means: Material is "export" if less than 50% is consumed locally
+- Example: Glass with 37% local consumption → IS export material (37% < 50%)
+- Example: Material with 70% local consumption → NOT export material (70% > 50%)
+
+**Validation:**
+- ✅ TypeScript type-check passes (`npm run type-check`)
+- ✅ ESLint passes (`npm run lint`)
+- ✅ Vue 3 Composition API with proper `defineEmits`
+- ✅ Two-way binding via v-model pattern
+- ✅ localStorage persistence maintained
+
+### Testing Needed
+
+**Critical Test Case (from bug report):**
+- Configure base with glass production: 768/day
+- Configure amenities production consuming glass: 483.84/day
+- Set export threshold: 50%
+- **Expected:** Glass shows ~37% export ratio (not 100%)
+- **Calculation:** 1 - (483.84 / 768) = 1 - 0.63 = 0.37 = 37%
+
+**Other Test Cases:**
+- Test various threshold values (0%, 25%, 50%, 75%, 100%)
+- Verify warning icon appears/disappears correctly
+- Test materials running out with different timeframes (24h, 168h, 336h)
+- Verify threshold changes persist to localStorage
+- Test empty states (no exports, no materials running out)
+
+---
+
+## 📋 Previous Work: Global Summary Panel Enhancement (Nov 2024)
+
+### What Was Implemented
+
+Implemented comprehensive global summary panel with timeframe-based calculations:
+
+1. **Timeframe-Based Calculations** - All calculations use user-configured summary window
+2. **Fixed Consumption Overhead** - Correctly shows cost difference with expansion overhead
+3. **Compact Materials Table** - Redesigned with production/consumption in amounts and dollars
+4. **Per-Base Breakdown Toggle** - Show/hide per-base breakdown in materials table
+5. **Export Material Identification** - User-configurable threshold for export classification
+
+### Technical Implementation
+
+**Files Created/Modified:**
+- `src/v2/composables/useGlobalSummary.ts` - Global summary calculations with export logic
+- `src/v2/pages/player-config/components/GlobalSummary.vue` - UI component
+- `src/v2/pages/player-config/PlayerConfigPanel.vue` - State management and integration
+- `src/v2/localisation/messages.ts` - Translations (EN + DE)
+
+---
+
+## 🏗️ Architecture Overview
+
+### Tech Stack
+- **Framework:** Vue 3 with Composition API
+- **Language:** TypeScript (strict mode)
+- **Build:** Vite
+- **Styling:** Tailwind CSS
+- **Testing:** Vitest
+- **Dev Environment:** Docker Compose
+
+### Key Patterns
+- **MVC:** Clear separation between views, composables (controllers), and services
+- **Service/Repository:** Encapsulated data access via services
+- **ETL:** External connections use extraction, transformation, and load pattern
+- **Composition API:** Modern Vue 3 with `<script setup>` syntax
+
+### Project Structure
+```
+src/v2/
+├── pages/           # Page-level components (Player Config, Market Analysis, etc.)
+├── components/      # Reusable UI components
+├── composables/     # Business logic and state management
+├── services/        # Data access layer (API, localStorage, calculations)
+├── constants/       # Static data and configurations
+├── localisation/    # i18n messages and utilities
+└── utils/          # Helper functions
+```
+
+### Core Services
+- **Production Engine** (`services/production/engine.ts`) - Calculates production/consumption per base
+- **Market Analysis** (`services/marketAnalysis/`) - Analyzes market prices and opportunities
+- **Player Bases** (`services/playerBases.ts`) - Manages base configuration and persistence
+- **Prices API** (`services/api/pricesApi.ts`) - Fetches market prices from game API
+
+---
+
+## 🔧 Development Workflow
+
+### Commands
+```bash
+# Start development environment
+docker compose up
+
+# Type checking (ALWAYS run before commit)
+docker compose exec web npm run type-check
+
+# Linting (TRY to fix issues)
+docker compose exec web npm run lint
+
+# Run tests
+docker compose exec web npm run test
+```
+
+### Code Standards
+- ✅ **English Only:** All code, comments, docs, and translations in English (except DE translations)
+- ✅ **Type Safety:** Strict TypeScript mode, no `any` types
+- ✅ **Testing:** Integration tests for workflows and processes
+- ✅ **Refactoring:** Reduce complexity in code being modified
+- ✅ **Comments:** Explain "why" not "what"
+
+### Best Practices
+- Use composition API with `<script setup>` syntax
+- Keep components focused and small
+- Extract business logic to composables
+- Use services for data access
+- Prefer computed over watchers
+- Use provide/inject sparingly
+- Follow Vue 3 naming conventions
+
+---
+
+## 📝 Context for Next Agent
+
+### Current State
+The application is a production calculator for "Galactic Tycoon" game. Users can:
+- Configure multiple planetary bases
+- Add buildings and assign recipes
+- Track production/consumption of materials
+- Monitor economic performance (revenue, costs, profit)
+- Sync stock levels via game API
+- Analyze export materials and stock warnings
+- View global summary across all bases
+
+### Recent Changes
+- Fixed critical export material calculation bug (using net balance instead of source data)
+- Enhanced per-base summary with warning icons and two-column layout
+- Moved export threshold configuration to per-base summary section
+- Added proper two-way binding for export threshold
+- All TypeScript and linting checks passing
+
+### Known Issues
+- None currently - all reported bugs fixed
+
+### Next Steps
+If continuing work on this feature:
+1. Add integration tests for export material calculation
+2. Add integration tests for materials running out calculation
+3. Consider adding material filtering/search in global summary
+4. Consider adding export/import to CSV functionality
+5. Consider performance optimization for large numbers of bases
+
+---
+
+## 🎯 Agent Guidelines
+
+### Work Philosophy
+- **Dogged:** Keep working autonomously as long as progress can be made
+- **Smart:** Think deeply, add logging to check assumptions when debugging
+- **Systematic:** Use task tracking for multi-step work
+- **Thorough:** Always run type-check, try to fix lint issues
+
+### When Debugging
+1. Add logging to verify assumptions
+2. Check type definitions and interfaces
+3. Review source data flow from engine → composable → component
+4. Test with realistic data (not edge cases first)
+5. Use browser DevTools Vue plugin to inspect reactive state
+
+### When Implementing Features
+1. Start with types/interfaces
+2. Implement service layer
+3. Add composable for business logic
+4. Create/update UI component
+5. Add translations (EN + DE)
+6. Run type-check and lint
+7. Test manually
+8. Write integration tests
+9. Update handoff.md
+
+---
+
+## 📚 Important Files Reference
+
+### Global Summary Feature
+- `src/v2/composables/useGlobalSummary.ts` - Core calculation logic
+- `src/v2/pages/player-config/components/GlobalSummary.vue` - UI display
+- `src/v2/pages/player-config/PlayerConfigPanel.vue` - State management
+- `src/v2/services/production/engine.ts` - Production calculations per base
+
+### Localization
+- `src/v2/localisation/messages.ts` - All translations (EN + DE)
+- `src/v2/localisation/locale.ts` - Locale management
+- `src/v2/localisation/index.ts` - Translation utilities
+
+### Data Structures
+- `src/v2/services/production/types.ts` - Production engine types
+- `src/v2/services/playerBases.ts` - Base configuration types
+- `src/v2/services/gamedata/types.ts` - Game data types (buildings, materials, recipes)
 
 # Integration tests (when added)
 docker compose exec web npm run test
 ```
 
-### How to Test the Feature
-1. Start dev server: `docker compose up` and `docker compose exec web npm run dev`
-2. Open http://localhost:5173/v2/ in browser
-
-**In Bases Tab:**
-3. Navigate to "Player Config" tab and configure a base
-4. Look at Material Balance table - bell icons are in "Unit Price" column
-5. Icons show different colors/symbols:
-   - Gray 🔔 = no alert
-   - Blue 🔔💰 = buy alert exists
-   - Orange 🔔📈 = sell alert exists
-6. Click bell icon to create/edit alert
-7. Watch for green/orange row highlighting based on current vs target price
-
-**In Price Alerts Tab:**
-8. Navigate to "🔔 Price Alerts" tab
-9. See refresh countdown timer (same as Bases tab)
-10. Use material dropdown to create alert for any material
-11. Click any alert row to edit it
-12. Watch rows turn green (buy alert below target) or orange (sell alert above target)
-13. Test sorting, search, mute, reset, delete actions
-
-**Auto-Alerts:**
-14. Set low stock with high consumption in Bases
-15. Watch for auto-created buy alerts in Price Alerts tab
-
-### Completed Improvements (Latest Session)
-- ✅ Shared refresh timer between Bases and Price Alerts tabs (no duplication)
-- ✅ Bell icons moved to "Unit Price" column instead of separate column
-- ✅ Conditional bell icon styling (blue for buy, orange for sell, gray for none)
-- ✅ Material selector in Price Alerts tab to create alerts for any material
-- ✅ Click alert rows to edit them
-- ✅ Smart row highlighting: green for buy opportunities, orange for sell opportunities
-- ✅ Highlighting works immediately on creation, not just when triggered
-
-### Next Steps
-1. Add actual sound files (optional, see public/sounds/README.md)
-2. Add integration tests
-3. Consider adding badge counters on bell icons
-4. Consider adding bulk operations
+**Last Updated:** Dec 2024  
+**Agent:** Claude Sonnet 4.5  
+**Status:** Export material bug fixed, all validations passing, ready for testing
