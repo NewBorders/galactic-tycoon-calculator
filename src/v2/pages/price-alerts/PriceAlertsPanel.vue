@@ -66,7 +66,7 @@ function startInlineEdit(alert: PriceAlert, event?: MouseEvent) {
 
 function saveInlineEdit(alert: PriceAlert) {
   if (editingAlertId.value !== alert.id) return
-  
+
   // Update alert with new values
   addAlert(alert.materialId, alert.materialName, editingType.value, editingTargetPrice.value, alert.autoCreated)
   editingAlertId.value = null
@@ -219,13 +219,13 @@ function getCurrentPrice(materialId: number): number {
 function getPriceTrend(materialId: number): { changePercent: number; direction: 'rising' | 'falling' | 'stable'; period: string } | null {
   const entry = getMarketEntry.value(materialId)
   if (!entry?.currentPrice || !entry?.averagePrice) return null
-  
+
   const changePercent = ((entry.currentPrice - entry.averagePrice) / entry.averagePrice) * 100
-  const direction: 'rising' | 'falling' | 'stable' = 
-    changePercent > 2 ? 'rising' : 
-    changePercent < -2 ? 'falling' : 
+  const direction: 'rising' | 'falling' | 'stable' =
+    changePercent > 2 ? 'rising' :
+    changePercent < -2 ? 'falling' :
     'stable'
-  
+
   return { changePercent, direction, period: 'vs avg' }
 }
 
@@ -254,17 +254,17 @@ function getTypeLabel(type: 'buy' | 'sell'): string {
 
 function getRowClass(alert: PriceAlert): string {
   const currentPrice = getCurrentPrice(alert.materialId)
-  
+
   // Buy alert: highlight green if current <= target
   if (alert.type === 'buy' && currentPrice <= alert.targetPrice) {
     return 'bg-green-900/30 border-green-700'
   }
-  
+
   // Sell alert: highlight orange if current >= target
   if (alert.type === 'sell' && currentPrice >= alert.targetPrice) {
     return 'bg-orange-900/30 border-orange-700'
   }
-  
+
   return 'border-slate-700 hover:bg-slate-700/50'
 }
 
@@ -289,9 +289,9 @@ const selectedMaterialId = ref<number | null>(null)
 const matchingMaterials = computed(() => {
   const search = searchTerm.value.trim().toLowerCase()
   if (!search) return []
-  
+
   // Find all matching materials
-  return props.gameData.materials.filter(mat => 
+  return props.gameData.materials.filter(mat =>
     mat.name.toLowerCase().includes(search) ||
     mat.id.toString() === search
   ).slice(0, 20) // Limit to 20 results
@@ -316,7 +316,7 @@ watch([matchingMaterials, hasExactMatch], () => {
       selectedMaterialId.value = firstMatch.id
     }
   } else if (hasExactMatch.value) {
-    const exactMatch = matchingMaterials.value.find(mat => 
+    const exactMatch = matchingMaterials.value.find(mat =>
       mat.name.toLowerCase() === searchTerm.value.trim().toLowerCase()
     )
     if (exactMatch) {

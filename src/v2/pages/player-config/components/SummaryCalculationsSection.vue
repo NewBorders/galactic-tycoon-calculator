@@ -147,20 +147,20 @@ function materialName(id: number) {
 // Auto-create buy alerts for low-stock materials
 watch([materialRows, timeframeHours], () => {
   const thresholdHours = timeframeHours.value
-  
+
   materialRows.value.forEach((row) => {
     // Only for materials with negative balance (consumption)
     if (row.balancePerDay >= 0) return
-    
+
     const daysCoverage = row.daysCoverage ?? 0
     const hoursCoverage = daysCoverage * 24
-    
+
     // If stock coverage is below threshold, create/unmute buy alert
     if (hoursCoverage < thresholdHours) {
       const entry = getMarketEntry.value(row.materialId)
       const targetPrice = entry?.averagePrice ?? props.priceResolver(row.materialId)
       const materialNameStr = materialName(row.materialId)
-      
+
       autoCreateBuyAlert(row.materialId, materialNameStr, targetPrice)
     }
   })
@@ -338,8 +338,8 @@ onBeforeUnmount(() => {
                     @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
                     :class="[
                       'transition-colors',
-                      hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' : 
-                      hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' : 
+                      hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
+                      hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
                       'text-slate-500 hover:text-yellow-400'
                     ]"
                     :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"

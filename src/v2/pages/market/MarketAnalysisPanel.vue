@@ -44,10 +44,10 @@ function setupAutoRefresh() {
   }
   autoRefreshTimer = window.setInterval(async () => {
     await fetch(false) // Use cache if available, otherwise fetch
-    
+
     // Check alerts after fetching new prices
     const triggeredAlerts = checkAlerts(priceResolver.value)
-    
+
     // Handle triggered alerts
     for (const result of triggeredAlerts) {
       playAlertSound(result.alert.type)

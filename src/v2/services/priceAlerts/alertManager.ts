@@ -232,7 +232,7 @@ export function autoCreateBuyAlert(
   averagePrice: number
 ): void {
   const existing = getAlert(materialId, 'buy')
-  
+
   if (existing) {
     // If exists and is muted, unmute it
     if (existing.status === 'muted') {
