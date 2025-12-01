@@ -642,7 +642,9 @@ If continuing work on this feature:
 - `src/v2/services/playerBases.ts` - Base configuration types
 - `src/v2/services/gamedata/types.ts` - Game data types (buildings, materials, recipes)
 
----
+# Integration tests (when added)
+docker compose exec web npm run test
+```
 
 **Last Updated:** Dec 2024  
 **Agent:** Claude Sonnet 4.5  

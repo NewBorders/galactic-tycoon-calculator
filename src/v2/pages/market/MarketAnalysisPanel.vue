@@ -36,14 +36,14 @@ function setupAutoRefresh() {
   if (autoRefreshTimer !== null) {
     clearInterval(autoRefreshTimer)
   }
-  autoRefreshTimer = window.setInterval(() => {
-    fetch(false) // Use cache if available, otherwise fetch
+  autoRefreshTimer = window.setInterval(async () => {
+    await fetch(false) // Use cache if available, otherwise fetch
   }, AUTO_REFRESH_INTERVAL_MS)
 }
 
 // Re-fetch data when world changes
-watch(world, () => {
-  fetch(true) // Force refresh to get data for new world
+watch(world, async () => {
+  await fetch(true) // Force refresh to get data for new world
   setupAutoRefresh() // Restart auto-refresh timer
 })
 
