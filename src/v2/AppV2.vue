@@ -9,8 +9,9 @@ import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
 import MarketAnalysisPanel from './pages/market/MarketAnalysisPanel.vue'
+import PriceAlertsPanel from './pages/price-alerts/PriceAlertsPanel.vue'
 
-type Tab = 'bases' | 'technology' | 'config' | 'market'
+type Tab = 'bases' | 'technology' | 'config' | 'market' | 'alerts'
 const LS_KEY = 'gt:v2:activeTab'
 
 const active = ref<Tab>('bases')
@@ -22,7 +23,7 @@ const err = ref<string | null>(null)
 
 onMounted(async () => {
   const saved = localStorage.getItem(LS_KEY) as Tab | null
-  if (saved === 'bases' || saved === 'technology' || saved === 'config' || saved === 'market') active.value = saved
+  if (saved === 'bases' || saved === 'technology' || saved === 'config' || saved === 'market' || saved === 'alerts') active.value = saved
 
   loading.value = true
   try {
@@ -58,7 +59,6 @@ watch(getWorld, async () => {
 })
 </script>
 
-
 <template>
   <div class="min-h-screen bg-slate-900 text-slate-100">
     <div class="p-4 space-y-4">
@@ -87,6 +87,13 @@ watch(getWorld, async () => {
           </button>
           <button
             class="px-3 py-2 border rounded"
+            :class="active === 'alerts' ? 'bg-gray-600' : ''"
+            @click="active = 'alerts'"
+          >
+            🔔 {{ translate('tabPriceAlerts') }}
+          </button>
+          <button
+            class="px-3 py-2 border rounded"
             :class="active === 'config' ? 'bg-gray-600' : ''"
             @click="active = 'config'"
           >
@@ -106,6 +113,7 @@ watch(getWorld, async () => {
       />
       <TechnologyPanel v-if="active === 'technology'" />
       <MarketAnalysisPanel v-if="gd && gdIndex && active === 'market'" :gameData="gd" :index="gdIndex" />
+      <PriceAlertsPanel v-if="gd && gdIndex && active === 'alerts'" :gameData="gd" :index="gdIndex" />
       <ConfigPanel v-if="active === 'config'" />
     </div>
   </div>
