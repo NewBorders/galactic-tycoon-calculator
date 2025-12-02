@@ -6,6 +6,7 @@ import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { translate } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
+import { formatWeight } from '@/v2/utils/materialHelpers'
 import AlertOverlay from '@/v2/components/AlertOverlay.vue'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
@@ -329,7 +330,7 @@ onBeforeUnmount(() => {
                 class="py-1 text-right"
                 :class="row.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300'"
               >
-                {{ formatNumber(row.balancePerPeriod) }}
+                {{ formatNumber(row.balancePerPeriod) }} / {{ formatWeight(gameData, row.balancePerPeriod, row.materialId) }}
               </td>
               <td class="py-1 text-right">
                 <div class="flex items-center justify-end gap-1">
@@ -349,7 +350,8 @@ onBeforeUnmount(() => {
                 </div>
               </td>
               <td class="py-1 text-right">
-                {{ row.toBuy > 0 ? formatNumber(row.toBuy,0,true) : '—' }}
+                <span v-if="row.toBuy > 0">{{ formatNumber(row.toBuy,0,true) }} / {{ formatWeight(gameData, row.toBuy, row.materialId) }}</span>
+                <span v-else>—</span>
               </td>
               <td
                 class="py-1 text-right"
