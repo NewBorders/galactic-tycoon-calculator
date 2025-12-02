@@ -205,6 +205,20 @@ const optionalConsumables = computed(() => {
   return groups
 })
 
+function materialName(id: number) {
+  return props.index.materialById.get(id)?.name ?? `#${id}`
+}
+
+function getMaterialWeight(materialId: number): number {
+  const material = props.gameData.materials.find((m) => m.id === materialId)
+  return material?.weightInTonnes ?? 0
+}
+
+function formatWeight(amount: number, materialId: number): string {
+  const weight = getMaterialWeight(materialId) * Math.abs(amount)
+  return `${formatNumber(weight, 1)}t`
+}
+
 function formatShare(value: number) {
   return `${formatNumber(value, 1)}%`
 }
@@ -329,7 +343,7 @@ onBeforeUnmount(() => {
                 class="py-1 text-right"
                 :class="row.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300'"
               >
-                {{ formatNumber(row.balancePerPeriod) }}
+                {{ formatNumber(row.balancePerPeriod) }} / {{ formatWeight(row.balancePerPeriod, row.materialId) }}
               </td>
               <td class="py-1 text-right">
                 <div class="flex items-center justify-end gap-1">
@@ -349,7 +363,8 @@ onBeforeUnmount(() => {
                 </div>
               </td>
               <td class="py-1 text-right">
-                {{ row.toBuy > 0 ? formatNumber(row.toBuy,0,true) : '—' }}
+                <span v-if="row.toBuy > 0">{{ formatNumber(row.toBuy,0,true) }} / {{ formatWeight(row.toBuy, row.materialId) }}</span>
+                <span v-else>—</span>
               </td>
               <td
                 class="py-1 text-right"

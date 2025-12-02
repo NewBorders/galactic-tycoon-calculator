@@ -1,6 +1,54 @@
 # Development Handoff Document
 
-## 🎯 LATEST (Dec 2024): Refactored Worker Consumables as Single Source of Truth — COMPLETED ✅
+## 🎯 LATEST (Dec 2024): Material Weight Display — COMPLETED ✅
+
+**STATUS: Material weights are now displayed across all relevant sections to help users calculate shipping requirements**
+
+### What Was Implemented (Issue #24)
+
+Added material weight information to help users understand shipping requirements:
+
+1. **Global Summary > Per Base Summary > Export Materials**
+   - Split combined "Balance / Value" back into separate columns
+   - Added "Weight" column showing total weight of exported materials
+   - Headers: "Material", "Balance", "Value", "Weight", "Export %"
+   - Weight calculated using `material.weightInTonnes * amount`
+
+2. **Global Summary > Per Base Summary > Running Out**
+   - Split combined "Time Left / Stock" into separate columns
+   - Added "To Buy" column showing amount needed + weight for timeframe
+   - Headers: "Material", "Time Left", "Stock", "To Buy"
+   - To Buy calculation: `(consumptionPerDay * timeframeHours / 24) - currentStock`
+
+3. **Per Base > Summary > Materials Balance**
+   - Added weight to "per XXh" column: `amount / weight`
+   - Added weight to "To Buy" column: `amount / weight`
+   - Weight shown even for negative amounts (always positive)
+
+### Technical Implementation
+
+**Files Modified:**
+- `src/v2/pages/player-config/components/GlobalSummary.vue`
+  - Added `getMaterialWeight()` and `formatWeight()` helper functions
+  - Updated Export Materials section with separate Balance/Value/Weight columns
+  - Updated Running Out section with separate Time Left/Stock/To Buy columns
+
+- `src/v2/pages/player-config/components/SummaryCalculationsSection.vue`
+  - Added `getMaterialWeight()` and `formatWeight()` helper functions
+  - Updated Materials Balance table to show weights in "per XXh" and "To Buy" columns
+
+**Weight Data Source:**
+- `GameData.materials[].weightInTonnes` (from game data)
+- Format: `{amount}t` (e.g., "125.3t")
+
+**Validation:**
+- ✅ Type-check passed
+- ✅ Lint passed
+- ⚠️ Pre-existing test failures in useGlobalSummary.test.ts (unrelated to this change)
+
+---
+
+## Previous: Refactored Worker Consumables as Single Source of Truth — COMPLETED ✅
 
 **STATUS: Worker consumable identification now uses GameData as single source of truth, Global Summary split into two tables, removed /d suffix**
 
