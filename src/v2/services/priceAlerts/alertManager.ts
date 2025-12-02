@@ -297,7 +297,7 @@ export function syncAlertWithManualPrice(materialId: number, price: number): voi
   // Find material name from existing alerts or use fallback
   const existingAlert = alerts.value.find(a => a.materialId === materialId)
   const materialName = existingAlert?.materialName ?? `Material ${materialId}`
-  
+
   // Create or update buy alert with the manual price
   addAlert(materialId, materialName, 'buy', price, false)
 }
