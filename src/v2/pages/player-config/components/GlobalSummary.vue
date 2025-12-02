@@ -89,24 +89,24 @@ function getMaterialWeight(materialId: number): number {
 function getExportTotals(exportMaterials: typeof baseSummaries.value[0]['exportMaterials']) {
   let totalWeight = 0
   let totalValue = 0
-  
+
   exportMaterials.forEach((material) => {
     totalWeight += material.exportPerDay * getMaterialWeight(material.materialId)
     totalValue += material.valuePerDay
   })
-  
+
   return { totalWeight, totalValue }
 }
 
 // Calculate total weight for running out materials per base
 function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.value[0]['materialsRunningOut']) {
   let totalWeight = 0
-  
+
   materialsRunningOut.forEach((material) => {
     const toBuy = Math.max(0, (material.consumptionPerDay * props.timeframeHours / 24) - material.currentStock)
     totalWeight += toBuy * getMaterialWeight(material.materialId)
   })
-  
+
   return totalWeight
 }
 </script>
