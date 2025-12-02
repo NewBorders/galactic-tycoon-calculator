@@ -327,6 +327,16 @@ function setManualPrice(materialId: number, price: number | null) {
     delete priceStore.settings.overrides[materialId].manualPrice
   } else {
     priceStore.settings.overrides[materialId].manualPrice = price
+    
+    // Sync with price alerts: update or create buy alert with this price
+    // Import dynamically to avoid circular dependencies
+    import('../priceAlerts/alertManager').then(({ syncAlertWithManualPrice }) => {
+      if (syncAlertWithManualPrice) {
+        syncAlertWithManualPrice(materialId, price)
+      }
+    }).catch(() => {
+      // Silently fail if price alerts not available
+    })
   }
   touchSettings()
   saveSettings(priceStore.settings)

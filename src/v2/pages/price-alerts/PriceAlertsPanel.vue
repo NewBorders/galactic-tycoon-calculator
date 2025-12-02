@@ -230,6 +230,16 @@ function getStatusLabel(status: PriceAlert['status']): string {
   }
 }
 
+function getTrendColor(changePercent: number, alertType: 'buy' | 'sell'): string {
+  // For buy alerts: green when price is falling (good), red when rising (bad)
+  // For sell alerts: green when price is rising (good), red when falling (bad)
+  if (alertType === 'buy') {
+    return changePercent < 0 ? 'text-green-400' : 'text-red-400'
+  } else {
+    return changePercent >= 0 ? 'text-green-400' : 'text-red-400'
+  }
+}
+
 function getTypeLabel(type: 'buy' | 'sell'): string {
   return type === 'buy' ? '💰 ' + translate('priceAlertBuy') : '📈 ' + translate('priceAlertSell')
 }
@@ -554,7 +564,7 @@ watch([matchingMaterials, hasExactMatch], () => {
                   <span
                     v-if="getPriceTrend(alert.materialId)"
                     class="text-[11px] font-mono font-semibold"
-                    :class="getPriceTrend(alert.materialId)!.changePercent >= 0 ? 'text-green-400' : 'text-red-400'"
+                    :class="getTrendColor(getPriceTrend(alert.materialId)!.changePercent, alert.type)"
                   >
                     {{ getPriceTrend(alert.materialId)!.changePercent >= 0 ? '+' : '' }}{{ formatPercent(getPriceTrend(alert.materialId)!.changePercent) }} {{ getPriceTrend(alert.materialId)!.period }}
                   </span>
