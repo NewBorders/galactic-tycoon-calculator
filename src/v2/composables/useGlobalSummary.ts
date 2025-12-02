@@ -274,6 +274,12 @@ export function useGlobalSummary(
     return baseSummaries.value.reduce((sum, base) => sum + base.workforceDeficitCost, 0)
   })
 
+  const totalExportNetProfit = computed(() => {
+    return baseSummaries.value.reduce((sum, base) => {
+      return sum + base.exportMaterials.reduce((exportSum, material) => exportSum + material.valuePerDay, 0)
+    }, 0)
+  })
+
   // Calculate consumption overhead cost: difference between actual net and net without overhead
   const totalConsumptionOverheadCost = computed(() => {
     if (toValue(globalWorkforceBurden) <= 2000) return 0
@@ -376,6 +382,7 @@ export function useGlobalSummary(
   return {
     baseSummaries,
     totalNetProfit,
+    totalExportNetProfit,
     totalWorkforceDeficitCost,
     totalConsumptionOverheadCost,
     globalMaterials,
