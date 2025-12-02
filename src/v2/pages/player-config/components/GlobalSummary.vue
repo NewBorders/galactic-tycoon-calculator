@@ -7,6 +7,7 @@ import { formatPrice, formatNumber } from '@/v2/utils/formatNumber'
 import { translate } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import { getWorkerConsumableMaterialIds } from '@/v2/utils/workerConsumables'
+import { formatWeight } from '@/v2/utils/materialHelpers'
 
 const props = defineProps<{
   bases: PlayerBase[]
@@ -56,16 +57,6 @@ function toggleBase(baseId: string) {
 function getMaterialName(materialId: number): string {
   const material = props.gameData.materials.find((m) => m.id === materialId)
   return material?.name ?? `Material ${materialId}`
-}
-
-function getMaterialWeight(materialId: number): number {
-  const material = props.gameData.materials.find((m) => m.id === materialId)
-  return material?.weightInTonnes ?? 0
-}
-
-function formatWeight(amount: number, materialId: number): string {
-  const weight = getMaterialWeight(materialId) * Math.abs(amount)
-  return `${formatNumber(weight, 1)}t`
 }
 
 const regularMaterials = computed(() => {
@@ -222,7 +213,7 @@ function formatDays(days: number): string {
                         {{ formatPrice(material.valuePerDay, 0) }}
                       </span>
                       <span class="text-slate-500 text-xs text-right w-20">
-                        {{ formatWeight(material.exportPerDay, material.materialId) }}
+                        {{ formatWeight(gameData, material.exportPerDay, material.materialId) }}
                       </span>
                       <span class="text-slate-500 text-xs text-right w-14">
                         {{ formatNumber(material.exportRatio, 0) }}%
@@ -263,7 +254,10 @@ function formatDays(days: number): string {
                         {{ formatNumber(material.currentStock, 0) }}
                       </span>
                       <span class="text-slate-400 text-xs text-right w-24">
-                        {{ formatNumber(Math.max(0, (material.consumptionPerDay * timeframeHours / 24) - material.currentStock), 0) }} / {{ formatWeight((material.consumptionPerDay * timeframeHours / 24) - material.currentStock, material.materialId) }}
+                        {{ (() => {
+                          const toBuy = Math.max(0, (material.consumptionPerDay * timeframeHours / 24) - material.currentStock)
+                          return `${formatNumber(toBuy, 0)} / ${formatWeight(gameData, toBuy, material.materialId)}`
+                        })() }}
                       </span>
                     </div>
                     <div v-if="baseSummary.materialsRunningOut.length > 10" class="text-xs text-slate-500 pl-6">
