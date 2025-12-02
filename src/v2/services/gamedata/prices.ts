@@ -377,8 +377,16 @@ export function useMaterialPricing(gameData: GameData) {
     }
   })
 
+  const getMarketEntry = computed(() => {
+    const marketSnapshot = priceStore.market
+    return (materialId: number): MarketPriceEntry | undefined => {
+      return marketSnapshot.get(materialId)
+    }
+  })
+
   return {
     priceResolver: resolver,
+    getMarketEntry,
     refreshPrices: (force = true) => ensureMarketPrices(force),
     loading: computed(() => priceStore.loading),
     error: computed(() => priceStore.error),

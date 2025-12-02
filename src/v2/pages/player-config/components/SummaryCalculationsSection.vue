@@ -6,6 +6,9 @@ import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { translate } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
+import AlertOverlay from '@/v2/components/AlertOverlay.vue'
+import { useMaterialPricing } from '@/v2/services/gamedata/prices'
+import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
 
 const props = defineProps<{
   base: PlayerBase
@@ -24,6 +27,41 @@ const emit = defineEmits<{
 }>()
 
 const optionalActive = ref<Set<number>>(new Set())
+
+// Alert overlay state
+const alertOverlayOpen = ref(false)
+const alertMaterialId = ref<number | null>(null)
+const alertMaterialName = ref<string>('')
+
+const { getMarketEntry } = useMaterialPricing(props.gameData)
+const { autoCreateBuyAlert, getAlert } = usePriceAlerts()
+
+function hasAlert(materialId: number, type: 'buy' | 'sell'): boolean {
+  return getAlert(materialId, type) !== undefined
+}
+
+const alertCurrentPrice = computed(() => {
+  if (alertMaterialId.value === null) return 0
+  return props.priceResolver(alertMaterialId.value)
+})
+
+const alertAveragePrice = computed(() => {
+  if (alertMaterialId.value === null) return 0
+  const entry = getMarketEntry.value(alertMaterialId.value)
+  return entry?.averagePrice ?? alertCurrentPrice.value
+})
+
+function openAlertOverlay(materialId: number, materialNameStr: string) {
+  alertMaterialId.value = materialId
+  alertMaterialName.value = materialNameStr
+  alertOverlayOpen.value = true
+}
+
+function closeAlertOverlay() {
+  alertOverlayOpen.value = false
+  alertMaterialId.value = null
+  alertMaterialName.value = ''
+}
 
 const timeframeHours = computed(() => {
   const hours = Number(props.timeframeHours)
@@ -101,6 +139,32 @@ const materialRows = computed(() =>
     return { ...row, stock, daysCoverage, balancePerPeriod, valuePerPeriod, toBuy }
   }),
 )
+
+function materialName(id: number) {
+  return props.index.materialById.get(id)?.name ?? `#${id}`
+}
+
+// Auto-create buy alerts for low-stock materials
+watch([materialRows, timeframeHours], () => {
+  const thresholdHours = timeframeHours.value
+
+  materialRows.value.forEach((row) => {
+    // Only for materials with negative balance (consumption)
+    if (row.balancePerDay >= 0) return
+
+    const daysCoverage = row.daysCoverage ?? 0
+    const hoursCoverage = daysCoverage * 24
+
+    // If stock coverage is below threshold, create/unmute buy alert
+    if (hoursCoverage < thresholdHours) {
+      const entry = getMarketEntry.value(row.materialId)
+      const targetPrice = entry?.averagePrice ?? props.priceResolver(row.materialId)
+      const materialNameStr = materialName(row.materialId)
+
+      autoCreateBuyAlert(row.materialId, materialNameStr, targetPrice)
+    }
+  })
+}, { deep: true })
 
 const workerRows = computed(() => {
   const rows = report.value.workers.slice()
@@ -281,7 +345,23 @@ onBeforeUnmount(() => {
               >
                 {{ formatNumber(row.balancePerPeriod) }} / {{ formatWeight(row.balancePerPeriod, row.materialId) }}
               </td>
-              <td class="py-1 text-right">{{ formatPrice(row.unitPrice,2) }}</td>
+              <td class="py-1 text-right">
+                <div class="flex items-center justify-end gap-1">
+                  <span>{{ formatPrice(row.unitPrice,2) }}</span>
+                  <button
+                    @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
+                    :class="[
+                      'transition-colors',
+                      hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
+                      hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
+                      'text-slate-500 hover:text-yellow-400'
+                    ]"
+                    :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                  >
+                    {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
+                  </button>
+                </div>
+              </td>
               <td class="py-1 text-right">
                 <span v-if="row.toBuy > 0">{{ formatNumber(row.toBuy,0,true) }} / {{ formatWeight(row.toBuy, row.materialId) }}</span>
                 <span v-else>—</span>
@@ -418,4 +498,15 @@ onBeforeUnmount(() => {
       <div v-else class="text-sm text-slate-400">—</div>
     </div>
   </div>
+
+  <!-- Alert Overlay -->
+  <AlertOverlay
+    v-if="alertMaterialId !== null"
+    :open="alertOverlayOpen"
+    :material-id="alertMaterialId"
+    :material-name="alertMaterialName"
+    :current-price="alertCurrentPrice"
+    :average-price="alertAveragePrice"
+    @close="closeAlertOverlay"
+  />
 </template>
