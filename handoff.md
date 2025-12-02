@@ -1,6 +1,75 @@
 # Development Handoff Document
 
-## 🎯 LATEST (Dec 2024): Material Weight Display — COMPLETED ✅
+## 🎯 LATEST: Price Alerts & Export Profit Enhancements — COMPLETED ✅
+
+**STATUS: Multiple improvements to Global Summary and Price Alerts completed and ready for testing**
+
+### What Was Implemented
+
+#### 1. Issue #51: Stock Display in Materials Balance ✅
+Added stock amounts alongside coverage time in the Materials Balance table for better visibility.
+
+**Display Format:** `150 / 2d 4h` (stock amount / coverage time)
+
+**Files Changed:**
+- `src/v2/pages/player-config/components/SummaryCalculationsSection.vue` (lines 358-365)
+
+#### 2. Export Net Profit Metric ✅
+Added new metric to Global Summary showing net profit from export materials only (materials meeting export threshold), with all costs subtracted.
+
+**Calculation Logic:**
+- Export Net Profit = Export Materials Revenue - All Costs
+- Export materials are determined by export threshold setting (e.g., 50% means material must have ≥50% not reused locally)
+- All costs include material purchase costs and worker purchase costs
+- Result is lower than Total Net Profit because only export material revenue is counted, but all costs are still subtracted
+
+**Files Changed:**
+- `src/v2/composables/useGlobalSummary.ts` - Added `totalExportNetProfit` computed property
+- `src/v2/pages/player-config/components/GlobalSummary.vue` - Added Export Net Profit card (grid expanded from 3 to 4 columns)
+- `src/v2/localisation/messages.ts` - Translations already existed
+
+#### 3. Price Alert Trend Colors Fixed ✅
+Price trend colors now contextually correct based on alert type:
+- **Buy Alerts:** Green = price falling (good), Red = price rising (bad)
+- **Sell Alerts:** Green = price rising (good), Red = price falling (bad)
+
+**Files Changed:**
+- `src/v2/pages/price-alerts/PriceAlertsPanel.vue` - Added `getTrendColor()` function
+
+#### 4. Price Alerts Sync with Manual Prices ✅
+When user sets a manual price in Price Management UI, system automatically creates/updates a buy alert with that price as the target.
+
+**Implementation:**
+- Dynamic imports to avoid circular dependencies
+- Graceful fallback if price alerts module not available
+- Uses existing `addAlert()` function to create/update alerts
+
+**Files Changed:**
+- `src/v2/services/gamedata/prices.ts` (lines 322-340) - Added dynamic import call
+- `src/v2/services/priceAlerts/alertManager.ts` - Added `syncAlertWithManualPrice()` function
+
+### Current Branch
+`51-add-stock-into-materials-balance`
+
+### Testing Recommendations
+1. Verify stock display shows correct format in Materials Balance
+2. Check Export Net Profit calculation in Global Summary
+3. Test price trend colors in Price Alerts panel for both buy and sell alerts
+4. Test price alerts sync:
+   - Set manual price in Price Management UI
+   - Verify buy alert created/updated in Price Alerts panel
+   - Confirm alert uses correct target price
+
+### Technical Notes
+- All changes pass `npm run type-check`
+- Vue 3 Composition API with TypeScript
+- Price alerts stored per-world in LocalStorage
+- Dynamic imports prevent circular dependencies
+- Alert system supports buy/sell types with status tracking
+
+---
+
+## Previous: Material Weight Display — COMPLETED ✅
 
 **STATUS: Material weights are now displayed across all relevant sections to help users calculate shipping requirements**
 

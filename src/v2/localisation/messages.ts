@@ -202,6 +202,8 @@ export const messages: Record<LanguageCode, Record<string, string>> = {
     // Global Summary
     globalSummary: 'Global Summary',
     totalNetProfit: 'Total Net Profit',
+    exportNetProfit: 'Export Net Profit',
+    exportNetProfitHint: 'Net profit from export materials only',
     workforceDeficitCost: 'Workforce Deficit Cost',
     workforceDeficitHint: 'Cost of unhoused workers across all bases',
     consumptionOverheadCost: 'Expansion Overhead Cost',
@@ -458,6 +460,8 @@ export const messages: Record<LanguageCode, Record<string, string>> = {
     // Global Summary
     globalSummary: 'Globale Übersicht',
     totalNetProfit: 'Gesamt-Nettogewinn',
+    exportNetProfit: 'Export-Nettogewinn',
+    exportNetProfitHint: 'Nettogewinn nur aus Exportmaterialien',
     workforceDeficitCost: 'Arbeitskräfte-Defizit-Kosten',
     workforceDeficitHint: 'Kosten für nicht untergebrachte Arbeiter',
     consumptionOverheadCost: 'Expansions-Overhead-Kosten',

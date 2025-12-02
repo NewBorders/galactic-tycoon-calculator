@@ -289,6 +289,19 @@ export function sortAlerts(
   return sorted
 }
 
+/**
+ * Sync alert with manual price from config
+ * When user sets a manual price, automatically create/update a buy alert
+ */
+export function syncAlertWithManualPrice(materialId: number, price: number): void {
+  // Find material name from existing alerts or use fallback
+  const existingAlert = alerts.value.find(a => a.materialId === materialId)
+  const materialName = existingAlert?.materialName ?? `Material ${materialId}`
+
+  // Create or update buy alert with the manual price
+  addAlert(materialId, materialName, 'buy', price, false)
+}
+
 // Initialize on module load
 init()
 
