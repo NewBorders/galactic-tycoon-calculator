@@ -275,9 +275,25 @@ export function useGlobalSummary(
   })
 
   const totalExportNetProfit = computed(() => {
-    return baseSummaries.value.reduce((sum, base) => {
-      return sum + base.exportMaterials.reduce((exportSum, material) => exportSum + material.valuePerDay, 0)
-    }, 0)
+    // Export Net Profit = Revenue from export materials only - ALL costs
+    // This shows the net profit if only export materials are sold
+    let totalExportRevenue = 0
+    let totalAllCosts = 0
+
+    baseReports.value.forEach(({ report }, baseIndex) => {
+      const baseSummary = baseSummaries.value[baseIndex]
+      if (!baseSummary) return
+
+      // Sum up export values for this base (only materials meeting export threshold)
+      const exportValue = baseSummary.exportMaterials.reduce((sum, material) => sum + material.valuePerDay, 0)
+      totalExportRevenue += exportValue
+
+      // Sum up ALL costs for this base
+      const baseCosts = (report.summary.materialPurchaseCosts + report.summary.workerPurchaseCosts) * periodFactor.value
+      totalAllCosts += baseCosts
+    })
+
+    return totalExportRevenue - totalAllCosts
   })
 
   // Calculate consumption overhead cost: difference between actual net and net without overhead

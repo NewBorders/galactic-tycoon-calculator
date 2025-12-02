@@ -15,7 +15,13 @@ Added stock amounts alongside coverage time in the Materials Balance table for b
 - `src/v2/pages/player-config/components/SummaryCalculationsSection.vue` (lines 358-365)
 
 #### 2. Export Net Profit Metric ✅
-Added new metric to Global Summary showing net profit specifically from export materials across all bases.
+Added new metric to Global Summary showing net profit from export materials only (materials meeting export threshold), with all costs subtracted.
+
+**Calculation Logic:**
+- Export Net Profit = Export Materials Revenue - All Costs
+- Export materials are determined by export threshold setting (e.g., 50% means material must have ≥50% not reused locally)
+- All costs include material purchase costs and worker purchase costs
+- Result is lower than Total Net Profit because only export material revenue is counted, but all costs are still subtracted
 
 **Files Changed:**
 - `src/v2/composables/useGlobalSummary.ts` - Added `totalExportNetProfit` computed property
