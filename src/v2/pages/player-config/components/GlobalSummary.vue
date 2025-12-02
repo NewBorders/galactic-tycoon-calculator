@@ -79,6 +79,36 @@ function formatDays(days: number): string {
   }
   return `${Math.floor(days)}d`
 }
+
+function getMaterialWeight(materialId: number): number {
+  const material = props.gameData.materials.find((m) => m.id === materialId)
+  return material?.weightInTonnes ?? 0
+}
+
+// Calculate total weight and value for export materials per base
+function getExportTotals(exportMaterials: typeof baseSummaries.value[0]['exportMaterials']) {
+  let totalWeight = 0
+  let totalValue = 0
+  
+  exportMaterials.forEach((material) => {
+    totalWeight += material.exportPerDay * getMaterialWeight(material.materialId)
+    totalValue += material.valuePerDay
+  })
+  
+  return { totalWeight, totalValue }
+}
+
+// Calculate total weight for running out materials per base
+function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.value[0]['materialsRunningOut']) {
+  let totalWeight = 0
+  
+  materialsRunningOut.forEach((material) => {
+    const toBuy = Math.max(0, (material.consumptionPerDay * props.timeframeHours / 24) - material.currentStock)
+    totalWeight += toBuy * getMaterialWeight(material.materialId)
+  })
+  
+  return totalWeight
+}
 </script>
 
 <template>
@@ -207,6 +237,19 @@ function formatDays(days: number): string {
                       <span class="text-right w-20">Weight</span>
                       <span class="text-right w-14">Export %</span>
                     </div>
+                    <!-- Total Summary Row -->
+                    <div class="flex items-center gap-2 text-sm font-semibold bg-slate-700/50 rounded px-1 py-1">
+                      <div class="w-4"></div>
+                      <span class="flex-1 text-amber-300">Total</span>
+                      <span class="text-right w-20"></span>
+                      <span class="text-amber-300 text-xs text-right w-20">
+                        {{ formatPrice(getExportTotals(baseSummary.exportMaterials).totalValue, 0) }}
+                      </span>
+                      <span class="text-amber-300 text-xs text-right w-20">
+                        {{ formatNumber(getExportTotals(baseSummary.exportMaterials).totalWeight, 1) }}t
+                      </span>
+                      <span class="text-right w-14"></span>
+                    </div>
                     <div
                       v-for="material in baseSummary.exportMaterials.slice(0, 10)"
                       :key="material.materialId"
@@ -247,6 +290,16 @@ function formatDays(days: number): string {
                       <span class="text-right w-20">Time Left</span>
                       <span class="text-right w-20">Stock</span>
                       <span class="text-right w-24">To Buy</span>
+                    </div>
+                    <!-- Total Summary Row -->
+                    <div class="flex items-center gap-2 text-sm font-semibold bg-slate-700/50 rounded px-1 py-1">
+                      <div class="w-4"></div>
+                      <span class="flex-1 text-amber-300">Total Weight</span>
+                      <span class="text-right w-20"></span>
+                      <span class="text-right w-20"></span>
+                      <span class="text-amber-300 text-xs text-right w-24">
+                        {{ formatNumber(getRunningOutTotalWeight(baseSummary.materialsRunningOut), 1) }}t
+                      </span>
                     </div>
                     <div
                       v-for="material in baseSummary.materialsRunningOut.slice(0, 10)"
