@@ -7,7 +7,7 @@ import { formatPrice, formatNumber } from '@/v2/utils/formatNumber'
 import { translate } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import { getWorkerConsumableMaterialIds } from '@/v2/utils/workerConsumables'
-import { formatWeight } from '@/v2/utils/materialHelpers'
+import { formatWeight, getMaterialWeight } from '@/v2/utils/materialHelpers'
 
 const props = defineProps<{
   bases: PlayerBase[]
@@ -80,18 +80,13 @@ function formatDays(days: number): string {
   return `${Math.floor(days)}d`
 }
 
-function getMaterialWeight(materialId: number): number {
-  const material = props.gameData.materials.find((m) => m.id === materialId)
-  return material?.weightInTonnes ?? 0
-}
-
 // Calculate total weight and value for export materials per base
 function getExportTotals(exportMaterials: typeof baseSummaries.value[0]['exportMaterials']) {
   let totalWeight = 0
   let totalValue = 0
 
   exportMaterials.forEach((material) => {
-    totalWeight += material.exportPerDay * getMaterialWeight(material.materialId)
+    totalWeight += material.exportPerDay * getMaterialWeight(props.gameData, material.materialId)
     totalValue += material.valuePerDay
   })
 
@@ -104,7 +99,7 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
 
   materialsRunningOut.forEach((material) => {
     const toBuy = Math.max(0, (material.consumptionPerDay * props.timeframeHours / 24) - material.currentStock)
-    totalWeight += toBuy * getMaterialWeight(material.materialId)
+    totalWeight += toBuy * getMaterialWeight(props.gameData, material.materialId)
   })
 
   return totalWeight
