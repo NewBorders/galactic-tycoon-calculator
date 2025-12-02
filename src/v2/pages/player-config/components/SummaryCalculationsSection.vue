@@ -357,7 +357,10 @@ onBeforeUnmount(() => {
                 class="py-1 text-right"
                 :class="row.toBuy > 0 ? 'text-rose-300' : 'text-emerald-300'"
               >
-                {{ row.balancePerDay < 0 ? formatCoverage(row.daysCoverage ?? null) : '—' }}
+                <template v-if="row.balancePerDay < 0">
+                  {{ formatNumber(row.stock, 0) }} / {{ formatCoverage(row.daysCoverage ?? null) }}
+                </template>
+                <template v-else>—</template>
               </td>
               <td
                 class="py-1 text-right"
