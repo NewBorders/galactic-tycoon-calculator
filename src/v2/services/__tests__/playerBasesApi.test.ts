@@ -288,4 +288,64 @@ describe('playerBases API integration', () => {
       expect(baseBeta.stock).toEqual({ 1: 750, 3: 250 })
     })
   })
+
+  describe('setMaterialSortOrder', () => {
+    it('should save material sort order preference per base', () => {
+      const fresh = usePlayerBases(mockGameData)
+      
+      // Add two bases
+      fresh.addBase(1)
+      fresh.addBase(2)
+      
+      const base1Id = fresh.state.value.bases[0].id
+      const base2Id = fresh.state.value.bases[1].id
+      
+      // Set different sort orders for each base
+      fresh.setMaterialSortOrder(base1Id, 'recipe')
+      fresh.setMaterialSortOrder(base2Id, 'name')
+      
+      // Verify
+      expect(fresh.state.value.bases[0].materialSortOrder).toBe('recipe')
+      expect(fresh.state.value.bases[1].materialSortOrder).toBe('name')
+    })
+
+    it('should persist material sort order to localStorage', () => {
+      const fresh = usePlayerBases(mockGameData)
+      fresh.addBase(1)
+      const baseId = fresh.state.value.bases[0].id
+      
+      fresh.setMaterialSortOrder(baseId, 'recipe')
+      
+      // Create new instance to verify persistence
+      const reloaded = usePlayerBases(mockGameData)
+      expect(reloaded.state.value.bases[0].materialSortOrder).toBe('recipe')
+    })
+
+    it('should default to name sorting when not set', () => {
+      const fresh = usePlayerBases(mockGameData)
+      fresh.addBase(1)
+      
+      // Should default to undefined (component defaults to 'name')
+      expect(fresh.state.value.bases[0].materialSortOrder).toBeUndefined()
+    })
+
+    it('should not error when base does not exist', () => {
+      const fresh = usePlayerBases(mockGameData)
+      
+      // Should not throw
+      expect(() => fresh.setMaterialSortOrder('non-existent', 'name')).not.toThrow()
+    })
+
+    it('should update existing sort order', () => {
+      const fresh = usePlayerBases(mockGameData)
+      fresh.addBase(1)
+      const baseId = fresh.state.value.bases[0].id
+      
+      fresh.setMaterialSortOrder(baseId, 'recipe')
+      expect(fresh.state.value.bases[0].materialSortOrder).toBe('recipe')
+      
+      fresh.setMaterialSortOrder(baseId, 'name')
+      expect(fresh.state.value.bases[0].materialSortOrder).toBe('name')
+    })
+  })
 })

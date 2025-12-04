@@ -4,6 +4,7 @@ import type { GameData, GdIndex, Planet } from '../../services/gamedata/service.
 import { searchPlanetsByName, useMaterialPricing } from '../../services/gamedata/service.ts'
 import { usePlayerBases } from '../../services/playerBases.ts'
 import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
+import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { fetchCompanyBases, fetchGameBaseDetails, transformGameBase } from '@/v2/services/api/warehouseService'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/index.js'
@@ -36,6 +37,7 @@ const {
   setRecipeCount,
   setOptionalConsumables,
   setStock,
+  setMaterialSortOrder,
   syncBaseFromApi,
   updateBaseStockFromApi,
   importBaseFromApiPayload,
@@ -106,20 +108,11 @@ const confirmDialogMessage = ref<string | undefined>(undefined)
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
-const EXPORT_THRESHOLD_STORAGE_KEY = 'gt:v2:exportThreshold'
-const DEFAULT_EXPORT_THRESHOLD = 50
 
 function sanitizeTimeframe(value: unknown): number {
   const numeric = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(numeric)) return DEFAULT_TIMEFRAME_HOURS
   const clamped = Math.min(336, Math.max(1, Math.round(numeric)))
-  return clamped
-}
-
-function sanitizeExportThreshold(value: unknown): number {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(numeric)) return DEFAULT_EXPORT_THRESHOLD
-  const clamped = Math.min(100, Math.max(0, Math.round(numeric)))
   return clamped
 }
 
@@ -133,18 +126,8 @@ function loadTimeframe(): number {
   }
 }
 
-function loadExportThreshold(): number {
-  try {
-    const raw = localStorage.getItem(EXPORT_THRESHOLD_STORAGE_KEY)
-    if (raw == null) return DEFAULT_EXPORT_THRESHOLD
-    return sanitizeExportThreshold(Number(raw))
-  } catch {
-    return DEFAULT_EXPORT_THRESHOLD
-  }
-}
-
 const timeframeHours = ref(loadTimeframe())
-const exportThreshold = ref(loadExportThreshold())
+const exportThreshold = getExportThresholdRef()
 
 const suggestions = computed<Planet[]>(() => {
   const text = query.value.trim()
@@ -244,21 +227,6 @@ watch(
     }
     try {
       localStorage.setItem(TIMEFRAME_STORAGE_KEY, String(sanitized))
-    } catch {}
-  },
-  { immediate: false },
-)
-
-watch(
-  exportThreshold,
-  (value) => {
-    const sanitized = sanitizeExportThreshold(value)
-    if (sanitized !== value) {
-      exportThreshold.value = sanitized
-      return
-    }
-    try {
-      localStorage.setItem(EXPORT_THRESHOLD_STORAGE_KEY, String(sanitized))
     } catch {}
   },
   { immediate: false },
@@ -586,6 +554,12 @@ function cancelImport() {
           @updateStock="
             (stock) => {
               setStock(base.id, stock)
+              persist()
+            }
+          "
+          @updateMaterialSortOrder="
+            (sortOrder) => {
+              setMaterialSortOrder(base.id, sortOrder)
               persist()
             }
           "

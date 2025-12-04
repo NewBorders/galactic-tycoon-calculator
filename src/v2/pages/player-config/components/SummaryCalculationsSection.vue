@@ -10,6 +10,7 @@ import { formatWeight } from '@/v2/utils/materialHelpers'
 import AlertOverlay from '@/v2/components/AlertOverlay.vue'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
+import { getExportThresholdRatio, getExportThresholdRef, setExportThreshold } from '@/v2/services/config/exportThreshold'
 
 const props = defineProps<{
   base: PlayerBase
@@ -25,9 +26,21 @@ const props = defineProps<{
 const emit = defineEmits<{
   updateOptional: [number[]]
   updateStock: [Record<number, number>]
+  updateMaterialSortOrder: [sortOrder: 'name' | 'recipe']
 }>()
 
 const optionalActive = ref<Set<number>>(new Set())
+
+// Materials balance sort order: 'name' (default) or 'recipe'
+type MaterialSortOrder = 'name' | 'recipe'
+const materialSortOrder = ref<MaterialSortOrder>(props.base.materialSortOrder ?? 'name')
+
+// Export threshold (reactive reference to global config)
+const exportThreshold = getExportThresholdRef()
+
+function handleExportThresholdChange() {
+  setExportThreshold(exportThreshold.value)
+}
 
 // Alert overlay state
 const alertOverlayOpen = ref(false)
@@ -35,7 +48,7 @@ const alertMaterialId = ref<number | null>(null)
 const alertMaterialName = ref<string>('')
 
 const { getMarketEntry } = useMaterialPricing(props.gameData)
-const { autoCreateBuyAlert, getAlert } = usePriceAlerts()
+const { getAlert, toggleMute } = usePriceAlerts()
 
 function hasAlert(materialId: number, type: 'buy' | 'sell'): boolean {
   return getAlert(materialId, type) !== undefined
@@ -130,22 +143,88 @@ const report = computed(() =>
   }),
 )
 
-const materialRows = computed(() =>
-  report.value.materials.map((row) => {
+// Determine which materials are "export materials" based on export threshold
+// (similar logic to useGlobalSummary)
+const exportMaterialIds = computed(() => {
+  const threshold = getExportThresholdRatio()
+  const exportIds = new Set<number>()
+
+  // Build production and consumption maps
+  const productionMap = new Map<number, number>()
+  const consumptionMap = new Map<number, number>()
+
+  // Get production from recipe outputs
+  report.value.recipes.forEach((recipe) => {
+    const current = productionMap.get(recipe.outputMaterialId) || 0
+    productionMap.set(recipe.outputMaterialId, current + recipe.outputPerDay)
+  })
+
+  // Get consumption from recipe inputs
+  report.value.recipes.forEach((recipe) => {
+    recipe.inputsPerDay.forEach((input) => {
+      const current = consumptionMap.get(input.materialId) || 0
+      consumptionMap.set(input.materialId, current + input.amount)
+    })
+  })
+
+  // Add worker consumption
+  report.value.workers.forEach((worker) => {
+    const current = consumptionMap.get(worker.materialId) || 0
+    consumptionMap.set(worker.materialId, current + worker.consumptionPerDay)
+  })
+
+  // Determine export materials
+  productionMap.forEach((production, materialId) => {
+    const consumption = consumptionMap.get(materialId) || 0
+    if (production > 0) {
+      const localConsumptionRatio = consumption / production
+      // Material is exported if less than threshold is consumed locally
+      if (localConsumptionRatio < (1 - threshold)) {
+        exportIds.add(materialId)
+      }
+    }
+  })
+
+  return exportIds
+})
+
+const materialRows = computed(() => {
+  const rows = report.value.materials.map((row) => {
     const stock = stockByMaterialId.value.get(row.materialId) ?? 0
     const daysCoverage = row.balancePerDay < 0 ? (stock > 0 ? stock / -row.balancePerDay : 0) : null
     const balancePerPeriod = row.balancePerDay * periodFactor.value
     const valuePerPeriod = row.valuePerDay * periodFactor.value
     const toBuy = row.balancePerDay < 0 ? Math.max(0, -balancePerPeriod - stock) : 0
     return { ...row, stock, daysCoverage, balancePerPeriod, valuePerPeriod, toBuy }
-  }),
-)
+  })
+
+  // Sort by name or keep recipe order
+  if (materialSortOrder.value === 'name') {
+    return rows.sort((a, b) => {
+      const nameA = materialName(a.materialId).toLowerCase()
+      const nameB = materialName(b.materialId).toLowerCase()
+      return nameA.localeCompare(nameB)
+    })
+  }
+  
+  // 'recipe' order: keep as is (from production order)
+  return rows
+})
+
+// Split materials into export and non-export
+const exportMaterials = computed(() => {
+  return materialRows.value.filter(row => exportMaterialIds.value.has(row.materialId))
+})
+
+const nonExportMaterials = computed(() => {
+  return materialRows.value.filter(row => !exportMaterialIds.value.has(row.materialId))
+})
 
 function materialName(id: number) {
   return props.index.materialById.get(id)?.name ?? `#${id}`
 }
 
-// Auto-create buy alerts for low-stock materials
+// Auto-unmute buy alerts for low-stock materials (don't create new ones)
 watch([materialRows, timeframeHours], () => {
   const thresholdHours = timeframeHours.value
 
@@ -156,13 +235,12 @@ watch([materialRows, timeframeHours], () => {
     const daysCoverage = row.daysCoverage ?? 0
     const hoursCoverage = daysCoverage * 24
 
-    // If stock coverage is below threshold, create/unmute buy alert
+    // If stock coverage is below threshold, unmute existing buy alert if muted
     if (hoursCoverage < thresholdHours) {
-      const entry = getMarketEntry.value(row.materialId)
-      const targetPrice = entry?.averagePrice ?? props.priceResolver(row.materialId)
-      const materialNameStr = materialName(row.materialId)
-
-      autoCreateBuyAlert(row.materialId, materialNameStr, targetPrice)
+      const existingAlert = getAlert(row.materialId, 'buy')
+      if (existingAlert && existingAlert.status === 'muted') {
+        toggleMute(existingAlert.id)
+      }
     }
   })
 }, { deep: true })
@@ -296,6 +374,11 @@ watch(
   },
 )
 
+// Emit sort order changes to parent for persistence
+watch(materialSortOrder, (newSortOrder) => {
+  emit('updateMaterialSortOrder', newSortOrder)
+})
+
 onBeforeUnmount(() => {
   // Cleanup if needed
 })
@@ -303,10 +386,88 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="grid gap-4 lg:grid-cols-2">
-    <!-- Materials Balance (left column, full height) -->
-    <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3 lg:row-span-2">
-      <div class="font-semibold">{{ translate('materialBalance') }}</div>
-      <template v-if="materialRows.length">
+    <!-- Materials Balance - Split into Export and Non-Export (left column, full height) -->
+    <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-4 lg:row-span-2">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div class="font-semibold">{{ translate('materialBalance') }}</div>
+        <div class="flex items-center gap-2">
+          <!-- Export Threshold Control -->
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400 whitespace-nowrap">{{ translate('exportThresholdLabel') }}:</label>
+            <input
+              v-model.number="exportThreshold"
+              @change="handleExportThresholdChange"
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              class="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+              :title="translate('exportThresholdHint')"
+            />
+            <span class="text-xs font-semibold text-purple-400 w-8 text-right">{{ exportThreshold }}%</span>
+          </div>
+          <!-- Sort Toggle -->
+          <button
+            @click="materialSortOrder = materialSortOrder === 'name' ? 'recipe' : 'name'"
+            class="text-xs px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 transition-colors whitespace-nowrap"
+            :title="materialSortOrder === 'name' ? translate('sortByRecipeOrder') : translate('sortByName')"
+          >
+            {{ materialSortOrder === 'name' ? '📋' : '🔤' }} {{ materialSortOrder === 'name' ? translate('sortedByName') : translate('sortedByRecipe') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Export Materials Table -->
+      <div v-if="exportMaterials.length" class="space-y-2">
+        <div class="text-sm font-semibold text-emerald-300">{{ translate('exportMaterials') }}</div>
+        <table class="w-full text-sm">
+          <thead class="text-slate-400 text-xs uppercase">
+            <tr>
+              <th class="text-left pb-1">{{ translate('material') }}</th>
+              <th class="text-right pb-1">{{ periodLabel }}</th>
+              <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
+              <th class="text-right pb-1">{{ translate('netResult') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in exportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
+              <td class="py-1">
+                <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
+                  <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
+                  <span>{{ materialName(row.materialId) }}</span>
+                </a>
+              </td>
+              <td class="py-1 text-right text-emerald-300">
+                {{ formatNumber(row.balancePerPeriod) }} / {{ formatWeight(gameData, row.balancePerPeriod, row.materialId) }}
+              </td>
+              <td class="py-1 text-right">
+                <div class="flex items-center justify-end gap-1">
+                  <span>{{ formatPrice(row.unitPrice,2) }}</span>
+                  <button
+                    @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
+                    :class="[
+                      'transition-colors',
+                      hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
+                      hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
+                      'text-slate-500 hover:text-yellow-400'
+                    ]"
+                    :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                  >
+                    {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
+                  </button>
+                </div>
+              </td>
+              <td class="py-1 text-right text-emerald-300">
+                {{ formatPrice(row.valuePerPeriod,2) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Non-Export Materials Table (with To Buy info) -->
+      <div v-if="nonExportMaterials.length" class="space-y-2">
+        <div class="text-sm font-semibold text-slate-300">{{ translate('otherMaterials') }}</div>
         <table class="w-full text-sm">
           <thead class="text-slate-400 text-xs uppercase">
             <tr>
@@ -319,9 +480,9 @@ onBeforeUnmount(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in materialRows" :key="row.materialId" class="border-t border-slate-800/60">
+            <tr v-for="row in nonExportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
               <td class="py-1">
-                <a v-bind:href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
+                <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
                   <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
                   <span>{{ materialName(row.materialId) }}</span>
                 </a>
@@ -371,8 +532,9 @@ onBeforeUnmount(() => {
             </tr>
           </tbody>
         </table>
-      </template>
-      <div v-else class="text-sm text-slate-400">—</div>
+      </div>
+
+      <div v-if="!materialRows.length" class="text-sm text-slate-400">—</div>
     </div>
 
     <!-- Worker Consumption (right column, top) -->

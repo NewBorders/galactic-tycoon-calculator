@@ -20,13 +20,11 @@ const {
   getMarketEntry,
   refreshPrices,
   loading: priceLoading,
-  lastFetched: priceLastFetched,
   nextRefreshAt: priceNextRefreshAt,
 } = useMaterialPricing(props.gameData)
 
 const {
   alerts,
-  lastCheck,
   removeAlert,
   toggleMute,
   resetAlert,
@@ -259,13 +257,6 @@ function getRowClass(alert: PriceAlert): string {
 
   return 'border-slate-700 hover:bg-slate-700/50'
 }
-
-// Last check time
-const lastCheckLabel = computed(() => {
-  if (!lastCheck.value) return 'Never'
-  const date = new Date(lastCheck.value)
-  return date.toLocaleTimeString()
-})
 
 // Stats
 const stats = computed(() => {

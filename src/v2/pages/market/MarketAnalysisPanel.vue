@@ -56,8 +56,31 @@ const materialNames = computed(() => {
   return map
 })
 
+// Material tier lookup
+const materialTiers = computed(() => {
+  const map = new Map<number, number>()
+  props.gameData.materials.forEach(m => {
+    map.set(m.id, m.tier)
+  })
+  return map
+})
+
 // Material search
 const materialSearch = ref('')
+
+// Tier filter (default: all tiers selected)
+const tierFilter = ref<Set<number>>(new Set([1, 2, 3, 4]))
+
+// Toggle tier filter
+function toggleTier(tier: number) {
+  if (tierFilter.value.has(tier)) {
+    tierFilter.value.delete(tier)
+  } else {
+    tierFilter.value.add(tier)
+  }
+  // Trigger reactivity
+  tierFilter.value = new Set(tierFilter.value)
+}
 
 // Sorting state
 const sortColumn = ref<'score' | 'demand' | 'revenue' | null>(null)
@@ -81,16 +104,25 @@ function getSortIndicator(column: 'score' | 'demand' | 'revenue'): string {
 
 // Filtered opportunities based on search
 const searchFilteredOpportunities = computed(() => {
-  if (!materialSearch.value.trim()) {
-    return filteredOpportunities.value
+  let opportunities = filteredOpportunities.value
+
+  // Filter by tier
+  opportunities = opportunities.filter(opp => {
+    const tier = materialTiers.value.get(opp.materialId)
+    return tier !== undefined && tierFilter.value.has(tier)
+  })
+
+  // Filter by search text
+  if (materialSearch.value.trim()) {
+    const searchLower = materialSearch.value.toLowerCase()
+    opportunities = opportunities.filter(opp => {
+      const materialName = materialNames.value.get(opp.materialId) || ''
+      return materialName.toLowerCase().includes(searchLower) ||
+             opp.materialId.toString().includes(searchLower)
+    })
   }
 
-  const searchLower = materialSearch.value.toLowerCase()
-  return filteredOpportunities.value.filter(opp => {
-    const materialName = materialNames.value.get(opp.materialId) || ''
-    return materialName.toLowerCase().includes(searchLower) ||
-           opp.materialId.toString().includes(searchLower)
-  })
+  return opportunities
 })
 
 // Sorted opportunities
@@ -284,14 +316,39 @@ const lastUpdatedLabel = computed(() => {
       </div>
     </div>
 
+    <!-- Tier Filter -->
+    <div class="bg-gray-800 rounded p-4">
+      <label class="block text-sm font-medium text-gray-300 mb-2">
+        ⭐ {{ translate('tierFilter') }}
+      </label>
+      <div class="flex gap-3">
+        <label
+          v-for="tier in [1, 2, 3, 4]"
+          :key="tier"
+          class="flex items-center gap-2 cursor-pointer"
+        >
+          <input
+            type="checkbox"
+            :checked="tierFilter.has(tier)"
+            @change="toggleTier(tier)"
+            class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+          />
+          <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
+        </label>
+      </div>
+    </div>
+
     <!-- Opportunities Table -->
     <div v-if="!loading && !error" class="bg-gray-800 rounded overflow-visible">
       <div class="overflow-x-hidden max-h-[max(200px,calc(100vh-400px))] overflow-y-auto rounded">
         <table class="table-fixed w-full text-xs">
           <thead class="bg-gray-700 sticky top-0 z-20">
             <tr>
-              <th class="w-[32%] px-3 py-2 text-left text-[11px] font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[28%] px-3 py-2 text-left text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 Material
+              </th>
+              <th class="w-[8%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider">
+                Tier
               </th>
               <th
                 class="w-[12%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
@@ -307,7 +364,7 @@ const lastUpdatedLabel = computed(() => {
                   </span>
                 </span>
               </th>
-              <th class="w-[14%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[13%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 <span class="flex items-center justify-end gap-1">
                   Avg Price
                   <span class="info-tooltip text-purple-400 cursor-help">
@@ -319,7 +376,7 @@ const lastUpdatedLabel = computed(() => {
                 </span>
               </th>
               <th
-                class="w-[14%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                class="w-[13%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('demand')"
               >
                 <span class="flex items-center justify-center gap-1">
@@ -333,7 +390,7 @@ const lastUpdatedLabel = computed(() => {
                 </span>
               </th>
               <th
-                class="w-[14%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                class="w-[13%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('revenue')"
               >
                 <span class="flex items-center justify-end gap-1">
@@ -346,7 +403,7 @@ const lastUpdatedLabel = computed(() => {
                   </span>
                 </span>
               </th>
-              <th class="w-[14%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[13%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 <span class="flex items-center justify-center gap-1">
                   Supply
                   <span class="info-tooltip text-purple-400 cursor-help">
@@ -366,13 +423,20 @@ const lastUpdatedLabel = computed(() => {
               class="hover:bg-gray-750 transition"
             >
               <!-- Material Name with Icon -->
-              <td class="w-[32%] px-3 py-2 text-white font-medium truncate">
+              <td class="w-[28%] px-3 py-2 text-white font-medium truncate">
                 <div class="flex items-center gap-2 min-w-0">
                   <MaterialIcon :name="materialNames.get(opp.materialId) || `ID ${opp.materialId}`" variant="lg" />
                   <span class="block truncate" :title="materialNames.get(opp.materialId) || `ID ${opp.materialId}`">
                     {{ materialNames.get(opp.materialId) || `ID ${opp.materialId}` }}
                   </span>
                 </div>
+              </td>
+
+              <!-- Tier -->
+              <td class="w-[8%] px-3 py-2 text-center">
+                <span class="text-yellow-400 font-semibold">
+                  {{ materialTiers.get(opp.materialId) ?? '?' }}
+                </span>
               </td>
 
               <!-- Score & Recommendation Combined -->
@@ -394,7 +458,7 @@ const lastUpdatedLabel = computed(() => {
               </td>
 
               <!-- Average Price with 7d Trend -->
-              <td class="w-[14%] px-3 py-2 text-right whitespace-nowrap">
+              <td class="w-[13%] px-3 py-2 text-right whitespace-nowrap">
                 <div class="flex flex-col items-end gap-0.5">
                   <span class="text-white font-mono font-semibold text-sm">
                     {{ formatPrice(opp.priceTrend.avg7d) }}
@@ -409,7 +473,7 @@ const lastUpdatedLabel = computed(() => {
               </td>
 
               <!-- Demand with Daily Volume -->
-              <td class="w-[14%] px-3 py-2 text-center whitespace-nowrap">
+              <td class="w-[13%] px-3 py-2 text-center whitespace-nowrap">
                 <div class="flex flex-col items-center gap-0.5">
                   <span
                     class="inline-block px-2 py-0.5 rounded text-[11px] font-medium uppercase"
@@ -424,12 +488,12 @@ const lastUpdatedLabel = computed(() => {
               </td>
 
               <!-- Revenue per Day -->
-              <td class="w-[14%] px-3 py-2 text-right text-white font-mono whitespace-nowrap text-sm">
+              <td class="w-[13%] px-3 py-2 text-right text-white font-mono whitespace-nowrap text-sm">
                 {{ formatPrice(opp.demand.revenueAvgPerDay) }}
               </td>
 
               <!-- Saturation with Available Supply -->
-              <td class="w-[14%] px-3 py-2 text-center whitespace-nowrap">
+              <td class="w-[13%] px-3 py-2 text-center whitespace-nowrap">
                 <div class="flex flex-col items-center gap-0.5">
                   <span class="text-[11px] text-gray-400 uppercase">
                     {{ opp.saturation.saturationLevel }}

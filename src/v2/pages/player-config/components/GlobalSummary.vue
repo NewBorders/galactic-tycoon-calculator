@@ -160,13 +160,14 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
               <input
                 :value="exportThreshold"
                 @input="emit('update:exportThreshold', Number(($event.target as HTMLInputElement).value))"
-                type="number"
+                type="range"
                 min="0"
                 max="100"
                 step="5"
-                class="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100"
+                class="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                :title="translate('exportThresholdHint')"
               />
-              <span class="text-slate-400">%</span>
+              <span class="text-xs font-semibold text-purple-400 w-8 text-right">{{ exportThreshold }}%</span>
             </label>
           </div>
         </div>

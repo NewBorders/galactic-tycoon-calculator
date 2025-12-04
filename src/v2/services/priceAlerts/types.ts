@@ -3,8 +3,6 @@
  * Manages alert definitions and state for market price monitoring
  */
 
-import type { World } from '../api/types'
-
 export type AlertType = 'buy' | 'sell'
 
 export type AlertStatus = 'active' | 'muted' | 'triggered'
