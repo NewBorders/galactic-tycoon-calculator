@@ -1,6 +1,148 @@
 # Handoff Document
 
-## Most Recent Work Session: Export Threshold Configuration
+## Most Recent Work Session: Per-Base Material Sort Order Persistence
+
+### Summary
+Implemented persistence for the material balance sort order (name vs recipe) on a per-base level. Users can now toggle between alphabetical sorting and recipe order, and their preference is saved individually for each base in localStorage.
+
+### Background
+Previously, the material balance tables had a toggle button to switch between:
+- **Name sorting** (🔤): Alphabetical order by material name
+- **Recipe sorting** (📋): Order by production sequence/recipe order
+
+However, this preference was not persisted - it would reset to 'name' on page reload.
+
+### Implementation
+
+#### Backend: Storage Layer
+**File**: `/src/v2/services/playerBases.ts`
+
+1. **Extended PlayerBase Type**:
+```typescript
+export type PlayerBase = {
+  // ... existing fields
+  materialSortOrder?: 'name' | 'recipe'
+}
+```
+
+2. **Added Setter Function**:
+```typescript
+function setMaterialSortOrder(baseId: string, sortOrder: 'name' | 'recipe') {
+  const b = state.value.bases.find((x) => x.id === baseId)
+  if (!b) return
+  b.materialSortOrder = sortOrder
+  saveState(state.value)
+}
+```
+
+3. **Exported Function**:
+- Added `setMaterialSortOrder` to the return object of `usePlayerBases()`
+
+#### Frontend: Component Wiring
+**File**: `/src/v2/pages/player-config/components/SummaryCalculationsSection.vue`
+
+1. **Initialize from Props**:
+```typescript
+const materialSortOrder = ref<MaterialSortOrder>(props.base.materialSortOrder ?? 'name')
+```
+- Reads initial value from `props.base.materialSortOrder`
+- Falls back to 'name' if not set
+
+2. **Added Emit**:
+```typescript
+const emit = defineEmits<{
+  updateOptional: [number[]]
+  updateStock: [Record<number, number>]
+  updateMaterialSortOrder: [sortOrder: 'name' | 'recipe']
+}>()
+```
+
+3. **Watch for Changes**:
+```typescript
+watch(materialSortOrder, (newSortOrder) => {
+  emit('updateMaterialSortOrder', newSortOrder)
+})
+```
+
+**File**: `/src/v2/pages/player-config/components/ConfiguredBase.vue`
+
+1. **Added Emit Type**:
+```typescript
+const emit = defineEmits<{
+  // ... existing emits
+  updateMaterialSortOrder: [sortOrder: 'name' | 'recipe']
+}>()
+```
+
+2. **Pass Through Emit**:
+```vue
+<SummaryCalculationsSection
+  @updateMaterialSortOrder="
+    (sortOrder) => {
+      $emit('updateMaterialSortOrder', sortOrder)
+      $emit('persist')
+    }
+  "
+/>
+```
+
+**File**: `/src/v2/pages/player-config/PlayerConfigPanel.vue`
+
+1. **Import Function**:
+```typescript
+const {
+  // ... existing imports
+  setMaterialSortOrder,
+} = usePlayerBases(props.gameData)
+```
+
+2. **Handle Emit**:
+```vue
+<ConfiguredBase
+  @updateMaterialSortOrder="
+    (sortOrder) => {
+      setMaterialSortOrder(base.id, sortOrder)
+      persist()
+    }
+  "
+/>
+```
+
+### Data Flow
+1. User clicks toggle button in SummaryCalculationsSection
+2. `materialSortOrder` ref updates (e.g., from 'name' to 'recipe')
+3. Watcher detects change and emits `updateMaterialSortOrder`
+4. ConfiguredBase passes emit up to PlayerConfigPanel
+5. PlayerConfigPanel calls `setMaterialSortOrder(baseId, sortOrder)`
+6. `setMaterialSortOrder` updates the base object and saves to localStorage
+7. On page reload, initial value is read from `base.materialSortOrder`
+
+### Storage Location
+- **localStorage key**: `gt:v2:player:bases:v2`
+- **Structure**: Each base object now includes optional `materialSortOrder` field
+- **Migration**: Existing bases without this field default to 'name' sorting
+
+### Validation
+- ✅ TypeScript: No compilation errors (`npm run type-check`)
+- ✅ Dev server: Starts successfully
+- ✅ Type safety: All emit chains properly typed
+- ✅ Fallback: Defaults to 'name' for bases without saved preference
+
+### User Impact
+- Sort order preference is now saved per-base
+- Each base can have different sort preference (some 'name', others 'recipe')
+- Preference persists across page reloads
+- No migration needed for existing bases (defaults to 'name')
+- Toggle button works as before, but now saves state
+
+### Technical Notes
+- The watcher emits on every change, which triggers persist() in parent
+- No debouncing needed since toggle is discrete action (not continuous input)
+- localStorage is updated synchronously via `saveState()`
+
+---
+
+## Previous Session: Export Threshold Configuration
 
 ### Summary
 Moved the export material threshold (previously hardcoded at 50%) into a configurable setting in the Config panel. The threshold is now centrally managed and used consistently across both Global Summary and per-base Materials Balance tables.

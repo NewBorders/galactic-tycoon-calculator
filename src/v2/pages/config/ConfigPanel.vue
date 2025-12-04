@@ -45,57 +45,7 @@ function handleExportThresholdChange() {
   <div class="space-y-4 text-slate-100">
     <!-- Two-column layout for config options -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <!-- Left Column -->
-      <div class="space-y-4">
-        <!-- API Key -->
-        <div class="space-y-2">
-          <label class="block text-sm">
-            <span class="text-slate-400">{{ translate('apiKeyLabel') }}</span>
-            <input
-              v-model="apiKey"
-              type="password"
-              class="w-full mt-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-              :placeholder="translate('apiKeyPlaceholder')"
-            />
-          </label>
-          <div class="space-y-2">
-            <p class="text-xs text-slate-400">{{ translate('apiKeyHint') }}</p>
-            <div class="bg-blue-900/30 border border-blue-700 rounded p-3">
-              <p class="text-xs text-blue-200">
-                <strong>How to generate API Key:</strong><br>
-                In the game, click your <strong>Company symbol</strong> → Open <strong>Settings</strong> → Generate API Key
-              </p>
-            </div>
-          </div>
-          <button
-            @click="handleSaveApiKey"
-            class="px-3 py-2 bg-emerald-700 hover:bg-emerald-600 rounded text-sm"
-          >
-            {{ translate('saveApiKey') }}
-          </button>
-          <div v-if="saveSuccess" class="text-xs text-emerald-400 bg-emerald-900/30 rounded px-2 py-1">
-            {{ translate('apiKeySaved') }}
-          </div>
-        </div>
-
-        <!-- World Selection -->
-        <div class="border-t border-slate-700 pt-4 space-y-2">
-          <label class="block text-sm">
-            <span class="text-slate-400">{{ translate('worldLabel') }}</span>
-            <select
-              v-model="world"
-              @change="handleWorldChange"
-              class="w-full mt-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100"
-            >
-              <option value="g1">{{ translate('worldG1') }}</option>
-              <option value="g2">{{ translate('worldG2') }}</option>
-            </select>
-          </label>
-          <p class="text-xs text-slate-400">{{ translate('worldHint') }}</p>
-        </div>
-      </div>
-
-      <!-- Right Column -->
+      <!-- Left Column: Language & Export Threshold -->
       <div class="space-y-4">
         <!-- Language Selection -->
         <div class="space-y-2">
@@ -134,6 +84,56 @@ function handleExportThresholdChange() {
                 above: Math.ceil(exportThreshold * 1.2)
               }) }}
             </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: World Selection & API Key -->
+      <div class="space-y-4">
+        <!-- World Selection -->
+        <div class="space-y-2">
+          <label class="block text-sm">
+            <span class="text-slate-400">{{ translate('worldLabel') }}</span>
+            <select
+              v-model="world"
+              @change="handleWorldChange"
+              class="w-full mt-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100"
+            >
+              <option value="g1">{{ translate('worldG1') }}</option>
+              <option value="g2">{{ translate('worldG2') }}</option>
+            </select>
+          </label>
+          <p class="text-xs text-slate-400">{{ translate('worldHint') }}</p>
+        </div>
+
+        <!-- API Key -->
+        <div class="border-t border-slate-700 pt-4 space-y-2">
+          <label class="block text-sm">
+            <span class="text-slate-400">{{ translate('apiKeyLabel') }}</span>
+            <input
+              v-model="apiKey"
+              type="password"
+              class="w-full mt-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+              :placeholder="translate('apiKeyPlaceholder')"
+            />
+          </label>
+          <div class="space-y-2">
+            <p class="text-xs text-slate-400">{{ translate('apiKeyHint') }}</p>
+            <div class="bg-blue-900/30 border border-blue-700 rounded p-3">
+              <p class="text-xs text-blue-200">
+                <strong>{{ translate('apiKeyGeneration') }}:</strong><br>
+                <span v-html="translate('apiKeyGenerationInstructions')"></span>
+              </p>
+            </div>
+          </div>
+          <button
+            @click="handleSaveApiKey"
+            class="px-3 py-2 bg-emerald-700 hover:bg-emerald-600 rounded text-sm"
+          >
+            {{ translate('saveApiKey') }}
+          </button>
+          <div v-if="saveSuccess" class="text-xs text-emerald-400 bg-emerald-900/30 rounded px-2 py-1">
+            {{ translate('apiKeySaved') }}
           </div>
         </div>
       </div>

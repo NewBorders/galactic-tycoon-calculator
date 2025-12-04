@@ -39,6 +39,7 @@ const emit = defineEmits<{
   updateRecipe: [{ id: string; patch: { count?: number } }]
   setOptionalConsumables: [materialIds: number[]]
   updateStock: [Record<number, number>]
+  updateMaterialSortOrder: [sortOrder: 'name' | 'recipe']
   persist: []
   toggleBase: [open: boolean]
   toggleSection: [{ which: 'buildings' | 'production' | 'dailySummary'; open: boolean }]
@@ -259,6 +260,12 @@ function onKey(e: KeyboardEvent) {
           @updateStock="
             (stock) => {
               $emit('updateStock', stock)
+              $emit('persist')
+            }
+          "
+          @updateMaterialSortOrder="
+            (sortOrder) => {
+              $emit('updateMaterialSortOrder', sortOrder)
               $emit('persist')
             }
           "

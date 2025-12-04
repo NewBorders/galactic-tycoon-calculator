@@ -26,13 +26,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   updateOptional: [number[]]
   updateStock: [Record<number, number>]
+  updateMaterialSortOrder: [sortOrder: 'name' | 'recipe']
 }>()
 
 const optionalActive = ref<Set<number>>(new Set())
 
 // Materials balance sort order: 'name' (default) or 'recipe'
 type MaterialSortOrder = 'name' | 'recipe'
-const materialSortOrder = ref<MaterialSortOrder>('name')
+const materialSortOrder = ref<MaterialSortOrder>(props.base.materialSortOrder ?? 'name')
 
 // Export threshold (reactive reference to global config)
 const exportThreshold = getExportThresholdRef()
@@ -372,6 +373,11 @@ watch(
     // Reset state on base change
   },
 )
+
+// Emit sort order changes to parent for persistence
+watch(materialSortOrder, (newSortOrder) => {
+  emit('updateMaterialSortOrder', newSortOrder)
+})
 
 onBeforeUnmount(() => {
   // Cleanup if needed

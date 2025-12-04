@@ -37,6 +37,7 @@ const {
   setRecipeCount,
   setOptionalConsumables,
   setStock,
+  setMaterialSortOrder,
   syncBaseFromApi,
   updateBaseStockFromApi,
   importBaseFromApiPayload,
@@ -553,6 +554,12 @@ function cancelImport() {
           @updateStock="
             (stock) => {
               setStock(base.id, stock)
+              persist()
+            }
+          "
+          @updateMaterialSortOrder="
+            (sortOrder) => {
+              setMaterialSortOrder(base.id, sortOrder)
               persist()
             }
           "

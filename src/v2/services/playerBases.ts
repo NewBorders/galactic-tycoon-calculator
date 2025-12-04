@@ -17,6 +17,7 @@ export type PlayerBase = {
   gameBaseId?: number // API game base ID
   gameWarehouseId?: number // API warehouse ID
   lastStockRefresh?: number // Timestamp of last API warehouse stock refresh
+  materialSortOrder?: 'name' | 'recipe' // Material balance sort order preference
 }
 
 type UiSections = { buildings: boolean; production: boolean; dailySummary: boolean }
@@ -371,6 +372,13 @@ export function usePlayerBases(gd: GameData) {
     saveState(state.value)
   }
 
+  function setMaterialSortOrder(baseId: string, sortOrder: 'name' | 'recipe') {
+    const b = state.value.bases.find((x) => x.id === baseId)
+    if (!b) return
+    b.materialSortOrder = sortOrder
+    saveState(state.value)
+  }
+
   return {
     state,
     planets,
@@ -398,6 +406,7 @@ export function usePlayerBases(gd: GameData) {
     setBaseOpen,
     getSections,
     setSection,
+    setMaterialSortOrder,
     importBaseFromApiPayload,
     persist: () => saveState(state.value),
   }
