@@ -185,7 +185,8 @@ export function usePlayerBases(gd: GameData) {
     if (existing) {
       existing.count = (existing.count ?? 1) + 1
     } else {
-      b.recipes.push({ id: uid(), recipeId, count: 1 })
+      // Add new recipe at the top of the list
+      b.recipes.unshift({ id: uid(), recipeId, count: 1 })
     }
     syncRecipesWithBuildings(b)
     saveState(state.value)

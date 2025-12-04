@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { getMaterialWeight, formatWeight } from '../materialHelpers'
-import type { GameData } from '@/v2/services/gamedata/types'
+import type { GameData, Material } from '@/v2/services/gamedata/types'
 
 describe('materialHelpers', () => {
   const mockGameData: GameData = {
     materials: [
-      { id: 1, name: 'Iron', weightInTonnes: 0.5 } as any,
-      { id: 2, name: 'Copper', weightInTonnes: 1.2 } as any,
-      { id: 3, name: 'Water', weightInTonnes: 0.1 } as any,
+      { id: 1, name: 'Iron', weightInTonnes: 0.5 } as Material,
+      { id: 2, name: 'Copper', weightInTonnes: 1.2 } as Material,
+      { id: 3, name: 'Water', weightInTonnes: 0.1 } as Material,
     ],
   } as GameData
 
@@ -27,7 +27,7 @@ describe('materialHelpers', () => {
         ...mockGameData,
         materials: [
           ...mockGameData.materials,
-          { id: 4, name: 'Digital Good', weightInTonnes: 0 } as any,
+          { id: 4, name: 'Digital Good', weightInTonnes: 0 } as Material,
         ],
       }
       expect(getMaterialWeight(gameDataWithZeroWeight, 4)).toBe(0)
