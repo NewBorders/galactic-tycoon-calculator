@@ -10,7 +10,7 @@ import { formatWeight } from '@/v2/utils/materialHelpers'
 import AlertOverlay from '@/v2/components/AlertOverlay.vue'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
-import { getExportThresholdRatio } from '@/v2/services/config/exportThreshold'
+import { getExportThresholdRatio, getExportThresholdRef, setExportThreshold } from '@/v2/services/config/exportThreshold'
 
 const props = defineProps<{
   base: PlayerBase
@@ -33,6 +33,13 @@ const optionalActive = ref<Set<number>>(new Set())
 // Materials balance sort order: 'name' (default) or 'recipe'
 type MaterialSortOrder = 'name' | 'recipe'
 const materialSortOrder = ref<MaterialSortOrder>('name')
+
+// Export threshold (reactive reference to global config)
+const exportThreshold = getExportThresholdRef()
+
+function handleExportThresholdChange() {
+  setExportThreshold(exportThreshold.value)
+}
 
 // Alert overlay state
 const alertOverlayOpen = ref(false)
@@ -375,15 +382,33 @@ onBeforeUnmount(() => {
   <div class="grid gap-4 lg:grid-cols-2">
     <!-- Materials Balance - Split into Export and Non-Export (left column, full height) -->
     <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-4 lg:row-span-2">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
         <div class="font-semibold">{{ translate('materialBalance') }}</div>
-        <button
-          @click="materialSortOrder = materialSortOrder === 'name' ? 'recipe' : 'name'"
-          class="text-xs px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 transition-colors"
-          :title="materialSortOrder === 'name' ? translate('sortByRecipeOrder') : translate('sortByName')"
-        >
-          {{ materialSortOrder === 'name' ? '📋' : '🔤' }} {{ materialSortOrder === 'name' ? translate('sortedByName') : translate('sortedByRecipe') }}
-        </button>
+        <div class="flex items-center gap-2">
+          <!-- Export Threshold Control -->
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400 whitespace-nowrap">{{ translate('exportThresholdLabel') }}:</label>
+            <input
+              v-model.number="exportThreshold"
+              @change="handleExportThresholdChange"
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              class="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+              :title="translate('exportThresholdHint')"
+            />
+            <span class="text-xs font-semibold text-purple-400 w-8 text-right">{{ exportThreshold }}%</span>
+          </div>
+          <!-- Sort Toggle -->
+          <button
+            @click="materialSortOrder = materialSortOrder === 'name' ? 'recipe' : 'name'"
+            class="text-xs px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 transition-colors whitespace-nowrap"
+            :title="materialSortOrder === 'name' ? translate('sortByRecipeOrder') : translate('sortByName')"
+          >
+            {{ materialSortOrder === 'name' ? '📋' : '🔤' }} {{ materialSortOrder === 'name' ? translate('sortedByName') : translate('sortedByRecipe') }}
+          </button>
+        </div>
       </div>
 
       <!-- Export Materials Table -->
