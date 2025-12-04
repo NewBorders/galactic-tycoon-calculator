@@ -127,7 +127,7 @@ export const TIER2_BUILDINGS: Record<string, Building> = {
         id: 192,
         name: 'Bio-Nutrient Blend',
         time: 120,
-        inputs: { aeridium: 1, bioxene: 2, fertilizer: 25 },
+        inputs: { aeridium_ore: 1, bioxene: 2, fertilizer: 25 },
         outputs: { bio_nutrient_blend: 25 },
       },
     },
