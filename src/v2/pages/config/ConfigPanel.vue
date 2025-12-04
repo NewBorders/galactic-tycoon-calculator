@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { getApiKey, getApiKeyRef, setApiKey, getWorld, setWorld } from '@/v2/services/api/apiKeyManager'
+import { getExportThreshold, setExportThreshold } from '@/v2/services/config/exportThreshold'
 import { translate } from '@/v2/localisation'
 import LanguageSwitcher from '@/v2/components/LanguageSwitcher.vue'
 import PriceManagement from './components/PriceManagement.vue'
@@ -8,6 +9,7 @@ import type { World } from '@/v2/services/api/types'
 
 const apiKey = ref(getApiKey() || '')
 const world = ref<World>(getWorld())
+const exportThreshold = ref(getExportThreshold())
 const saveSuccess = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -32,6 +34,10 @@ function handleSaveApiKey() {
 
 function handleWorldChange() {
   setWorld(world.value)
+}
+
+function handleExportThresholdChange() {
+  setExportThreshold(exportThreshold.value)
 }
 </script>
 
@@ -91,6 +97,32 @@ function handleWorldChange() {
         <div class="mt-1">
           <LanguageSwitcher />
         </div>
+      </div>
+    </div>
+
+    <!-- Export Threshold -->
+    <div class="border-t border-slate-700 pt-4 space-y-2">
+      <label class="block text-sm">
+        <span class="text-slate-400">{{ translate('exportThresholdLabel') }}</span>
+        <div class="flex items-center gap-3 mt-2">
+          <input
+            v-model.number="exportThreshold"
+            @change="handleExportThresholdChange"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            class="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+          />
+          <span class="text-lg font-semibold text-purple-400 w-12 text-right">{{ exportThreshold }}%</span>
+        </div>
+      </label>
+      <p class="text-xs text-slate-400">{{ translate('exportThresholdHint') }}</p>
+      <div class="bg-blue-900/30 border border-blue-700 rounded p-3">
+        <p class="text-xs text-blue-200">
+          <strong>{{ translate('exportThresholdExample') }}:</strong><br>
+          {{ translate('exportThresholdExampleText', { threshold: exportThreshold }) }}
+        </p>
       </div>
     </div>
 

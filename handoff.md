@@ -1,6 +1,90 @@
 # Handoff Document
 
-## Most Recent Work Session: Tech Debt & Package Updates
+## Most Recent Work Session: Export Threshold Configuration
+
+### Summary
+Moved the export material threshold (previously hardcoded at 50%) into a configurable setting in the Config panel. The threshold is now centrally managed and used consistently across both Global Summary and per-base Materials Balance tables.
+
+### What is Export Threshold?
+The threshold determines which materials are classified as "export materials" vs materials consumed by own production:
+- Materials with **less than X% local consumption** are considered exports
+- Example at 50%: A material using 30% locally = export material, 60% locally = not export
+- Used to split materials balance into "Export Materials" and "Other Materials" tables
+
+### Implementation
+
+#### New Service: Export Threshold Management
+**File**: `/src/v2/services/config/exportThreshold.ts`
+- Central storage in localStorage with key `exportThreshold`
+- Default: 50%
+- Reactive ref that can be imported by other modules
+- API:
+  - `getExportThreshold()` - Returns current value (0-100)
+  - `getExportThresholdRef()` - Returns reactive ref
+  - `setExportThreshold(value)` - Updates value (validates 0-100)
+  - `getExportThresholdRatio()` - Returns decimal ratio for calculations (e.g., 0.5 for 50%)
+
+#### Config UI Added
+**File**: `/src/v2/pages/config/ConfigPanel.vue`
+- New section: "Export Material Threshold"
+- Range slider: 0-100% in 5% steps
+- Live percentage display
+- Descriptive help text with example
+- Changes saved automatically to localStorage
+
+#### Integration Updates
+**Files Modified**:
+1. `/src/v2/pages/player-config/PlayerConfigPanel.vue`
+   - Removed local exportThreshold implementation
+   - Now uses `getExportThresholdRef()` from central service
+   - Removed duplicate localStorage handling
+
+2. `/src/v2/pages/player-config/components/SummaryCalculationsSection.vue`
+   - Updated to use `getExportThresholdRatio()` from central service
+   - Removed hardcoded 50% threshold
+   - Now respects user's configured threshold
+
+3. `/src/v2/composables/useGlobalSummary.ts`
+   - Already accepted threshold as parameter (no changes needed)
+   - Gets threshold value from PlayerConfigPanel
+
+#### Translations Added
+**English**:
+- `exportThresholdLabel`: "Export Material Threshold"
+- `exportThresholdHint`: "Materials with less than this percentage of local consumption are classified as exports and shown in the Export Materials table."
+- `exportThresholdExample`: "Example"
+- `exportThresholdExampleText`: "At {threshold}% threshold: A material that uses 30% of its production locally is an export material. A material using 60% locally is not."
+
+**German**:
+- `exportThresholdLabel`: "Export-Materialschwelle"
+- `exportThresholdHint`: "Materialien mit weniger als diesem Prozentsatz lokalem Verbrauch werden als Exporte klassifiziert und in der Export-Materialien-Tabelle angezeigt."
+- `exportThresholdExample`: "Beispiel"
+- `exportThresholdExampleText`: "Bei {threshold}% Schwelle: Ein Material, das 30% seiner Produktion lokal nutzt, ist ein Export-Material. Ein Material mit 60% lokalem Verbrauch nicht."
+
+### Validation
+- ✅ ESLint: Clean (no errors)
+- ✅ TypeScript: Compiles without errors
+- ✅ Production build: Successful (16.39s)
+- ✅ Config UI shows slider with live percentage
+- ✅ Both Global Summary and Materials Balance use same threshold
+- ✅ Changes persist across page reloads
+
+### Technical Details
+**Storage**: localStorage key `exportThreshold` (was previously `gt:v2:exportThreshold` in PlayerConfigPanel, now centralized)
+
+**Migration**: Old storage key is not migrated automatically. Users will see default 50% on first load after update, then can adjust as needed.
+
+**Validation**: Value is clamped to 0-100 range, rounded to integers.
+
+### User Impact
+- Users can now adjust export threshold based on their play style
+- Setting is in Config tab, easy to find and adjust
+- Clear explanation of what the setting does
+- Changes apply immediately to all calculations
+
+---
+
+## Previous Session: Tech Debt & Package Updates
 
 ### Summary
 Completed comprehensive tech debt cleanup: updated all outdated packages, fixed ESLint errors, and validated production build. Application is now up-to-date with latest dependencies.

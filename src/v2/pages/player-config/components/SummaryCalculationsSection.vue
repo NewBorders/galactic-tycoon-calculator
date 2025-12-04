@@ -10,6 +10,7 @@ import { formatWeight } from '@/v2/utils/materialHelpers'
 import AlertOverlay from '@/v2/components/AlertOverlay.vue'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
+import { getExportThresholdRatio } from '@/v2/services/config/exportThreshold'
 
 const props = defineProps<{
   base: PlayerBase
@@ -137,7 +138,7 @@ const report = computed(() =>
 // Determine which materials are "export materials" based on export threshold
 // (similar logic to useGlobalSummary)
 const exportMaterialIds = computed(() => {
-  const threshold = 0.5 // hardcoded 50% for now, could be made configurable
+  const threshold = getExportThresholdRatio()
   const exportIds = new Set<number>()
 
   // Build production and consumption maps
