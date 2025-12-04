@@ -78,11 +78,7 @@ function handleExportThresholdChange() {
           <div class="bg-blue-900/30 border border-blue-700 rounded p-3">
             <p class="text-xs text-blue-200">
               <strong>{{ translate('exportThresholdExample') }}:</strong><br>
-              {{ translate('exportThresholdExampleText', { 
-                threshold: exportThreshold,
-                below: Math.max(0, exportThreshold - 10),
-                above: Math.min(100, exportThreshold + 10)
-              }) }}
+              {{ translate('exportThresholdExampleText', { threshold: exportThreshold }) }}
             </p>
           </div>
         </div>
