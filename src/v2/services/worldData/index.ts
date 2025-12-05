@@ -148,3 +148,12 @@ export function useWorldData() {
     worldData: computed(() => worldData.value),
   }
 }
+
+/**
+ * Reset world data state (for testing)
+ * @internal
+ */
+export function __resetWorldDataState__(): void {
+  activeWorld.value = getActiveWorld()
+  worldData.value = loadWorldData(activeWorld.value)
+}

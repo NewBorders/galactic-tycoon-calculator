@@ -1,17 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { getApiKey, setApiKey, hasApiKey, __resetApiKeyState__ } from '../apiKeyManager'
+import { getApiKey, setApiKey, hasApiKey } from '../apiKeyManager'
+import { clearAllWorldData } from '../../worldData/storage'
+import { __resetWorldDataState__ } from '../../worldData'
 
 describe('apiKeyManager', () => {
   beforeEach(() => {
-    // Clear localStorage before each test
-    localStorage.clear()
-    // Reset reactive state
-    __resetApiKeyState__()
+    // Clear all world data before each test
+    clearAllWorldData()
+    __resetWorldDataState__()
   })
 
   afterEach(() => {
-    localStorage.clear()
-    __resetApiKeyState__()
+    // Clear all world data after each test
+    clearAllWorldData()
+    __resetWorldDataState__()
   })
 
   describe('setApiKey', () => {
@@ -39,12 +41,17 @@ describe('apiKeyManager', () => {
     })
 
     it('should handle localStorage errors gracefully', () => {
+      // Note: setApiKey now uses a reactive watcher for persistence
+      // The error will be caught and logged in the watcher, but setApiKey itself succeeds
       vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
         throw new Error('Storage full')
       })
 
       const result = setApiKey('test-key')
-      expect(result).toBe(false)
+      // setApiKey updates in-memory state successfully
+      expect(result).toBe(true)
+      // But the value is still set in memory
+      expect(getApiKey()).toBe('test-key')
 
       vi.restoreAllMocks()
     })
