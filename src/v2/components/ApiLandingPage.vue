@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useWorldData } from '@/v2/services/worldData'
+import type { World } from '@/v2/services/api/types'
 
-const { setApiKey, activeWorld } = useWorldData()
+const { setApiKey, activeWorld, switchWorld } = useWorldData()
 
+const selectedWorld = ref<World>(activeWorld.value)
 const apiKeyInput = ref('')
 const saving = ref(false)
 const error = ref('')
@@ -20,6 +22,10 @@ async function saveApiKey() {
   error.value = ''
 
   try {
+    // Switch to selected world first, then save API key
+    if (selectedWorld.value !== activeWorld.value) {
+      switchWorld(selectedWorld.value)
+    }
     setApiKey(trimmed)
     // API key is now set, component will be hidden by parent
   } catch (err) {
@@ -27,11 +33,6 @@ async function saveApiKey() {
   } finally {
     saving.value = false
   }
-}
-
-function skipForNow() {
-  // Set a placeholder to allow offline usage
-  apiKeyInput.value = ''
 }
 </script>
 
@@ -43,7 +44,7 @@ function skipForNow() {
         <div class="api-landing__icon">🚀</div>
         <h1 class="api-landing__title">Welcome to Galactic Tycoon Calculator</h1>
         <p class="api-landing__subtitle">
-          Your production planning tool for {{ activeWorld === 'g1' ? 'Galaxy 1' : 'Galaxy 2' }}
+          Your production planning tool for Galactic Tycoons
         </p>
       </div>
 
@@ -70,10 +71,26 @@ function skipForNow() {
       <div class="api-landing__setup">
         <h2 class="setup-title">Get Started</h2>
         <p class="setup-description">
-          Enter your Galactic Tycoons API key to sync your bases and enable all features.
+          Select your galaxy and enter your Galactic Tycoons API key to sync your bases.
         </p>
 
         <form @submit.prevent="saveApiKey" class="setup-form">
+          <!-- World Selection -->
+          <div class="form-group">
+            <label for="world-select" class="form-label">
+              Galaxy
+            </label>
+            <select
+              id="world-select"
+              v-model="selectedWorld"
+              class="form-select"
+              :disabled="saving"
+            >
+              <option value="g1">🌌 Galaxy 1</option>
+              <option value="g2">🌠 Galaxy 2</option>
+            </select>
+          </div>
+
           <div class="form-group">
             <label for="api-key-input" class="form-label">
               API Key
@@ -93,17 +110,9 @@ function skipForNow() {
             <button
               type="submit"
               :disabled="saving || !apiKeyInput.trim()"
-              class="btn btn-primary"
+              class="btn btn-primary btn-primary--full"
             >
-              {{ saving ? 'Saving...' : 'Save API Key' }}
-            </button>
-            <button
-              type="button"
-              @click="skipForNow"
-              class="btn btn-secondary"
-              :disabled="saving"
-            >
-              Skip for now
+              {{ saving ? 'Saving...' : 'Save & Continue' }}
             </button>
           </div>
         </form>
@@ -250,6 +259,29 @@ function skipForNow() {
   color: var(--color-heading, #2d3748);
 }
 
+.form-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--color-border, #e2e8f0);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: all 0.2s;
+  background: white;
+  color: var(--color-text, #2d3748);
+  cursor: pointer;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--color-primary, #667eea);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .form-input {
   width: 100%;
   padding: 0.75rem 1rem;
@@ -285,7 +317,6 @@ function skipForNow() {
 }
 
 .btn {
-  flex: 1;
   padding: 0.875rem 1.5rem;
   border: none;
   border-radius: 0.5rem;
@@ -293,6 +324,10 @@ function skipForNow() {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.btn-primary--full {
+  width: 100%;
 }
 
 .btn:disabled {
