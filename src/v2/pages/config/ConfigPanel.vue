@@ -5,6 +5,7 @@ import { getExportThreshold, setExportThreshold } from '@/v2/services/config/exp
 import { translate } from '@/v2/localisation'
 import LanguageSwitcher from '@/v2/components/LanguageSwitcher.vue'
 import PriceManagement from './components/PriceManagement.vue'
+import SyncStatus from './components/SyncStatus.vue'
 import type { World } from '@/v2/services/api/types'
 
 const apiKey = ref(getApiKey() || '')
@@ -133,6 +134,11 @@ function handleExportThresholdChange() {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Sync Status (full width) -->
+    <div class="border-t border-slate-700 pt-4">
+      <SyncStatus />
     </div>
 
     <!-- Price Management (full width) -->
