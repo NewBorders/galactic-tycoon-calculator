@@ -401,9 +401,5 @@ watch(activeWorld, async () => {
   .sync-status__cell {
     font-size: 0.8125rem;
   }
-}  .sync-status__cell--header:not(:first-child),
-  .sync-status__row > .sync-status__cell:not(:first-child) {
-    padding-left: 2rem;
-  }
 }
 </style>
