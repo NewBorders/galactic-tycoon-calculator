@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useWorldData } from '@/v2/services/worldData'
+import { loadGameData } from '@/v2/services/gamedata/service'
+import { fetchCompanyBases } from '@/v2/services/api/warehouseService'
 import type { World } from '@/v2/services/api/types'
 
 const { setApiKey, activeWorld, switchWorld } = useWorldData()
@@ -9,6 +11,7 @@ const selectedWorld = ref<World>(activeWorld.value)
 const apiKeyInput = ref('')
 const saving = ref(false)
 const error = ref('')
+const statusMessage = ref('')
 
 async function saveApiKey() {
   const trimmed = apiKeyInput.value.trim()
@@ -20,16 +23,56 @@ async function saveApiKey() {
 
   saving.value = true
   error.value = ''
+  statusMessage.value = 'Validating API key...'
 
   try {
-    // Switch to selected world first, then save API key
+    // Switch to selected world first
     if (selectedWorld.value !== activeWorld.value) {
       switchWorld(selectedWorld.value)
     }
+    
+    // Set the API key (this makes it available for subsequent API calls)
     setApiKey(trimmed)
-    // API key is now set, component will be hidden by parent
+    
+    // Validate API key by loading game data
+    statusMessage.value = 'Loading game data...'
+    await loadGameData(true)
+    
+    // Try to load player bases to fully validate the API key
+    statusMessage.value = 'Loading your bases...'
+    try {
+      await fetchCompanyBases(trimmed, selectedWorld.value)
+    } catch (baseError) {
+      // Bases might fail if user has no bases yet, but game data succeeded
+      // This is not a critical error
+      console.warn('Failed to load bases (might be empty):', baseError)
+    }
+    
+    statusMessage.value = 'Success! Loading application...'
+    // API key is valid, component will be hidden by parent
+    // Small delay to show success message
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to save API key'
+    // API key is invalid, remove it
+    setApiKey('')
+    
+    if (err instanceof Error) {
+      // Check for common API error patterns
+      if (err.message.includes('401') || err.message.includes('403')) {
+        error.value = 'Invalid API key. Please check your key and try again.'
+      } else if (err.message.includes('404')) {
+        error.value = 'API endpoint not found. Please check your galaxy selection.'
+      } else if (err.message.includes('network') || err.message.includes('fetch')) {
+        error.value = 'Network error. Please check your internet connection.'
+      } else {
+        error.value = `Failed to validate API key: ${err.message}`
+      }
+    } else {
+      error.value = 'Failed to validate API key. Please try again.'
+    }
+    
+    statusMessage.value = ''
   } finally {
     saving.value = false
   }
@@ -104,6 +147,7 @@ async function saveApiKey() {
               :disabled="saving"
             />
             <p v-if="error" class="form-error">{{ error }}</p>
+            <p v-if="statusMessage && !error" class="form-status">{{ statusMessage }}</p>
           </div>
 
           <div class="form-actions">
@@ -112,7 +156,11 @@ async function saveApiKey() {
               :disabled="saving || !apiKeyInput.trim()"
               class="btn btn-primary btn-primary--full"
             >
-              {{ saving ? 'Saving...' : 'Save & Continue' }}
+              <span v-if="!saving">Save & Continue</span>
+              <span v-else class="btn-loading">
+                <span class="spinner"></span>
+                {{ statusMessage || 'Saving...' }}
+              </span>
             </button>
           </div>
         </form>
@@ -309,6 +357,14 @@ async function saveApiKey() {
   margin: 0.5rem 0 0;
   font-size: 0.875rem;
   color: var(--color-danger, #ef4444);
+  font-weight: 500;
+}
+
+.form-status {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--color-primary, #667eea);
+  font-weight: 500;
 }
 
 .form-actions {
@@ -324,6 +380,28 @@ async function saveApiKey() {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .btn-primary--full {

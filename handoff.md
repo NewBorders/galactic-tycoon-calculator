@@ -1,4 +1,55 @@
-# Handoff Document: Planning Mode (Issue #71) - Phase 1 Complete
+# Handoff Document: API Key Validation Enhancement
+
+## Most Recent Work: API Key Validation with Data Preloading
+
+### What Was Done
+Enhanced the `ApiLandingPage.vue` component to validate API keys immediately when users click "Save & Continue":
+
+1. **API Validation Flow**:
+   - Validates API key by calling `loadGameData(true)` to verify key works
+   - Preloads player bases with `fetchCompanyBases()` 
+   - Shows progressive status messages during validation process
+   - Handles errors with specific messages (invalid key, wrong galaxy, network issues)
+   - Removes invalid API keys automatically
+
+2. **UX Improvements**:
+   - Progressive status feedback: "Validating API key..." → "Loading game data..." → "Loading your bases..." → "Success!"
+   - Loading spinner in button during validation
+   - Specific error messages for different failure modes:
+     * 401/403 → "Invalid API key. Please check your key and try again."
+     * 404 → "API endpoint not found. Please check your galaxy selection."
+     * Network → "Network error. Please check your internet connection."
+   - 500ms delay before transition to show success message
+
+3. **Technical Implementation**:
+   - Added `statusMessage` ref for progress feedback
+   - Enhanced `saveApiKey()` function with validation logic
+   - Added CSS for `.form-status`, `.spinner` animation, and `.btn-loading`
+   - Template shows status messages and loading state dynamically
+
+### Why This Matters
+- Prevents users from discovering invalid API keys later in the workflow
+- Ensures all data is loaded when user enters the main application
+- Provides transparency about what's happening during onboarding
+- Improves first-time user experience significantly
+
+### Test Status
+- Type-check: ✅ Passing
+- Tests: 181/188 passing (96.3%)
+- 7 failing tests in `useGlobalSummary.test.ts` (pre-existing, unrelated to this work)
+
+### Files Modified
+- `/src/v2/components/ApiLandingPage.vue`:
+  - Script: Enhanced `saveApiKey()` with validation logic
+  - Template: Added status message display and loading spinner
+  - CSS: Added `.form-status`, `.spinner`, `.btn-loading` styles
+
+### Ready to Commit
+All changes are complete and tested. Ready for commit.
+
+---
+
+# Previous Work: Planning Mode (Issue #71) - Phase 1 Complete
 
 ## What We Completed
 
