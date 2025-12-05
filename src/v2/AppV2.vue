@@ -13,7 +13,7 @@ import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
 import MarketAnalysisPanel from './pages/market/MarketAnalysisPanel.vue'
 import PriceAlertsPanel from './pages/price-alerts/PriceAlertsPanel.vue'
-import PlanningModeToggle from './components/PlanningModeToggle.vue'
+import PlanningControls from './components/PlanningControls.vue'
 import TodoList from './components/TodoList.vue'
 import PlanningRequiredDialog from './components/PlanningRequiredDialog.vue'
 import ApiLandingPage from './components/ApiLandingPage.vue'
@@ -152,9 +152,7 @@ watch(getWorld, async () => {
           </button>
         </nav>
 
-        <div class="flex items-center gap-3">
-          <PlanningModeToggle />
-        </div>
+        <PlanningControls />
       </div>
 
       <p v-if="err" class="text-red-600 text-sm">{{ err }}</p>
