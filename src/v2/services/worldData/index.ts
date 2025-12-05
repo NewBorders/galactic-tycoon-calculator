@@ -39,8 +39,9 @@ watch(worldData, (newData) => {
 export function useWorldData() {
   /**
    * Switch to different world
+   * @param world - Target world to switch to
    */
-  function switchWorld(world: World, discardPlanning: boolean = false): void {
+  function switchWorld(world: World): void {
     // Save current world data before switching
     saveWorldData(worldData.value)
     

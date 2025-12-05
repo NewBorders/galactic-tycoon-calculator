@@ -6,7 +6,7 @@
  */
 
 import type { World } from '../api/types'
-import type { WorldData, CurrentState, PlanningState, WorldUiState } from './types'
+import type { WorldData } from './types'
 
 // Storage version for migration tracking
 const STORAGE_VERSION = '2'

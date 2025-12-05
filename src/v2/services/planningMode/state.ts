@@ -6,7 +6,7 @@
 
 import { computed } from 'vue'
 import { useWorldData } from '../worldData'
-import type { PlanningState, HistoryEntry, PlanningAction } from '../worldData/types'
+import type { HistoryEntry, PlanningAction } from '../worldData/types'
 import type { PlayerBase } from '../playerBases'
 
 const uid = () => Math.random().toString(36).slice(2, 10)

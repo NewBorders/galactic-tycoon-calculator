@@ -40,8 +40,8 @@ export interface HistoryEntry {
   action: PlanningAction
   baseId: string
   description: string // Human-readable: "Upgraded Mining Facility 3→5"
-  previousState: any // State before action
-  newState: any // State after action
+  previousState: Record<string, unknown> // State before action
+  newState: Record<string, unknown> // State after action
 }
 
 /**
