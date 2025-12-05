@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useWorldData } from '@/v2/services/worldData'
-import { loadGameData } from '@/v2/services/gamedata/service'
-import { fetchCompanyBases } from '@/v2/services/api/warehouseService'
+import { validateApiKey } from '@/v2/services/api/validation'
 import type { World } from '@/v2/services/api/types'
 
 const { setApiKey, activeWorld, switchWorld } = useWorldData()
@@ -31,50 +30,45 @@ async function saveApiKey() {
       switchWorld(selectedWorld.value)
     }
     
-    // Set the API key (this makes it available for subsequent API calls)
+    // Validate API key by testing all endpoints
+    statusMessage.value = 'Testing game data...'
+    const result = await validateApiKey(trimmed, selectedWorld.value)
+    
+    if (!result.valid) {
+      // Build detailed error message
+      const errorMessages = result.errors.map(e => {
+        if (e.status === 401 || e.status === 403) {
+          return `${e.endpoint}: Invalid API key`
+        } else if (e.status === 404) {
+          return `${e.endpoint}: Endpoint not found`
+        } else if (e.status === 429) {
+          return `${e.endpoint}: Rate limit exceeded`
+        } else {
+          return `${e.endpoint}: ${e.error}`
+        }
+      })
+      
+      error.value = `API validation failed:\n${errorMessages.join('\n')}`
+      return
+    }
+    
+    // All validations passed, set the API key
     setApiKey(trimmed)
     
-    // Validate API key by loading game data
-    statusMessage.value = 'Loading game data...'
-    await loadGameData(true)
-    
-    // Try to load player bases to fully validate the API key
-    statusMessage.value = 'Loading your bases...'
-    try {
-      await fetchCompanyBases(trimmed, selectedWorld.value)
-    } catch (baseError) {
-      // Bases might fail if user has no bases yet, but game data succeeded
-      // This is not a critical error
-      console.warn('Failed to load bases (might be empty):', baseError)
-    }
-    
-    statusMessage.value = 'Success! Loading application...'
-    // API key is valid, component will be hidden by parent
+    statusMessage.value = `Success! Loaded ${result.details.bases} bases, ${result.details.warehouses} warehouses.`
     // Small delay to show success message
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise(resolve => setTimeout(resolve, 1000))
     
   } catch (err) {
-    // API key is invalid, remove it
-    setApiKey('')
-    
+    // Unexpected error during validation
     if (err instanceof Error) {
-      // Check for common API error patterns
-      if (err.message.includes('401') || err.message.includes('403')) {
-        error.value = 'Invalid API key. Please check your key and try again.'
-      } else if (err.message.includes('404')) {
-        error.value = 'API endpoint not found. Please check your galaxy selection.'
-      } else if (err.message.includes('network') || err.message.includes('fetch')) {
-        error.value = 'Network error. Please check your internet connection.'
-      } else {
-        error.value = `Failed to validate API key: ${err.message}`
-      }
+      error.value = `Validation error: ${err.message}`
     } else {
-      error.value = 'Failed to validate API key. Please try again.'
+      error.value = 'Unexpected error during validation. Please try again.'
     }
-    
-    statusMessage.value = ''
   } finally {
     saving.value = false
+    statusMessage.value = ''
   }
 }
 </script>

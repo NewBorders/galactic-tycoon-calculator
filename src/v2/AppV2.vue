@@ -13,7 +13,6 @@ import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
 import MarketAnalysisPanel from './pages/market/MarketAnalysisPanel.vue'
 import PriceAlertsPanel from './pages/price-alerts/PriceAlertsPanel.vue'
-import WorldSwitcher from './components/WorldSwitcher.vue'
 import PlanningModeToggle from './components/PlanningModeToggle.vue'
 import TodoList from './components/TodoList.vue'
 import PlanningRequiredDialog from './components/PlanningRequiredDialog.vue'
@@ -154,7 +153,6 @@ watch(getWorld, async () => {
         </nav>
 
         <div class="flex items-center gap-3">
-          <WorldSwitcher />
           <PlanningModeToggle />
         </div>
       </div>

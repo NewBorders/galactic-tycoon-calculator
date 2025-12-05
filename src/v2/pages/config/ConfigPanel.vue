@@ -4,6 +4,7 @@ import { getApiKey, getApiKeyRef, setApiKey, getWorld, setWorld } from '@/v2/ser
 import { getExportThreshold, setExportThreshold } from '@/v2/services/config/exportThreshold'
 import { translate } from '@/v2/localisation'
 import LanguageSwitcher from '@/v2/components/LanguageSwitcher.vue'
+import WorldSwitcher from '@/v2/components/WorldSwitcher.vue'
 import PriceManagement from './components/PriceManagement.vue'
 import SyncStatus from './components/SyncStatus.vue'
 import type { World } from '@/v2/services/api/types'
@@ -87,19 +88,10 @@ function handleExportThresholdChange() {
 
       <!-- Right Column: World Selection & API Key -->
       <div class="space-y-4">
-        <!-- World Selection -->
+        <!-- World Selection with WorldSwitcher -->
         <div class="space-y-2">
-          <label class="block text-sm">
-            <span class="text-slate-400">{{ translate('worldLabel') }}</span>
-            <select
-              v-model="world"
-              @change="handleWorldChange"
-              class="w-full mt-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100"
-            >
-              <option value="g1">{{ translate('worldG1') }}</option>
-              <option value="g2">{{ translate('worldG2') }}</option>
-            </select>
-          </label>
+          <span class="block text-sm text-slate-400">{{ translate('worldLabel') }}</span>
+          <WorldSwitcher />
           <p class="text-xs text-slate-400">{{ translate('worldHint') }}</p>
         </div>
 
