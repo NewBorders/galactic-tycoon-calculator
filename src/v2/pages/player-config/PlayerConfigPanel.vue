@@ -8,6 +8,7 @@ import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { fetchCompanyBases, fetchGameBaseDetails, transformGameBase } from '@/v2/services/api/warehouseService'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/index.js'
+import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
 
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
@@ -23,8 +24,8 @@ const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt
 const {
   state,
   planetHasBase,
-  addBase,
-  removeBase,
+  addBase: _addBase,
+  removeBase: _removeBase,
   renameBase,
   persist,
   addBuilding,
@@ -46,6 +47,17 @@ const {
   getSections,
   setSection,
 } = usePlayerBases(props.gameData)
+
+const { guardEdit } = usePlanningGuards()
+
+// Guarded versions of edit operations
+function addBase(planetId: number) {
+  guardEdit(() => _addBase(planetId), 'add base')
+}
+
+function removeBase(baseId: string) {
+  guardEdit(() => _removeBase(baseId), 'remove base')
+}
 
 const { state: technologyState } = usePlayerTechnology()
 const technologyLevels = computed(() => technologyState.value.levels ?? {})

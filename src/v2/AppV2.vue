@@ -15,6 +15,7 @@ import PriceAlertsPanel from './pages/price-alerts/PriceAlertsPanel.vue'
 import WorldSwitcher from './components/WorldSwitcher.vue'
 import PlanningModeToggle from './components/PlanningModeToggle.vue'
 import TodoList from './components/TodoList.vue'
+import PlanningRequiredDialog from './components/PlanningRequiredDialog.vue'
 
 type Tab = 'bases' | 'technology' | 'config' | 'market' | 'alerts'
 const LS_KEY = 'gt:v2:activeTab'
@@ -167,5 +168,8 @@ watch(getWorld, async () => {
 
     <!-- Floating TODO List -->
     <TodoList />
+
+    <!-- Planning Required Dialog -->
+    <PlanningRequiredDialog />
   </div>
 </template>
