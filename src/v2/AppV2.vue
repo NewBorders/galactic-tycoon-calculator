@@ -7,6 +7,7 @@ import { getWorld } from './services/api/apiKeyManager'
 import { resetPriceCache } from './services/gamedata/prices'
 import { usePriceAlerts } from './services/priceAlerts/alertManager'
 import { useMaterialPricing } from './services/gamedata/prices'
+import { useWorldData } from './services/worldData'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
@@ -16,6 +17,7 @@ import WorldSwitcher from './components/WorldSwitcher.vue'
 import PlanningModeToggle from './components/PlanningModeToggle.vue'
 import TodoList from './components/TodoList.vue'
 import PlanningRequiredDialog from './components/PlanningRequiredDialog.vue'
+import ApiLandingPage from './components/ApiLandingPage.vue'
 
 type Tab = 'bases' | 'technology' | 'config' | 'market' | 'alerts'
 const LS_KEY = 'gt:v2:activeTab'
@@ -26,6 +28,8 @@ const gdIndex = ref<GdIndex | null>(null)
 const gdLoadedAt = ref<number | null>(null)
 const loading = ref(false)
 const err = ref<string | null>(null)
+
+const { hasApiKey } = useWorldData()
 
 // Global alert checking (runs regardless of active tab)
 const { checkAlerts, playAlertSound, showNotification, reloadAlertsForWorld } = usePriceAlerts()
@@ -104,7 +108,11 @@ watch(getWorld, async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-900 text-slate-100">
+  <!-- Show landing page if no API key configured -->
+  <ApiLandingPage v-if="!hasApiKey" />
+
+  <!-- Main app -->
+  <div v-else class="min-h-screen bg-slate-900 text-slate-100">
     <div class="p-4 space-y-4">
       <div class="flex items-center gap-3 justify-between">
         <nav class="flex gap-2">
