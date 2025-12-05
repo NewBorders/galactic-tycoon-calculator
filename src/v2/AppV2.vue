@@ -12,6 +12,9 @@ import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
 import MarketAnalysisPanel from './pages/market/MarketAnalysisPanel.vue'
 import PriceAlertsPanel from './pages/price-alerts/PriceAlertsPanel.vue'
+import WorldSwitcher from './components/WorldSwitcher.vue'
+import PlanningModeToggle from './components/PlanningModeToggle.vue'
+import TodoList from './components/TodoList.vue'
 
 type Tab = 'bases' | 'technology' | 'config' | 'market' | 'alerts'
 const LS_KEY = 'gt:v2:activeTab'
@@ -102,7 +105,7 @@ watch(getWorld, async () => {
 <template>
   <div class="min-h-screen bg-slate-900 text-slate-100">
     <div class="p-4 space-y-4">
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 justify-between">
         <nav class="flex gap-2">
           <button
             class="px-3 py-2 border rounded"
@@ -140,6 +143,11 @@ watch(getWorld, async () => {
             {{ translate('tabConfig') }}
           </button>
         </nav>
+
+        <div class="flex items-center gap-3">
+          <WorldSwitcher />
+          <PlanningModeToggle />
+        </div>
       </div>
 
       <p v-if="err" class="text-red-600 text-sm">{{ err }}</p>
@@ -156,5 +164,8 @@ watch(getWorld, async () => {
       <PriceAlertsPanel v-if="gd && gdIndex && active === 'alerts'" :gameData="gd" :index="gdIndex" />
       <ConfigPanel v-if="active === 'config'" />
     </div>
+
+    <!-- Floating TODO List -->
+    <TodoList />
   </div>
 </template>
