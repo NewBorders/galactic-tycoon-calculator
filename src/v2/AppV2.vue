@@ -8,6 +8,7 @@ import { resetPriceCache } from './services/gamedata/prices'
 import { usePriceAlerts } from './services/priceAlerts/alertManager'
 import { useMaterialPricing } from './services/gamedata/prices'
 import { useWorldData } from './services/worldData'
+import GlobalSummaryPage from './pages/GlobalSummaryPage.vue'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
@@ -18,10 +19,10 @@ import TodoList from './components/TodoList.vue'
 import PlanningRequiredDialog from './components/PlanningRequiredDialog.vue'
 import ApiLandingPage from './components/ApiLandingPage.vue'
 
-type Tab = 'bases' | 'technology' | 'config' | 'market' | 'alerts'
+type Tab = 'overview' | 'bases' | 'technology' | 'config' | 'market' | 'alerts'
 const LS_KEY = 'gt:v2:activeTab'
 
-const active = ref<Tab>('bases')
+const active = ref<Tab>('overview')
 const gd = ref<GameData | null>(null)
 const gdIndex = ref<GdIndex | null>(null)
 const gdLoadedAt = ref<number | null>(null)
@@ -117,6 +118,13 @@ watch(getWorld, async () => {
         <nav class="flex gap-2">
           <button
             class="px-3 py-2 border rounded"
+            :class="active === 'overview' ? 'bg-gray-600' : ''"
+            @click="active = 'overview'"
+          >
+            🌌 Overview
+          </button>
+          <button
+            class="px-3 py-2 border rounded"
             :class="active === 'bases' ? 'bg-gray-600' : ''"
             @click="active = 'bases'"
           >
@@ -158,6 +166,11 @@ watch(getWorld, async () => {
       <p v-if="err" class="text-red-600 text-sm">{{ err }}</p>
       <p v-else-if="loading">…</p>
 
+      <GlobalSummaryPage
+        v-if="gd && gdIndex && active === 'overview'"
+        :gameData="gd"
+        :index="gdIndex"
+      />
       <PlayerConfigPanel
         v-if="gd && gdIndex && active === 'bases'"
         :gameData="gd"
