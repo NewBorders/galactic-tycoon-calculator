@@ -576,6 +576,30 @@ const isBaseExpanded = (baseId: string): boolean => {
     padding: 1rem;
   }
   
+  .global-summary__title {
+    font-size: 1.5rem;
+  }
+  
+  .global-summary__stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-card {
+    padding: 1rem;
+  }
+  
+  .stat-card__icon {
+    font-size: 2rem;
+  }
+  
+  .stat-card__value {
+    font-size: 1.25rem;
+  }
+  
+  .section-title {
+    font-size: 1.25rem;
+  }
+  
   .bases-grid {
     grid-template-columns: 1fr;
   }
@@ -587,6 +611,39 @@ const isBaseExpanded = (baseId: string): boolean => {
   .materials-table th,
   .materials-table td {
     padding: 0.5rem 0.75rem;
+  }
+  
+  .stock-warning-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .stock-warning-item__details {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .global-summary {
+    padding: 0.75rem;
+  }
+  
+  .global-summary__header {
+    margin-bottom: 1.5rem;
+  }
+  
+  .stat-card {
+    padding: 0.875rem;
+  }
+  
+  .materials-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .materials-table {
+    min-width: 500px;
   }
 }
 </style>
