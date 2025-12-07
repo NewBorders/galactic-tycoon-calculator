@@ -10,12 +10,19 @@ const props = defineProps<{
   summary: BaseSummaryData
   isExpanded: boolean
   index?: GdIndex
+  timeframeHours?: number
 }>()
 
 const emit = defineEmits<{
   toggle: []
   navigate: []
 }>()
+
+const periodFactor = computed(() => (props.timeframeHours ?? 24) / 24)
+
+// Summary values are already scaled by periodFactor, so divide to get per-day
+const netProfitPerDay = computed(() => props.summary.netProfit / periodFactor.value)
+const exportNetProfitPerDay = computed(() => props.summary.exportNetProfit / periodFactor.value)
 
 const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('en-US', {
@@ -27,8 +34,8 @@ const formatCurrency = (value: number): string => {
 }
 
 const profitColor = computed(() => {
-  if (props.summary.netProfit > 0) return 'text-emerald-400'
-  if (props.summary.netProfit < 0) return 'text-red-400'
+  if (netProfitPerDay.value > 0) return 'text-emerald-400'
+  if (netProfitPerDay.value < 0) return 'text-red-400'
   return 'text-slate-400'
 })
 
@@ -83,14 +90,14 @@ const getMaterialName = (materialId: number): string => {
         <div class="metric">
           <div class="metric__label">💰 {{ translate('netProfit') }}</div>
           <div class="metric__value" :class="profitColor">
-            {{ formatCurrency(summary.netProfit) }}/{{ translate('day') }}
+            {{ formatCurrency(netProfitPerDay) }}/{{ translate('day') }}
           </div>
         </div>
 
         <div class="metric">
           <div class="metric__label">📦 {{ translate('exportValue') }}</div>
           <div class="metric__value text-emerald-400">
-            {{ formatCurrency(summary.exportNetProfit) }}/{{ translate('day') }}
+            {{ formatCurrency(exportNetProfitPerDay) }}/{{ translate('day') }}
           </div>
         </div>
 

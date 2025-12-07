@@ -9,7 +9,6 @@ import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
 import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
 import { translate } from '@/v2/localisation'
-import { computeBaseReport } from '@/v2/services/production/engine'
 
 const props = defineProps<{
   gameData: GameData
@@ -42,38 +41,10 @@ const summary = useGlobalSummary(
   exportThreshold,
 )
 
-// Calculate base reports for expanded view
+// Use baseReports from useGlobalSummary instead of recalculating
 const baseReports = computed(() => {
   const map = new Map()
-  bases.value.forEach((base) => {
-    const assignment = {
-      planetId: base.planetId,
-      buildings: base.buildings.map((b) => ({
-        buildingId: b.buildingId,
-        level: b.level,
-      })),
-      recipes: base.recipes.map((r) => ({
-        recipeId: r.recipeId,
-        count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 1,
-      })),
-    }
-
-    const activeOptionalConsumables = new Set(
-      (base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'),
-    )
-
-    const report = computeBaseReport(props.gameData, {
-      assignment,
-      horizonDays: 1,
-      options: {
-        activeOptionalConsumables,
-        priceResolver: priceResolver.value,
-        technologyLevels: technologyLevels.value,
-        startingBonus: startingBonus.value,
-        globalWorkforceBurden: globalWorkforceBurden.value,
-      },
-    })
-
+  summary.baseReports.value.forEach(({ base, report }) => {
     map.set(base.id, report)
   })
   return map
@@ -160,6 +131,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           :summary="baseSummary"
           :is-expanded="isBaseExpanded(baseSummary.baseId)"
           :index="index"
+          :timeframe-hours="timeframeHours"
           @toggle="toggleBase(baseSummary.baseId)"
           @navigate="navigateToBase(baseSummary.baseId)"
         >

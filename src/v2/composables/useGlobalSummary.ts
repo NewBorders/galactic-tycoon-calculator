@@ -417,6 +417,7 @@ export function useGlobalSummary(
   })
 
   return {
+    baseReports, // Export baseReports so they can be reused
     baseSummaries,
     totalNetProfit,
     totalExportNetProfit,
