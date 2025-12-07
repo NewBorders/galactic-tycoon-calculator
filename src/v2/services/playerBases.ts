@@ -350,6 +350,11 @@ export function usePlayerBases(gd: GameData) {
     saveState(state.value)
   }
 
+  function toggleBaseOpen(baseId: string) {
+    state.value.ui.basesOpen[baseId] = !state.value.ui.basesOpen[baseId]
+    saveState(state.value)
+  }
+
   function getSections(baseId: string): UiSections {
     const sections = state.value.ui.sections[baseId]
     if (sections) {
@@ -401,6 +406,7 @@ export function usePlayerBases(gd: GameData) {
     getLastStockRefresh,
     isBaseOpen,
     setBaseOpen,
+    toggleBaseOpen,
     getSections,
     setSection,
     setMaterialSortOrder,

@@ -1,26 +1,34 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { usePlayerBases } from '@/v2/services/playerBases'
 import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
+import { usePlayerTechnology } from '@/v2/services/playerTechnology'
+import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
+import BaseCard from '@/v2/components/BaseCard.vue'
+import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
+import { translate } from '@/v2/localisation'
+import { computeBaseReport } from '@/v2/services/production/engine'
 
 const props = defineProps<{
   gameData: GameData
   index: GdIndex
 }>()
 
-const { state } = usePlayerBases(props.gameData)
+const { state, toggleBaseOpen } = usePlayerBases(props.gameData)
 const bases = computed(() => state.value.bases)
+const expandedBases = computed(() => state.value.ui.basesOpen)
 
 const { priceResolver } = useMaterialPricing(props.gameData)
+const { state: technologyState } = usePlayerTechnology()
+const exportThreshold = getExportThresholdRef()
 
-// Mock values for now - these should come from config/services
-const technologyLevels = computed(() => ({}))
-const startingBonus = computed(() => 0)
-const planDays = computed(() => 7)
-const globalWorkforceBurden = computed(() => 2000)
-const exportThreshold = computed(() => 50)
+const timeframeHours = ref(168) // 7 days default
+const globalWorkforceBurden = ref(2000) // Default threshold
+
+const technologyLevels = computed(() => technologyState.value.levels)
+const startingBonus = computed(() => technologyState.value.startingBonus)
 
 const summary = useGlobalSummary(
   bases,
@@ -29,10 +37,47 @@ const summary = useGlobalSummary(
   priceResolver,
   technologyLevels,
   startingBonus,
-  computed(() => planDays.value * 24), // Convert days to hours
+  computed(() => timeframeHours.value),
   globalWorkforceBurden,
   exportThreshold,
 )
+
+// Calculate base reports for expanded view
+const baseReports = computed(() => {
+  const map = new Map()
+  bases.value.forEach((base) => {
+    const assignment = {
+      planetId: base.planetId,
+      buildings: base.buildings.map((b) => ({
+        buildingId: b.buildingId,
+        level: b.level,
+      })),
+      recipes: base.recipes.map((r) => ({
+        recipeId: r.recipeId,
+        count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 1,
+      })),
+    }
+
+    const activeOptionalConsumables = new Set(
+      (base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'),
+    )
+
+    const report = computeBaseReport(props.gameData, {
+      assignment,
+      horizonDays: 1,
+      options: {
+        activeOptionalConsumables,
+        priceResolver: priceResolver.value,
+        technologyLevels: technologyLevels.value,
+        startingBonus: startingBonus.value,
+        globalWorkforceBurden: globalWorkforceBurden.value,
+      },
+    })
+
+    map.set(base.id, report)
+  })
+  return map
+})
 
 const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('en-US', {
@@ -52,6 +97,21 @@ const formatNumber = (value: number): string => {
 
 const getMaterialName = (materialId: number): string => {
   return props.index.materialById.get(materialId)?.name || `Material ${materialId}`
+}
+
+const toggleBase = (baseId: string) => {
+  toggleBaseOpen(baseId)
+}
+
+const navigateToBase = (baseId: string) => {
+  // For now, just expand - later can navigate to player-config page
+  if (!expandedBases.value[baseId]) {
+    toggleBaseOpen(baseId)
+  }
+}
+
+const isBaseExpanded = (baseId: string): boolean => {
+  return expandedBases.value[baseId] ?? false
 }
 </script>
 
@@ -94,55 +154,31 @@ const getMaterialName = (materialId: number): string => {
 
     <!-- Bases Grid -->
     <section class="global-summary__section">
-      <h2 class="section-title">🏭 Your Bases ({{ bases.length }})</h2>
+      <h2 class="section-title">🏭 {{ translate('yourBases') }} ({{ bases.length }})</h2>
       <div class="bases-grid">
-        <div 
+        <BaseCard
           v-for="baseSummary in summary.baseSummaries.value" 
           :key="baseSummary.baseId"
-          class="base-card"
+          :summary="baseSummary"
+          :is-expanded="isBaseExpanded(baseSummary.baseId)"
+          @toggle="toggleBase(baseSummary.baseId)"
+          @navigate="navigateToBase(baseSummary.baseId)"
         >
-          <div class="base-card__header">
-            <div class="base-card__name">{{ baseSummary.baseName }}</div>
-            <div class="base-card__planet">Planet {{ baseSummary.planetId }}</div>
-          </div>
-          
-          <div class="base-card__body">
-            <div class="base-metric">
-              <span class="base-metric__label">Workforce Coverage</span>
-              <span 
-                class="base-metric__value"
-                :class="{
-                  'base-metric__value--good': baseSummary.workforceCoverage >= 100,
-                  'base-metric__value--warning': baseSummary.workforceCoverage < 100
-                }"
-              >
-                {{ formatNumber(baseSummary.workforceCoverage) }}%
-              </span>
-            </div>
-            
-            <div class="base-metric" v-if="baseSummary.exportMaterials.length > 0">
-              <span class="base-metric__label">Export Materials</span>
-              <span class="base-metric__value">{{ baseSummary.exportMaterials.length }}</span>
-            </div>
-            
-            <div class="base-metric" v-if="baseSummary.materialsRunningOut.length > 0">
-              <span class="base-metric__label">⚠️ Running Out</span>
-              <span class="base-metric__value base-metric__value--danger">
-                {{ baseSummary.materialsRunningOut.length }}
-              </span>
-            </div>
-          </div>
-          
-          <div class="base-card__footer">
-            <button class="btn btn--sm">View Details →</button>
-          </div>
-        </div>
+          <template #expanded-content="{ summary: expandedSummary }">
+            <BaseDetailExpanded
+              v-if="baseReports.get(expandedSummary.baseId)"
+              :summary="expandedSummary"
+              :report="baseReports.get(expandedSummary.baseId)!"
+              :index="index"
+              :timeframe-hours="timeframeHours"
+            />
+          </template>
+        </BaseCard>
       </div>
       
       <div v-if="bases.length === 0" class="empty-state">
         <div class="empty-state__icon">🏭</div>
-        <div class="empty-state__text">No bases configured yet</div>
-        <button class="btn btn--primary">Add Your First Base</button>
+        <div class="empty-state__text">{{ translate('noBasesConfigured') }}</div>
       </div>
     </section>
 
