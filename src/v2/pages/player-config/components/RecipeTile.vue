@@ -142,12 +142,12 @@ function tierLabel(tier: number) {
           <div class="flex items-center gap-2">
             <div class="flex items-center border border-slate-700 rounded px-2 py-1 text-sm bg-slate-800 gap-1">
               <button
-                :class="(props.count ?? 1) <= 1 ? 'px-1 py-0.5 text-slate-400 opacity-50 cursor-not-allowed rounded transition' : 'px-1 py-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition'"
+                :class="(props.count ?? 1) <= 0 ? 'px-1 py-0.5 text-slate-400 opacity-50 cursor-not-allowed rounded transition' : 'px-1 py-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition'"
                 title="Decrease quantity"
                 aria-label="Decrease recipe quantity"
-                :disabled="(props.count ?? 1) <= 1"
-                :aria-disabled="(props.count ?? 1) <= 1"
-                @click.prevent="emit('updateCount', Math.max(1, (props.count ?? 1) - 1))"
+                :disabled="(props.count ?? 1) <= 0"
+                :aria-disabled="(props.count ?? 1) <= 0"
+                @click.prevent="emit('updateCount', Math.max(0, (props.count ?? 1) - 1))"
               >
                 −
               </button>
@@ -155,8 +155,8 @@ function tierLabel(tier: number) {
                 type="number"
                 class="w-10 bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300"
                 :value="props.count ?? 1"
-                min="1"
-                @input="(e) => emit('updateCount', Math.max(1, Math.floor(Number((e.target as HTMLInputElement).value) || 0)))"
+                min="0"
+                @input="(e) => emit('updateCount', Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value) || 0)))"
               />
               <button
                 class="px-1 py-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition"

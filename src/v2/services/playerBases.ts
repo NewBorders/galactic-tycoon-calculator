@@ -60,13 +60,13 @@ function ensureUi(st: Partial<PlayerState>): PlayerState {
     buildings: (base.buildings as PlayerBuilding[])?.map((bld) => ({
       id: bld.id ?? uid(),
       buildingId: bld.buildingId,
-      level: Math.max(1, Math.floor(bld.level ?? 1)),
+      level: Math.max(0, Math.floor(bld.level ?? 1)),
     })) ?? [],
     recipes:
       (base.recipes as PlayerRecipe[])?.map((rec) => ({
         id: rec.id ?? uid(),
         recipeId: rec.recipeId,
-        count: typeof rec.count === 'number' && Number.isFinite(rec.count) && rec.count > 0 ? Math.max(1, Math.floor(rec.count)) : 1,
+        count: typeof rec.count === 'number' && Number.isFinite(rec.count) && rec.count >= 0 ? Math.max(0, Math.floor(rec.count)) : 1,
       })) ?? [],
     optionalConsumables: Array.isArray(base.optionalConsumables)
       ? [...new Set(base.optionalConsumables.filter((id): id is number => typeof id === 'number'))]

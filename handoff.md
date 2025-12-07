@@ -1,6 +1,81 @@
 # Handoff Document
 
-## Most Recent Work: Technology Levels Import from API (Issue #42)
+## Most Recent Work: Allow Recipe Quantity & Building Level to be Zero (Issue #61)
+
+### What Was Done
+
+#### Zero Value Support (✅ Complete)
+- **Problem**: Users couldn't test production combinations quickly because minimum recipe quantity was 1 and minimum building level was 1
+- **Solution**: Allow both recipe count and building level to be set to 0 for quick testing
+
+**Modified Components**:
+
+1. **RecipeTile.vue** (UI Component):
+   - Changed `min="1"` to `min="0"` for recipe count input
+   - Updated decrease button to allow going down to 0 (was disabled at 1)
+   - Changed validation from `Math.max(1, ...)` to `Math.max(0, ...)`
+
+2. **BaseBuildingsSection.vue** (UI Component):
+   - Changed `min="1"` to `min="0"` for building level input
+   - Added validation to ensure level stays ≥ 0
+
+3. **playerBases.ts** (Service):
+   - Building level validation: `Math.max(0, ...)` instead of `Math.max(1, ...)`
+   - Recipe count validation: `Math.max(0, ...)` instead of `Math.max(1, ...)`
+   - Changed condition from `rec.count > 0` to `rec.count >= 0`
+
+4. **production/engine.ts** (Core Logic):
+   - Building level: Changed `clampPositiveInt(instance.level, 1)` to `clampPositiveInt(instance.level, 0)`
+   - **Added skip logic**: Buildings with level 0 are skipped (no production units, no workforce, no housing)
+   - Recipe count: Changed `Math.max(1, ...)` to `Math.max(0, ...)`
+   - **Added skip logic**: Recipes with count 0 are skipped entirely
+
+5. **useGlobalSummary.ts** (Composable):
+   - Updated recipe count validation to allow 0: `Math.max(0, ...)` instead of `Math.max(1, ...)`
+   - Applied in both `baseReports` and `theoreticalReports` computed properties
+
+**Integration Tests** (`zero-count-level.test.ts`):
+- 11 comprehensive tests covering:
+  * Recipe count = 0: No production output
+  * Mixing recipes with count 0 and count > 0
+  * All recipes with count 0
+  * Building level = 0: No production, no workers, no housing
+  * Smooth transitions between levels (1→0→1, 2→0→1)
+  * Combined scenarios (both count 0 and level 0)
+  * Quick testing of production combinations
+- All tests pass ✅
+
+### Use Cases Enabled
+
+1. **Production Testing**: Quickly test different recipe combinations by setting count to 0 instead of removing
+2. **Building Testing**: Test adding/removing buildings by setting level to 0 instead of deleting
+3. **Optimization**: Try different production scenarios without losing configuration
+4. **Comparison**: Compare net profit with and without specific recipes/buildings
+
+### Technical Details
+
+**Behavior with Zero Values**:
+- Recipe count = 0: Recipe stays in configuration but produces nothing
+- Building level = 0: Building stays in configuration but:
+  * Provides 0 production units
+  * Requires 0 workers
+  * Provides 0 housing capacity
+  * Recipes in that building produce nothing
+
+**Why Skip in Engine vs UI**:
+- UI: Allows 0 values for user convenience
+- Engine: Skips 0 values to avoid division by zero and unnecessary calculations
+- This pattern keeps configuration clean while ensuring calculation correctness
+
+### What's Next
+
+- Issue #61: ✅ Complete
+- Consider adding visual indicator in UI when recipe/building is "disabled" (count/level = 0)
+- Possible enhancement: Batch enable/disable for multiple recipes
+
+---
+
+## Previous Work: Technology Levels Import from API (Issue #42)
 
 ### What Was Done
 

@@ -50,10 +50,10 @@ const list = computed<PlayerBuilding[]>({
           <div class="mt-2 flex gap-3 flex-wrap items-center">
             <label class="text-xs text-slate-400">Level
               <input
-                type="number" min="1"
+                type="number" min="0"
                 class="ml-1 w-16 bg-slate-800 border border-slate-700 rounded px-2 py-1"
                 :value="inst.level"
-                @input="e => $emit('update', { id: inst.id, patch:{ level: Number((e.target as HTMLInputElement).value) } })"
+                @input="e => $emit('update', { id: inst.id, patch:{ level: Math.max(0, Number((e.target as HTMLInputElement).value)) } })"
               />
             </label>
           </div>
