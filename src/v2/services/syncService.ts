@@ -5,12 +5,13 @@
  * This service runs independently of any UI component lifecycle.
  */
 
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { getWorld, getApiKey } from './api/apiKeyManager'
 import { loadGameData } from './gamedata/service'
 import { resetPriceCache } from './gamedata/prices'
 import { fetchCompanyBases, fetchGameBaseDetails, fetchWarehouseStockForBase } from './api/warehouseService'
 import { extractMarketDetails } from './marketAnalysis/extractor'
+import { usePlayerTechnology } from './playerTechnology'
 
 export interface SyncEntry {
   id: string
@@ -97,6 +98,12 @@ export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[])
     try {
       const result = await fetchCompanyBases(apiKey, world, false)
       const bases = result.data.bases || []
+      
+      // Extract and set technology levels from Company Data
+      if (result.data.technologies && result.data.technologies.length > 0) {
+        const { setFromApi } = usePlayerTechnology()
+        setFromApi(result.data.technologies, result.data.startingBonus)
+      }
       
       // Format bases data
       const formattedBases = bases.map((b) => ({
@@ -206,6 +213,13 @@ export async function refreshEntry(entryId: string): Promise<void> {
     } else if (entryId === 'company') {
       if (!apiKey) throw new Error('No API key')
       const result = await fetchCompanyBases(apiKey, world, true)
+      
+      // Extract and set technology levels from Company Data
+      if (result.data.technologies && result.data.technologies.length > 0) {
+        const { setFromApi } = usePlayerTechnology()
+        setFromApi(result.data.technologies, result.data.startingBonus)
+      }
+      
       const bases = result.data.bases.map((b) => ({
         id: b.id,
         name: b.name,

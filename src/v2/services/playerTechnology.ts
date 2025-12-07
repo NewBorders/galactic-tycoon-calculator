@@ -102,10 +102,30 @@ export function usePlayerTechnology() {
     saveState(next)
   }
 
+  function setFromApi(technologies: Array<{ id: number; level: number }>, startingBonus?: number) {
+    const levels: Partial<Record<TechnologySpecialisation, number>> = {}
+    
+    technologies.forEach((tech) => {
+      const id = tech.id as TechnologySpecialisation
+      if (TECHNOLOGIES.some((t) => t.id === id)) {
+        levels[id] = clampLevel(tech.level)
+      }
+    })
+
+    const next: PlayerTechnologyState = {
+      startingBonus: startingBonus !== undefined ? clampStartingBonus(startingBonus) : state.value.startingBonus,
+      levels,
+    }
+    
+    state.value = next
+    saveState(next)
+  }
+
   return {
     state,
     setLevel,
     setStartingBonus,
+    setFromApi,
     reset,
   }
 }
