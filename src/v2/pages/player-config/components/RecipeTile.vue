@@ -116,7 +116,10 @@ function tierLabel(tier: number) {
 </script>
 
 <template>
-  <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3 h-full">
+  <div 
+    class="rounded border p-4 space-y-3 h-full transition-all"
+    :class="(props.count ?? 1) === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
+  >
     <div class="flex items-start gap-3">
       <span class="recipe-dnd-handle cursor-move px-2 py-1 border border-slate-700 rounded select-none">↕</span>
       <div class="flex-1 min-w-0">
@@ -125,6 +128,7 @@ function tierLabel(tier: number) {
             <div class="font-semibold truncate inline-flex items-center gap-1">
               <MaterialIcon :name="recipe.output.name" variant="md" />
               <span class="truncate">{{ recipe.output.name }}</span>
+              <span v-if="(props.count ?? 1) === 0" class="text-xs text-amber-400 font-normal">({{ translate('disabled') }})</span>
             </div>
             <div class="text-xs text-slate-400">{{ buildingName }}</div>
             <div class="text-xs" :class="hasTechnology ? 'text-slate-500' : 'text-amber-300'">

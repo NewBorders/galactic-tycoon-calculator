@@ -7,6 +7,7 @@
 #### Zero Value Support (✅ Complete)
 - **Problem**: Users couldn't test production combinations quickly because minimum recipe quantity was 1 and minimum building level was 1
 - **Solution**: Allow both recipe count and building level to be set to 0 for quick testing
+- **Key Feature**: Recipes/buildings with 0 values **remain visible** in the UI but don't produce anything
 
 **Modified Components**:
 
@@ -14,25 +15,41 @@
    - Changed `min="1"` to `min="0"` for recipe count input
    - Updated decrease button to allow going down to 0 (was disabled at 1)
    - Changed validation from `Math.max(1, ...)` to `Math.max(0, ...)`
+   - **Added visual feedback**: Recipes with count 0 show:
+     * Dimmed appearance (opacity-60)
+     * Lighter border color
+     * "(Disabled)" label in amber color next to recipe name
 
 2. **BaseBuildingsSection.vue** (UI Component):
    - Changed `min="1"` to `min="0"` for building level input
    - Added validation to ensure level stays ≥ 0
+   - **Added visual feedback**: Buildings with level 0 show:
+     * Dimmed appearance (opacity-60)
+     * Lighter border color
+     * "(Deaktiviert)" label in amber color next to building name
 
-3. **playerBases.ts** (Service):
+3. **ProductionSection.vue** (Component):
+   - Fixed recipe count validation to use `Math.max(0, ...)` instead of `Math.max(1, ...)`
+   - Ensures recipes with count 0 are passed to the production engine correctly
+
+4. **playerBases.ts** (Service):
    - Building level validation: `Math.max(0, ...)` instead of `Math.max(1, ...)`
    - Recipe count validation: `Math.max(0, ...)` instead of `Math.max(1, ...)`
    - Changed condition from `rec.count > 0` to `rec.count >= 0`
 
-4. **production/engine.ts** (Core Logic):
+5. **production/engine.ts** (Core Logic):
    - Building level: Changed `clampPositiveInt(instance.level, 1)` to `clampPositiveInt(instance.level, 0)`
    - **Added skip logic**: Buildings with level 0 are skipped (no production units, no workforce, no housing)
    - Recipe count: Changed `Math.max(1, ...)` to `Math.max(0, ...)`
    - **Added skip logic**: Recipes with count 0 are skipped entirely
 
-5. **useGlobalSummary.ts** (Composable):
+6. **useGlobalSummary.ts** (Composable):
    - Updated recipe count validation to allow 0: `Math.max(0, ...)` instead of `Math.max(1, ...)`
    - Applied in both `baseReports` and `theoreticalReports` computed properties
+
+7. **messages.ts** (Localisation):
+   - Added `disabled: 'Disabled'` (English)
+   - Added `disabled: 'Deaktiviert'` (German)
 
 **Integration Tests** (`zero-count-level.test.ts`):
 - 11 comprehensive tests covering:
@@ -51,27 +68,34 @@
 2. **Building Testing**: Test adding/removing buildings by setting level to 0 instead of deleting
 3. **Optimization**: Try different production scenarios without losing configuration
 4. **Comparison**: Compare net profit with and without specific recipes/buildings
+5. **Visual Feedback**: Clear indication when recipes/buildings are "disabled" with count/level 0
 
 ### Technical Details
 
 **Behavior with Zero Values**:
-- Recipe count = 0: Recipe stays in configuration but produces nothing
-- Building level = 0: Building stays in configuration but:
+- Recipe count = 0: Recipe **stays visible** in UI but produces nothing
+- Building level = 0: Building **stays visible** in UI but:
   * Provides 0 production units
   * Requires 0 workers
   * Provides 0 housing capacity
   * Recipes in that building produce nothing
 
+**Visual Design**:
+- Disabled items have reduced opacity (60%)
+- Border color is lighter (slate-600 vs slate-700)
+- Clear "(Disabled)"/"(Deaktiviert)" label in amber color
+- Smooth transition effects when changing values
+
 **Why Skip in Engine vs UI**:
-- UI: Allows 0 values for user convenience
+- UI: Allows 0 values for user convenience and keeps configuration visible
 - Engine: Skips 0 values to avoid division by zero and unnecessary calculations
 - This pattern keeps configuration clean while ensuring calculation correctness
 
 ### What's Next
 
 - Issue #61: ✅ Complete
-- Consider adding visual indicator in UI when recipe/building is "disabled" (count/level = 0)
-- Possible enhancement: Batch enable/disable for multiple recipes
+- Possible enhancement: Batch enable/disable for multiple recipes/buildings
+- Possible enhancement: Toggle button to enable/disable without manually setting to 0
 
 ---
 

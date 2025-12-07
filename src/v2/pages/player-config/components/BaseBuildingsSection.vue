@@ -35,13 +35,17 @@ const list = computed<PlayerBuilding[]>({
     @end="$emit('persist')"
   >
     <template #item="{ element: inst }">
-      <div class="rounded border border-slate-700 bg-slate-900 p-3 flex gap-3 items-start">
+      <div 
+        class="rounded border p-3 flex gap-3 items-start transition-all"
+        :class="inst.level === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
+      >
         <span class="dnd-handle-bld cursor-move px-2 py-1 border border-slate-700 rounded select-none">↕</span>
         <div class="flex-1 min-w-0">
           <div class="font-medium truncate">
             <span class="inline-flex items-center gap-1">
               <MaterialIcon :name="buildingById.get(inst.buildingId)?.name ?? ('#'+inst.buildingId)" variant="md" />
               <span class="truncate">{{ buildingById.get(inst.buildingId)?.name ?? ('#'+inst.buildingId) }}</span>
+              <span v-if="inst.level === 0" class="text-xs text-amber-400 font-normal">(Deaktiviert)</span>
             </span>
           </div>
           <div class="text-xs text-slate-400">
