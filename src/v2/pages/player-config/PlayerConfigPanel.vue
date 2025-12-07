@@ -6,7 +6,7 @@ import { usePlayerBases } from '../../services/playerBases.ts'
 import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { fetchCompanyBases, fetchGameBaseDetails, transformGameBase } from '@/v2/services/api/warehouseService'
-import { updateSyncTime } from '@/v2/services/syncService'
+import { updateSyncTime, registerSyncCallbacks } from '@/v2/services/syncService'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/index.js'
 import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
@@ -211,6 +211,11 @@ onMounted(() => {
   refreshTimer = setInterval(() => {
     updateCountdown()
   }, 1000)
+  
+  // Register callback for when sync service loads company data
+  registerSyncCallbacks({
+    onCompanyDataLoaded: handleBasesLoaded
+  })
 })
 
 onBeforeUnmount(() => {

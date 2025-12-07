@@ -34,6 +34,13 @@ let countdownTimer: number | null = null
 let callbacks: SyncCallbacks = {}
 
 /**
+ * Register callbacks for sync events
+ */
+export function registerSyncCallbacks(newCallbacks: SyncCallbacks) {
+  callbacks = { ...callbacks, ...newCallbacks }
+}
+
+/**
  * Initialize sync entries based on current world and API key
  */
 export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[]) => void) {
@@ -128,6 +135,36 @@ export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[])
 }
 
 /**
+ * Convert API error to user-friendly message
+ */
+function formatApiError(error: unknown): string {
+  const errorMsg = error instanceof Error ? error.message : String(error)
+  
+  // Extract HTTP status code
+  const match = errorMsg.match(/\b(401|403|404|429|500|502|503)\b/)
+  if (match) {
+    const status = parseInt(match[1]!, 10)
+    switch (status) {
+      case 401:
+      case 403:
+        return 'Invalid API key'
+      case 404:
+        return 'Endpoint not found'
+      case 429:
+        return 'Too many requests - please wait'
+      case 500:
+        return 'Server error'
+      case 502:
+      case 503:
+        return 'Service temporarily unavailable'
+    }
+  }
+  
+  // Return shortened error message
+  return errorMsg.length > 50 ? errorMsg.substring(0, 47) + '...' : errorMsg
+}
+
+/**
  * Refresh a specific endpoint
  */
 export async function refreshEntry(entryId: string): Promise<void> {
@@ -175,7 +212,7 @@ export async function refreshEntry(entryId: string): Promise<void> {
     entry.nextRefresh = AUTO_REFRESH_INTERVAL
     saveSyncTimes()
   } catch (error) {
-    entry.error = error instanceof Error ? error.message : 'Failed to refresh'
+    entry.error = formatApiError(error)
     console.error(`[SyncService] Failed to refresh ${entryId}:`, error)
   } finally {
     entry.isRefreshing = false
