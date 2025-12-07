@@ -153,7 +153,7 @@ export function usePlayerBases(gd: GameData) {
     if (!b) return
     const it = b.buildings.find((bb) => bb.id === instanceId)
     if (!it) return
-    if (patch.level != null) it.level = Math.max(1, Math.floor(patch.level))
+    if (patch.level != null) it.level = Math.max(0, Math.floor(patch.level))
     syncRecipesWithBuildings(b)
     saveState(state.value)
   }
