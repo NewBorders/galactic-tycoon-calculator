@@ -125,12 +125,12 @@ function handleExportThresholdChange() {
             {{ translate('apiKeySaved') }}
           </div>
         </div>
+        
+        <!-- Sync Status -->
+        <div class="border-t border-slate-700 pt-4">
+          <SyncStatus />
+        </div>
       </div>
-    </div>
-
-    <!-- Sync Status (full width) -->
-    <div class="border-t border-slate-700 pt-4">
-      <SyncStatus />
     </div>
 
     <!-- Price Management (full width) -->

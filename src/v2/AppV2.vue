@@ -8,6 +8,7 @@ import { resetPriceCache } from './services/gamedata/prices'
 import { usePriceAlerts } from './services/priceAlerts/alertManager'
 import { useMaterialPricing } from './services/gamedata/prices'
 import { useWorldData } from './services/worldData'
+import { initializeSyncService } from './services/syncService'
 import GlobalSummaryPage from './pages/GlobalSummaryPage.vue'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
@@ -75,6 +76,8 @@ onMounted(async () => {
     gdLoadedAt.value = loadedAt
     // Start global alert checking once gameData is loaded
     setupAlertChecking()
+    // Initialize sync service for background auto-refresh
+    await initializeSyncService()
   } catch (e: unknown) {
     err.value = e instanceof Error ? e.message : 'error'
   } finally {
@@ -99,6 +102,8 @@ watch(getWorld, async () => {
     gdLoadedAt.value = result.loadedAt
     // Restart alert checking for new world
     setupAlertChecking()
+    // Reinitialize sync service for new world
+    await initializeSyncService()
   } catch (e: unknown) {
     err.value = e instanceof Error ? e.message : 'error'
   } finally {

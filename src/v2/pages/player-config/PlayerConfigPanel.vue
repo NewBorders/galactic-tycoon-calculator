@@ -6,6 +6,7 @@ import { usePlayerBases } from '../../services/playerBases.ts'
 import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { fetchCompanyBases, fetchGameBaseDetails, transformGameBase } from '@/v2/services/api/warehouseService'
+import { updateSyncTime } from '@/v2/services/syncService'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/index.js'
 import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
@@ -247,6 +248,9 @@ watch(
 async function handleBasesLoaded(
   bases: Array<{ id: number; name: string; planetId: number; warehouseId: number }>,
 ) {
+  // Update sync timestamp for company data
+  updateSyncTime('company')
+  
   // Track existing gameBaseIds before sync to detect newly added bases
   const existingIds = new Set(
     state.value.bases

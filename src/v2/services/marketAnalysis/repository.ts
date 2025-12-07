@@ -8,6 +8,7 @@ import { extractMarketDetails } from './extractor'
 import { transformMarketData } from './transformer'
 import type { MarketOpportunity, FetchMarketDetailsOptions, MarketAnalysisFilters } from './types'
 import { getApiKey } from '../api/apiKeyManager'
+import { updateSyncTime } from '../syncService'
 
 /**
  * Fetch and transform market opportunities
@@ -25,7 +26,10 @@ export async function fetchMarketOpportunities(
   }
 
   // Extract raw data from API
-  const { data: rawMaterials } = await extractMarketDetails(apiKey, world, forceRefresh)
+  const { data: rawMaterials, ts } = await extractMarketDetails(apiKey, world, forceRefresh)
+  
+  // Update sync timestamp for exchange market
+  updateSyncTime('exchange', ts)
 
   // Debug logging removed
 
@@ -49,6 +53,10 @@ export async function fetchMarketOpportunitiesWithTs(
     throw new Error('API key is required. Please configure it in the Config tab.')
   }
   const { data: rawMaterials, ts } = await extractMarketDetails(apiKey, world, forceRefresh)
+  
+  // Update sync timestamp for exchange market
+  updateSyncTime('exchange', ts)
+  
   const opportunities = transformMarketData(rawMaterials)
   return { opportunities, ts }
 }

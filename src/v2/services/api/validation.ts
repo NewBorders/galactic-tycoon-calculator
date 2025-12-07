@@ -20,6 +20,12 @@ export interface ValidationResult {
   }
 }
 
+export interface SimpleValidationResult {
+  valid: boolean
+  error?: string
+  status?: number
+}
+
 export interface ValidationError {
   endpoint: string
   error: string
@@ -27,8 +33,28 @@ export interface ValidationError {
 }
 
 /**
+ * Simple API key validation - only tests Company Data endpoint
+ * Use this for quick validation in landing page and initial setup
+ */
+export async function validateApiKeySimple(apiKey: string, world: World): Promise<SimpleValidationResult> {
+  try {
+    await fetchCompanyBases(apiKey, world, true)
+    return { valid: true }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    const status = extractHttpStatus(errorMsg)
+    return {
+      valid: false,
+      error: errorMsg,
+      status,
+    }
+  }
+}
+
+/**
  * Validates an API key by calling all required endpoints
  * Returns detailed information about which endpoints succeeded/failed
+ * Use this for comprehensive validation when debugging or in admin panels
  */
 export async function validateApiKey(apiKey: string, world: World): Promise<ValidationResult> {
   const errors: ValidationError[] = []

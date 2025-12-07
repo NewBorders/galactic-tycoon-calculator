@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useWorldData } from '@/v2/services/worldData'
-import { validateApiKey } from '@/v2/services/api/validation'
+import { validateApiKeySimple } from '@/v2/services/api/validation'
 import type { World } from '@/v2/services/api/types'
 
 const { setApiKey, activeWorld, switchWorld } = useWorldData()
@@ -30,32 +30,28 @@ async function saveApiKey() {
       switchWorld(selectedWorld.value)
     }
     
-    // Validate API key by testing all endpoints
-    statusMessage.value = 'Testing game data...'
-    const result = await validateApiKey(trimmed, selectedWorld.value)
+    // Validate API key by testing Company Data endpoint
+    statusMessage.value = 'Testing API key...'
+    const result = await validateApiKeySimple(trimmed, selectedWorld.value)
     
     if (!result.valid) {
-      // Build detailed error message
-      const errorMessages = result.errors.map(e => {
-        if (e.status === 401 || e.status === 403) {
-          return `${e.endpoint}: Invalid API key`
-        } else if (e.status === 404) {
-          return `${e.endpoint}: Endpoint not found`
-        } else if (e.status === 429) {
-          return `${e.endpoint}: Rate limit exceeded`
-        } else {
-          return `${e.endpoint}: ${e.error}`
-        }
-      })
-      
-      error.value = `API validation failed:\n${errorMessages.join('\n')}`
+      // Build error message based on status code
+      if (result.status === 401 || result.status === 403) {
+        error.value = 'Invalid API key. Please check your key and try again.'
+      } else if (result.status === 404) {
+        error.value = 'API endpoint not found. Please try a different world.'
+      } else if (result.status === 429) {
+        error.value = 'Rate limit exceeded. Please wait a moment and try again.'
+      } else {
+        error.value = `API validation failed: ${result.error || 'Unknown error'}`
+      }
       return
     }
     
-    // All validations passed, set the API key
+    // Validation passed, set the API key
     setApiKey(trimmed)
     
-    statusMessage.value = `Success! Loaded ${result.details.bases} bases, ${result.details.warehouses} warehouses.`
+    statusMessage.value = 'Success! API key saved.'
     // Small delay to show success message
     await new Promise(resolve => setTimeout(resolve, 1000))
     
