@@ -32,12 +32,19 @@ const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
 
 let countdownTimer: number | null = null
 let callbacks: SyncCallbacks = {}
+let pendingBasesData: Array<{ id: number; name: string; planetId: number; warehouseId: number }> | null = null
 
 /**
  * Register callbacks for sync events
  */
 export function registerSyncCallbacks(newCallbacks: SyncCallbacks) {
   callbacks = { ...callbacks, ...newCallbacks }
+  
+  // If we have pending bases data and a callback is now registered, trigger it
+  if (pendingBasesData && callbacks.onCompanyDataLoaded) {
+    callbacks.onCompanyDataLoaded(pendingBasesData)
+    pendingBasesData = null // Clear after triggering
+  }
 }
 
 /**
@@ -91,15 +98,19 @@ export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[])
       const result = await fetchCompanyBases(apiKey, world, false)
       const bases = result.data.bases || []
       
-      // Trigger callback to load bases into PlayerConfigPanel
+      // Format bases data
+      const formattedBases = bases.map((b) => ({
+        id: b.id,
+        name: b.name,
+        planetId: b.planetId,
+        warehouseId: b.warehouseId,
+      }))
+      
+      // Trigger callback if already registered, otherwise store for later
       if (callbacks.onCompanyDataLoaded) {
-        const formattedBases = bases.map((b) => ({
-          id: b.id,
-          name: b.name,
-          planetId: b.planetId,
-          warehouseId: b.warehouseId,
-        }))
         callbacks.onCompanyDataLoaded(formattedBases)
+      } else {
+        pendingBasesData = formattedBases
       }
       
       // 4. Base Details - one entry per base
