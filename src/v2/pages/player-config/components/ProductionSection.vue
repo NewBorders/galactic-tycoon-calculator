@@ -364,7 +364,7 @@ watch(
               :report-row="cardsById.get(element.id)!.reportRow"
               :building-name="cardsById.get(element.id)!.buildingName"
               :units="cardsById.get(element.id)!.units"
-              :count="element.count ?? 1"
+              :count="typeof element.count === 'number' ? element.count : 1"
               :technology-level="cardsById.get(element.id)!.technologyLevel"
               :required-tech="cardsById.get(element.id)!.requiredTech"
               :material-lookup="props.index.materialById"
