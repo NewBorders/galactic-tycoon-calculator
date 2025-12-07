@@ -13,8 +13,6 @@ import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
 
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
-import ApiSyncPanel from './components/ApiSyncPanel.vue'
-import LoadBasesButton from './components/LoadBasesButton.vue'
 import ImportConfirmDialog from './components/ImportConfirmDialog.vue'
 import GlobalSummary from './components/GlobalSummary.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
@@ -399,32 +397,6 @@ function cancelImport() {
     </div>
 
     <div class="flex flex-wrap items-center gap-3 justify-end text-xs text-slate-400">
-      <div>
-        {{ translate('gameDataTimestamp') }}
-        <span class="text-slate-200">{{ formattedGameDataTimestamp }}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <span>
-          {{ translate('priceLastUpdated') }}
-          <span class="text-slate-200">{{ formattedPriceTimestamp }}</span>
-          <span class="ml-2 text-slate-500">
-            ({{ translate('nextRefreshIn') }} {{ refreshCountdown }})
-          </span>
-        </span>
-        <button
-          class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          type="button"
-          :disabled="priceLoading"
-          @click="refreshPrices()"
-        >
-          {{ priceLoading ? translate('priceRefreshing') : translate('priceRefresh') }}
-        </button>
-      </div>
-      <div v-if="priceError" class="text-amber-300">
-        {{ translate('priceError') }}: {{ priceError }}
-      </div>
-      <!-- Warehouse sync button -->
-      <ApiSyncPanel ref="apiSyncPanel" :bases="state.bases" @stocksLoaded="handleStocksLoaded" />
       <div class="flex flex-col gap-2">
         <div class="flex items-center gap-2">
           <label class="flex items-center gap-2">
@@ -445,15 +417,12 @@ function cancelImport() {
       </div>
     </div>
 
-    <div class="flex items-center gap-2">
-      <PlanetSearch
-        v-model:query="query"
-        :suggestions="suggestions"
-        :hasBase="planetHasBase"
-        @select="selectPlanet"
-      />
-      <LoadBasesButton :bases="state.bases" @basesLoaded="handleBasesLoaded" />
-    </div>
+    <PlanetSearch
+      v-model:query="query"
+      :suggestions="suggestions"
+      :hasBase="planetHasBase"
+      @select="selectPlanet"
+    />
 
     <!-- Global Summary -->
     <GlobalSummary
