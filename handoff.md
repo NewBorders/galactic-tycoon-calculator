@@ -1,6 +1,37 @@
 # Handoff Document
 
-## Most Recent Work: Allow Recipe Quantity & Building Level to be Zero (Issue #61)
+## Most Recent Work: Allow Recipe Quantity & Building Level to be Zero (Issue #61) - ✅ COMPLETE
+
+### Summary
+Successfully implemented zero value support for both recipe counts and building levels. Users can now set recipes to count=0 and buildings to level=0 for quick testing without losing their configuration.
+
+### Final Bugs Fixed (December 7, 2025)
+
+**Three critical bugs discovered and fixed**:
+
+1. **Bug: `??` operator treated 0 incorrectly**
+   - **Problem**: `props.count ?? 1` and similar patterns throughout the codebase
+   - **Impact**: Count=0 was being treated as falsy and replaced with fallback value 1
+   - **Fix**: Changed to explicit type checking: `typeof value === 'number' ? value : fallback`
+   - **Files**: RecipeTile.vue, ProductionSection.vue
+
+2. **Bug: reportRow data not recalculated when count=0**
+   - **Problem**: When count was set to 0, old `reportRow` data was still used
+   - **Impact**: UI showed stale production values instead of 0
+   - **Fix**: Added `isDisabled` check to force recalculation and return 0 for all values
+   - **File**: RecipeTile.vue (lines 35-81)
+
+3. **Bug: Recipe deleted when count set to 0**
+   - **Problem**: `setRecipeCount()` had `if (it.count <= 0) { b.recipes.filter(...) }`
+   - **Impact**: Recipes disappeared completely when set to 0
+   - **Fix**: Removed the automatic deletion logic
+   - **File**: playerBases.ts (line 203-205 removed)
+
+4. **Bug: Building level couldn't be set to 0**
+   - **Problem**: `setBuilding()` used `Math.max(1, Math.floor(patch.level))`
+   - **Impact**: Level was always clamped to minimum 1, preventing level=0
+   - **Fix**: Changed to `Math.max(0, Math.floor(patch.level))`
+   - **File**: playerBases.ts (line 156)
 
 ### What Was Done
 
