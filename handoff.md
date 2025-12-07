@@ -1,6 +1,119 @@
 # Handoff Document
 
-## Most Recent Work: Allow Recipe Quantity & Building Level to be Zero (Issue #61) - ✅ COMPLETE
+## Most Recent Work: Better Overview for Mobile & Multi-Base Management (In Progress)
+
+### Goal
+Improve overview on smaller screens (mobile phones) and reduce scrolling by delivering important insights in a dedicated area.
+
+**Problem**: With 10+ bases, users have to scroll extensively to check if production in base 10 is high enough to cover consumption in base 2.
+
+**Solution**:
+- Global summary becomes the main entrypoint  
+- Each base becomes a collapsible tile with key metrics visible when collapsed
+- Expanded view shows detailed reports
+- Workforce productivity based on stock materials (not just housing)
+
+### Progress (December 7, 2025)
+
+#### ✅ Completed
+
+**1. Workforce Productivity Calculations** (`workforceProductivity.ts`)
+- New service function `calculateWorkforceProductivity()` 
+- Calculates productivity % per tier based on:
+  * Housing coverage (existing logic)
+  * **Material stock coverage** (NEW - considers consumption materials in stock)
+- Returns:
+  * Per-tier productivity % (0-100)
+  * Overall weighted productivity %  
+  * Limiting factor per tier: 'housing' | 'consumption' | 'none'
+  * Potential lost profit per day
+  * Human-readable explanation
+- Integrated into `useGlobalSummary.ts`:
+  * Added `workforceProductivity` to `BaseSummaryData`
+  * Added `netProfit` and `exportNetProfit` to `BaseSummaryData`
+  * Calculation runs automatically for each base
+
+**2. BaseCard Component** (`components/BaseCard.vue`)
+- New collapsible tile component for bases
+- **Collapsed view** shows:
+  * 💰 Net Profit ($/day)
+  * 📦 Export Value ($/day)  
+  * 🚢 Export Materials (count)
+  * 👷 Workforce Productivity (%)
+- **Expanded view**: Slot for detailed content (parent provides)
+- Visual indicators:
+  * Warning badge (⚠️) if issues detected
+  * Color-coded productivity (green >95%, amber >75%, red <75%)
+  * Color-coded profit (green >0, red <0)
+  * Hover effects and smooth transitions
+- Mobile responsive: 2-column grid on mobile, 4-column on desktop
+- Props: `summary` (BaseSummaryData), `isExpanded` (boolean)
+- Events: `toggle` (click header), `navigate` (click "View Details" button)
+
+**3. Translations Added**
+- English & German:
+  * `planet`, `netProfit`, `exportValue`, `productivity`
+  * `viewDetails`, `loadingDetails`, `day`
+
+#### 🔄 In Progress / Not Started
+
+**4. Expanded Base Detail Component** (TODO)
+- Should show:
+  * Net result (with 7d price trend affecting only this base's productions)
+  * Worker consumables
+  * Material purchases
+  * Production revenue
+  * Materials balance
+  * **Workforce coverage with productivity %** (replacing old detailed view)
+
+**5. GlobalSummaryPage Refactoring** (TODO)
+- Replace current base cards with new BaseCard components
+- Integrate collapse/expand state management
+- Add navigation to player-config pages from "View Details"
+- Make it the main entrypoint (routing/navigation changes)
+
+**6. Workforce Display Update** (TODO)
+- Remove detailed workforce consumption overview
+- Remove detailed housing coverage display
+- Show productivity % per tier (from workforceProductivity calculation)
+- Show potential lost profit when not at full productivity
+- Display explanation of limiting factor (housing vs materials)
+
+**7. Testing** (TODO)
+- Integration tests for workforce productivity calculations
+- Visual tests on mobile viewport  
+- Test collapse/expand interaction
+- Test navigation flows
+
+### Technical Notes
+
+**Workforce Productivity Logic**:
+```typescript
+// For each tier:
+housingCoverage = existing calculation (0-100%)
+consumptionCoverage = min over all consumption materials:
+  (currentStock / (consumptionPerDay * planDays)) * 100
+
+productivity = min(housingCoverage, consumptionCoverage)
+```
+
+**Files Modified**:
+- `src/v2/services/production/workforceProductivity.ts` (NEW)
+- `src/v2/composables/useGlobalSummary.ts` (extended BaseSummaryData type, added calculations)
+- `src/v2/components/BaseCard.vue` (NEW)
+- `src/v2/localisation/messages.ts` (added translations)
+
+**Next Steps**:
+1. Create expanded detail component with workforce productivity display
+2. Integrate BaseCard into GlobalSummaryPage
+3. Add collapse/expand state management (could use existing `ui.basesOpen` in playerBases service)
+4. Update GlobalSummaryPage to be the main entrypoint
+5. Add navigation from BaseCard to full player-config page
+6. Test on mobile devices
+
+---
+
+## Previous Work: Allow Recipe Quantity & Building Level to be Zero (Issue #61) - ✅ COMPLETE
 
 ### Summary
 Successfully implemented zero value support for both recipe counts and building levels. Users can now set recipes to count=0 and buildings to level=0 for quick testing without losing their configuration.
