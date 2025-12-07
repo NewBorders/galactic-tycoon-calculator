@@ -199,10 +199,7 @@ export function usePlayerBases(gd: GameData) {
     const it = b.recipes.find((r) => r.id === recipeInstanceId)
     if (!it) return
     it.count = Math.max(0, Math.floor(Number(count) || 0))
-    // remove if zero
-    if (it.count <= 0) {
-      b.recipes = b.recipes.filter((r) => r.id !== recipeInstanceId)
-    }
+    // Allow count = 0 (Issue #61: recipes should stay visible when disabled)
     saveState(state.value)
   }
 
