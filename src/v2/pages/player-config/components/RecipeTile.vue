@@ -34,7 +34,7 @@ const displayHours = computed(() => {
 const periodFactor = computed(() => displayHours.value / 24)
 
 // When count is 0, treat as if recipe is disabled (0 active units)
-const effectiveCount = computed(() => props.count ?? 1)
+const effectiveCount = computed(() => (typeof props.count === 'number' ? props.count : 1))
 const activeUnits = computed(() => {
   if (effectiveCount.value === 0) return 0
   return props.reportRow?.buildingUnits ?? props.units
