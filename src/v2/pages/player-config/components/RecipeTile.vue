@@ -35,11 +35,14 @@ const periodFactor = computed(() => displayHours.value / 24)
 
 // When count is 0, treat as if recipe is disabled (0 active units)
 const effectiveCount = computed(() => (typeof props.count === 'number' ? props.count : 1))
+const isDisabled = computed(() => effectiveCount.value === 0)
+
+// When disabled (count=0), ignore reportRow and calculate from scratch
 const activeUnits = computed(() => {
-  if (effectiveCount.value === 0) return 0
+  if (isDisabled.value) return 0
   return props.reportRow?.buildingUnits ?? props.units
 })
-const queueShare = computed(() => props.reportRow?.queueShare ?? 1)
+const queueShare = computed(() => isDisabled.value ? 1 : (props.reportRow?.queueShare ?? 1))
 const baseCycleMinutes = computed(() => props.reportRow?.timeMinutes ?? props.recipe.timeMinutes)
 const adjustedCycleMinutes = computed(
   () => props.reportRow?.adjustedTimeMinutes ?? baseCycleMinutes.value,
@@ -51,16 +54,24 @@ const runsPerModulePerDay = computed(() =>
   props.reportRow?.cyclesPerDayPerUnit ??
   (props.recipe.timeMinutes > 0 ? minutesPerDay / props.recipe.timeMinutes : 0),
 )
-const runsPerDay = computed(
-  () => props.reportRow?.runsPerDay ?? runsPerModulePerDay.value * activeUnits.value,
-)
+const runsPerDay = computed(() => {
+  if (isDisabled.value) return 0
+  return props.reportRow?.runsPerDay ?? runsPerModulePerDay.value * activeUnits.value
+})
 
 const outputPerDay = computed(() => {
+  if (isDisabled.value) return 0
   if (props.reportRow) return props.reportRow.outputPerDay
   return runsPerDay.value * props.recipe.output.amount
 })
 
 const inputsPerDay = computed(() => {
+  if (isDisabled.value) {
+    return props.recipe.inputs.map((inp) => ({
+      materialId: inp.id,
+      amount: 0,
+    }))
+  }
   if (props.reportRow) return props.reportRow.inputsPerDay
   return props.recipe.inputs.map((inp) => ({
     materialId: inp.id,
