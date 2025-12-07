@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, watch } from 'vue'
 import { useWorldData } from '@/v2/services/worldData'
 import type { World } from '@/v2/services/api/types'
+import { translate } from '@/v2/localisation'
 
 const { activeWorld, switchWorld, hasApiKey } = useWorldData()
 
@@ -9,35 +10,21 @@ const emit = defineEmits<{
   worldChanged: [world: World]
 }>()
 
-type WorldOption = { value: World; label: string }
+const selected = ref<World>(activeWorld.value)
 
-const worlds = [
-  { value: 'g1' as World, label: 'Galaxy 1' },
-  { value: 'g2' as World, label: 'Galaxy 2' },
-] as const
-
-const currentWorld = computed<WorldOption>(() => {
-  const found = worlds.find(w => w.value === activeWorld.value)
-  return found || worlds[0]
-})
-
-const showConfirmDialog = computed(() => {
-  return hasApiKey.value && activeWorld.value
-})
-
+const showConfirmDialog = ref(false)
 let pendingWorld: World | null = null
 
-function requestWorldSwitch(world: World) {
-  if (world === activeWorld.value) return
+watch(selected, (newWorld) => {
+  if (newWorld === activeWorld.value) return
   
-  if (showConfirmDialog.value) {
-    pendingWorld = world
-    const dialog = document.getElementById('world-switch-dialog') as HTMLDialogElement
-    dialog?.showModal()
+  if (hasApiKey.value) {
+    pendingWorld = newWorld
+    showConfirmDialog.value = true
   } else {
-    performSwitch(world)
+    performSwitch(newWorld)
   }
-}
+})
 
 function performSwitch(world: World) {
   switchWorld(world)
@@ -53,86 +40,45 @@ function confirmSwitch() {
 }
 
 function closeDialog() {
-  const dialog = document.getElementById('world-switch-dialog') as HTMLDialogElement
-  dialog?.close()
+  showConfirmDialog.value = false
+  selected.value = activeWorld.value // Reset to current world if cancelled
   pendingWorld = null
 }
 </script>
 
 <template>
-  <div class="world-switcher">
-    <label class="world-switcher__label">
-      <select 
-        :value="activeWorld" 
-        @change="(e) => requestWorldSwitch((e.target as HTMLSelectElement).value as World)"
-        class="world-switcher__select"
-      >
-        <option 
-          v-for="world in worlds" 
-          :key="world.value" 
-          :value="world.value"
-        >
-          {{ world.label }}
-        </option>
-      </select>
-    </label>
+  <label class="flex items-center gap-2 text-sm">
+    <span>{{ translate('worldLabel') }}</span>
+    <select v-model="selected" class="border rounded px-2 py-1 bg-gray-600">
+      <option value="g1">Galaxy 1</option>
+      <option value="g2">Galaxy 2</option>
+    </select>
+  </label>
 
-    <!-- Confirmation Modal -->
-    <dialog id="world-switch-dialog" class="world-switch-dialog">
-      <div class="dialog-content">
-        <h3 class="dialog-title">Switch Galaxy?</h3>
-        <p class="dialog-message">
-          You are about to switch from <strong>{{ currentWorld.label }}</strong> to 
-          <strong>{{ worlds.find(w => w.value === pendingWorld)?.label }}</strong>.
-        </p>
-        <p class="dialog-warning">
-          ⚠️ All data context (bases, API key, alerts) will be switched to the selected galaxy.
-        </p>
-        <div class="dialog-actions">
-          <button @click="closeDialog" class="btn btn-secondary">
-            Cancel
-          </button>
-          <button @click="confirmSwitch" class="btn btn-primary">
-            Switch Galaxy
-          </button>
-        </div>
+  <!-- Confirmation Modal -->
+  <dialog v-if="showConfirmDialog" open class="world-switch-dialog">
+    <div class="dialog-content">
+      <h3 class="dialog-title">Switch Galaxy?</h3>
+      <p class="dialog-message">
+        You are about to switch from <strong>Galaxy {{ activeWorld === 'g1' ? '1' : '2' }}</strong> to 
+        <strong>Galaxy {{ pendingWorld === 'g1' ? '1' : '2' }}</strong>.
+      </p>
+      <p class="dialog-warning">
+        ⚠️ All data context (bases, API key, alerts) will be switched to the selected galaxy.
+      </p>
+      <div class="dialog-actions">
+        <button @click="closeDialog" class="btn btn-secondary">
+          Cancel
+        </button>
+        <button @click="confirmSwitch" class="btn btn-primary">
+          Switch Galaxy
+        </button>
       </div>
-    </dialog>
-  </div>
+    </div>
+  </dialog>
 </template>
 
 <style scoped>
-.world-switcher {
-  display: inline-flex;
-  align-items: center;
-}
-
-.world-switcher__label {
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.world-switcher__select {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  background-color: rgb(75 85 99);
-  color: var(--color-text);
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.world-switcher__select:hover {
-  background-color: var(--color-background-mute);
-  border-color: var(--color-border-hover);
-}
-
-.world-switcher__select:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
 .world-switch-dialog {
   padding: 0;
   border: none;

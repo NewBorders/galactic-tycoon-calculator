@@ -89,10 +89,9 @@ function handleExportThresholdChange() {
       <!-- Right Column: World Selection & API Key -->
       <div class="space-y-4">
         <!-- World Selection with WorldSwitcher -->
-        <div class="space-y-2">
-          <span class="block text-sm text-slate-400">{{ translate('worldLabel') }}</span>
+        <div>
           <WorldSwitcher />
-          <p class="text-xs text-slate-400">{{ translate('worldHint') }}</p>
+          <p class="text-xs text-slate-400 mt-1">{{ translate('worldHint') }}</p>
         </div>
 
         <!-- API Key -->

@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useWorldData } from '@/v2/services/worldData'
 import { validateApiKeySimple } from '@/v2/services/api/validation'
+import { initializeSyncService } from '@/v2/services/syncService'
 import type { World } from '@/v2/services/api/types'
 
 const { setApiKey, activeWorld, switchWorld } = useWorldData()
@@ -51,16 +52,20 @@ async function saveApiKey() {
     // Validation passed, set the API key
     setApiKey(trimmed)
     
-    statusMessage.value = 'Success! API key saved.'
-    // Small delay to show success message
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // Initialize sync service and load all data
+    statusMessage.value = 'Loading your data...'
+    await initializeSyncService()
+    
+    statusMessage.value = 'Success! Loading application...'
+    // Small delay to show success message before app loads
+    await new Promise(resolve => setTimeout(resolve, 500))
     
   } catch (err) {
-    // Unexpected error during validation
+    // Unexpected error during validation or data loading
     if (err instanceof Error) {
-      error.value = `Validation error: ${err.message}`
+      error.value = `Error: ${err.message}`
     } else {
-      error.value = 'Unexpected error during validation. Please try again.'
+      error.value = 'Unexpected error. Please try again.'
     }
   } finally {
     saving.value = false
