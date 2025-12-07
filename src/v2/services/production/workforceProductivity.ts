@@ -37,7 +37,7 @@ export function calculateWorkforceProductivity(
   const tiers: WorkforceProductivityTier[] = []
 
   for (const wf of report.workforceSummary) {
-    const housingCoverage = wf.coverage // already in percent (0-100)
+    const housingCoverage = wf.coverage * 100 // convert from decimal (0-1) to percent (0-100)
     
     // Find consumption materials for this tier
     const tierConsumption = report.workers.filter(w => w.tier === wf.tier && w.active)

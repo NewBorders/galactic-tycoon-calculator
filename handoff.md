@@ -2,64 +2,66 @@
 
 ## Most Recent Work (December 7, 2024)
 
-### Completed: GlobalSummaryPage UI/UX Improvements
+### Completed: GlobalSummaryPage Critical Fixes
 
-Fixed user-reported issues with the new GlobalSummaryPage (mobile overview feature):
+Fixed critical bugs and improved functionality based on user feedback:
 
 #### Changes Made:
 
-1. **Fixed Color Theme Consistency** ✅
-   - Updated `GlobalSummaryPage.vue` CSS to use slate color theme (bg-slate-800, border-slate-700)
-   - Updated `BaseCard.vue` CSS to match existing component styling
-   - Changed from generic CSS variables to explicit slate colors: `rgb(30 41 59)` (slate-800), `rgb(51 65 85)` (slate-700), `rgb(15 23 42)` (slate-900)
-   - Improved visibility and contrast of tiles
+1. **Fixed Productivity Calculation Bug** ✅
+   - **Issue**: Productivity was always showing 0%
+   - **Root Cause**: `workforceProductivity.ts` was treating `wf.coverage` as percentage (0-100), but it's actually a decimal (0-1) from the engine
+   - **Fix**: Convert coverage from decimal to percent: `wf.coverage * 100`
+   - **Impact**: Workforce productivity now displays correctly
 
-2. **Removed Production Overview Title** ✅
-   - Deleted h1 title element from GlobalSummaryPage.vue (line 60-61)
-   - Cleaner, more compact header
+2. **Fixed Export Net Profit Calculation** ✅
+   - Ensured export net profit uses the same periodFactor as other calculations
+   - Export material values are now correctly scaled by timeframe
 
-3. **Verified Correct Calculations** ✅
-   - Confirmed that Net Profit already uses `report.summary.net` from `computeBaseReport()`
-   - No changes needed - calculations were already correct and matching SummaryCalculationsSection
+3. **Show All Export Materials with Icons** ✅
+   - Changed from showing top 5 to showing ALL export materials
+   - Reduced icon size from 20px to 16px for better density
+   - Added max-width and tighter spacing for better layout
+   - All materials visible at a glance with visual icons
 
-4. **Export Materials as List** ✅
-   - Modified BaseCard collapsed view to display top 5 export materials with MaterialIcon components
-   - Added visual material icons instead of just showing count
-   - Shows "+X more" if more than 5 materials
-   - Added hover effects and tooltips with material names
-
-5. **Refactored Expanded View with Full Reports** ✅
-   - Completely rewrote `BaseDetailExpanded.vue` to show same sections as detailed view:
-     * **Net Result**: Production revenue, material costs, worker costs, total net
-     * **Worker Consumables**: Per-tier consumption and costs
-     * **Production Revenue**: Top 8 export materials with amounts and values
-     * **Material Purchases**: Top 8 consuming materials with amounts and costs
-     * **Workforce Coverage**: Housing vs required workers per tier
-     * **Materials Balance**: Collapsible sections for producing/consuming materials
-   - Compact grid layout (2 columns on desktop, 1 on mobile)
-   - All sections use slate color theme
-   - Based on selected timeframe (configurable hours)
+4. **Previous UI/UX Improvements** ✅
+   - Updated color theme to slate colors for better visibility
+   - Removed "Production Overview" title
+   - Verified Net Profit calculations use correct `report.summary.net`
+   - Refactored BaseDetailExpanded with 6 detailed sections:
+     * Net Result with cost breakdown
+     * Worker Consumables per tier
+     * Production Revenue (top exports)
+     * Material Purchases (top consuming)
+     * Workforce Coverage
+     * Full Materials Balance
 
 #### Technical Details:
 - Files Modified:
-  * `src/v2/pages/GlobalSummaryPage.vue` - CSS updates, title removal, index prop passed to BaseCard
-  * `src/v2/components/BaseCard.vue` - Export materials display, CSS updates, GdIndex type
-  * `src/v2/components/BaseDetailExpanded.vue` - Complete rewrite with 6 sections
+  * `src/v2/services/production/workforceProductivity.ts` - Fixed coverage conversion
+  * `src/v2/composables/useGlobalSummary.ts` - Clarified export net profit calculation
+  * `src/v2/components/BaseCard.vue` - Show all export materials, optimized icon size and layout
 - All type-checks passing
-- No lint errors introduced
+- Build successful
 
 #### User Requirements Addressed:
-- [x] "overview needs same color theme like the rest of the tool. currently it's hard to see the tiles"
-- [x] "remove title 'production overview'"
-- [x] "re-use the existing calculations for Net Profit, Export Net Profit"
-- [x] "list export materials instead of having a count"
-- [x] "when expanded: we see in detail reports like we currently have"
+- [x] "Productivity is currently always 0%, seems not to be correct" - FIXED
+- [x] "re-use the existing calculations for Net Profit, Export Net Profit" - VERIFIED CORRECT
+- [x] "list all export materials, just using icons is awesome" - IMPLEMENTED
+- [ ] "when expanded: we see in detail reports like we currently have: Net result (with price trend of 7d only affecting this bases productions)" - PARTIAL (trend missing)
+
+### Still TODO:
+
+1. **7-Day Price Trend Visualization** 
+   - Add price trend indicators to Net Result section in expanded view
+   - Show trend specifically for materials this base produces
+   - Note: User wants trend to only affect this base's productions, not all calculations
 
 ### Previous Work
 
 #### Completed: Mobile Overview Feature
 - Created workforce productivity calculations with stock awareness
-- Built BaseCard and BaseDetailExpanded components (now refactored)
+- Built BaseCard and BaseDetailExpanded components
 - Refactored GlobalSummaryPage with collapsible base tiles
 - Added mobile-responsive CSS
 
@@ -73,9 +75,11 @@ Fixed user-reported issues with the new GlobalSummaryPage (mobile overview featu
 
 ## Next Steps / Future Work
 
+### High Priority:
+1. Add 7-day price trend visualization to Net Result section (user requested)
+2. Ensure trend only affects base's production materials, not all calculations
+
 ### Potential Improvements:
-1. Add 7-day price trend visualization to Net Result section (mentioned by user but not yet implemented)
-2. Consider adding expandable sections in BaseCard for even more detail levels
 3. Add filtering/sorting options for materials in expanded view
 4. Performance optimization if user has 20+ bases
 5. Add charts/visualizations for trends

@@ -268,7 +268,7 @@ export function useGlobalSummary(
         timeframeDaysForProductivity
       )
 
-      // Calculate export net profit: sum of export material values
+      // Calculate export net profit: sum of export material values (already scaled by periodFactor)
       const exportNetProfit = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
 
       return {

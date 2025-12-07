@@ -47,9 +47,9 @@ const hasIssues = computed(() => {
   )
 })
 
-// Top export materials (max 5)
+// All export materials (show all with icons)
 const topExportMaterials = computed(() => {
-  return props.summary.exportMaterials.slice(0, 5)
+  return props.summary.exportMaterials
 })
 
 const getMaterialName = (materialId: number): string => {
@@ -108,15 +108,12 @@ const getMaterialName = (materialId: number): string => {
                 <MaterialIcon 
                   v-if="index"
                   :name="getMaterialName(exportMat.materialId)"
-                  :size="20"
+                  :size="16"
                 />
                 <span v-else class="material-text">
                   {{ getMaterialName(exportMat.materialId).substring(0, 3) }}
                 </span>
               </div>
-              <span v-if="summary.exportMaterials.length > 5" class="export-more">
-                +{{ summary.exportMaterials.length - 5 }}
-              </span>
             </div>
           </div>
         </div>
@@ -274,16 +271,17 @@ const getMaterialName = (materialId: number): string => {
 .export-materials-grid {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.25rem;
   flex-wrap: wrap;
+  max-width: 200px;
 }
 
 .export-material-item {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 0.25rem;
   background: rgb(15 23 42);
   border: 1px solid rgb(51 65 85);
