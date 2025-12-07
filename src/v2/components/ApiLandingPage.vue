@@ -56,6 +56,11 @@ async function saveApiKey() {
     statusMessage.value = 'Loading your data...'
     await initializeSyncService()
     
+    // Set active tab to overview
+    if (typeof window !== 'undefined' && (window as any).__setActiveTab) {
+      (window as any).__setActiveTab('overview')
+    }
+    
     statusMessage.value = 'Success! Loading application...'
     // Small delay to show success message before app loads
     await new Promise(resolve => setTimeout(resolve, 500))

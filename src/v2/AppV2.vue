@@ -64,9 +64,23 @@ onBeforeUnmount(() => {
   }
 })
 
+// Expose function to set active tab (for use by ApiLandingPage)
+function setActiveTab(tab: Tab) {
+  active.value = tab
+}
+
+// Make setActiveTab available globally via window for ApiLandingPage
+if (typeof window !== 'undefined') {
+  (window as any).__setActiveTab = setActiveTab
+}
+
 onMounted(async () => {
   const saved = localStorage.getItem(LS_KEY) as Tab | null
-  if (saved === 'bases' || saved === 'technology' || saved === 'config' || saved === 'market' || saved === 'alerts') active.value = saved
+  if (saved === 'bases' || saved === 'technology' || saved === 'config' || saved === 'market' || saved === 'alerts') {
+    active.value = saved
+  } else {
+    active.value = 'overview' // Default to overview
+  }
 
   loading.value = true
   try {
@@ -126,7 +140,7 @@ watch(getWorld, async () => {
             :class="active === 'overview' ? 'bg-gray-600' : ''"
             @click="active = 'overview'"
           >
-            🌌 Overview
+            Overview
           </button>
           <button
             class="px-3 py-2 border rounded"

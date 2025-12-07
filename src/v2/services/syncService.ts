@@ -91,6 +91,17 @@ export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[])
       const result = await fetchCompanyBases(apiKey, world, false)
       const bases = result.data.bases || []
       
+      // Trigger callback to load bases into PlayerConfigPanel
+      if (callbacks.onCompanyDataLoaded) {
+        const formattedBases = bases.map((b) => ({
+          id: b.id,
+          name: b.name,
+          planetId: b.planetId,
+          warehouseId: b.warehouseId,
+        }))
+        callbacks.onCompanyDataLoaded(formattedBases)
+      }
+      
       // 4. Base Details - one entry per base
       for (const base of bases) {
         entries.push({
