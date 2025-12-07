@@ -119,8 +119,6 @@ const isBaseExpanded = (baseId: string): boolean => {
   <div class="global-summary">
     <!-- Overview Header -->
     <div class="global-summary__header">
-      <h1 class="global-summary__title">🌌 Production Overview</h1>
-      
       <div class="global-summary__stats">
         <div class="stat-card stat-card--primary">
           <div class="stat-card__icon">💰</div>
@@ -161,6 +159,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           :key="baseSummary.baseId"
           :summary="baseSummary"
           :is-expanded="isBaseExpanded(baseSummary.baseId)"
+          :index="index"
           @toggle="toggleBase(baseSummary.baseId)"
           @navigate="navigateToBase(baseSummary.baseId)"
         >
@@ -283,20 +282,20 @@ const isBaseExpanded = (baseId: string): boolean => {
   align-items: center;
   gap: 1rem;
   padding: 1.25rem;
-  background: var(--color-background-soft);
-  border: 1px solid var(--color-border);
+  background: rgb(30 41 59);
+  border: 1px solid rgb(51 65 85);
   border-radius: 0.75rem;
   transition: all 0.2s;
 }
 
 .stat-card:hover {
-  border-color: var(--color-border-hover);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: rgb(71 85 105);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .stat-card--primary {
-  border-color: rgba(139, 92, 246, 0.3);
-  background: rgba(139, 92, 246, 0.05);
+  border-color: rgba(139, 92, 246, 0.4);
+  background: rgb(30 41 59);
 }
 
 .stat-card__icon {
@@ -345,22 +344,22 @@ const isBaseExpanded = (baseId: string): boolean => {
 }
 
 .base-card {
-  background: var(--color-background-soft);
-  border: 1px solid var(--color-border);
+  background: rgb(30 41 59);
+  border: 1px solid rgb(51 65 85);
   border-radius: 0.75rem;
   overflow: hidden;
   transition: all 0.2s;
 }
 
 .base-card:hover {
-  border-color: var(--color-border-hover);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: rgb(71 85 105);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .base-card__header {
   padding: 1.25rem;
-  background: var(--color-background-mute);
-  border-bottom: 1px solid var(--color-border);
+  background: rgb(15 23 42);
+  border-bottom: 1px solid rgb(51 65 85);
 }
 
 .base-card__name {
@@ -412,14 +411,14 @@ const isBaseExpanded = (baseId: string): boolean => {
 
 .base-card__footer {
   padding: 1rem 1.25rem;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid rgb(51 65 85);
 }
 
 .btn {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgb(51 65 85);
   border-radius: 0.375rem;
-  background: var(--color-background);
+  background: rgb(15 23 42);
   color: var(--color-text);
   font-size: 0.875rem;
   font-weight: 500;
@@ -428,8 +427,8 @@ const isBaseExpanded = (baseId: string): boolean => {
 }
 
 .btn:hover {
-  background: var(--color-background-mute);
-  border-color: var(--color-border-hover);
+  background: rgb(30 41 59);
+  border-color: rgb(71 85 105);
 }
 
 .btn--sm {
@@ -451,8 +450,8 @@ const isBaseExpanded = (baseId: string): boolean => {
 .empty-state {
   padding: 3rem;
   text-align: center;
-  background: var(--color-background-soft);
-  border: 2px dashed var(--color-border);
+  background: rgb(30 41 59);
+  border: 2px dashed rgb(51 65 85);
   border-radius: 0.75rem;
 }
 
@@ -498,7 +497,7 @@ const isBaseExpanded = (baseId: string): boolean => {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem;
-  background: var(--color-background);
+  background: rgb(15 23 42);
   border-radius: 0.5rem;
 }
 
@@ -524,7 +523,7 @@ const isBaseExpanded = (baseId: string): boolean => {
 
 .materials-table-wrapper {
   overflow-x: auto;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgb(51 65 85);
   border-radius: 0.75rem;
 }
 
@@ -535,8 +534,8 @@ const isBaseExpanded = (baseId: string): boolean => {
 }
 
 .materials-table thead {
-  background: var(--color-background-mute);
-  border-bottom: 2px solid var(--color-border);
+  background: rgb(15 23 42);
+  border-bottom: 2px solid rgb(51 65 85);
 }
 
 .materials-table th {
@@ -549,7 +548,7 @@ const isBaseExpanded = (baseId: string): boolean => {
 
 .materials-table td {
   padding: 0.75rem 1rem;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid rgb(51 65 85);
 }
 
 .material-name {

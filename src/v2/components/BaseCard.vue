@@ -3,10 +3,13 @@ import { computed } from 'vue'
 import { formatNumber } from '@/v2/utils/formatNumber'
 import { translate } from '@/v2/localisation'
 import type { BaseSummaryData } from '@/v2/composables/useGlobalSummary'
+import type { GdIndex } from '@/v2/services/gamedata/types'
+import MaterialIcon from './MaterialIcon.vue'
 
 const props = defineProps<{
   summary: BaseSummaryData
   isExpanded: boolean
+  index?: GdIndex
 }>()
 
 const emit = defineEmits<{
@@ -43,6 +46,16 @@ const hasIssues = computed(() => {
     props.summary.workforceCoverage < 90
   )
 })
+
+// Top export materials (max 5)
+const topExportMaterials = computed(() => {
+  return props.summary.exportMaterials.slice(0, 5)
+})
+
+const getMaterialName = (materialId: number): string => {
+  if (!props.index) return `Material ${materialId}`
+  return props.index.materialById.get(materialId)?.name || `Material ${materialId}`
+}
 </script>
 
 <template>
@@ -83,8 +96,28 @@ const hasIssues = computed(() => {
 
         <div class="metric">
           <div class="metric__label">🚢 {{ translate('exportMaterials') }}</div>
-          <div class="metric__value">
-            {{ summary.exportMaterials.length }}
+          <div class="metric__value export-materials-list">
+            <span v-if="topExportMaterials.length === 0" class="text-slate-400">—</span>
+            <div v-else class="export-materials-grid">
+              <div 
+                v-for="exportMat in topExportMaterials" 
+                :key="exportMat.materialId"
+                class="export-material-item"
+                :title="getMaterialName(exportMat.materialId)"
+              >
+                <MaterialIcon 
+                  v-if="index"
+                  :name="getMaterialName(exportMat.materialId)"
+                  :size="20"
+                />
+                <span v-else class="material-text">
+                  {{ getMaterialName(exportMat.materialId).substring(0, 3) }}
+                </span>
+              </div>
+              <span v-if="summary.exportMaterials.length > 5" class="export-more">
+                +{{ summary.exportMaterials.length - 5 }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -115,21 +148,21 @@ const hasIssues = computed(() => {
 
 <style scoped>
 .base-card {
-  background: var(--color-background-soft);
-  border: 1px solid var(--color-border);
+  background: rgb(30 41 59);
+  border: 1px solid rgb(51 65 85);
   border-radius: 0.75rem;
   overflow: hidden;
   transition: all 0.2s;
 }
 
 .base-card:hover {
-  border-color: var(--color-border-hover);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: rgb(71 85 105);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .base-card--has-issues {
-  border-color: rgba(251, 191, 36, 0.3);
-  background: rgba(251, 191, 36, 0.02);
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgb(30 41 59);
 }
 
 .base-card--expanded {
@@ -141,15 +174,15 @@ const hasIssues = computed(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.25rem;
-  background: var(--color-background-mute);
-  border-bottom: 1px solid var(--color-border);
+  background: rgb(15 23 42);
+  border-bottom: 1px solid rgb(51 65 85);
   cursor: pointer;
   user-select: none;
   transition: background-color 0.2s;
 }
 
 .base-card__header:hover {
-  background: var(--color-background);
+  background: rgb(30 41 59);
 }
 
 .base-card__info {
@@ -233,13 +266,54 @@ const hasIssues = computed(() => {
   color: rgb(148, 163, 184);
 }
 
+.export-materials-list {
+  display: flex;
+  align-items: center;
+}
+
+.export-materials-grid {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.export-material-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 0.25rem;
+  background: rgb(15 23 42);
+  border: 1px solid rgb(51 65 85);
+  transition: all 0.2s;
+}
+
+.export-material-item:hover {
+  border-color: rgb(71 85 105);
+  transform: scale(1.1);
+}
+
+.material-text {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.export-more {
+  font-size: 0.75rem;
+  color: rgb(148, 163, 184);
+  font-weight: 500;
+}
+
 .base-card__details {
   /* Content provided by parent component via slot */
 }
 
 .base-card__footer {
   padding: 1rem 1.25rem;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid rgb(51 65 85);
   display: flex;
   justify-content: flex-end;
 }
@@ -260,13 +334,13 @@ const hasIssues = computed(() => {
 }
 
 .btn--outline {
-  border: 1px solid var(--color-border);
+  border: 1px solid rgb(51 65 85);
   color: var(--color-text);
 }
 
 .btn--outline:hover {
-  background: var(--color-background-mute);
-  border-color: var(--color-border-hover);
+  background: rgb(30 41 59);
+  border-color: rgb(71 85 105);
 }
 
 @media (max-width: 768px) {
