@@ -77,7 +77,6 @@ const coverageColor = (coverage: number) => {
   return 'text-red-400'
 }
 </script>
-</script>
 
 <template>
   <div class="base-details">
