@@ -55,7 +55,9 @@ const planet = computed(() => props.index.planetById.get(props.base.planetId))
 const buildingUnits = computed(() => {
   const acc = new Map<number, number>()
   props.base.buildings.forEach((b) => {
-    const level = Math.max(1, Math.floor(b.level ?? 1))
+    const level = Math.max(0, Math.floor(b.level ?? 1))
+    // Skip buildings with level 0
+    if (level === 0) return
     const units = productionUnitsFromLevel(level)
     acc.set(b.buildingId, (acc.get(b.buildingId) ?? 0) + units)
   })
