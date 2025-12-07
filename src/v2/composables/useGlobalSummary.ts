@@ -2,6 +2,10 @@ import { computed, toValue, type MaybeRef } from 'vue'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
+import { 
+  calculateWorkforceProductivity, 
+  type WorkforceProductivitySummary 
+} from '@/v2/services/production/workforceProductivity'
 
 export type ExportMaterial = {
   materialId: number
@@ -16,6 +20,8 @@ export type BaseSummaryData = {
   baseId: string
   baseName: string
   planetId: number
+  netProfit: number // daily net profit
+  exportNetProfit: number // profit from export materials only
   materialsRunningOut: Array<{
     materialId: number
     daysUntilEmpty: number
@@ -26,6 +32,7 @@ export type BaseSummaryData = {
   workforceCoverage: number // minimum coverage across all tiers
   workforceDeficit: number // total workers needed but not housed
   workforceDeficitCost: number // cost of deficit in $/day
+  workforceProductivity: WorkforceProductivitySummary // NEW: workforce productivity with stock awareness
 }
 
 export type GlobalMaterialSummary = {
@@ -253,15 +260,29 @@ export function useGlobalSummary(
       })
       exportMaterials.sort((a, b) => b.valuePerDay - a.valuePerDay)
 
+      // Calculate workforce productivity with stock awareness
+      const timeframeDaysForProductivity = Math.round(periodFactor.value)
+      const workforceProductivity = calculateWorkforceProductivity(
+        report,
+        stock,
+        timeframeDaysForProductivity
+      )
+
+      // Calculate export net profit: sum of export material values
+      const exportNetProfit = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
+
       return {
         baseId: base.id,
         baseName: base.name || `Base ${base.id}`,
         planetId: base.planetId,
+        netProfit: report.summary.net * periodFactor.value,
+        exportNetProfit,
         materialsRunningOut,
         exportMaterials,
         workforceCoverage: minCoverage,
         workforceDeficit: totalDeficit,
         workforceDeficitCost: workerDeficitCost * periodFactor.value,
+        workforceProductivity,
       }
     })
   })
