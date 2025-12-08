@@ -272,21 +272,44 @@ export function useGlobalSummary(
         timeframeDaysForProductivity
       )
 
-      // Calculate export revenue (not profit yet - just sales value)
-      const exportRevenue = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
+      // Calculate export net profit correctly:
+      // For each export material: revenue from sales - input costs
+      // Then subtract proportional worker costs
       
-      // Calculate export net profit as proportion of total net profit
-      // based on export revenue share of total production revenue
-      const totalRevenue = report.summary.productionRevenue * periodFactor.value
-      const netProfit = report.summary.net * periodFactor.value
+      let exportRevenue = 0
+      let exportInputCosts = 0
+      const exportMaterialIds = new Set(exportMaterials.map(m => m.materialId))
       
-      let exportNetProfit = 0
-      if (totalRevenue > 0 && netProfit > 0) {
-        // Export profit = total profit * (export revenue / total revenue)
-        // This accounts for production costs proportionally
-        const exportShare = Math.min(1, exportRevenue / totalRevenue)
-        exportNetProfit = netProfit * exportShare
-      }
+      // Calculate revenue and input costs for export materials
+      exportMaterials.forEach(exportMat => {
+        // Revenue from selling exported amount
+        exportRevenue += exportMat.valuePerDay
+        
+        // Find input costs for recipes producing this material
+        report.recipes.forEach(recipe => {
+          if (recipe.outputMaterialId === exportMat.materialId) {
+            // Calculate what portion of this recipe's output is exported
+            const exportRatio = exportMat.exportPerDay / (recipe.outputPerDay * periodFactor.value)
+            
+            // Add proportional input costs
+            recipe.inputsPerDay.forEach(input => {
+              const resolver = toValue(priceResolver)
+              const inputCostPerDay = input.amount * resolver(input.materialId)
+              exportInputCosts += inputCostPerDay * exportRatio * periodFactor.value
+            })
+          }
+        })
+      })
+      
+      // Calculate proportional worker costs
+      // Workers support all production, so allocate based on revenue share
+      const totalProductionRevenue = report.summary.productionRevenue * periodFactor.value
+      const workerCosts = report.summary.workerPurchaseCosts * periodFactor.value
+      const exportWorkerCosts = totalProductionRevenue > 0 
+        ? (exportRevenue / totalProductionRevenue) * workerCosts 
+        : 0
+      
+      const exportNetProfit = exportRevenue - exportInputCosts - exportWorkerCosts
 
       // Calculate weighted average 7d price trend for export materials
       let exportPriceTrend7d = 0
