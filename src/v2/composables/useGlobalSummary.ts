@@ -273,34 +273,15 @@ export function useGlobalSummary(
       )
 
       // Calculate export net profit correctly:
-      // Revenue from export sales - ALL input costs for those materials - ALL worker costs
+      // Revenue from export sales - ALL costs of this base
+      // This shows what net profit would be if we only consider export materials
       
-      let exportRevenue = 0
-      let exportInputCosts = 0
-      const exportMaterialIds = new Set(exportMaterials.map(m => m.materialId))
+      const exportRevenue = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
       
-      // Calculate revenue and input costs for export materials
-      exportMaterials.forEach(exportMat => {
-        // Revenue from selling exported amount
-        exportRevenue += exportMat.valuePerDay
-        
-        // Find ALL input costs for recipes producing this material
-        report.recipes.forEach(recipe => {
-          if (recipe.outputMaterialId === exportMat.materialId) {
-            // Add ALL input costs for this recipe (not proportional)
-            recipe.inputsPerDay.forEach(input => {
-              const resolver = toValue(priceResolver)
-              const inputCostPerDay = input.amount * resolver(input.materialId)
-              exportInputCosts += inputCostPerDay * periodFactor.value
-            })
-          }
-        })
-      })
+      // ALL costs of this base: material purchases + worker consumption
+      const allCosts = (report.summary.materialPurchaseCosts + report.summary.workerPurchaseCosts) * periodFactor.value
       
-      // Subtract ALL worker costs (not proportional)
-      const workerCosts = report.summary.workerPurchaseCosts * periodFactor.value
-      
-      const exportNetProfit = exportRevenue - exportInputCosts - workerCosts
+      const exportNetProfit = exportRevenue - allCosts
 
       // Calculate weighted average 7d price trend for export materials
       let exportPriceTrend7d = 0
