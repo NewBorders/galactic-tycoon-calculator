@@ -25,9 +25,10 @@ export type WorkforceProductivitySummary = {
  * 
  * Productivity is limited by:
  * 1. Housing coverage (workforce must be housed)
- * 2. Consumption coverage (workers need materials to be productive)
+ * 2. Material availability (workers need materials to be productive - simple YES/NO check)
  * 
  * The minimum of these two factors determines actual productivity.
+ * Note: planDays parameter is kept for compatibility but not used - we only check if materials are in stock NOW.
  */
 export function calculateWorkforceProductivity(
   report: BaseReport,
@@ -42,7 +43,8 @@ export function calculateWorkforceProductivity(
     // Find consumption materials for this tier
     const tierConsumption = report.workers.filter(w => w.tier === wf.tier && w.active)
     
-    // Calculate consumption coverage based on stock
+    // Calculate consumption coverage based on stock availability
+    // Simple check: Are all required materials in stock? (>0)
     let consumptionCoverage = 100
     let limitingMaterialId: number | undefined
     let daysRemaining: number | undefined
@@ -51,15 +53,22 @@ export function calculateWorkforceProductivity(
       const currentStock = stock[consumption.materialId] ?? 0
       const consumptionPerDay = consumption.consumptionPerDay
       
-      if (consumptionPerDay <= 0) continue // no consumption
+      if (consumptionPerDay <= 0) continue // no consumption required
       
-      const daysOfStock = currentStock / consumptionPerDay
-      const coveragePercent = Math.min(100, (daysOfStock / planDays) * 100)
-      
-      if (coveragePercent < consumptionCoverage) {
-        consumptionCoverage = coveragePercent
+      // Simple IST check: Is material available?
+      if (currentStock <= 0) {
+        // No stock = 0% coverage for this material
+        consumptionCoverage = 0
         limitingMaterialId = consumption.materialId
+        daysRemaining = 0
+        break // One missing material is enough to stop production
+      }
+      
+      // Material is available, calculate days for info purposes
+      const daysOfStock = currentStock / consumptionPerDay
+      if (daysRemaining === undefined || daysOfStock < daysRemaining) {
         daysRemaining = daysOfStock
+        limitingMaterialId = consumption.materialId
       }
     }
     
