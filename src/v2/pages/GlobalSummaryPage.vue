@@ -50,7 +50,10 @@ const { state: technologyState } = usePlayerTechnology()
 const exportThreshold = getExportThresholdRef()
 
 // Load market analysis data for price trends
-const { opportunities: marketOpportunities } = useMarketAnalysis()
+const { opportunities: marketOpportunities, fetch: fetchMarketData } = useMarketAnalysis()
+
+// Fetch market data on mount
+fetchMarketData()
 
 const timeframeHours = ref(loadTimeframe())
 

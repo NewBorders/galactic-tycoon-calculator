@@ -56,6 +56,7 @@ const getMaterialName = (materialId: number): string => {
 
 const priceTrendColor = computed(() => {
   const trend = props.summary.exportPriceTrend7d
+  if (!trend || !Number.isFinite(trend)) return 'text-slate-400'
   if (trend > 5) return 'text-emerald-400' // strong positive
   if (trend > 0) return 'text-green-300' // slight positive
   if (trend < -5) return 'text-red-400' // strong negative
@@ -65,11 +66,17 @@ const priceTrendColor = computed(() => {
 
 const priceTrendIcon = computed(() => {
   const trend = props.summary.exportPriceTrend7d
+  if (!trend || !Number.isFinite(trend)) return ''
   if (trend > 5) return '📈' // strong positive
   if (trend > 0) return '↗' // slight positive
   if (trend < -5) return '📉' // strong negative
   if (trend < 0) return '↘' // slight negative
   return '→' // stable
+})
+
+const showPriceTrend = computed(() => {
+  const trend = props.summary.exportPriceTrend7d
+  return trend !== undefined && Number.isFinite(trend) && trend !== 0
 })
 </script>
 
@@ -99,7 +106,7 @@ const priceTrendIcon = computed(() => {
           <div class="metric__label">💰 {{ translate('netProfit') }}</div>
           <div class="metric__value" :class="profitColor">
             {{ formatCurrency(netProfit) }}
-            <span v-if="summary.exportPriceTrend7d !== 0" class="price-trend" :class="priceTrendColor">
+            <span v-if="showPriceTrend" class="price-trend" :class="priceTrendColor">
               {{ priceTrendIcon }} {{ formatNumber(Math.abs(summary.exportPriceTrend7d), { maximumFractionDigits: 1 }) }}%
             </span>
           </div>
