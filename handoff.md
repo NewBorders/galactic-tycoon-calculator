@@ -1,6 +1,72 @@
 # Handoff Document
 
-## Most Recent Work (December 8, 2024) - Corrected Period-Based Calculations
+## Most Recent Work (December 8, 2024) - Dynamic Period Labels Throughout
+
+### Completed: Replace All "/day" with Dynamic Period Display
+
+**User Requirements**:
+1. "ersetze überal '/day' mit den gewählten stunden"
+2. "timeframeHours sind immer in +-1 steps"
+
+#### Changes Made:
+
+1. **Replaced All "/day" Displays** ✅
+   - BaseCard: Net Profit and Export Net Profit now show `/{{ periodLabel }}`
+   - GlobalSummaryPage Overview: All stat cards use `periodLabel`
+   - Materials Table: Header changed from "Value/Day" to "Value/{{ periodLabel }}"
+   - Stock Warnings: Consumption shows per selected period (multiplied by periodFactor)
+   - `periodLabel = translate('perHours', { hours: timeframeHours })`
+
+2. **Changed Timeframe Step to 1 Hour** ✅
+   - GlobalSummaryPage: step changed from 24 to 1
+   - PlayerConfigPanel: Already had step="1"
+   - Users can now adjust in single-hour increments (1, 2, 3... 336)
+
+3. **Simplified BaseCard Calculations** ✅
+   - Removed `periodFactor` division from BaseCard
+   - Values now used directly (already scaled by periodFactor in useGlobalSummary)
+   - Cleaner code, same result
+
+**How It Works**:
+```
+User selects: 168 hours
+Display everywhere: "per 168 hours"
+
+User changes to: 50 hours
+Display everywhere: "per 50 hours"
+
+User changes to: 1 hour
+Display everywhere: "per 1 hours"
+```
+
+**Examples of Updated Displays**:
+- "Total Net Profit: $10,000/per 168 hours"
+- "Export Net Profit: $5,000/per 24 hours"  
+- "Workforce Deficit Cost: $500/per 72 hours"
+- Materials table: "Value/per 168 hours"
+- Stock warning: "-50/per 168 hours" (consumption)
+
+**Files Modified**:
+```
+modified:   src/v2/components/BaseCard.vue
+  - Added periodLabel computed
+  - Removed periodFactor division
+  - Updated display to use periodLabel
+modified:   src/v2/pages/GlobalSummaryPage.vue
+  - Changed step from 24 to 1
+  - Updated materials table header
+  - Updated stock warning consumption display
+```
+
+**Technical Notes**:
+- All calculations remain scaled by periodFactor
+- Only the **display** labels changed
+- No change to calculation logic
+- Values correctly reflect selected timeframe
+
+---
+
+## Previous Work (December 8, 2024) - Corrected Period-Based Calculations
 
 ### Completed: Restore periodFactor to All Calculations
 
