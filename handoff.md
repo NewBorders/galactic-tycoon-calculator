@@ -1,6 +1,64 @@
 # Handoff Document
 
-## Most Recent Work (December 8, 2024) - Enhanced Overview Display
+## Most Recent Work (December 8, 2024) - Corrected Period-Based Calculations
+
+### Completed: Restore periodFactor to All Calculations
+
+**User Feedback**: "ich sehe du hast bei eingien berechnungen den periodFactor entfernt. warum? es sollen alle berechnungen vom ausgewählten timeframeHours abhängen"
+
+**Problem Identified**: 
+Previous "fix" removed periodFactor from calculations, making them always show daily values regardless of selected timeframe. This was incorrect.
+
+**Correct Solution**:
+- ✅ **Calculations**: All values scaled by periodFactor (dependent on timeframeHours)
+- ✅ **Display**: Show as "per X hours" (using periodLabel), NOT "/day"
+
+#### Changes Made:
+
+1. **Restored periodFactor to All Calculations** ✅
+   - `totalNetProfit`: `report.summary.net * periodFactor` (was without periodFactor)
+   - `exportMaterials[].valuePerDay`: `amount * price * periodFactor` (was without periodFactor)
+   - `totalExportNetProfit` costs: `costs * periodFactor` (was without periodFactor)
+   - `totalConsumptionOverheadCost`: `overhead * periodFactor` (was without periodFactor)
+
+2. **Fixed Display Labels** ✅
+   - All stat cards now show: `/{{ periodLabel }}` instead of `/day`
+   - `periodLabel = translate('perHours', { hours: timeframeHours.value })`
+   - Example: "per 168 hours" when timeframeHours = 168
+   - Changes dynamically when user adjusts timeframe
+
+**How It Works Now**:
+```
+User selects: 168 hours (7 days)
+↓
+periodFactor = 168 / 24 = 7
+↓
+Calculations: All values × 7
+↓
+Display: "$X,XXX per 168 hours"
+```
+
+When timeframe changes to 24 hours:
+```
+periodFactor = 24 / 24 = 1
+Calculations: All values × 1
+Display: "$X,XXX per 24 hours"
+```
+
+**Files Modified**:
+```
+modified:   src/v2/composables/useGlobalSummary.ts
+  - Restored periodFactor to all calculations
+modified:   src/v2/pages/GlobalSummaryPage.vue
+  - Already had periodLabel, display was already correct
+```
+
+**Key Insight**: 
+The calculations were correct initially - they SHOULD scale with periodFactor. The display just needed to be clear about what period is being shown. Using `periodLabel` instead of hardcoded "/day" solves this perfectly.
+
+---
+
+## Previous Work (December 8, 2024) - Enhanced Overview Display
 
 ### Completed: Timeframe Control + Export Net Profit Display
 

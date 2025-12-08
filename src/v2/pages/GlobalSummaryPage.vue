@@ -48,6 +48,7 @@ const globalWorkforceBurden = ref(2000) // Default threshold
 
 const technologyLevels = computed(() => technologyState.value.levels)
 const startingBonus = computed(() => technologyState.value.startingBonus)
+const periodLabel = computed(() => translate('perHours', { hours: timeframeHours.value }))
 
 // Watch timeframeHours and sync to localStorage
 watch(
@@ -152,7 +153,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__icon">💰</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Total Net Profit</div>
-            <div class="stat-card__value">{{ formatCurrency(summary.totalNetProfit.value) }}/day</div>
+            <div class="stat-card__value">{{ formatCurrency(summary.totalNetProfit.value) }}/{{ periodLabel }}</div>
           </div>
         </div>
         
@@ -160,7 +161,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__icon">📦</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Export Net Profit</div>
-            <div class="stat-card__value">{{ formatCurrency(summary.totalExportNetProfit.value) }}/day</div>
+            <div class="stat-card__value">{{ formatCurrency(summary.totalExportNetProfit.value) }}/{{ periodLabel }}</div>
           </div>
         </div>
         
@@ -169,7 +170,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__content">
             <div class="stat-card__label">Workforce Deficit Cost</div>
             <div class="stat-card__value stat-card__value--warning">
-              {{ formatCurrency(summary.totalWorkforceDeficitCost.value) }}/day
+              {{ formatCurrency(summary.totalWorkforceDeficitCost.value) }}/{{ periodLabel }}
             </div>
           </div>
         </div>
@@ -179,7 +180,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__content">
             <div class="stat-card__label">Consumption Overhead</div>
             <div class="stat-card__value stat-card__value--info">
-              {{ formatCurrency(summary.totalConsumptionOverheadCost.value) }}/day
+              {{ formatCurrency(summary.totalConsumptionOverheadCost.value) }}/{{ periodLabel }}
             </div>
           </div>
         </div>
