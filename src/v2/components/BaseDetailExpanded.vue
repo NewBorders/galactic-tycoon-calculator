@@ -21,7 +21,7 @@ const getMaterialName = (materialId: number): string => {
 }
 
 // Production: Materials with positive balance (exports)
-const exportMaterials = computed(() => 
+const exportMaterials = computed(() =>
   props.report.materials
     .filter(m => m.balancePerDay > 0.01)
     .map(m => ({
@@ -33,7 +33,7 @@ const exportMaterials = computed(() =>
 )
 
 // Consumption: Materials with negative balance (purchases)
-const purchaseMaterials = computed(() => 
+const purchaseMaterials = computed(() =>
   props.report.materials
     .filter(m => m.balancePerDay < -0.01)
     .map(m => ({
@@ -45,7 +45,7 @@ const purchaseMaterials = computed(() =>
 )
 
 // Worker consumption by tier
-const workerConsumption = computed(() => 
+const workerConsumption = computed(() =>
   props.report.workers.map(w => ({
     ...w,
     consumptionPerPeriod: w.consumptionPerDay * periodFactor.value,
@@ -53,7 +53,7 @@ const workerConsumption = computed(() =>
   }))
 )
 
-const totalWorkerCost = computed(() => 
+const totalWorkerCost = computed(() =>
   workerConsumption.value.reduce((sum, w) => sum + w.costPerPeriod, 0)
 )
 
@@ -74,7 +74,6 @@ const coverageColor = (coverage: number) => {
     <div class="details-grid">
       <!-- Net Result Section -->
       <section class="detail-card">
-        <h3 class="detail-card__title">💰 {{ translate('netResult') }}</h3>
         <div class="net-summary">
           <div class="net-row">
             <span class="net-row__label">{{ translate('productionRevenue') }}</span>
@@ -95,8 +94,8 @@ const coverageColor = (coverage: number) => {
             </span>
           </div>
           <div class="net-row net-row--total">
-            <span class="net-row__label">{{ translate('total') }}</span>
-            <span 
+            <span class="net-row__label">{{ translate('netProfit') }}</span>
+            <span
               class="net-row__value"
               :class="report.summary.net > 0 ? 'text-emerald-400' : 'text-red-400'"
             >
@@ -187,7 +186,7 @@ const coverageColor = (coverage: number) => {
               <span class="text-slate-400">
                 {{ formatNumber(wf.housing, 0) }} / {{ formatNumber(wf.required, 0) }}
               </span>
-              <span 
+              <span
                 class="workforce-row__coverage"
                 :class="coverageColor(wf.coverage)"
               >
@@ -541,7 +540,7 @@ const coverageColor = (coverage: number) => {
   .details-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .material-row__stats {
     flex-direction: column;
     align-items: flex-end;
