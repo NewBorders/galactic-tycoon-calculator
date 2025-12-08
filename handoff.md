@@ -1,392 +1,88 @@
 # Handoff Document
 
-## Most Recent Work (December 8, 2024) - Dynamic Period Labels Throughout
+## Most Recent Work: Productivity Calculation Fix (December 8, 2024)
 
-### Completed: Replace All "/day" with Dynamic Period Display
+### Problem
+Productivity was showing 0% despite 100% housing coverage. Debug logs revealed:
+- Housing Coverage: 99.7-100% ✅
+- Consumption Coverage: 0% ❌
+- All Tier 1 consumption materials had `stock=0`:
+  - Material 12 (Food): 0
+  - Material 16 (Luxury Food): 0
+  - Material 17 (Drinks): 0
+  - Material 10 (Clothing): 0
+  - Material 44 (Spices): 0
+  - Material 130 (Consumer Electronics): 0
 
-**User Requirements**:
-1. "ersetze überal '/day' mit den gewählten stunden"
-2. "timeframeHours sind immer in +-1 steps"
+### Root Cause
+1. **Missing Parameter**: `useGlobalSummary` tried to use `base.stock`, but this field was never populated
+2. **Architecture Issue**: Warehouse stocks are stored globally in `worldData.current.warehouseStocks`, not per-base
+3. **Integration Gap**: `syncService` fetched warehouse data but didn't save it to `worldData`
 
-#### Changes Made:
+### Solution Implemented
 
-1. **Replaced All "/day" Displays** ✅
-   - BaseCard: Net Profit and Export Net Profit now show `/{{ periodLabel }}`
-   - GlobalSummaryPage Overview: All stat cards use `periodLabel`
-   - Materials Table: Header changed from "Value/Day" to "Value/{{ periodLabel }}"
-   - Stock Warnings: Consumption shows per selected period (multiplied by periodFactor)
-   - `periodLabel = translate('perHours', { hours: timeframeHours })`
+**Files Changed**:
+1. `src/v2/composables/useGlobalSummary.ts`:
+   - Added `warehouseStocks: MaybeRef<Record<number, number>>` parameter
+   - Changed Line 188: `const stock = toValue(warehouseStocks)` instead of `base.stock ?? {}`
 
-2. **Changed Timeframe Step to 1 Hour** ✅
-   - GlobalSummaryPage: step changed from 24 to 1
-   - PlayerConfigPanel: Already had step="1"
-   - Users can now adjust in single-hour increments (1, 2, 3... 336)
+2. `src/v2/pages/GlobalSummaryPage.vue`:
+   - Import `useWorldData`
+   - Get `warehouseStocks` from `worldCurrent.value.warehouseStocks`
+   - Pass to `useGlobalSummary()`
 
-3. **Simplified BaseCard Calculations** ✅
-   - Removed `periodFactor` division from BaseCard
-   - Values now used directly (already scaled by periodFactor in useGlobalSummary)
-   - Cleaner code, same result
+3. `src/v2/pages/player-config/components/GlobalSummary.vue`:
+   - Same changes as GlobalSummaryPage
 
-**How It Works**:
-```
-User selects: 168 hours
-Display everywhere: "per 168 hours"
+4. `src/v2/services/syncService.ts`:
+   - Import `useWorldData`
+   - After fetching warehouse data, transform items to `Record<number, number>` format
+   - Call `updateCurrent({ warehouseStocks })` to save to worldData
 
-User changes to: 50 hours
-Display everywhere: "per 50 hours"
+5. `src/v2/services/production/workforceProductivity.ts`:
+   - Removed all debug `console.log` statements
 
-User changes to: 1 hour
-Display everywhere: "per 1 hours"
-```
+### Result
+- Productivity now correctly reflects warehouse inventory
+- Tier 1 workers show 0% when consumption materials are missing (correct behavior)
+- Once warehouse is synced with API, productivity will show actual coverage
 
-**Examples of Updated Displays**:
-- "Total Net Profit: $10,000/per 168 hours"
-- "Export Net Profit: $5,000/per 24 hours"  
-- "Workforce Deficit Cost: $500/per 72 hours"
-- Materials table: "Value/per 168 hours"
-- Stock warning: "-50/per 168 hours" (consumption)
-
-**Files Modified**:
-```
-modified:   src/v2/components/BaseCard.vue
-  - Added periodLabel computed
-  - Removed periodFactor division
-  - Updated display to use periodLabel
-modified:   src/v2/pages/GlobalSummaryPage.vue
-  - Changed step from 24 to 1
-  - Updated materials table header
-  - Updated stock warning consumption display
-```
-
-**Technical Notes**:
-- All calculations remain scaled by periodFactor
-- Only the **display** labels changed
-- No change to calculation logic
-- Values correctly reflect selected timeframe
+### Next Steps (for future agent)
+- User needs to sync warehouse from API (Bases page → Sync button)
+- Consider showing which material is limiting productivity in UI
+- Maybe add a warning: "Productivity 0%: Missing Food (0 stock, need 404/day)"
 
 ---
 
-## Previous Work (December 8, 2024) - Corrected Period-Based Calculations
+## Previous Work Context
 
-### Completed: Restore periodFactor to All Calculations
+### Timeframe System (Completed December 8, 2024)
+- Unified timeframe control via localStorage key `'gt:v2:timeframeHours'`
+- Default: 24 hours, Range: 1-336 hours, Step: 1 hour
+- Both Overview and Bases pages stay synchronized
+- All calculations use `periodFactor = timeframeHours / 24`
+- Display shows "per X hours" dynamically
 
-**User Feedback**: "ich sehe du hast bei eingien berechnungen den periodFactor entfernt. warum? es sollen alle berechnungen vom ausgewählten timeframeHours abhängen"
+### Export Net Profit (Completed)
+- Added to Overview page stat cards
+- Shows: Export Revenue - All Costs (consumption overhead + base costs)
+- Values correctly scaled by periodFactor
 
-**Problem Identified**: 
-Previous "fix" removed periodFactor from calculations, making them always show daily values regardless of selected timeframe. This was incorrect.
+### Display Cleanup (Completed)
+- Replaced all "/day" with dynamic "per X hours" labels
+- Removed period suffix from Overview stat cards (values speak for themselves)
+- Materials table header shows "Value/per X hours"
+- Stock warnings show consumption per selected period
 
-**Correct Solution**:
-- ✅ **Calculations**: All values scaled by periodFactor (dependent on timeframeHours)
-- ✅ **Display**: Show as "per X hours" (using periodLabel), NOT "/day"
-
-#### Changes Made:
-
-1. **Restored periodFactor to All Calculations** ✅
-   - `totalNetProfit`: `report.summary.net * periodFactor` (was without periodFactor)
-   - `exportMaterials[].valuePerDay`: `amount * price * periodFactor` (was without periodFactor)
-   - `totalExportNetProfit` costs: `costs * periodFactor` (was without periodFactor)
-   - `totalConsumptionOverheadCost`: `overhead * periodFactor` (was without periodFactor)
-
-2. **Fixed Display Labels** ✅
-   - All stat cards now show: `/{{ periodLabel }}` instead of `/day`
-   - `periodLabel = translate('perHours', { hours: timeframeHours.value })`
-   - Example: "per 168 hours" when timeframeHours = 168
-   - Changes dynamically when user adjusts timeframe
-
-**How It Works Now**:
-```
-User selects: 168 hours (7 days)
-↓
-periodFactor = 168 / 24 = 7
-↓
-Calculations: All values × 7
-↓
-Display: "$X,XXX per 168 hours"
-```
-
-When timeframe changes to 24 hours:
-```
-periodFactor = 24 / 24 = 1
-Calculations: All values × 1
-Display: "$X,XXX per 24 hours"
-```
-
-**Files Modified**:
-```
-modified:   src/v2/composables/useGlobalSummary.ts
-  - Restored periodFactor to all calculations
-modified:   src/v2/pages/GlobalSummaryPage.vue
-  - Already had periodLabel, display was already correct
-```
-
-**Key Insight**: 
-The calculations were correct initially - they SHOULD scale with periodFactor. The display just needed to be clear about what period is being shown. Using `periodLabel` instead of hardcoded "/day" solves this perfectly.
-
----
-
-## Previous Work (December 8, 2024) - Enhanced Overview Display
-
-### Completed: Timeframe Control + Export Net Profit Display
-
-**User Requirements**:
-1. "timeframeHours bitte zusätzlich über die overview seite einstellbar machen"
-2. "auf overview bitte von Bases adaptieren: Export Net Profit & Expansion Overhead Cost"
-
-#### Changes Made:
-
-1. **Added Timeframe Control to Overview** ✅
-   - Timeframe input now visible in GlobalSummaryPage header
-   - Syncs with PlayerConfigPanel via shared localStorage
-   - User can adjust timeframe from either page
-   - Range: 1-336 hours, step: 24 hours
-   - Shows hint text about max value
-
-2. **Added Export Net Profit Stat Card** ✅
-   - Displays `summary.totalExportNetProfit.value` as "/day"
-   - Shows revenue from export materials minus ALL costs
-   - Icon: 📦 (package/export)
-   - Green success styling (stat-card--success)
-   - Positioned between Total Net Profit and Workforce Deficit Cost
-
-3. **Consumption Overhead Already Displayed** ✅
-   - Was already present in previous version
-   - Shows when value > 0
-   - Icon: 📊
-   - Blue info styling
-
-**Layout**:
-```
-┌──────────────────────────────────────────────────────────┐
-│ Global Summary          Summary window (hours): [168]    │
-├──────────────────────────────────────────────────────────┤
-│ 💰 Total Net Profit        📦 Export Net Profit          │
-│ 👷 Workforce Deficit Cost  📊 Consumption Overhead       │
-└──────────────────────────────────────────────────────────┘
-```
-
-**Files Modified**:
-```
-modified:   src/v2/pages/GlobalSummaryPage.vue
-  - Added timeframe control header
-  - Added Export Net Profit stat card
-  - Added CSS for stat-card--success styling
-```
-
-**Technical Details**:
-- `totalExportNetProfit` already calculated in useGlobalSummary.ts
-- Both timeframe controls (Bases + Overview) sync via localStorage
-- Storage key: `'gt:v2:timeframeHours'`
-- Export Net Profit: per-day value (no periodFactor scaling needed)
-
----
-
-## Previous Work (December 8, 2024) - Unified Timeframe System
-
-### Completed: Synchronized Timeframe Control Across Pages
-
-**User Requirement**: "Summary window auf overview soll exakt das selbe sein wie bei bases, nichts Neues"
-
-**Solution**: Removed duplicate timeframe control from GlobalSummaryPage and synchronized it with PlayerConfigPanel using shared localStorage.
-
-#### Changes Made:
-
-1. **Unified Timeframe System** ✅
-   - GlobalSummaryPage now uses the **same** `timeframeHours` from localStorage as PlayerConfigPanel
-   - Storage key: `'gt:v2:timeframeHours'`
-   - Both pages load from and save to the same storage location
-   - Changing timeframe in PlayerConfigPanel (Bases) automatically affects GlobalSummaryPage (Overview)
-   - No duplicate control - single source of truth
-
-2. **Removed Duplicate UI Control** ✅
-   - Removed the separate timeframe input from GlobalSummaryPage header
-   - Timeframe is now controlled **only** in PlayerConfigPanel (Bases page)
-   - GlobalSummaryPage silently syncs with the shared value
-
-**Implementation**:
+### Productivity Formula
 ```typescript
-// Shared storage key
-const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
-const DEFAULT_TIMEFRAME_HOURS = 24
+// Per tier:
+housingCoverage = (housing / required) * 100
+consumptionCoverage = min(100, (stock / (consumptionPerDay * planDays)) * 100)
+productivityPercent = min(housingCoverage, consumptionCoverage)
 
-// Load from localStorage on mount
-const timeframeHours = ref(loadTimeframe())
-
-// Watch and sync changes to localStorage
-watch(timeframeHours, (value) => {
-  const sanitized = sanitizeTimeframe(value)
-  if (sanitized !== value) {
-    timeframeHours.value = sanitized
-    return
-  }
-  try {
-    localStorage.setItem(TIMEFRAME_STORAGE_KEY, String(sanitized))
-  } catch {}
-}, { immediate: false })
+// Overall:
+overallProductivityPercent = weighted average by worker count
 ```
 
-**Files Modified**:
-```
-modified:   src/v2/pages/GlobalSummaryPage.vue
-```
-
-**User Experience**:
-- User adjusts "Summary window (hours)" in Bases (PlayerConfigPanel)
-- Value is saved to localStorage
-- Overview (GlobalSummaryPage) automatically uses the same value
-- Both pages stay synchronized
-- No confusion from duplicate controls
-
----
-
-## Previous Work (December 8, 2024) - Critical Per-Day Calculation Fixes
-
-### Completed: Global Summary Per-Day Calculations & Timeframe Control
-
-Fixed critical calculation inconsistencies where values scaled by `periodFactor` were displayed as "/day", causing values to be 7x too high (when timeframe = 168 hours). Also added UI control for timeframe adjustment.
-
-#### Core Problem Identified:
-Values were being multiplied by `periodFactor` in useGlobalSummary.ts but displayed as "/day" in the UI:
-- `totalNetProfit`: Was `report.summary.net * periodFactor` but shown as "/day"
-- `exportMaterials[].valuePerDay`: Was `amount * price * periodFactor` but named "PerDay"
-- `totalExportNetProfit`: Mixed scaling (revenue scaled, costs scaled)
-- `totalConsumptionOverheadCost`: Was `overhead * periodFactor` but shown as "/day"
-
-#### Solution - Established Consistent Convention:
-
-**Per-Day Values** (for global totals in Overview):
-- `totalNetProfit`: Now truly per-day (removed periodFactor)
-- `totalExportNetProfit`: Now per-day (both revenue and costs per-day)
-- `totalConsumptionOverheadCost`: Now per-day (removed periodFactor)
-- `exportMaterials[].valuePerDay`: Now truly per-day (removed periodFactor)
-
-**Period Values** (for base summaries in BaseCard):
-- `baseSummary.netProfit`: Kept scaled by periodFactor
-- `baseSummary.exportNetProfit`: Now scaled by periodFactor (multiply sum by periodFactor)
-- BaseCard component divides these by periodFactor to show per-day
-
-#### Changes Made:
-
-1. **Fixed Per-Day Calculations in useGlobalSummary.ts** ✅
-   - Line 256: Removed `* periodFactor.value` from exportMaterials valuePerDay
-   - Line 271: Added `* periodFactor.value` to exportNetProfit for base summaries
-   - Line 291: Removed `* periodFactor.value` from totalNetProfit
-   - Line 315: Removed `* periodFactor.value` from totalExportNetProfit costs
-   - Line 329: Removed `* periodFactor.value` from totalConsumptionOverheadCost
-
-2. **Added Summary Window (Hours) Control UI** ✅
-   - Added input field in GlobalSummaryPage header
-   - Users can now adjust timeframeHours (default 168, range 1-336)
-   - Similar to PlayerConfigPanel's timeframe control
-   - Uses existing translations
-
-#### Testing Status:
-- ✅ Type-check passing (no TypeScript errors)
-- ⚠️ Integration tests: 7 tests failing in useGlobalSummary.test.ts (priceResolver setup issue, not related to fixes)
-- 🔄 Manual testing in progress at http://localhost:5173/
-
-#### Known Issues:
-- **Productivity Still Shows 0%**: User reports despite fix. Need to investigate actual workforce data.
-- **Integration Tests**: useGlobalSummary.test.ts has priceResolver mock setup issue
-
-#### Files Modified:
-```
-modified:   src/v2/composables/useGlobalSummary.ts
-modified:   src/v2/pages/GlobalSummaryPage.vue
-```
-
----
-
-## Previous Work (December 7, 2024) - GlobalSummaryPage Initial Fixes
-
-Fixed critical bugs and improved functionality based on user feedback:
-
-#### Changes Made:
-
-1. **Fixed Productivity Calculation Bug** ✅
-   - **Issue**: Productivity was always showing 0%
-   - **Root Cause**: `workforceProductivity.ts` was treating `wf.coverage` as percentage (0-100), but it's actually a decimal (0-1) from the engine
-   - **Fix**: Convert coverage from decimal to percent: `wf.coverage * 100`
-   - **Impact**: Workforce productivity now displays correctly
-
-2. **Fixed Export Net Profit Calculation** ✅
-   - Ensured export net profit uses the same periodFactor as other calculations
-   - Export material values are now correctly scaled by timeframe
-
-3. **Show All Export Materials with Icons** ✅
-   - Changed from showing top 5 to showing ALL export materials
-   - Reduced icon size from 20px to 16px for better density
-   - Added max-width and tighter spacing for better layout
-   - All materials visible at a glance with visual icons
-
-4. **Previous UI/UX Improvements** ✅
-   - Updated color theme to slate colors for better visibility
-   - Removed "Production Overview" title
-   - Verified Net Profit calculations use correct `report.summary.net`
-   - Refactored BaseDetailExpanded with 6 detailed sections:
-     * Net Result with cost breakdown
-     * Worker Consumables per tier
-     * Production Revenue (top exports)
-     * Material Purchases (top consuming)
-     * Workforce Coverage
-     * Full Materials Balance
-
-#### Technical Details:
-- Files Modified:
-  * `src/v2/services/production/workforceProductivity.ts` - Fixed coverage conversion
-  * `src/v2/composables/useGlobalSummary.ts` - Clarified export net profit calculation
-  * `src/v2/components/BaseCard.vue` - Show all export materials, optimized icon size and layout
-- All type-checks passing
-- Build successful
-
-#### User Requirements Addressed:
-- [x] "Productivity is currently always 0%, seems not to be correct" - FIXED
-- [x] "re-use the existing calculations for Net Profit, Export Net Profit" - VERIFIED CORRECT
-- [x] "list all export materials, just using icons is awesome" - IMPLEMENTED
-- [ ] "when expanded: we see in detail reports like we currently have: Net result (with price trend of 7d only affecting this bases productions)" - PARTIAL (trend missing)
-
-### Still TODO:
-
-1. **7-Day Price Trend Visualization** 
-   - Add price trend indicators to Net Result section in expanded view
-   - Show trend specifically for materials this base produces
-   - Note: User wants trend to only affect this base's productions, not all calculations
-
-### Previous Work
-
-#### Completed: Mobile Overview Feature
-- Created workforce productivity calculations with stock awareness
-- Built BaseCard and BaseDetailExpanded components
-- Refactored GlobalSummaryPage with collapsible base tiles
-- Added mobile-responsive CSS
-
-#### Completed: Issue #61 - Allow Recipe Count and Building Level to be 0
-- Fixed 4 critical bugs preventing zero values
-- All 11 integration tests passing
-
-#### Completed: Issue #42 - Technology Levels from API
-- Company Data endpoint now sets technology levels
-- Integration tests cover this functionality
-
-## Next Steps / Future Work
-
-### High Priority:
-1. Add 7-day price trend visualization to Net Result section (user requested)
-2. Ensure trend only affects base's production materials, not all calculations
-
-### Potential Improvements:
-3. Add filtering/sorting options for materials in expanded view
-4. Performance optimization if user has 20+ bases
-5. Add charts/visualizations for trends
-
-### Known Issues:
-- None currently
-
-## Project Context
-
-This is a Vue 3 + TypeScript calculator for Galactic Tycoon game. Key patterns:
-- Use MVC and Service Repository Pattern
-- Use ETL for external API connections
-- Always run integration tests for workflows
-- Always fix type-check issues: `docker compose exec web npm run type-check`
-- Try to fix lint issues: `docker compose exec web npm run lint`
-- Document changes in handoff.md
+If any consumption material has 0 stock → consumptionCoverage = 0% → productivity = 0%

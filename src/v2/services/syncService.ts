@@ -12,6 +12,7 @@ import { resetPriceCache } from './gamedata/prices'
 import { fetchCompanyBases, fetchGameBaseDetails, fetchWarehouseStockForBase } from './api/warehouseService'
 import { extractMarketDetails } from './marketAnalysis/extractor'
 import { usePlayerTechnology } from './playerTechnology'
+import { useWorldData } from './worldData'
 
 export interface SyncEntry {
   id: string
@@ -241,7 +242,17 @@ export async function refreshEntry(entryId: string): Promise<void> {
     } else if (entryId.startsWith('warehouse-')) {
       if (!apiKey) throw new Error('No API key')
       const warehouseId = parseInt(entryId.replace('warehouse-', ''))
-      await fetchWarehouseStockForBase(apiKey, warehouseId, world, true)
+      const result = await fetchWarehouseStockForBase(apiKey, warehouseId, world, true)
+      
+      // Convert warehouse items to materialId -> quantity map
+      const warehouseStocks: Record<number, number> = {}
+      result.data.items.forEach(item => {
+        warehouseStocks[item.materialId] = item.quantity
+      })
+      
+      // Update worldData with warehouse stocks
+      const { updateCurrent } = useWorldData()
+      updateCurrent({ warehouseStocks })
     }
     
     entry.lastSync = Date.now()
