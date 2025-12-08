@@ -21,9 +21,13 @@ export const formatPercent = (value: number, fractionDigits = 1): string =>
     maximumFractionDigits: fractionDigits,
   })
 
-export const formatCurrency = (value: number, fractionDigits = 2): string => {
-  const locale = getCurrentLocale()
-  return new Intl.NumberFormat(locale, {
+/**
+ * Format currency as USD with dollar sign always in front
+ * Always uses 'en-US' locale to ensure consistent $ prefix and comma/period format
+ * regardless of user's locale preference (game currency is always USD)
+ */
+export const formatCurrency = (value: number, fractionDigits = 0): string => {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: fractionDigits,

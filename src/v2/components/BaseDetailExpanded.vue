@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
-import { translate } from '@/v2/localisation'
+import { translate, formatCurrency } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import type { BaseSummaryData } from '@/v2/composables/useGlobalSummary'
 import type { BaseReport } from '@/v2/services/production/types'
@@ -13,15 +13,6 @@ const props = defineProps<{
   index: GdIndex
   timeframeHours: number
 }>()
-
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
-}
 
 const periodFactor = computed(() => props.timeframeHours / 24)
 

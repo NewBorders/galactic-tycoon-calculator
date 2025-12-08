@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { formatNumber } from '@/v2/utils/formatNumber'
-import { translate } from '@/v2/localisation'
+import { translate, formatCurrency } from '@/v2/localisation'
 import type { BaseSummaryData } from '@/v2/composables/useGlobalSummary'
 import type { GdIndex } from '@/v2/services/gamedata/types'
 import MaterialIcon from './MaterialIcon.vue'
@@ -23,15 +23,6 @@ const periodLabel = computed(() => translate('perHours', { hours: props.timefram
 // Summary values are already scaled by periodFactor for the selected timeframe
 const netProfit = computed(() => props.summary.netProfit)
 const exportNetProfit = computed(() => props.summary.exportNetProfit)
-
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
-}
 
 const profitColor = computed(() => {
   if (netProfit.value > 0) return 'text-emerald-400'
