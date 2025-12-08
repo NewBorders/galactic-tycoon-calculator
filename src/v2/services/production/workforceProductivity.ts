@@ -87,6 +87,8 @@ export function calculateWorkforceProductivity(
       limitingMaterialId,
       daysOfConsumptionRemaining: daysRemaining,
     })
+    
+    console.log(`[Productivity Debug] Tier ${wf.tier} result: productivityPercent=${productivityPercent}%, requiredWorkers=${wf.required}`)
   }
   
   // Calculate overall productivity (weighted by worker count)
@@ -96,6 +98,8 @@ export function calculateWorkforceProductivity(
     0
   )
   const overallProductivityPercent = totalWorkers > 0 ? weightedProductivity / totalWorkers : 100
+  
+  console.log(`[Productivity Debug] Final: totalWorkers=${totalWorkers}, weightedProductivity=${weightedProductivity}, overallProductivityPercent=${overallProductivityPercent}%`)
   
   // Calculate potential lost profit
   // Lost profit = (production value at 100%) - (production value at current productivity)
