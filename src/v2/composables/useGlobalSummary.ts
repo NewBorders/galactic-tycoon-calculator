@@ -69,6 +69,7 @@ export function useGlobalSummary(
   timeframeHours: MaybeRef<number>,
   globalWorkforceBurden: MaybeRef<number>,
   exportThreshold: MaybeRef<number>, // percentage threshold (0-100) to consider material as export
+  warehouseStocks: MaybeRef<Record<number, number>>, // global warehouse stocks (materialId -> amount)
 ) {
   const periodFactor = computed(() => {
     const hours = Number(toValue(timeframeHours))
@@ -184,7 +185,7 @@ export function useGlobalSummary(
 
       // Find materials that will run out of stock within the configured timeframe
       const materialsRunningOut: BaseSummaryData['materialsRunningOut'] = []
-      const stock = base.stock ?? {}
+      const stock = toValue(warehouseStocks)
       const timeframeDays = periodFactor.value
 
       report.materials.forEach((material) => {

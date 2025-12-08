@@ -4,6 +4,7 @@ import { usePlayerBases } from '@/v2/services/playerBases'
 import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
+import { useWorldData } from '@/v2/services/worldData'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
@@ -38,6 +39,9 @@ const props = defineProps<{
 const { state, toggleBaseOpen } = usePlayerBases(props.gameData)
 const bases = computed(() => state.value.bases)
 const expandedBases = computed(() => state.value.ui.basesOpen)
+
+const { current: worldCurrent } = useWorldData()
+const warehouseStocks = computed(() => worldCurrent.value.warehouseStocks)
 
 const { priceResolver } = useMaterialPricing(props.gameData)
 const { state: technologyState } = usePlayerTechnology()
@@ -76,6 +80,7 @@ const summary = useGlobalSummary(
   computed(() => timeframeHours.value),
   globalWorkforceBurden,
   exportThreshold,
+  warehouseStocks,
 )
 
 // Use baseReports from useGlobalSummary instead of recalculating

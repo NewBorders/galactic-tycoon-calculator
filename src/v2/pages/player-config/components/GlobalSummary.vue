@@ -3,6 +3,7 @@ import { ref, toRef, computed } from 'vue'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
+import { useWorldData } from '@/v2/services/worldData'
 import { formatPrice, formatNumber } from '@/v2/utils/formatNumber'
 import { translate } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
@@ -33,6 +34,9 @@ const showPerBaseBreakdown = ref(false)
 // Get worker consumable material IDs from game data (single source of truth)
 const workerConsumableIds = computed(() => getWorkerConsumableMaterialIds(props.gameData))
 
+const { current: worldCurrent } = useWorldData()
+const warehouseStocks = computed(() => worldCurrent.value.warehouseStocks)
+
 const { baseSummaries, totalNetProfit, totalExportNetProfit, totalWorkforceDeficitCost, totalConsumptionOverheadCost, globalMaterials } =
   useGlobalSummary(
     toRef(() => props.bases),
@@ -44,6 +48,7 @@ const { baseSummaries, totalNetProfit, totalExportNetProfit, totalWorkforceDefic
     toRef(() => props.timeframeHours),
     toRef(() => props.globalWorkforceBurden),
     toRef(() => props.exportThreshold),
+    warehouseStocks,
   )
 
 function toggleBase(baseId: string) {
