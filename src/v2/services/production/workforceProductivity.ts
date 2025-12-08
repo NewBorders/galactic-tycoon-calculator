@@ -7,7 +7,10 @@ export type WorkforceProductivityTier = {
   productivityPercent: number // 0-100
   requiredWorkers: number
   housingCoverage: number // 0-100
-  consumptionCoverage: number // 0-100, based on stock materials
+  consumptionCoverage: number // 0-100, alias for satisfaction (for backwards compatibility)
+  satisfaction: number // 0-100, calculated per Wiki: base 100%, -10% per missing optional, x0.6 per missing essential, floor 10%
+  missingEssentials: number // count of missing essential consumables
+  missingOptionals: number // count of missing optional consumables
   limitingFactor: 'housing' | 'consumption' | 'none'
   limitingMaterialId?: number // if limited by consumption
   daysOfConsumptionRemaining?: number
@@ -21,14 +24,22 @@ export type WorkforceProductivitySummary = {
 }
 
 /**
- * Calculate workforce productivity based on housing coverage and material stock.
+ * Calculate workforce productivity based on housing coverage and worker satisfaction.
  * 
- * Productivity is limited by:
+ * Worker satisfaction is calculated per Wiki mechanics (https://wiki.galactictycoons.com/mechanics/workforce):
+ * 1. Base Satisfaction: 100%
+ * 2. Optional Consumables: Each missing optional reduces satisfaction by 10%
+ * 3. Essential Consumables: Each missing essential applies a x0.6 multiplier
+ * 4. Satisfaction Floor: Minimum 10% if no consumables provided
+ * 
+ * Worker Productivity Formula (per Wiki):
+ *   Worker Productivity = Satisfaction % × (Employed Workers / Required Jobs)
+ * 
+ * Overall productivity is limited by:
  * 1. Housing coverage (workforce must be housed)
- * 2. Material availability (workers need materials to be productive - simple YES/NO check)
+ * 2. Worker satisfaction (based on available consumables)
  * 
- * The minimum of these two factors determines actual productivity.
- * Note: planDays parameter is kept for compatibility but not used - we only check if materials are in stock NOW.
+ * The minimum of housing and satisfaction determines actual productivity.
  */
 export function calculateWorkforceProductivity(
   report: BaseReport,
@@ -43,9 +54,14 @@ export function calculateWorkforceProductivity(
     // Find consumption materials for this tier
     const tierConsumption = report.workers.filter(w => w.tier === wf.tier && w.active)
     
-    // Calculate consumption coverage based on stock availability
-    // Simple check: Are all required materials in stock? (>0)
-    let consumptionCoverage = 100
+    // Calculate satisfaction based on Wiki mechanics
+    // Base satisfaction: 100%
+    // Missing optional: -10% per item
+    // Missing essential: x0.6 multiplier per item
+    // Floor: 10% minimum
+    
+    let missingEssentials = 0
+    let missingOptionals = 0
     let limitingMaterialId: number | undefined
     let daysRemaining: number | undefined
     
@@ -55,30 +71,54 @@ export function calculateWorkforceProductivity(
       
       if (consumptionPerDay <= 0) continue // no consumption required
       
-      // Simple IST check: Is material available?
+      // Check if material is in stock
       if (currentStock <= 0) {
-        // No stock = 0% coverage for this material
-        consumptionCoverage = 0
-        limitingMaterialId = consumption.materialId
-        daysRemaining = 0
-        break // One missing material is enough to stop production
-      }
-      
-      // Material is available, calculate days for info purposes
-      const daysOfStock = currentStock / consumptionPerDay
-      if (daysRemaining === undefined || daysOfStock < daysRemaining) {
-        daysRemaining = daysOfStock
-        limitingMaterialId = consumption.materialId
+        // Material missing - count as essential or optional
+        if (consumption.optional) {
+          missingOptionals++
+        } else {
+          missingEssentials++
+        }
+        
+        // Track first missing material for limiting factor display
+        if (limitingMaterialId === undefined) {
+          limitingMaterialId = consumption.materialId
+          daysRemaining = 0
+        }
+      } else {
+        // Material is available, calculate days for info purposes
+        const daysOfStock = currentStock / consumptionPerDay
+        if (daysRemaining === undefined || daysOfStock < daysRemaining) {
+          daysRemaining = daysOfStock
+          limitingMaterialId = consumption.materialId
+        }
       }
     }
     
-    // Overall productivity is minimum of housing and consumption
-    const productivityPercent = Math.min(housingCoverage, consumptionCoverage)
+    // Calculate satisfaction per Wiki formula
+    let satisfaction = 100
+    
+    // Apply optional consumables penalty: -10% per missing
+    satisfaction -= (missingOptionals * 10)
+    
+    // Apply essential consumables multiplier: x0.6 per missing
+    for (let i = 0; i < missingEssentials; i++) {
+      satisfaction *= 0.6
+    }
+    
+    // Apply floor: minimum 10% satisfaction (per Wiki: "If no consumables are provided, satisfaction is set to 10%")
+    satisfaction = Math.max(10, satisfaction)
+    
+    // Satisfaction cannot exceed 100%
+    satisfaction = Math.min(100, satisfaction)
+    
+    // Overall productivity is minimum of housing and satisfaction
+    const productivityPercent = Math.min(housingCoverage, satisfaction)
     
     let limitingFactor: 'housing' | 'consumption' | 'none' = 'none'
-    if (housingCoverage < consumptionCoverage) {
+    if (housingCoverage < satisfaction) {
       limitingFactor = 'housing'
-    } else if (consumptionCoverage < 100) {
+    } else if (satisfaction < 100) {
       limitingFactor = 'consumption'
     }
     
@@ -87,7 +127,10 @@ export function calculateWorkforceProductivity(
       productivityPercent,
       requiredWorkers: wf.required,
       housingCoverage,
-      consumptionCoverage,
+      consumptionCoverage: satisfaction, // alias for backwards compatibility
+      satisfaction,
+      missingEssentials,
+      missingOptionals,
       limitingFactor,
       limitingMaterialId,
       daysOfConsumptionRemaining: daysRemaining,

@@ -1,6 +1,96 @@
 # Handoff Document
 
-## Most Recent Work: Locale-Aware Currency Formatting (December 8, 2024)
+## Most Recent Work: Workforce Satisfaction-Based Productivity (December 8, 2024)
+
+### Latest Change
+Implemented proper workforce productivity calculation based on official game mechanics from Wiki (https://wiki.galactictycoons.com/mechanics/workforce#satisfaction).
+
+### Problem
+User reported that productivity should not drop to 0% immediately when a consumable is missing. The game uses a satisfaction-based system with different penalties for missing optional vs. essential consumables.
+
+### Wiki Mechanics (Official Formula)
+
+**Satisfaction Calculation**:
+1. **Base Satisfaction**: 100%
+2. **Optional Consumables**: Each missing optional reduces satisfaction by **-10%**
+3. **Essential Consumables**: Each missing essential applies a **×0.6 multiplier**
+4. **Satisfaction Floor**: Minimum **10%** (prevents going to 0%)
+
+**Worker Productivity Formula**:
+```
+Worker Productivity = Satisfaction % × (Employed Workers / Required Jobs)
+```
+
+**Examples from Wiki**:
+- All consumables provided → **100%** satisfaction
+- Missing 1 optional → **90%** (100 - 10)
+- Missing 3 optionals → **70%** (100 - 30)
+- Missing 3 optionals + 1 essential → **42%** (70 × 0.6)
+- Missing 3 optionals + 2 essentials → **25.2%** (70 × 0.6 × 0.6)
+- No consumables → **≥10%** (floor applied)
+
+### Implementation
+
+**Files Changed**:
+
+1. **src/v2/services/production/workforceProductivity.ts**:
+   - Updated `WorkforceProductivityTier` type to include:
+     - `satisfaction: number` - calculated per Wiki formula
+     - `missingEssentials: number` - count of missing essential consumables
+     - `missingOptionals: number` - count of missing optional consumables
+     - `consumptionCoverage` now aliases `satisfaction` for backwards compatibility
+   
+   - Changed calculation logic (Lines 53-112):
+     - Iterate through tier consumables
+     - Check stock availability (>0 = available, ≤0 = missing)
+     - Count missing essentials vs. optionals based on `consumption.optional` flag
+     - Apply Wiki formula:
+       ```typescript
+       let satisfaction = 100
+       satisfaction -= (missingOptionals * 10)  // -10% per optional
+       for (let i = 0; i < missingEssentials; i++) {
+         satisfaction *= 0.6  // x0.6 per essential
+       }
+       satisfaction = Math.max(10, satisfaction)  // Floor at 10%
+       ```
+     - Overall productivity = `Math.min(housingCoverage, satisfaction)`
+
+2. **src/v2/services/production/__tests__/workforceProductivity.test.ts** (NEW FILE):
+   - Created comprehensive test suite with 9 test cases
+   - All test cases match Wiki examples exactly:
+     - ✅ 100% with all consumables
+     - ✅ 90% with 1 optional missing
+     - ✅ 70% with 3 optionals missing
+     - ✅ 42% with 3 optionals + 1 essential missing
+     - ✅ 25.2% with 3 optionals + 2 essentials missing
+     - ✅ 15.12% with all 6 consumables missing (above floor)
+     - ✅ 10% floor when calculation goes below minimum
+     - ✅ Housing limits productivity when satisfaction higher
+     - ✅ Satisfaction limits productivity when housing higher
+
+### Key Architectural Points
+
+1. **Essential vs. Optional**: The `WorkerConsumptionRow` type already has an `optional: boolean` field populated by the production engine
+2. **Gradual Degradation**: Missing 1-2 consumables causes moderate productivity loss, not immediate shutdown
+3. **Essential Priority**: Missing essentials has much stronger impact (×0.6 multiplier) than optionals (-10%)
+4. **Floor Protection**: Even with no consumables, workforce still operates at 10% minimum
+5. **Housing Still Matters**: Overall productivity is `min(housing, satisfaction)` - both factors limit productivity
+
+### Testing Results
+- ✅ All 9 workforce productivity tests pass
+- ✅ All 29 production service tests pass
+- ✅ TypeScript compilation successful
+- ❌ Pre-existing test failures in `useGlobalSummary.test.ts` (unrelated to this change - priceResolver issue)
+
+### Next Steps
+The satisfaction-based calculation should now match in-game behavior. Monitor user feedback to ensure:
+1. Productivity values align with what players see in-game
+2. Missing consumables have correct impact (optionals less severe than essentials)
+3. The 10% floor prevents complete shutdown
+
+---
+
+## Previous Work: Locale-Aware Currency Formatting (December 8, 2024)
 
 ### Latest Change
 Changed `formatCurrency` function to respect user's locale for number formatting:
