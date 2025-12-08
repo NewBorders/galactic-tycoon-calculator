@@ -106,16 +106,16 @@ const showPriceTrend = computed(() => {
           <div class="metric__label">💰 {{ translate('netProfit') }}</div>
           <div class="metric__value" :class="profitColor">
             {{ formatCurrency(netProfit) }}
-            <span v-if="showPriceTrend" class="price-trend" :class="priceTrendColor">
-              {{ priceTrendIcon }} {{ formatNumber(Math.abs(summary.exportPriceTrend7d), { maximumFractionDigits: 1 }) }}%
-            </span>
           </div>
         </div>
 
         <div class="metric">
-          <div class="metric__label">📦 {{ translate('exportValue') }}</div>
+          <div class="metric__label">📦 {{ translate('exportNetProfit') }}</div>
           <div class="metric__value text-emerald-400">
             {{ formatCurrency(exportNetProfit) }}
+            <span v-if="showPriceTrend" class="price-trend" :class="priceTrendColor">
+              {{ priceTrendIcon }} {{ formatNumber(Math.abs(summary.exportPriceTrend7d), { maximumFractionDigits: 1 }) }}%
+            </span>
           </div>
         </div>
 

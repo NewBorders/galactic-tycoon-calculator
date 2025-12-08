@@ -272,8 +272,21 @@ export function useGlobalSummary(
         timeframeDaysForProductivity
       )
 
-      // Calculate export net profit for the period: sum of period export values
-      const exportNetProfit = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
+      // Calculate export revenue (not profit yet - just sales value)
+      const exportRevenue = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
+      
+      // Calculate export net profit as proportion of total net profit
+      // based on export revenue share of total production revenue
+      const totalRevenue = report.summary.productionRevenue * periodFactor.value
+      const netProfit = report.summary.net * periodFactor.value
+      
+      let exportNetProfit = 0
+      if (totalRevenue > 0 && netProfit > 0) {
+        // Export profit = total profit * (export revenue / total revenue)
+        // This accounts for production costs proportionally
+        const exportShare = Math.min(1, exportRevenue / totalRevenue)
+        exportNetProfit = netProfit * exportShare
+      }
 
       // Calculate weighted average 7d price trend for export materials
       let exportPriceTrend7d = 0
