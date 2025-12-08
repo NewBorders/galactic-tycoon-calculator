@@ -197,17 +197,11 @@ describe('Workforce Productivity - Satisfaction Calculation', () => {
    * Test Case from Wiki:
    * No Consumables Provided → Floored to 10% satisfaction
    * 
-   * Note: Mathematically, 3 missing optionals + 3 missing essentials = 70% * 0.6 * 0.6 * 0.6 = 15.12%
    * The Wiki states: "Satisfaction Floor: If no consumables are provided, satisfaction is set to 10%"
-   * 
-   * However, 15.12% > 10%, so Math.max(10, 15.12) = 15.12%
-   * The floor of 10% acts as a safety net to prevent satisfaction from going too low,
-   * but in this specific case (3 optional + 3 essential missing), the result naturally stays above 10%.
-   * 
-   * To reach the 10% floor, you would need MORE missing essentials or a different combination
-   * that drives the multiplied result below 10%.
+   * This is a special case: when ALL consumables (both essential and optional) are missing,
+   * satisfaction is directly set to 10%, not calculated.
    */
-  it('should calculate satisfaction correctly when all consumables are missing (above floor)', () => {
+  it('should set satisfaction to 10% when all consumables are missing', () => {
     const report: BaseReport = {
       summary: { productionRevenue: 1000, materialPurchaseCosts: 100, workerPurchaseCosts: 200, net: 700 },
       materials: [],
@@ -231,9 +225,8 @@ describe('Workforce Productivity - Satisfaction Calculation', () => {
 
     const result = calculateWorkforceProductivity(report, stock, 1)
 
-    // Mathematically: 100 - 30 = 70, then 70 * 0.6 * 0.6 * 0.6 = 15.12
-    // This is above the 10% floor, so it stays at 15.12
-    expect(result.tiers[0].satisfaction).toBe(15.12)
+    // Per Wiki: When ALL consumables are missing, satisfaction is set to 10%
+    expect(result.tiers[0].satisfaction).toBe(10)
     expect(result.tiers[0].missingEssentials).toBe(3)
     expect(result.tiers[0].missingOptionals).toBe(3)
   })

@@ -2,6 +2,42 @@
 
 ## Most Recent Work: Workforce Satisfaction-Based Productivity (December 8, 2024)
 
+### Latest Update (v2)
+Fixed the "No Consumables Provided" edge case to match Wiki specification exactly.
+
+**Change**: When ALL consumables (3 essential + 3 optional) are missing, satisfaction is now **directly set to 10%**, not calculated.
+
+**Why**: The Wiki table shows "No Consumables Provided → Floored → 10%", which is a special case. Previously, the code would calculate 70% × 0.6³ = 15.12% and then apply Math.max(10, 15.12) = 15.12%. Now it correctly detects when all consumables are missing and sets satisfaction to 10% immediately.
+
+**Implementation** (workforceProductivity.ts):
+```typescript
+const totalConsumables = tierConsumption.filter(c => c.consumptionPerDay > 0).length
+const totalMissing = missingEssentials + missingOptionals
+
+if (totalMissing === totalConsumables && totalConsumables > 0) {
+  // All consumables missing → directly set to 10%
+  satisfaction = 10
+} else {
+  // Normal calculation: optionals (-10% each) + essentials (×0.6 each) + floor
+  satisfaction -= (missingOptionals * 10)
+  for (let i = 0; i < missingEssentials; i++) {
+    satisfaction *= 0.6
+  }
+  satisfaction = Math.max(10, satisfaction)
+}
+```
+
+### Architecture: Single Source of Truth ✅
+
+**Confirmed**: `calculateWorkforceProductivity()` in `src/v2/services/production/workforceProductivity.ts` is the **single source of truth** for satisfaction calculation.
+
+**Usage**:
+- ✅ `useGlobalSummary.ts` calls it for Overview page (Line 270)
+- ✅ BaseCard component displays the result
+- ✅ All bases use the same calculation via the shared service
+
+**User Control**: In the player config (Bases section), users can toggle which optional consumables are active via `activeOptionalConsumables` parameter. This is passed to `computeBaseReport()`, which then flows into the workforce productivity calculation.
+
 ### Latest Change
 Implemented proper workforce productivity calculation based on official game mechanics from Wiki (https://wiki.galactictycoons.com/mechanics/workforce#satisfaction).
 

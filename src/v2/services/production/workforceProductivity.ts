@@ -98,16 +98,26 @@ export function calculateWorkforceProductivity(
     // Calculate satisfaction per Wiki formula
     let satisfaction = 100
     
-    // Apply optional consumables penalty: -10% per missing
-    satisfaction -= (missingOptionals * 10)
+    // Count total consumables for this tier
+    const totalConsumables = tierConsumption.filter(c => c.consumptionPerDay > 0).length
+    const totalMissing = missingEssentials + missingOptionals
     
-    // Apply essential consumables multiplier: x0.6 per missing
-    for (let i = 0; i < missingEssentials; i++) {
-      satisfaction *= 0.6
+    // Per Wiki: "If no consumables are provided, satisfaction is set to 10%"
+    if (totalMissing === totalConsumables && totalConsumables > 0) {
+      // All consumables missing → floor at 10%
+      satisfaction = 10
+    } else {
+      // Apply optional consumables penalty: -10% per missing
+      satisfaction -= (missingOptionals * 10)
+      
+      // Apply essential consumables multiplier: x0.6 per missing
+      for (let i = 0; i < missingEssentials; i++) {
+        satisfaction *= 0.6
+      }
+      
+      // Apply floor: minimum 10% satisfaction
+      satisfaction = Math.max(10, satisfaction)
     }
-    
-    // Apply floor: minimum 10% satisfaction (per Wiki: "If no consumables are provided, satisfaction is set to 10%")
-    satisfaction = Math.max(10, satisfaction)
     
     // Satisfaction cannot exceed 100%
     satisfaction = Math.min(100, satisfaction)
