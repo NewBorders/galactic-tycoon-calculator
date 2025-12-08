@@ -1,6 +1,21 @@
 # Handoff Document
 
-## Most Recent Work: Productivity Calculation Fix (December 8, 2024)
+## Most Recent Work: Locale-Aware Currency Formatting (December 8, 2024)
+
+### Latest Change
+Changed `formatCurrency` function to respect user's locale for number formatting:
+- **File**: `src/v2/localisation/numbers.ts`
+- **Change**: `formatCurrency` now uses `getCurrentLocale()` instead of hardcoded 'en-US'
+- **Result**: 
+  - English users see: $1,234.56 (dollar sign before number, dot for decimals)
+  - German users see: 1.234,56 $ (dollar sign after number, comma for decimals, dot for thousands)
+  - All other numbers also respect locale (formatNumber uses getCurrentLocale())
+
+This ensures all numbers in the Overview page and elsewhere display correctly according to the user's selected language/locale.
+
+---
+
+## Previous Work: Productivity Calculation Fix (December 8, 2024)
 
 ### Problem
 Productivity was showing 0% despite 100% housing coverage. Debug logs revealed:

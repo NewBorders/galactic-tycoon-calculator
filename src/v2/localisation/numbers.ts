@@ -22,12 +22,13 @@ export const formatPercent = (value: number, fractionDigits = 1): string =>
   })
 
 /**
- * Format currency as USD with dollar sign always in front
- * Always uses 'en-US' locale to ensure consistent $ prefix and comma/period format
- * regardless of user's locale preference (game currency is always USD)
+ * Format currency as USD
+ * Uses current locale for number formatting (e.g., 1.234,56 $ in de-DE, $1,234.56 in en-US)
+ * but always displays USD currency symbol
  */
 export const formatCurrency = (value: number, fractionDigits = 0): string => {
-  return new Intl.NumberFormat('en-US', {
+  const locale = getCurrentLocale()
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: fractionDigits,
