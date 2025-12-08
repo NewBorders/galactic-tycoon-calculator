@@ -10,7 +10,7 @@ import { computeBaseReport } from '@/v2/services/production/engine'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
 import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
-import { translate } from '@/v2/localisation'
+import { translate, formatCurrency, formatInteger, formatNumber } from '@/v2/localisation'
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
@@ -137,22 +137,6 @@ const baseReports = computed(() => {
   return map
 })
 
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
-}
-
-const formatNumber = (value: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value)
-}
-
 const getMaterialName = (materialId: number): string => {
   return props.index.materialById.get(materialId)?.name || `Material ${materialId}`
 }
@@ -203,7 +187,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__icon">💰</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Total Net Profit</div>
-            <div class="stat-card__value">{{ formatCurrency(summary.totalNetProfit.value) }}</div>
+            <div class="stat-card__value">{{ formatCurrency(summary.totalNetProfit.value, 0) }}</div>
           </div>
         </div>
         
@@ -211,7 +195,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__icon">📦</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Export Net Profit</div>
-            <div class="stat-card__value">{{ formatCurrency(summary.totalExportNetProfit.value) }}</div>
+            <div class="stat-card__value">{{ formatCurrency(summary.totalExportNetProfit.value, 0) }}</div>
           </div>
         </div>
         
@@ -220,7 +204,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__content">
             <div class="stat-card__label">Workforce Deficit Cost</div>
             <div class="stat-card__value stat-card__value--warning">
-              {{ formatCurrency(summary.totalWorkforceDeficitCost.value) }}
+              {{ formatCurrency(summary.totalWorkforceDeficitCost.value, 0) }}
             </div>
           </div>
         </div>
@@ -230,7 +214,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__content">
             <div class="stat-card__label">Consumption Overhead</div>
             <div class="stat-card__value stat-card__value--info">
-              {{ formatCurrency(summary.totalConsumptionOverheadCost.value) }}
+              {{ formatCurrency(summary.totalConsumptionOverheadCost.value, 0) }}
             </div>
           </div>
         </div>
@@ -240,7 +224,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__content">
             <div class="stat-card__label">Expansion Overhead Cost</div>
             <div class="stat-card__value stat-card__value--warning">
-              {{ formatCurrency(summary.totalConsumptionOverheadCost.value) }}
+              {{ formatCurrency(summary.totalConsumptionOverheadCost.value, 0) }}
             </div>
           </div>
         </div>
@@ -342,7 +326,7 @@ const isBaseExpanded = (baseId: string): boolean => {
               >
                 {{ material.netBalance > 0 ? '+' : '' }}{{ formatNumber(material.netBalance) }}
               </td>
-              <td class="text-right">{{ formatCurrency(material.totalValue) }}</td>
+              <td class="text-right">{{ formatCurrency(material.totalValue, 0) }}</td>
             </tr>
           </tbody>
         </table>

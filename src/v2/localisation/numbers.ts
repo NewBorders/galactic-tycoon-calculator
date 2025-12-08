@@ -20,3 +20,13 @@ export const formatPercent = (value: number, fractionDigits = 1): string =>
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   })
+
+export const formatCurrency = (value: number, fractionDigits = 2): string => {
+  const locale = getCurrentLocale()
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(value)
+}
