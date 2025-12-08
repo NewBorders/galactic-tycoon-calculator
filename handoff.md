@@ -1,6 +1,64 @@
 # Handoff Document
 
-## Most Recent Work (December 8, 2024) - Critical Per-Day Calculation Fixes
+## Most Recent Work (December 8, 2024) - Unified Timeframe System
+
+### Completed: Synchronized Timeframe Control Across Pages
+
+**User Requirement**: "Summary window auf overview soll exakt das selbe sein wie bei bases, nichts Neues"
+
+**Solution**: Removed duplicate timeframe control from GlobalSummaryPage and synchronized it with PlayerConfigPanel using shared localStorage.
+
+#### Changes Made:
+
+1. **Unified Timeframe System** ✅
+   - GlobalSummaryPage now uses the **same** `timeframeHours` from localStorage as PlayerConfigPanel
+   - Storage key: `'gt:v2:timeframeHours'`
+   - Both pages load from and save to the same storage location
+   - Changing timeframe in PlayerConfigPanel (Bases) automatically affects GlobalSummaryPage (Overview)
+   - No duplicate control - single source of truth
+
+2. **Removed Duplicate UI Control** ✅
+   - Removed the separate timeframe input from GlobalSummaryPage header
+   - Timeframe is now controlled **only** in PlayerConfigPanel (Bases page)
+   - GlobalSummaryPage silently syncs with the shared value
+
+**Implementation**:
+```typescript
+// Shared storage key
+const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
+const DEFAULT_TIMEFRAME_HOURS = 24
+
+// Load from localStorage on mount
+const timeframeHours = ref(loadTimeframe())
+
+// Watch and sync changes to localStorage
+watch(timeframeHours, (value) => {
+  const sanitized = sanitizeTimeframe(value)
+  if (sanitized !== value) {
+    timeframeHours.value = sanitized
+    return
+  }
+  try {
+    localStorage.setItem(TIMEFRAME_STORAGE_KEY, String(sanitized))
+  } catch {}
+}, { immediate: false })
+```
+
+**Files Modified**:
+```
+modified:   src/v2/pages/GlobalSummaryPage.vue
+```
+
+**User Experience**:
+- User adjusts "Summary window (hours)" in Bases (PlayerConfigPanel)
+- Value is saved to localStorage
+- Overview (GlobalSummaryPage) automatically uses the same value
+- Both pages stay synchronized
+- No confusion from duplicate controls
+
+---
+
+## Previous Work (December 8, 2024) - Critical Per-Day Calculation Fixes
 
 ### Completed: Global Summary Per-Day Calculations & Timeframe Control
 

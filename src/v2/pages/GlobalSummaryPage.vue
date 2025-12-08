@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { usePlayerBases } from '@/v2/services/playerBases'
 import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
@@ -9,6 +9,26 @@ import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
 import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
 import { translate } from '@/v2/localisation'
+
+const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
+const DEFAULT_TIMEFRAME_HOURS = 24
+
+function sanitizeTimeframe(value: unknown): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) return DEFAULT_TIMEFRAME_HOURS
+  const clamped = Math.min(336, Math.max(1, Math.round(numeric)))
+  return clamped
+}
+
+function loadTimeframe(): number {
+  try {
+    const raw = localStorage.getItem(TIMEFRAME_STORAGE_KEY)
+    if (raw == null) return DEFAULT_TIMEFRAME_HOURS
+    return sanitizeTimeframe(Number(raw))
+  } catch {
+    return DEFAULT_TIMEFRAME_HOURS
+  }
+}
 
 const props = defineProps<{
   gameData: GameData
@@ -23,11 +43,27 @@ const { priceResolver } = useMaterialPricing(props.gameData)
 const { state: technologyState } = usePlayerTechnology()
 const exportThreshold = getExportThresholdRef()
 
-const timeframeHours = ref(168) // 7 days default
+const timeframeHours = ref(loadTimeframe())
 const globalWorkforceBurden = ref(2000) // Default threshold
 
 const technologyLevels = computed(() => technologyState.value.levels)
 const startingBonus = computed(() => technologyState.value.startingBonus)
+
+// Watch timeframeHours and sync to localStorage
+watch(
+  timeframeHours,
+  (value) => {
+    const sanitized = sanitizeTimeframe(value)
+    if (sanitized !== value) {
+      timeframeHours.value = sanitized
+      return
+    }
+    try {
+      localStorage.setItem(TIMEFRAME_STORAGE_KEY, String(sanitized))
+    } catch {}
+  },
+  { immediate: false },
+)
 
 const summary = useGlobalSummary(
   bases,
@@ -88,27 +124,6 @@ const isBaseExpanded = (baseId: string): boolean => {
 
 <template>
   <div class="global-summary">
-    <!-- Timeframe Control -->
-    <div class="flex items-center justify-between px-4 py-3 bg-slate-900/50 border-b border-slate-700">
-      <h1 class="text-xl font-semibold text-slate-100">{{ translate('globalSummary') }}</h1>
-      <div class="flex items-center gap-2 text-sm">
-        <label class="flex items-center gap-2 text-slate-300">
-          <span>{{ translate('timeframeHoursLabel') }}</span>
-          <input
-            v-model.number="timeframeHours"
-            type="number"
-            min="1"
-            max="336"
-            step="24"
-            class="w-20 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </label>
-        <span class="text-slate-500 text-xs hidden md:inline">
-          {{ translate('timeframeHoursHint') }}
-        </span>
-      </div>
-    </div>
-
     <!-- Overview Header -->
     <div class="global-summary__header">
       <div class="global-summary__stats">
