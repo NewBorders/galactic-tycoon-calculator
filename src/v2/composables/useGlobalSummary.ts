@@ -268,8 +268,8 @@ export function useGlobalSummary(
         timeframeDaysForProductivity
       )
 
-      // Calculate export net profit: sum of export material values (already scaled by periodFactor)
-      const exportNetProfit = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
+      // Calculate export net profit for the period: sum of per-day export values * periodFactor
+      const exportNetProfit = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0) * periodFactor.value
 
       return {
         baseId: base.id,
@@ -288,7 +288,7 @@ export function useGlobalSummary(
   })
 
   const totalNetProfit = computed(() => {
-    return baseReports.value.reduce((sum, { report }) => sum + report.summary.net * periodFactor.value, 0)
+    return baseReports.value.reduce((sum, { report }) => sum + report.summary.net, 0)
   })
 
   const totalWorkforceDeficitCost = computed(() => {
@@ -309,8 +309,8 @@ export function useGlobalSummary(
       const exportValue = baseSummary.exportMaterials.reduce((sum, material) => sum + material.valuePerDay, 0)
       totalExportRevenue += exportValue
 
-      // Sum up ALL costs for this base
-      const baseCosts = (report.summary.materialPurchaseCosts + report.summary.workerPurchaseCosts) * periodFactor.value
+      // Sum up ALL costs for this base (per-day values)
+      const baseCosts = report.summary.materialPurchaseCosts + report.summary.workerPurchaseCosts
       totalAllCosts += baseCosts
     })
 
@@ -327,7 +327,7 @@ export function useGlobalSummary(
     // Overhead cost is the difference (should be negative, meaning we pay more)
     const overheadCost = netWithoutOverhead - actualNet
 
-    return overheadCost * periodFactor.value
+    return overheadCost
   })
 
   // Global material summary with per-base breakdown

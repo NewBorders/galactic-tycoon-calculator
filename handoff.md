@@ -1,8 +1,64 @@
 # Handoff Document
 
-## Most Recent Work (December 7, 2024)
+## Most Recent Work (December 8, 2024) - Critical Per-Day Calculation Fixes
 
-### Completed: GlobalSummaryPage Critical Fixes
+### Completed: Global Summary Per-Day Calculations & Timeframe Control
+
+Fixed critical calculation inconsistencies where values scaled by `periodFactor` were displayed as "/day", causing values to be 7x too high (when timeframe = 168 hours). Also added UI control for timeframe adjustment.
+
+#### Core Problem Identified:
+Values were being multiplied by `periodFactor` in useGlobalSummary.ts but displayed as "/day" in the UI:
+- `totalNetProfit`: Was `report.summary.net * periodFactor` but shown as "/day"
+- `exportMaterials[].valuePerDay`: Was `amount * price * periodFactor` but named "PerDay"
+- `totalExportNetProfit`: Mixed scaling (revenue scaled, costs scaled)
+- `totalConsumptionOverheadCost`: Was `overhead * periodFactor` but shown as "/day"
+
+#### Solution - Established Consistent Convention:
+
+**Per-Day Values** (for global totals in Overview):
+- `totalNetProfit`: Now truly per-day (removed periodFactor)
+- `totalExportNetProfit`: Now per-day (both revenue and costs per-day)
+- `totalConsumptionOverheadCost`: Now per-day (removed periodFactor)
+- `exportMaterials[].valuePerDay`: Now truly per-day (removed periodFactor)
+
+**Period Values** (for base summaries in BaseCard):
+- `baseSummary.netProfit`: Kept scaled by periodFactor
+- `baseSummary.exportNetProfit`: Now scaled by periodFactor (multiply sum by periodFactor)
+- BaseCard component divides these by periodFactor to show per-day
+
+#### Changes Made:
+
+1. **Fixed Per-Day Calculations in useGlobalSummary.ts** ✅
+   - Line 256: Removed `* periodFactor.value` from exportMaterials valuePerDay
+   - Line 271: Added `* periodFactor.value` to exportNetProfit for base summaries
+   - Line 291: Removed `* periodFactor.value` from totalNetProfit
+   - Line 315: Removed `* periodFactor.value` from totalExportNetProfit costs
+   - Line 329: Removed `* periodFactor.value` from totalConsumptionOverheadCost
+
+2. **Added Summary Window (Hours) Control UI** ✅
+   - Added input field in GlobalSummaryPage header
+   - Users can now adjust timeframeHours (default 168, range 1-336)
+   - Similar to PlayerConfigPanel's timeframe control
+   - Uses existing translations
+
+#### Testing Status:
+- ✅ Type-check passing (no TypeScript errors)
+- ⚠️ Integration tests: 7 tests failing in useGlobalSummary.test.ts (priceResolver setup issue, not related to fixes)
+- 🔄 Manual testing in progress at http://localhost:5173/
+
+#### Known Issues:
+- **Productivity Still Shows 0%**: User reports despite fix. Need to investigate actual workforce data.
+- **Integration Tests**: useGlobalSummary.test.ts has priceResolver mock setup issue
+
+#### Files Modified:
+```
+modified:   src/v2/composables/useGlobalSummary.ts
+modified:   src/v2/pages/GlobalSummaryPage.vue
+```
+
+---
+
+## Previous Work (December 7, 2024) - GlobalSummaryPage Initial Fixes
 
 Fixed critical bugs and improved functionality based on user feedback:
 

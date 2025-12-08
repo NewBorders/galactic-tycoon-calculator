@@ -88,6 +88,27 @@ const isBaseExpanded = (baseId: string): boolean => {
 
 <template>
   <div class="global-summary">
+    <!-- Timeframe Control -->
+    <div class="flex items-center justify-between px-4 py-3 bg-slate-900/50 border-b border-slate-700">
+      <h1 class="text-xl font-semibold text-slate-100">{{ translate('globalSummary') }}</h1>
+      <div class="flex items-center gap-2 text-sm">
+        <label class="flex items-center gap-2 text-slate-300">
+          <span>{{ translate('timeframeHoursLabel') }}</span>
+          <input
+            v-model.number="timeframeHours"
+            type="number"
+            min="1"
+            max="336"
+            step="24"
+            class="w-20 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </label>
+        <span class="text-slate-500 text-xs hidden md:inline">
+          {{ translate('timeframeHoursHint') }}
+        </span>
+      </div>
+    </div>
+
     <!-- Overview Header -->
     <div class="global-summary__header">
       <div class="global-summary__stats">
