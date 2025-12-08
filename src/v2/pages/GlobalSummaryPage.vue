@@ -153,7 +153,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__icon">💰</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Total Net Profit</div>
-            <div class="stat-card__value">{{ formatCurrency(summary.totalNetProfit.value) }}/{{ periodLabel }}</div>
+            <div class="stat-card__value">{{ formatCurrency(summary.totalNetProfit.value) }}</div>
           </div>
         </div>
         
@@ -161,7 +161,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__icon">📦</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Export Net Profit</div>
-            <div class="stat-card__value">{{ formatCurrency(summary.totalExportNetProfit.value) }}/{{ periodLabel }}</div>
+            <div class="stat-card__value">{{ formatCurrency(summary.totalExportNetProfit.value) }}</div>
           </div>
         </div>
         
@@ -170,7 +170,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__content">
             <div class="stat-card__label">Workforce Deficit Cost</div>
             <div class="stat-card__value stat-card__value--warning">
-              {{ formatCurrency(summary.totalWorkforceDeficitCost.value) }}/{{ periodLabel }}
+              {{ formatCurrency(summary.totalWorkforceDeficitCost.value) }}
             </div>
           </div>
         </div>
@@ -180,7 +180,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__content">
             <div class="stat-card__label">Consumption Overhead</div>
             <div class="stat-card__value stat-card__value--info">
-              {{ formatCurrency(summary.totalConsumptionOverheadCost.value) }}/{{ periodLabel }}
+              {{ formatCurrency(summary.totalConsumptionOverheadCost.value) }}
             </div>
           </div>
         </div>

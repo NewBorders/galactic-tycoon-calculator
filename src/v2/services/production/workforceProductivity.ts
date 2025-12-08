@@ -36,8 +36,12 @@ export function calculateWorkforceProductivity(
 ): WorkforceProductivitySummary {
   const tiers: WorkforceProductivityTier[] = []
 
+  console.log('[Productivity Debug] workforceSummary:', report.workforceSummary)
+  console.log('[Productivity Debug] planDays:', planDays)
+
   for (const wf of report.workforceSummary) {
     const housingCoverage = wf.coverage * 100 // convert from decimal (0-1) to percent (0-100)
+    console.log(`[Productivity Debug] Tier ${wf.tier}: coverage=${wf.coverage}, housingCoverage=${housingCoverage}%`)
     
     // Find consumption materials for this tier
     const tierConsumption = report.workers.filter(w => w.tier === wf.tier && w.active)
