@@ -23,15 +23,11 @@ export const formatPercent = (value: number, fractionDigits = 1): string =>
 
 /**
  * Format currency as USD
- * Uses current locale for number formatting (e.g., 1.234,56 $ in de-DE, $1,234.56 in en-US)
- * but always displays USD currency symbol
+ * Uses current locale for number formatting and always displays $ symbol
  */
 export const formatCurrency = (value: number, fractionDigits = 0): string => {
-  const locale = getCurrentLocale()
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'USD',
+  return '$' + formatNumber(value, {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
-  }).format(value)
+  })
 }
