@@ -265,11 +265,12 @@ export function useGlobalSummary(
       exportMaterials.sort((a, b) => b.valuePerDay - a.valuePerDay)
 
       // Calculate workforce productivity with stock awareness
-      const timeframeDaysForProductivity = Math.round(periodFactor.value)
+      // Always use 1 day horizon for productivity - it represents current worker capability,
+      // not long-term sustainability
       const workforceProductivity = calculateWorkforceProductivity(
         report,
         stock,
-        timeframeDaysForProductivity
+        1, // Always 1 day - productivity is about current capability
       )
 
       // Calculate export net profit correctly:
