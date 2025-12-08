@@ -46,6 +46,8 @@ export function calculateWorkforceProductivity(
     // Find consumption materials for this tier
     const tierConsumption = report.workers.filter(w => w.tier === wf.tier && w.active)
     
+    console.log(`[Productivity Debug] Tier ${wf.tier}: tierConsumption count=${tierConsumption.length}`)
+    
     // Calculate consumption coverage based on stock
     let consumptionCoverage = 100
     let limitingMaterialId: number | undefined
@@ -55,10 +57,14 @@ export function calculateWorkforceProductivity(
       const currentStock = stock[consumption.materialId] ?? 0
       const consumptionPerDay = consumption.consumptionPerDay
       
+      console.log(`[Productivity Debug] Tier ${wf.tier}, Material ${consumption.materialId}: stock=${currentStock}, consumptionPerDay=${consumptionPerDay}`)
+      
       if (consumptionPerDay <= 0) continue // no consumption
       
       const daysOfStock = currentStock / consumptionPerDay
       const coveragePercent = Math.min(100, (daysOfStock / planDays) * 100)
+      
+      console.log(`[Productivity Debug] Tier ${wf.tier}, Material ${consumption.materialId}: daysOfStock=${daysOfStock}, coveragePercent=${coveragePercent}%`)
       
       if (coveragePercent < consumptionCoverage) {
         consumptionCoverage = coveragePercent
@@ -66,6 +72,8 @@ export function calculateWorkforceProductivity(
         daysRemaining = daysOfStock
       }
     }
+    
+    console.log(`[Productivity Debug] Tier ${wf.tier}: consumptionCoverage=${consumptionCoverage}%`)
     
     // Overall productivity is minimum of housing and consumption
     const productivityPercent = Math.min(housingCoverage, consumptionCoverage)
