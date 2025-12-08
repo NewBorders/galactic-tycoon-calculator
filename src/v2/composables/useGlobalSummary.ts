@@ -273,8 +273,7 @@ export function useGlobalSummary(
       )
 
       // Calculate export net profit correctly:
-      // For each export material: revenue from sales - input costs
-      // Then subtract proportional worker costs
+      // Revenue from export sales - ALL input costs for those materials - ALL worker costs
       
       let exportRevenue = 0
       let exportInputCosts = 0
@@ -285,31 +284,23 @@ export function useGlobalSummary(
         // Revenue from selling exported amount
         exportRevenue += exportMat.valuePerDay
         
-        // Find input costs for recipes producing this material
+        // Find ALL input costs for recipes producing this material
         report.recipes.forEach(recipe => {
           if (recipe.outputMaterialId === exportMat.materialId) {
-            // Calculate what portion of this recipe's output is exported
-            const exportRatio = exportMat.exportPerDay / (recipe.outputPerDay * periodFactor.value)
-            
-            // Add proportional input costs
+            // Add ALL input costs for this recipe (not proportional)
             recipe.inputsPerDay.forEach(input => {
               const resolver = toValue(priceResolver)
               const inputCostPerDay = input.amount * resolver(input.materialId)
-              exportInputCosts += inputCostPerDay * exportRatio * periodFactor.value
+              exportInputCosts += inputCostPerDay * periodFactor.value
             })
           }
         })
       })
       
-      // Calculate proportional worker costs
-      // Workers support all production, so allocate based on revenue share
-      const totalProductionRevenue = report.summary.productionRevenue * periodFactor.value
+      // Subtract ALL worker costs (not proportional)
       const workerCosts = report.summary.workerPurchaseCosts * periodFactor.value
-      const exportWorkerCosts = totalProductionRevenue > 0 
-        ? (exportRevenue / totalProductionRevenue) * workerCosts 
-        : 0
       
-      const exportNetProfit = exportRevenue - exportInputCosts - exportWorkerCosts
+      const exportNetProfit = exportRevenue - exportInputCosts - workerCosts
 
       // Calculate weighted average 7d price trend for export materials
       let exportPriceTrend7d = 0
