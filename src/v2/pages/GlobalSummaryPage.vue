@@ -189,6 +189,16 @@ const isBaseExpanded = (baseId: string): boolean => {
             </div>
           </div>
         </div>
+        
+        <div class="stat-card" v-if="summary.totalConsumptionOverheadCost.value > 0">
+          <div class="stat-card__icon">🏗️</div>
+          <div class="stat-card__content">
+            <div class="stat-card__label">Expansion Overhead Cost</div>
+            <div class="stat-card__value stat-card__value--warning">
+              {{ formatCurrency(summary.totalConsumptionOverheadCost.value) }}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
