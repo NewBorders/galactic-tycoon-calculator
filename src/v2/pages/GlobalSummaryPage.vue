@@ -7,6 +7,7 @@ import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { computeBaseReport } from '@/v2/services/production/engine'
+import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
 import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
@@ -47,6 +48,9 @@ const warehouseStocks = computed(() => worldCurrent.value.warehouseStocks)
 const { priceResolver } = useMaterialPricing(props.gameData)
 const { state: technologyState } = usePlayerTechnology()
 const exportThreshold = getExportThresholdRef()
+
+// Load market analysis data for price trends
+const { opportunities: marketOpportunities } = useMarketAnalysis()
 
 const timeframeHours = ref(loadTimeframe())
 
@@ -126,6 +130,7 @@ const summary = useGlobalSummary(
   globalWorkforceBurden,
   exportThreshold,
   warehouseStocks,
+  marketOpportunities,
 )
 
 // Use baseReports from useGlobalSummary instead of recalculating

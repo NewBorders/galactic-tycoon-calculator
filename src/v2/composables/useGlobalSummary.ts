@@ -6,6 +6,7 @@ import {
   calculateWorkforceProductivity, 
   type WorkforceProductivitySummary 
 } from '@/v2/services/production/workforceProductivity'
+import type { MarketOpportunity } from '@/v2/services/marketAnalysis/types'
 
 export type ExportMaterial = {
   materialId: number
@@ -22,6 +23,7 @@ export type BaseSummaryData = {
   planetId: number
   netProfit: number // daily net profit
   exportNetProfit: number // profit from export materials only
+  exportPriceTrend7d: number // weighted average 7d price change % for export materials
   materialsRunningOut: Array<{
     materialId: number
     daysUntilEmpty: number
@@ -70,6 +72,7 @@ export function useGlobalSummary(
   globalWorkforceBurden: MaybeRef<number>,
   exportThreshold: MaybeRef<number>, // percentage threshold (0-100) to consider material as export
   warehouseStocks: MaybeRef<Record<number, number>>, // global warehouse stocks (materialId -> amount)
+  marketOpportunities?: MaybeRef<MarketOpportunity[] | undefined>, // optional market analysis data
 ) {
   const periodFactor = computed(() => {
     const hours = Number(toValue(timeframeHours))
@@ -272,12 +275,36 @@ export function useGlobalSummary(
       // Calculate export net profit for the period: sum of period export values
       const exportNetProfit = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
 
+      // Calculate weighted average 7d price trend for export materials
+      let exportPriceTrend7d = 0
+      if (exportMaterials.length > 0 && marketOpportunities) {
+        const opportunities = toValue(marketOpportunities) ?? []
+        const opportunityMap = new Map(opportunities.map(o => [o.materialId, o]))
+        
+        let totalWeight = 0
+        let weightedTrendSum = 0
+        
+        exportMaterials.forEach(exportMat => {
+          const opportunity = opportunityMap.get(exportMat.materialId)
+          if (opportunity) {
+            const weight = exportMat.valuePerDay // weight by export value
+            totalWeight += weight
+            weightedTrendSum += opportunity.priceTrend.changePercent7d * weight
+          }
+        })
+        
+        if (totalWeight > 0) {
+          exportPriceTrend7d = weightedTrendSum / totalWeight
+        }
+      }
+
       return {
         baseId: base.id,
         baseName: base.name || `Base ${base.id}`,
         planetId: base.planetId,
         netProfit: report.summary.net * periodFactor.value,
         exportNetProfit,
+        exportPriceTrend7d,
         materialsRunningOut,
         exportMaterials,
         workforceCoverage: minCoverage,

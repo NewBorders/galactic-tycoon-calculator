@@ -49,6 +49,7 @@ const { baseSummaries, totalNetProfit, totalExportNetProfit, totalWorkforceDefic
     toRef(() => props.globalWorkforceBurden),
     toRef(() => props.exportThreshold),
     warehouseStocks,
+    undefined, // no market opportunities in player config page
   )
 
 function toggleBase(baseId: string) {

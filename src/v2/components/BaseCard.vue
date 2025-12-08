@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatNumber } from '@/v2/utils/formatNumber'
-import { translate, formatCurrency } from '@/v2/localisation'
+import { translate, formatCurrency, formatNumber } from '@/v2/localisation'
 import type { BaseSummaryData } from '@/v2/composables/useGlobalSummary'
 import type { GdIndex } from '@/v2/services/gamedata/types'
 import MaterialIcon from './MaterialIcon.vue'
@@ -54,6 +53,24 @@ const getMaterialName = (materialId: number): string => {
   if (!props.index) return `Material ${materialId}`
   return props.index.materialById.get(materialId)?.name || `Material ${materialId}`
 }
+
+const priceTrendColor = computed(() => {
+  const trend = props.summary.exportPriceTrend7d
+  if (trend > 5) return 'text-emerald-400' // strong positive
+  if (trend > 0) return 'text-green-300' // slight positive
+  if (trend < -5) return 'text-red-400' // strong negative
+  if (trend < 0) return 'text-orange-300' // slight negative
+  return 'text-slate-400' // stable
+})
+
+const priceTrendIcon = computed(() => {
+  const trend = props.summary.exportPriceTrend7d
+  if (trend > 5) return '📈' // strong positive
+  if (trend > 0) return '↗' // slight positive
+  if (trend < -5) return '📉' // strong negative
+  if (trend < 0) return '↘' // slight negative
+  return '→' // stable
+})
 </script>
 
 <template>
@@ -81,14 +98,17 @@ const getMaterialName = (materialId: number): string => {
         <div class="metric">
           <div class="metric__label">💰 {{ translate('netProfit') }}</div>
           <div class="metric__value" :class="profitColor">
-            {{ formatCurrency(netProfit) }}/{{ periodLabel }}
+            {{ formatCurrency(netProfit) }}
+            <span v-if="summary.exportPriceTrend7d !== 0" class="price-trend" :class="priceTrendColor">
+              {{ priceTrendIcon }} {{ formatNumber(Math.abs(summary.exportPriceTrend7d), { maximumFractionDigits: 1 }) }}%
+            </span>
           </div>
         </div>
 
         <div class="metric">
           <div class="metric__label">📦 {{ translate('exportValue') }}</div>
           <div class="metric__value text-emerald-400">
-            {{ formatCurrency(exportNetProfit) }}/{{ periodLabel }}
+            {{ formatCurrency(exportNetProfit) }}
           </div>
         </div>
 
@@ -243,10 +263,30 @@ const getMaterialName = (materialId: number): string => {
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.price-trend {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .text-emerald-400 {
   color: rgb(52, 211, 153);
+}
+
+.text-green-300 {
+  color: rgb(134, 239, 172);
+}
+
+.text-orange-300 {
+  color: rgb(253, 186, 116);
 }
 
 .text-amber-400 {
