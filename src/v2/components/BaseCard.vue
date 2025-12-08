@@ -18,11 +18,11 @@ const emit = defineEmits<{
   navigate: []
 }>()
 
-const periodFactor = computed(() => (props.timeframeHours ?? 24) / 24)
+const periodLabel = computed(() => translate('perHours', { hours: props.timeframeHours ?? 24 }))
 
-// Summary values are already scaled by periodFactor, so divide to get per-day
-const netProfitPerDay = computed(() => props.summary.netProfit / periodFactor.value)
-const exportNetProfitPerDay = computed(() => props.summary.exportNetProfit / periodFactor.value)
+// Summary values are already scaled by periodFactor for the selected timeframe
+const netProfit = computed(() => props.summary.netProfit)
+const exportNetProfit = computed(() => props.summary.exportNetProfit)
 
 const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('en-US', {
@@ -34,8 +34,8 @@ const formatCurrency = (value: number): string => {
 }
 
 const profitColor = computed(() => {
-  if (netProfitPerDay.value > 0) return 'text-emerald-400'
-  if (netProfitPerDay.value < 0) return 'text-red-400'
+  if (netProfit.value > 0) return 'text-emerald-400'
+  if (netProfit.value < 0) return 'text-red-400'
   return 'text-slate-400'
 })
 
@@ -66,7 +66,7 @@ const getMaterialName = (materialId: number): string => {
 </script>
 
 <template>
-  <div 
+  <div
     class="base-card"
     :class="{ 'base-card--expanded': isExpanded, 'base-card--has-issues': hasIssues }"
   >
@@ -90,14 +90,14 @@ const getMaterialName = (materialId: number): string => {
         <div class="metric">
           <div class="metric__label">💰 {{ translate('netProfit') }}</div>
           <div class="metric__value" :class="profitColor">
-            {{ formatCurrency(netProfitPerDay) }}/{{ translate('day') }}
+            {{ formatCurrency(netProfit) }}/{{ periodLabel }}
           </div>
         </div>
 
         <div class="metric">
           <div class="metric__label">📦 {{ translate('exportValue') }}</div>
           <div class="metric__value text-emerald-400">
-            {{ formatCurrency(exportNetProfitPerDay) }}/{{ translate('day') }}
+            {{ formatCurrency(exportNetProfit) }}/{{ periodLabel }}
           </div>
         </div>
 
@@ -106,13 +106,13 @@ const getMaterialName = (materialId: number): string => {
           <div class="metric__value export-materials-list">
             <span v-if="topExportMaterials.length === 0" class="text-slate-400">—</span>
             <div v-else class="export-materials-grid">
-              <div 
-                v-for="exportMat in topExportMaterials" 
+              <div
+                v-for="exportMat in topExportMaterials"
                 :key="exportMat.materialId"
                 class="export-material-item"
                 :title="getMaterialName(exportMat.materialId)"
               >
-                <MaterialIcon 
+                <MaterialIcon
                   v-if="index"
                   :name="getMaterialName(exportMat.materialId)"
                   :size="16"

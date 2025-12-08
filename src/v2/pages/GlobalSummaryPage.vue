@@ -136,7 +136,7 @@ const isBaseExpanded = (baseId: string): boolean => {
             type="number"
             min="1"
             max="336"
-            step="24"
+            step="1"
             class="w-20 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </label>
@@ -241,7 +241,7 @@ const isBaseExpanded = (baseId: string): boolean => {
               <div class="stock-warning-item__details">
                 <span class="detail">{{ formatNumber(material.currentStock) }} units</span>
                 <span class="detail detail--danger">{{ formatNumber(material.daysUntilEmpty) }} days left</span>
-                <span class="detail">-{{ formatNumber(material.consumptionPerDay) }}/day</span>
+                <span class="detail">-{{ formatNumber(material.consumptionPerDay * (timeframeHours / 24)) }}/{{ periodLabel }}</span>
               </div>
             </div>
           </div>
@@ -260,7 +260,7 @@ const isBaseExpanded = (baseId: string): boolean => {
               <th class="text-right">Production</th>
               <th class="text-right">Consumption</th>
               <th class="text-right">Net Balance</th>
-              <th class="text-right">Value/Day</th>
+              <th class="text-right">Value/{{ periodLabel }}</th>
             </tr>
           </thead>
           <tbody>
