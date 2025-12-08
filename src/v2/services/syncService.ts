@@ -250,9 +250,19 @@ export async function refreshEntry(entryId: string): Promise<void> {
         warehouseStocks[item.materialId] = item.quantity
       })
       
-      // Update worldData with warehouse stocks
-      const { updateCurrent } = useWorldData()
+      // Update worldData with warehouse stocks (for global calculations)
+      const { updateCurrent, current } = useWorldData()
       updateCurrent({ warehouseStocks })
+      
+      // Also update each base's stock field (for per-base displays)
+      // Bases share a single warehouse, so all bases get the same stock
+      const bases = current.value.bases
+      bases.forEach(base => {
+        base.stock = { ...warehouseStocks }
+        base.lastStockRefresh = Date.now()
+      })
+      // Persist updated bases to worldData
+      updateCurrent({ bases: [...bases] })
     }
     
     entry.lastSync = Date.now()
