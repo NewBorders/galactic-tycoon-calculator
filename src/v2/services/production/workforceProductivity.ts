@@ -47,11 +47,17 @@ export function calculateWorkforceProductivity(
     const tierConsumption = report.workers.filter(w => w.tier === wf.tier && w.active)
     
     console.log(`[Productivity Debug] Tier ${wf.tier}: tierConsumption count=${tierConsumption.length}`)
+    console.log(`[Productivity Debug] Tier ${wf.tier}: ALL workers for tier:`, report.workers.filter(w => w.tier === wf.tier))
     
     // Calculate consumption coverage based on stock
     let consumptionCoverage = 100
     let limitingMaterialId: number | undefined
     let daysRemaining: number | undefined
+    
+    // If no consumption materials for this tier, coverage remains 100%
+    if (tierConsumption.length === 0) {
+      console.log(`[Productivity Debug] Tier ${wf.tier}: No consumption materials, consumptionCoverage=100%`)
+    }
     
     for (const consumption of tierConsumption) {
       const currentStock = stock[consumption.materialId] ?? 0
