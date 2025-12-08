@@ -1,6 +1,62 @@
 # Handoff Document
 
-## Most Recent Work (December 8, 2024) - Unified Timeframe System
+## Most Recent Work (December 8, 2024) - Enhanced Overview Display
+
+### Completed: Timeframe Control + Export Net Profit Display
+
+**User Requirements**:
+1. "timeframeHours bitte zusätzlich über die overview seite einstellbar machen"
+2. "auf overview bitte von Bases adaptieren: Export Net Profit & Expansion Overhead Cost"
+
+#### Changes Made:
+
+1. **Added Timeframe Control to Overview** ✅
+   - Timeframe input now visible in GlobalSummaryPage header
+   - Syncs with PlayerConfigPanel via shared localStorage
+   - User can adjust timeframe from either page
+   - Range: 1-336 hours, step: 24 hours
+   - Shows hint text about max value
+
+2. **Added Export Net Profit Stat Card** ✅
+   - Displays `summary.totalExportNetProfit.value` as "/day"
+   - Shows revenue from export materials minus ALL costs
+   - Icon: 📦 (package/export)
+   - Green success styling (stat-card--success)
+   - Positioned between Total Net Profit and Workforce Deficit Cost
+
+3. **Consumption Overhead Already Displayed** ✅
+   - Was already present in previous version
+   - Shows when value > 0
+   - Icon: 📊
+   - Blue info styling
+
+**Layout**:
+```
+┌──────────────────────────────────────────────────────────┐
+│ Global Summary          Summary window (hours): [168]    │
+├──────────────────────────────────────────────────────────┤
+│ 💰 Total Net Profit        📦 Export Net Profit          │
+│ 👷 Workforce Deficit Cost  📊 Consumption Overhead       │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Files Modified**:
+```
+modified:   src/v2/pages/GlobalSummaryPage.vue
+  - Added timeframe control header
+  - Added Export Net Profit stat card
+  - Added CSS for stat-card--success styling
+```
+
+**Technical Details**:
+- `totalExportNetProfit` already calculated in useGlobalSummary.ts
+- Both timeframe controls (Bases + Overview) sync via localStorage
+- Storage key: `'gt:v2:timeframeHours'`
+- Export Net Profit: per-day value (no periodFactor scaling needed)
+
+---
+
+## Previous Work (December 8, 2024) - Unified Timeframe System
 
 ### Completed: Synchronized Timeframe Control Across Pages
 
