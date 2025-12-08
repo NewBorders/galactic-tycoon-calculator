@@ -6,6 +6,7 @@ import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
+import { computeBaseReport } from '@/v2/services/production/engine'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
 import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
@@ -48,7 +49,51 @@ const { state: technologyState } = usePlayerTechnology()
 const exportThreshold = getExportThresholdRef()
 
 const timeframeHours = ref(loadTimeframe())
-const globalWorkforceBurden = ref(2000) // Default threshold
+
+// Calculate global workforce burden across all bases for expansion overhead
+const globalWorkforceBurden = computed(() => {
+  const technologyLevelsOption: Record<number, number> = {}
+  Object.entries(technologyLevels.value ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    technologyLevelsOption[spec] = Math.max(0, Math.floor(level))
+  })
+
+  let totalWorkforce = 0
+  bases.value.forEach((base) => {
+    const assignment = {
+      planetId: base.planetId,
+      buildings: (base.buildings ?? []).map((b: { buildingId: number; level: number }) => ({
+        buildingId: b.buildingId,
+        level: b.level,
+      })),
+      recipes: (base.recipes ?? []).map((r: { id: string; recipeId: number; count?: number }) => ({
+        recipeId: r.recipeId,
+        count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(1, Math.floor(r.count)) : 1,
+      })),
+    }
+    const activeOptionalConsumables = new Set(
+      (base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'),
+    )
+
+    const report = computeBaseReport(props.gameData, {
+      assignment,
+      horizonDays: 1,
+      options: {
+        activeOptionalConsumables,
+        technologyLevels: technologyLevelsOption,
+        startingBonus: startingBonus.value,
+      },
+    })
+
+    // Sum up workforce from all tiers
+    report.workforceSummary.forEach((wf) => {
+      totalWorkforce += wf.required
+    })
+  })
+  return totalWorkforce
+})
 
 const technologyLevels = computed(() => technologyState.value.levels)
 const startingBonus = computed(() => technologyState.value.startingBonus)
