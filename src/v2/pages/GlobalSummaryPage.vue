@@ -191,7 +191,6 @@ const isBaseExpanded = (baseId: string): boolean => {
     <div class="global-summary__header">
       <div class="global-summary__stats">
         <div class="stat-card stat-card--primary">
-          <div class="stat-card__icon">💰</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Total Net Profit</div>
             <div class="stat-card__value">{{ formatCurrency(summary.totalNetProfit.value, 0) }}</div>
@@ -199,7 +198,6 @@ const isBaseExpanded = (baseId: string): boolean => {
         </div>
         
         <div class="stat-card stat-card--success">
-          <div class="stat-card__icon">📦</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Export Net Profit</div>
             <div class="stat-card__value">{{ formatCurrency(summary.totalExportNetProfit.value, 0) }}</div>
@@ -207,7 +205,6 @@ const isBaseExpanded = (baseId: string): boolean => {
         </div>
         
         <div class="stat-card" v-if="summary.totalWorkforceDeficitCost.value > 0">
-          <div class="stat-card__icon">👷</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Workforce Deficit Cost</div>
             <div class="stat-card__value stat-card__value--warning">
@@ -217,7 +214,6 @@ const isBaseExpanded = (baseId: string): boolean => {
         </div>
         
         <div class="stat-card" v-if="summary.totalConsumptionOverheadCost.value > 0">
-          <div class="stat-card__icon">📊</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Consumption Overhead</div>
             <div class="stat-card__value stat-card__value--info">
@@ -227,7 +223,6 @@ const isBaseExpanded = (baseId: string): boolean => {
         </div>
         
         <div class="stat-card" v-if="summary.totalConsumptionOverheadCost.value > 0">
-          <div class="stat-card__icon">🏗️</div>
           <div class="stat-card__content">
             <div class="stat-card__label">Expansion Overhead Cost</div>
             <div class="stat-card__value stat-card__value--warning">
@@ -369,7 +364,6 @@ const isBaseExpanded = (baseId: string): boolean => {
 .stat-card {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
   padding: 0.875rem 1rem;
   background: rgb(30 41 59);
   border: 1px solid rgb(51 65 85);
@@ -390,11 +384,6 @@ const isBaseExpanded = (baseId: string): boolean => {
 .stat-card--success {
   border-color: rgba(34, 197, 94, 0.4);
   background: rgb(30 41 59);
-}
-
-.stat-card__icon {
-  font-size: 1.75rem;
-  flex-shrink: 0;
 }
 
 .stat-card__content {
