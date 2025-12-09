@@ -11,7 +11,7 @@ import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
 import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
-import { translate, formatCurrency, formatInteger, formatNumber } from '@/v2/localisation'
+import { translate, formatCurrency, formatNumber } from '@/v2/localisation'
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
@@ -104,7 +104,6 @@ const globalWorkforceBurden = computed(() => {
 
 const technologyLevels = computed(() => technologyState.value.levels)
 const startingBonus = computed(() => technologyState.value.startingBonus)
-const periodLabel = computed(() => translate('perHours', { hours: timeframeHours.value }))
 
 // Watch timeframeHours and sync to localStorage
 watch(
@@ -363,15 +362,15 @@ const isBaseExpanded = (baseId: string): boolean => {
 
 .global-summary__stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
 }
 
 .stat-card {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
   background: rgb(30 41 59);
   border: 1px solid rgb(51 65 85);
   border-radius: 0.75rem;
@@ -394,21 +393,26 @@ const isBaseExpanded = (baseId: string): boolean => {
 }
 
 .stat-card__icon {
-  font-size: 2.5rem;
+  font-size: 1.75rem;
+  flex-shrink: 0;
 }
 
 .stat-card__content {
   flex: 1;
+  min-width: 0;
 }
 
 .stat-card__label {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   color: var(--color-text-soft);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-card__value {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--color-heading);
 }

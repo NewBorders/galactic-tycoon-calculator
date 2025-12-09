@@ -17,8 +17,6 @@ const emit = defineEmits<{
   navigate: []
 }>()
 
-const periodLabel = computed(() => translate('perHours', { hours: props.timeframeHours ?? 24 }))
-
 // Summary values are already scaled by periodFactor for the selected timeframe
 const netProfit = computed(() => props.summary.netProfit)
 const exportNetProfit = computed(() => props.summary.exportNetProfit)
@@ -103,14 +101,14 @@ const showPriceTrend = computed(() => {
       <!-- Collapsed View: Key Metrics -->
       <div v-if="!isExpanded" class="base-card__metrics">
         <div class="metric">
-          <div class="metric__label">💰 {{ translate('netProfit') }}</div>
+          <div class="metric__label">{{ translate('netProfit') }}</div>
           <div class="metric__value" :class="profitColor">
             {{ formatCurrency(netProfit) }}
           </div>
         </div>
 
         <div class="metric">
-          <div class="metric__label">📦 {{ translate('exportNetProfit') }}</div>
+          <div class="metric__label">{{ translate('exportNetProfit') }}</div>
           <div class="metric__value text-emerald-400">
             {{ formatCurrency(exportNetProfit) }}
             <span v-if="showPriceTrend" class="price-trend" :class="priceTrendColor">
@@ -144,7 +142,7 @@ const showPriceTrend = computed(() => {
         </div>
 
         <div class="metric">
-          <div class="metric__label">👷 {{ translate('productivity') }}</div>
+          <div class="metric__label">{{ translate('productivity') }}</div>
           <div class="metric__value" :class="productivityColor">
             {{ formatNumber(summary.workforceProductivity.overallProductivityPercent) }}%
           </div>

@@ -62,11 +62,29 @@ const getTierLabel = (tier: 1 | 2 | 3 | 4): string => {
   return labels[tier] || `T${tier}`
 }
 
-const coverageColor = (coverage: number) => {
-  if (coverage >= 0.99) return 'text-emerald-400'
-  if (coverage >= 0.75) return 'text-amber-400'
+const productivityColor = (productivity: number) => {
+  if (productivity >= 95) return 'text-emerald-400'
+  if (productivity >= 75) return 'text-amber-400'
   return 'text-red-400'
 }
+
+// Calculate lost profit from non-100% productivity
+const lostProfitData = computed(() => {
+  const productivity = props.summary.workforceProductivity
+  if (productivity.overallProductivityPercent >= 100) {
+    return null // No lost profit at full productivity
+  }
+
+  // Lost profit calculation (already in service but we recalculate for display)
+  const potentialLostProfitPerDay = productivity.potentialLostProfitPerDay
+  const potentialLostProfitPerPeriod = potentialLostProfitPerDay * periodFactor.value
+
+  return {
+    lostProfitPerPeriod: potentialLostProfitPerPeriod,
+    currentProductivity: productivity.overallProductivityPercent,
+  }
+})
+
 </script>
 
 <template>
@@ -176,21 +194,42 @@ const coverageColor = (coverage: number) => {
         </div>
       </section>
 
-      <!-- Workforce Coverage -->
+      <!-- Workforce Productivity -->
       <section class="detail-card">
-        <h3 class="detail-card__title">🏠 {{ translate('workforceOverview') }}</h3>
+        <h3 class="detail-card__title">👷 {{ translate('workforceProductivity') }}</h3>
+        
+        <!-- Per-Tier Productivity -->
         <div class="workforce-table">
-          <div v-for="wf in report.workforceSummary" :key="wf.tier" class="workforce-row">
-            <span class="workforce-row__tier">{{ getTierLabel(wf.tier) }}</span>
+          <div v-for="tier in summary.workforceProductivity.tiers" :key="tier.tier" class="workforce-row">
+            <span class="workforce-row__tier">{{ getTierLabel(tier.tier) }}</span>
             <div class="workforce-row__stats">
-              <span class="text-slate-400">
-                {{ formatNumber(wf.housing, 0) }} / {{ formatNumber(wf.required, 0) }}
-              </span>
               <span
                 class="workforce-row__coverage"
-                :class="coverageColor(wf.coverage)"
+                :class="productivityColor(tier.productivityPercent)"
               >
-                {{ formatNumber(wf.coverage * 100, 0) }}%
+                {{ formatNumber(tier.productivityPercent, 0) }}%
+              </span>
+              <span v-if="tier.limitingFactor === 'housing'" class="text-slate-400 text-xs">
+                ({{ translate('limitedByHousing') }})
+              </span>
+              <span v-else-if="tier.limitingFactor === 'consumption'" class="text-slate-400 text-xs">
+                ({{ translate('limitedByConsumption') }})
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lost Profit Warning -->
+        <div v-if="lostProfitData" class="workforce-warning">
+          <div class="workforce-warning__icon">⚠️</div>
+          <div class="workforce-warning__content">
+            <div class="workforce-warning__title">{{ translate('lostProfitWarning') }}</div>
+            <div class="workforce-warning__details">
+              <span class="text-amber-400">
+                {{ formatCurrency(lostProfitData.lostProfitPerPeriod) }}
+              </span>
+              <span class="text-slate-400 text-xs">
+                {{ translate('lostDueToProductivity', { percent: formatNumber(100 - lostProfitData.currentProductivity, 1) }) }}
               </span>
             </div>
           </div>
@@ -435,6 +474,43 @@ const coverageColor = (coverage: number) => {
   font-weight: 600;
   min-width: 3rem;
   text-align: right;
+}
+
+/* Workforce Warning */
+.workforce-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  margin-top: 0.75rem;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 0.375rem;
+}
+
+.workforce-warning__icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.workforce-warning__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.workforce-warning__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-bottom: 0.25rem;
+}
+
+.workforce-warning__details {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
 }
 
 /* Balance Tabs */

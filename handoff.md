@@ -1,6 +1,92 @@
 # Handoff Document
 
-## Most Recent Work: Workforce Satisfaction-Based Productivity (December 8, 2024)
+## Most Recent Work: Overview Page UI Compaction & Workforce Display Improvements (December 9, 2024)
+
+### Summary
+Completed a comprehensive UI improvement of the Overview page (GlobalSummaryPage.vue) to make it more compact and information-dense, with a focus on displaying actionable workforce metrics.
+
+### Changes Made
+
+#### 1. Removed Emoji Icons from BaseCard Metrics
+**File**: `src/v2/components/BaseCard.vue`
+
+Removed unnecessary emoji icons (💰, 📦, 👷) from three key metrics:
+- Net Profit
+- Export Net Profit  
+- Productivity
+
+Kept the 🚢 emoji for Export Materials as it provides useful visual distinction.
+
+**Impact**: Cleaner, more professional metric display without visual clutter.
+
+#### 2. Narrower Global Summary Stat Cards
+**File**: `src/v2/pages/GlobalSummaryPage.vue`
+
+Reduced stat card dimensions to improve space utilization:
+- Grid minimum width: 250px → 180px (28% reduction)
+- Card padding: 1.25rem → 0.875rem 1rem
+- Gap between cards: 1rem → 0.75rem
+- Icon size: 2.5rem → 1.75rem
+- Label font: 0.875rem → 0.75rem (with ellipsis for overflow)
+- Value font: 1.5rem → 1.25rem
+
+**Impact**: More compact summary cards, better information density, more cards visible on screen.
+
+#### 3. Improved Workforce Display
+**File**: `src/v2/components/BaseDetailExpanded.vue`
+
+Replaced the detailed "Workforce Coverage" section with a streamlined "Workforce Productivity" display:
+
+**Old Display** (Removed):
+- Detailed housing ratios (e.g., "100/120")
+- Individual consumable costs per material
+- Housing coverage details
+
+**New Display** (Added):
+- Per-tier productivity percentages with color coding:
+  - Green (≥95%): Good productivity
+  - Amber (≥75%): Moderate productivity  
+  - Red (<75%): Low productivity
+- Limiting factor labels:
+  - "Limited by housing shortage"
+  - "Limited by consumption"
+- Lost profit warning box (when productivity < 100%):
+  - Shows lost profit amount per period
+  - Shows productivity gap percentage
+  - Amber styling to draw attention
+
+**New Code Components**:
+- `productivityColor()` helper function for color coding
+- `lostProfitData` computed property for lost profit calculation
+- New CSS for workforce warning box with amber theme
+
+**Impact**: Focus on actionable metrics (productivity % and lost profit) rather than implementation details (housing numbers and consumption lists).
+
+#### 4. Translation Keys
+**File**: `src/v2/localisation/messages.ts`
+
+Added new translation keys in both English and German:
+- `limitedByConsumption`: "Limited by consumption" / "Begrenzt durch Konsum"
+- `lostProfitWarning`: "Lost Profit" / "Verlorener Gewinn"
+- `lostDueToProductivity`: "lost due to {percent}% productivity gap" / "verloren durch {percent}% Produktivitätslücke"
+
+### Technical Notes
+
+- All calculations remain unchanged - using existing `calculateWorkforceProductivity()` service
+- Single Source of Truth architecture maintained
+- Lost profit data comes from `potentialLostProfitPerDay` field in workforce productivity report
+- Type-check passes ✅
+- Lint errors in modified files fixed ✅
+
+### Testing Status
+
+- TypeScript compilation: ✅ Passing
+- ESLint (modified files): ✅ Fixed
+- Visual testing: ⏳ Pending user verification
+
+---
+
+## Previous Work: Workforce Satisfaction-Based Productivity (December 8, 2024)
 
 ### Latest Update (v2)
 Fixed the "No Consumables Provided" edge case to match Wiki specification exactly.
