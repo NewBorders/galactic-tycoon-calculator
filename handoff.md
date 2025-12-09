@@ -1,6 +1,139 @@
 # Handoff Document
 
-## Most Recent Work: Overview Page UI Compaction & Workforce Display Improvements (December 9, 2024)
+## Most Recent Work: Intelligent Global Stock Warnings (December 9, 2024)
+
+### Summary
+✅ **COMPLETED**: Implemented a smart, global "Running Out of Stock" overview that intelligently categorizes materials and provides actionable insights for redistribution vs. purchase decisions.
+
+### Key Features
+
+#### 1. Smart Material Categorization ✅
+**Service**: `src/v2/services/stockAnalysis.ts`
+
+The system now distinguishes between:
+- **Redistribution Needed** 🔄: Export materials produced in at least one base but needed in others
+  - User can ship these between their own bases
+  - Shows which bases need the material
+  
+- **Purchase Needed** 🛒: Input materials not produced anywhere
+  - User must buy these from the exchange
+  - Direct market links for easy purchase
+
+#### 2. Dual View Modes ✅
+**Component**: `src/v2/components/StockWarnings.vue`
+
+**By Material View (Default)**:
+- Groups materials across all bases
+- Shows total quantity, weight, value needed
+- Displays urgency (shortest time left)
+- Shows number of bases affected
+- Separate sections for redistribution vs. purchase
+
+**By Base View**:
+- Groups materials by base (delivery packages)
+- Shows total weight and value per base
+- Helps plan shipments and logistics
+- Urgency color-coded per base
+
+#### 3. Rich Information Display ✅
+
+**Columns Shown**:
+- **Material**: Name with direct link to market
+- **Time Left**: Days until stock runs out (color-coded)
+- **Current Stock**: Available units
+- **To Buy**: Amount needed for timeframe
+- **Weight**: Total kg/tonnes (placeholder - TODO: add material weight data)
+- **Value**: Total cost/value
+- **Bases**: Number of bases affected (material view)
+
+**Urgency Color Coding**:
+- 🔴 Critical: ≤1 day (red)
+- 🟠 High: ≤3 days (orange)
+- 🟡 Medium: ≤7 days (yellow)
+- ⚪ Low: >7 days (gray)
+
+#### 4. Summary Totals ✅
+
+Each category shows:
+- Total materials to buy/redistribute
+- Total weight (for shipping calculations)
+- Total value (for budget planning)
+
+### Technical Implementation
+
+**New Files**:
+1. `src/v2/services/stockAnalysis.ts`
+   - `analyzeStockSituation()`: Main analysis function
+   - Categorizes materials based on export status
+   - Calculates totals and urgency per material/base
+   - Returns structured data for both view modes
+
+2. `src/v2/components/StockWarnings.vue`
+   - View mode toggle (By Material / By Base)
+   - Responsive tables with all data columns
+   - Market links and color-coded urgency
+   - Summary footers with totals
+
+**Modified Files**:
+1. `src/v2/pages/GlobalSummaryPage.vue`
+   - Added `stockAnalysis` computed property
+   - Integrated StockWarnings component
+   - Removed old per-base stock warnings section
+   - Cleaned up unused CSS
+
+2. `src/v2/localisation/messages.ts`
+   - Added 18 new translation keys (EN/DE)
+   - Removed duplicate keys that caused conflicts
+   - Keys: materialsRunningOut, groupByMaterial, groupByBase, redistributionNeeded, purchaseNeeded, timeLeft, currentStock, toBuy, weight, value, total, bases, urgency
+
+### Known Limitations
+
+1. **Weight Calculation**: Currently placeholder (0)
+   - Material weight property not yet available in game data
+   - TODO: Add weight calculation when data becomes available
+   - Affects shipping/cargo planning features
+
+2. **Price Alerts**: Not yet implemented
+   - Column mentioned in requirements but deferred
+   - Future enhancement for market monitoring
+
+### Visual Result
+
+**Redistribution Section** (Blue border):
+- Shows materials player already produces
+- Clear hint: "Ship them to bases that need them"
+- Helps optimize internal logistics
+
+**Purchase Section** (Amber border):
+- Shows materials player doesn't produce
+- Clear hint: "Buy them from the exchange"
+- Direct market links for quick purchasing
+
+**Empty State**:
+- ✅ "No materials running out – all stocks sufficient"
+- Clean, encouraging message
+
+### Testing Status
+
+- ✅ TypeScript compilation passes
+- ✅ Lint checks pass
+- ✅ All translations present (EN/DE)
+- ✅ Responsive design implemented
+- ⏳ Visual testing pending user verification
+- ⏳ Weight calculation awaiting data integration
+
+### Git Commit
+
+**decc48a**: "feat: add intelligent global stock warnings overview"
+- New stockAnalysis service
+- StockWarnings component with dual view modes
+- Replaced old per-base warnings
+- 18 new translations added
+- Duplicate keys removed
+
+---
+
+## Previous Work: Overview Page UI Compaction & Workforce Display Improvements (December 9, 2024)
 
 ### Summary
 ✅ **COMPLETED**: Comprehensive UI improvement of the Overview page to make it more compact and information-dense, with a focus on displaying actionable workforce metrics.
