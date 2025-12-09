@@ -11,7 +11,9 @@ import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
 import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
+import StockWarnings from '@/v2/components/StockWarnings.vue'
 import { translate, formatCurrency, formatNumber } from '@/v2/localisation'
+import { analyzeStockSituation } from '@/v2/services/stockAnalysis'
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
@@ -144,6 +146,19 @@ const baseReports = computed(() => {
   return map
 })
 
+// Analyze stock situation for global stock warnings
+const stockAnalysis = computed(() => {
+  return analyzeStockSituation(
+    summary.baseSummaries.value,
+    props.gameData,
+    props.index,
+    {
+      timeframeDays: timeframeHours.value / 24,
+      priceResolver: priceResolver.value,
+    },
+  )
+})
+
 const getMaterialName = (materialId: number): string => {
   return props.index.materialById.get(materialId)?.name || `Material ${materialId}`
 }
@@ -265,34 +280,13 @@ const isBaseExpanded = (baseId: string): boolean => {
       </div>
     </section>
 
-    <!-- Stock Warnings -->
-    <section class="global-summary__section" v-if="summary.baseSummaries.value.some((b: any) => b.materialsRunningOut.length > 0)">
-      <h2 class="section-title">⚠️ Materials Running Out of Stock</h2>
-      <div class="stock-warnings">
-        <div 
-          v-for="baseSummary in summary.baseSummaries.value.filter((b: any) => b.materialsRunningOut.length > 0)" 
-          :key="baseSummary.baseId"
-          class="stock-warning-group"
-        >
-          <h3 class="stock-warning-group__title">{{ baseSummary.baseName }}</h3>
-          <div class="stock-warning-list">
-            <div 
-              v-for="material in baseSummary.materialsRunningOut" 
-              :key="material.materialId"
-              class="stock-warning-item"
-            >
-              <div class="stock-warning-item__material">
-                {{ getMaterialName(material.materialId) }}
-              </div>
-              <div class="stock-warning-item__details">
-                <span class="detail">{{ formatNumber(material.currentStock) }} units</span>
-                <span class="detail detail--danger">{{ formatNumber(material.daysUntilEmpty) }} days left</span>
-                <span class="detail">-{{ formatNumber(material.consumptionPerDay * (timeframeHours / 24)) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- Global Stock Warnings -->
+    <section class="global-summary__section" v-if="stockAnalysis.allWarnings.length > 0">
+      <StockWarnings
+        :analysis="stockAnalysis"
+        :index="index"
+        :timeframe-hours="timeframeHours"
+      />
     </section>
 
     <!-- Global Materials Overview -->
@@ -554,61 +548,6 @@ const isBaseExpanded = (baseId: string): boolean => {
   margin-bottom: 1.5rem;
 }
 
-.stock-warnings {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.stock-warning-group {
-  background: rgba(239, 68, 68, 0.05);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 0.75rem;
-  padding: 1.25rem;
-}
-
-.stock-warning-group__title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin: 0 0 1rem;
-  color: var(--color-heading);
-}
-
-.stock-warning-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.stock-warning-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem;
-  background: rgb(15 23 42);
-  border-radius: 0.5rem;
-}
-
-.stock-warning-item__material {
-  font-weight: 500;
-  color: var(--color-heading);
-}
-
-.stock-warning-item__details {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.875rem;
-}
-
-.detail {
-  color: var(--color-text-soft);
-}
-
-.detail--danger {
-  color: #ef4444;
-  font-weight: 600;
-}
-
 .materials-table-wrapper {
   overflow-x: auto;
   border: 1px solid rgb(51 65 85);
@@ -698,16 +637,6 @@ const isBaseExpanded = (baseId: string): boolean => {
   .materials-table th,
   .materials-table td {
     padding: 0.5rem 0.75rem;
-  }
-  
-  .stock-warning-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  
-  .stock-warning-item__details {
-    flex-wrap: wrap;
   }
 }
 
