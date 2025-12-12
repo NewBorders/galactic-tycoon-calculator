@@ -55,9 +55,10 @@ watch(openSections, (newState) => {
   localStorage.setItem(storageKey.value, JSON.stringify(newState))
 }, { deep: true })
 
-// Toggle handlers for each section
-const toggleSection = (section: keyof typeof openSections.value) => {
-  openSections.value[section] = !openSections.value[section]
+// Sync handler for each section - reads actual browser state instead of toggling
+const syncSection = (section: keyof typeof openSections.value, event: Event) => {
+  const detailsElement = event.target as HTMLDetailsElement
+  openSections.value[section] = detailsElement.open
 }
 
 const getMaterialName = (materialId: number): string => {
@@ -135,7 +136,7 @@ const lostProfitData = computed(() => {
   <div class="base-details">
     <div class="accordion">
       <!-- Net Result Accordion -->
-      <details class="accordion-item" :open="openSections.net" @toggle="toggleSection('net')">
+      <details class="accordion-item" :open="openSections.net" @toggle="syncSection('net', $event)">
         <summary class="accordion-summary">
           <span class="accordion-title">💰 {{ translate('netProfit') }}</span>
           <span
@@ -170,7 +171,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Worker Consumption Accordion -->
-      <details class="accordion-item" :open="openSections.workers" @toggle="toggleSection('workers')">
+      <details class="accordion-item" :open="openSections.workers" @toggle="syncSection('workers', $event)">
         <summary class="accordion-summary">
           <span class="accordion-title">👷 {{ translate('workerConsumption') }}</span>
           <span class="accordion-value text-amber-400">
@@ -192,7 +193,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Production Revenue Accordion -->
-      <details class="accordion-item" :open="openSections.production" @toggle="toggleSection('production')">
+      <details class="accordion-item" :open="openSections.production" @toggle="syncSection('production', $event)">
         <summary class="accordion-summary">
           <span class="accordion-title">📈 {{ translate('productionRevenue') }}</span>
           <span class="accordion-value text-emerald-400">
@@ -217,7 +218,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Material Purchases Accordion -->
-      <details class="accordion-item" :open="openSections.purchases" @toggle="toggleSection('purchases')">
+      <details class="accordion-item" :open="openSections.purchases" @toggle="syncSection('purchases', $event)">
         <summary class="accordion-summary">
           <span class="accordion-title">🛒 {{ translate('materialPurchases') }}</span>
           <span class="accordion-value text-red-400">
@@ -242,7 +243,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Workforce Productivity Accordion -->
-      <details class="accordion-item" :open="openSections.productivity" @toggle="toggleSection('productivity')">
+      <details class="accordion-item" :open="openSections.productivity" @toggle="syncSection('productivity', $event)">
         <summary class="accordion-summary">
           <span class="accordion-title">⚙️ {{ translate('workforceProductivity') }}</span>
           <span
@@ -284,7 +285,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Material Balance Accordion -->
-      <details class="accordion-item" :open="openSections.balance" @toggle="toggleSection('balance')">
+      <details class="accordion-item" :open="openSections.balance" @toggle="syncSection('balance', $event)">
         <summary class="accordion-summary">
           <span class="accordion-title">📦 {{ translate('materialBalance') }}</span>
           <span class="accordion-value text-slate-400">
