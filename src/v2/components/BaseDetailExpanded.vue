@@ -89,198 +89,200 @@ const lostProfitData = computed(() => {
 
 <template>
   <div class="base-details">
-    <div class="details-grid">
-      <!-- Net Result Section -->
-      <section class="detail-card">
-        <div class="net-summary">
-          <div class="net-row">
-            <span class="net-row__label">{{ translate('productionRevenue') }}</span>
-            <span class="net-row__value text-emerald-400">
-              +{{ formatCurrency(report.summary.productionRevenue * periodFactor) }}
-            </span>
-          </div>
-          <div class="net-row">
-            <span class="net-row__label">{{ translate('materialPurchaseCosts') }}</span>
-            <span class="net-row__value text-red-400">
-              {{ formatCurrency(report.summary.materialPurchaseCosts * periodFactor) }}
-            </span>
-          </div>
-          <div class="net-row">
-            <span class="net-row__label">{{ translate('workerPurchaseCosts') }}</span>
-            <span class="net-row__value text-red-400">
-              {{ formatCurrency(report.summary.workerPurchaseCosts * periodFactor) }}
-            </span>
-          </div>
-          <div class="net-row net-row--total">
-            <span class="net-row__label">{{ translate('netProfit') }}</span>
-            <span
-              class="net-row__value"
-              :class="report.summary.net > 0 ? 'text-emerald-400' : 'text-red-400'"
-            >
-              {{ formatCurrency(report.summary.net * periodFactor) }}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Worker Consumables -->
-      <section class="detail-card">
-        <h3 class="detail-card__title">👷 {{ translate('workerConsumption') }}</h3>
-        <div class="worker-list">
-          <div v-for="worker in workerConsumption" :key="worker.tier" class="worker-row">
-            <span class="worker-row__tier">{{ getTierLabel(worker.tier) }}</span>
-            <div class="worker-row__details">
-              <MaterialIcon :name="getMaterialName(worker.materialId)" :size="16" />
-              <span class="worker-row__amount">
-                {{ formatNumber(worker.consumptionPerPeriod, 0) }}x
+    <div class="accordion">
+      <!-- Net Result Accordion -->
+      <details class="accordion-item" open>
+        <summary class="accordion-summary">
+          <span class="accordion-title">💰 {{ translate('netProfit') }}</span>
+          <span
+            class="accordion-value"
+            :class="report.summary.net > 0 ? 'text-emerald-400' : 'text-red-400'"
+          >
+            {{ formatCurrency(report.summary.net * periodFactor) }}
+          </span>
+        </summary>
+        <div class="accordion-content">
+          <div class="net-breakdown">
+            <div class="breakdown-row">
+              <span class="breakdown-label">{{ translate('productionRevenue') }}</span>
+              <span class="breakdown-value text-emerald-400">
+                +{{ formatCurrency(report.summary.productionRevenue * periodFactor) }}
               </span>
-              <span class="worker-row__cost text-amber-400">
-                {{ formatCurrency(worker.costPerPeriod) }}
+            </div>
+            <div class="breakdown-row">
+              <span class="breakdown-label">{{ translate('materialPurchaseCosts') }}</span>
+              <span class="breakdown-value text-red-400">
+                {{ formatCurrency(report.summary.materialPurchaseCosts * periodFactor) }}
+              </span>
+            </div>
+            <div class="breakdown-row">
+              <span class="breakdown-label">{{ translate('workerPurchaseCosts') }}</span>
+              <span class="breakdown-value text-red-400">
+                {{ formatCurrency(report.summary.workerPurchaseCosts * periodFactor) }}
               </span>
             </div>
           </div>
-          <div class="worker-row worker-row--total">
-            <span class="worker-row__tier">{{ translate('total') }}</span>
-            <span class="worker-row__cost text-amber-400">
-              {{ formatCurrency(totalWorkerCost) }}
-            </span>
+        </div>
+      </details>
+
+      <!-- Worker Consumption Accordion -->
+      <details class="accordion-item">
+        <summary class="accordion-summary">
+          <span class="accordion-title">👷 {{ translate('workerConsumption') }}</span>
+          <span class="accordion-value text-amber-400">
+            {{ formatCurrency(totalWorkerCost) }}
+          </span>
+        </summary>
+        <div class="accordion-content">
+          <div class="worker-grid">
+            <div v-for="worker in workerConsumption" :key="worker.tier" class="worker-item">
+              <span class="worker-tier">{{ getTierLabel(worker.tier) }}</span>
+              <div class="worker-details">
+                <MaterialIcon :name="getMaterialName(worker.materialId)" :size="16" />
+                <span class="worker-amount">{{ formatNumber(worker.consumptionPerPeriod, 0) }}x</span>
+              </div>
+              <span class="worker-cost text-amber-400">{{ formatCurrency(worker.costPerPeriod) }}</span>
+            </div>
           </div>
         </div>
-      </section>
+      </details>
 
-      <!-- Production Revenue (Export Materials) -->
-      <section class="detail-card">
-        <h3 class="detail-card__title">📈 {{ translate('productionRevenue') }}</h3>
-        <div class="material-table">
-          <div v-for="mat in exportMaterials.slice(0, 8)" :key="mat.materialId" class="material-row">
-            <div class="material-row__info">
-              <MaterialIcon :name="getMaterialName(mat.materialId)" :size="16" />
-              <span class="material-row__name">{{ getMaterialName(mat.materialId) }}</span>
+      <!-- Production Revenue Accordion -->
+      <details class="accordion-item">
+        <summary class="accordion-summary">
+          <span class="accordion-title">📈 {{ translate('productionRevenue') }}</span>
+          <span class="accordion-value text-emerald-400">
+            +{{ formatCurrency(report.summary.productionRevenue * periodFactor) }}
+          </span>
+        </summary>
+        <div class="accordion-content">
+          <div class="material-list">
+            <div v-for="mat in exportMaterials" :key="mat.materialId" class="material-item">
+              <div class="material-info">
+                <MaterialIcon :name="getMaterialName(mat.materialId)" :size="16" />
+                <span class="material-name">{{ getMaterialName(mat.materialId) }}</span>
+              </div>
+              <div class="material-stats">
+                <span class="text-emerald-400">+{{ formatNumber(mat.balancePerPeriod, 0) }}</span>
+                <span class="text-slate-400 text-xs">@{{ formatPrice(mat.unitPrice, 2) }}</span>
+                <span class="text-emerald-400 font-semibold">{{ formatCurrency(mat.valuePerPeriod) }}</span>
+              </div>
             </div>
-            <div class="material-row__stats">
-              <span class="text-emerald-400">+{{ formatNumber(mat.balancePerPeriod, 0) }}</span>
-              <span class="text-slate-400">@{{ formatPrice(mat.unitPrice, 2) }}</span>
-              <span class="text-emerald-400 font-semibold">
-                {{ formatCurrency(mat.valuePerPeriod) }}
-              </span>
-            </div>
-          </div>
-          <div v-if="exportMaterials.length > 8" class="material-row material-row--more">
-            +{{ exportMaterials.length - 8 }} more materials
           </div>
         </div>
-      </section>
+      </details>
 
-      <!-- Material Purchases (Consuming) -->
-      <section class="detail-card">
-        <h3 class="detail-card__title">🛒 {{ translate('materialPurchases') }}</h3>
-        <div class="material-table">
-          <div v-for="mat in purchaseMaterials.slice(0, 8)" :key="mat.materialId" class="material-row">
-            <div class="material-row__info">
-              <MaterialIcon :name="getMaterialName(mat.materialId)" :size="16" />
-              <span class="material-row__name">{{ getMaterialName(mat.materialId) }}</span>
+      <!-- Material Purchases Accordion -->
+      <details class="accordion-item">
+        <summary class="accordion-summary">
+          <span class="accordion-title">🛒 {{ translate('materialPurchases') }}</span>
+          <span class="accordion-value text-red-400">
+            {{ formatCurrency(report.summary.materialPurchaseCosts * periodFactor) }}
+          </span>
+        </summary>
+        <div class="accordion-content">
+          <div class="material-list">
+            <div v-for="mat in purchaseMaterials" :key="mat.materialId" class="material-item">
+              <div class="material-info">
+                <MaterialIcon :name="getMaterialName(mat.materialId)" :size="16" />
+                <span class="material-name">{{ getMaterialName(mat.materialId) }}</span>
+              </div>
+              <div class="material-stats">
+                <span class="text-red-400">{{ formatNumber(mat.balancePerPeriod, 0) }}</span>
+                <span class="text-slate-400 text-xs">@{{ formatPrice(mat.unitPrice, 2) }}</span>
+                <span class="text-red-400 font-semibold">{{ formatCurrency(mat.valuePerPeriod) }}</span>
+              </div>
             </div>
-            <div class="material-row__stats">
-              <span class="text-red-400">{{ formatNumber(mat.balancePerPeriod, 0) }}</span>
-              <span class="text-slate-400">@{{ formatPrice(mat.unitPrice, 2) }}</span>
-              <span class="text-red-400 font-semibold">
-                {{ formatCurrency(mat.valuePerPeriod) }}
-              </span>
-            </div>
-          </div>
-          <div v-if="purchaseMaterials.length > 8" class="material-row material-row--more">
-            +{{ purchaseMaterials.length - 8 }} more materials
           </div>
         </div>
-      </section>
+      </details>
 
-      <!-- Workforce Productivity -->
-      <section class="detail-card">
-        <h3 class="detail-card__title">👷 {{ translate('workforceProductivity') }}</h3>
-        
-        <!-- Per-Tier Productivity -->
-        <div class="workforce-table">
-          <div v-for="tier in summary.workforceProductivity.tiers" :key="tier.tier" class="workforce-row">
-            <span class="workforce-row__tier">{{ getTierLabel(tier.tier) }}</span>
-            <div class="workforce-row__stats">
+      <!-- Workforce Productivity Accordion -->
+      <details class="accordion-item">
+        <summary class="accordion-summary">
+          <span class="accordion-title">⚙️ {{ translate('workforceProductivity') }}</span>
+          <span
+            class="accordion-value"
+            :class="productivityColor(summary.workforceProductivity.overallProductivityPercent)"
+          >
+            {{ formatNumber(summary.workforceProductivity.overallProductivityPercent, 0) }}%
+          </span>
+        </summary>
+        <div class="accordion-content">
+          <div class="workforce-grid">
+            <div v-for="tier in summary.workforceProductivity.tiers" :key="tier.tier" class="workforce-item">
+              <span class="workforce-tier">{{ getTierLabel(tier.tier) }}</span>
               <span
-                class="workforce-row__coverage"
+                class="workforce-percent"
                 :class="productivityColor(tier.productivityPercent)"
               >
                 {{ formatNumber(tier.productivityPercent, 0) }}%
               </span>
-              <span v-if="tier.limitingFactor === 'housing'" class="text-slate-400 text-xs">
-                ({{ translate('limitedByHousing') }})
+              <span v-if="tier.limitingFactor === 'housing'" class="workforce-limit text-slate-400">
+                {{ translate('limitedByHousing') }}
               </span>
-              <span v-else-if="tier.limitingFactor === 'consumption'" class="text-slate-400 text-xs">
-                ({{ translate('limitedByConsumption') }})
+              <span v-else-if="tier.limitingFactor === 'consumption'" class="workforce-limit text-slate-400">
+                {{ translate('limitedByConsumption') }}
               </span>
             </div>
           </div>
-        </div>
-
-        <!-- Lost Profit Warning -->
-        <div v-if="lostProfitData" class="workforce-warning">
-          <div class="workforce-warning__icon">⚠️</div>
-          <div class="workforce-warning__content">
-            <div class="workforce-warning__title">{{ translate('lostProfitWarning') }}</div>
-            <div class="workforce-warning__details">
-              <span class="text-amber-400">
+          
+          <div v-if="lostProfitData" class="lost-profit-alert">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content">
+              <span class="alert-label">{{ translate('lostProfitWarning') }}:</span>
+              <span class="alert-value text-amber-400">
                 {{ formatCurrency(lostProfitData.lostProfitPerPeriod) }}
               </span>
-              <span class="text-slate-400 text-xs">
-                {{ translate('lostDueToProductivity', { percent: formatNumber(100 - lostProfitData.currentProductivity, 1) }) }}
-              </span>
             </div>
           </div>
         </div>
-      </section>
+      </details>
 
-      <!-- Materials Balance (Full List) -->
-      <section class="detail-card detail-card--full">
-        <h3 class="detail-card__title">📦 {{ translate('materialBalance') }}</h3>
-        <div class="balance-tabs">
-          <details class="balance-details" open>
-            <summary class="balance-summary">
-              <span class="text-emerald-400">
+      <!-- Material Balance Accordion -->
+      <details class="accordion-item">
+        <summary class="accordion-summary">
+          <span class="accordion-title">📦 {{ translate('materialBalance') }}</span>
+          <span class="accordion-value text-slate-400">
+            <span class="text-emerald-400">+{{ exportMaterials.length }}</span>
+            <span class="text-slate-500">/</span>
+            <span class="text-red-400">−{{ purchaseMaterials.length }}</span>
+          </span>
+        </summary>
+        <div class="accordion-content">
+          <div class="balance-split">
+            <div class="balance-column">
+              <div class="balance-header text-emerald-400">
                 ▲ {{ translate('producing') }} ({{ exportMaterials.length }})
-              </span>
-            </summary>
-            <div class="balance-list">
-              <div v-for="mat in exportMaterials" :key="mat.materialId" class="balance-row">
-                <div class="balance-row__info">
+              </div>
+              <div class="balance-items">
+                <div v-for="mat in exportMaterials" :key="mat.materialId" class="balance-item">
                   <MaterialIcon :name="getMaterialName(mat.materialId)" :size="14" />
-                  <span class="balance-row__name">{{ getMaterialName(mat.materialId) }}</span>
-                </div>
-                <div class="balance-row__stats">
-                  <span class="text-emerald-400">+{{ formatNumber(mat.balancePerPeriod, 0) }}</span>
-                  <span class="text-slate-400 text-xs">{{ formatCurrency(mat.valuePerPeriod) }}</span>
+                  <span class="balance-name">{{ getMaterialName(mat.materialId) }}</span>
+                  <span class="balance-amount text-emerald-400">
+                    +{{ formatNumber(mat.balancePerPeriod, 0) }}
+                  </span>
                 </div>
               </div>
             </div>
-          </details>
-
-          <details class="balance-details">
-            <summary class="balance-summary">
-              <span class="text-red-400">
+            
+            <div class="balance-column">
+              <div class="balance-header text-red-400">
                 ▼ {{ translate('consuming') }} ({{ purchaseMaterials.length }})
-              </span>
-            </summary>
-            <div class="balance-list">
-              <div v-for="mat in purchaseMaterials" :key="mat.materialId" class="balance-row">
-                <div class="balance-row__info">
+              </div>
+              <div class="balance-items">
+                <div v-for="mat in purchaseMaterials" :key="mat.materialId" class="balance-item">
                   <MaterialIcon :name="getMaterialName(mat.materialId)" :size="14" />
-                  <span class="balance-row__name">{{ getMaterialName(mat.materialId) }}</span>
-                </div>
-                <div class="balance-row__stats">
-                  <span class="text-red-400">{{ formatNumber(mat.balancePerPeriod, 0) }}</span>
-                  <span class="text-slate-400 text-xs">{{ formatCurrency(mat.valuePerPeriod) }}</span>
+                  <span class="balance-name">{{ getMaterialName(mat.materialId) }}</span>
+                  <span class="balance-amount text-red-400">
+                    {{ formatNumber(mat.balancePerPeriod, 0) }}
+                  </span>
                 </div>
               </div>
             </div>
-          </details>
+          </div>
         </div>
-      </section>
+      </details>
     </div>
   </div>
 </template>
@@ -290,135 +292,173 @@ const lostProfitData = computed(() => {
   padding: 0.5rem 0;
 }
 
-.details-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem;
+/* Accordion Container */
+.accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.detail-card {
+.accordion-item {
   background: rgb(15 23 42);
   border: 1px solid rgb(51 65 85);
-  border-radius: 0.5rem;
-  padding: 1rem;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.accordion-item:hover {
+  border-color: rgb(71 85 105);
+}
+
+.accordion-item[open] {
+  background: rgb(20 28 46);
+}
+
+/* Accordion Summary (Header Bar) */
+.accordion-summary {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.detail-card--full {
-  grid-column: 1 / -1;
-}
-
-.detail-card__title {
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  transition: background-color 0.2s;
   font-size: 0.9375rem;
+}
+
+.accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion-summary:hover {
+  background: rgb(30 41 59);
+}
+
+.accordion-title {
   font-weight: 600;
   color: var(--color-heading);
-  margin: 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgb(51 65 85);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-/* Net Result */
-.net-summary {
+.accordion-value {
+  font-weight: 700;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Accordion Content */
+.accordion-content {
+  padding: 0 1rem 1rem 1rem;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Net Breakdown */
+.net-breakdown {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.net-row {
+.breakdown-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: rgb(30 41 59);
+  border-radius: 0.25rem;
   font-size: 0.875rem;
 }
 
-.net-row--total {
-  padding-top: 0.5rem;
-  margin-top: 0.25rem;
-  border-top: 1px solid rgb(51 65 85);
-  font-weight: 600;
-}
-
-.net-row__label {
+.breakdown-label {
   color: var(--color-text-soft);
 }
 
-.net-row__value {
+.breakdown-value {
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Worker Consumption */
-.worker-list {
-  display: flex;
-  flex-direction: column;
+/* Worker Grid */
+.worker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.5rem;
 }
 
-.worker-row {
+.worker-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0.625rem 0.75rem;
+  background: rgb(30 41 59);
+  border-radius: 0.25rem;
   font-size: 0.875rem;
 }
 
-.worker-row--total {
-  padding-top: 0.5rem;
-  margin-top: 0.25rem;
-  border-top: 1px solid rgb(51 65 85);
+.worker-tier {
   font-weight: 600;
-}
-
-.worker-row__tier {
-  color: var(--color-text-soft);
-  font-weight: 500;
+  color: var(--color-heading);
   min-width: 2rem;
 }
 
-.worker-row__details {
+.worker-details {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 1;
+  margin: 0 0.75rem;
 }
 
-.worker-row__amount {
+.worker-amount {
   color: var(--color-text);
-  min-width: 3rem;
-  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-.worker-row__cost {
-  min-width: 5rem;
-  text-align: right;
+.worker-cost {
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Material Tables */
-.material-table {
+/* Material List */
+.material-list {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
 }
 
-.material-row {
+.material-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem;
+  padding: 0.625rem 0.75rem;
   background: rgb(30 41 59);
   border-radius: 0.25rem;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
+  transition: background-color 0.15s;
 }
 
-.material-row--more {
-  color: var(--color-text-soft);
-  font-style: italic;
-  justify-content: center;
+.material-item:hover {
+  background: rgb(51 65 85);
 }
 
-.material-row__info {
+.material-info {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -426,7 +466,7 @@ const lostProfitData = computed(() => {
   min-width: 0;
 }
 
-.material-row__name {
+.material-name {
   font-weight: 500;
   color: var(--color-heading);
   overflow: hidden;
@@ -434,144 +474,127 @@ const lostProfitData = computed(() => {
   white-space: nowrap;
 }
 
-.material-row__stats {
+.material-stats {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
+  gap: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Workforce Table */
-.workforce-table {
+/* Workforce Grid */
+.workforce-grid {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.workforce-row {
-  display: flex;
-  justify-content: space-between;
+.workforce-item {
+  display: grid;
+  grid-template-columns: 3rem 4rem 1fr;
   align-items: center;
-  padding: 0.5rem;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
   background: rgb(30 41 59);
   border-radius: 0.25rem;
   font-size: 0.875rem;
 }
 
-.workforce-row__tier {
+.workforce-tier {
   font-weight: 600;
   color: var(--color-heading);
-  min-width: 2rem;
 }
 
-.workforce-row__stats {
+.workforce-percent {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.workforce-limit {
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+/* Lost Profit Alert */
+.lost-profit-alert {
   display: flex;
   align-items: center;
-  gap: 1rem;
-}
-
-.workforce-row__coverage {
-  font-weight: 600;
-  min-width: 3rem;
-  text-align: right;
-}
-
-/* Workforce Warning */
-.workforce-warning {
-  display: flex;
-  align-items: flex-start;
   gap: 0.75rem;
-  padding: 0.875rem;
+  padding: 0.75rem;
   margin-top: 0.75rem;
   background: rgba(251, 191, 36, 0.1);
   border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 0.375rem;
+  border-radius: 0.25rem;
 }
 
-.workforce-warning__icon {
+.alert-icon {
   font-size: 1.25rem;
   flex-shrink: 0;
 }
 
-.workforce-warning__content {
-  flex: 1;
-  min-width: 0;
-}
-
-.workforce-warning__title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #fbbf24;
-  margin-bottom: 0.25rem;
-}
-
-.workforce-warning__details {
+.alert-content {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
-/* Balance Tabs */
-.balance-tabs {
+.alert-label {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.alert-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Balance Split View */
+.balance-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.balance-column {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.balance-details {
-  border: 1px solid rgb(51 65 85);
-  border-radius: 0.375rem;
-  overflow: hidden;
-}
-
-.balance-summary {
-  padding: 0.75rem;
-  background: rgb(30 41 59);
-  cursor: pointer;
-  user-select: none;
-  font-weight: 500;
+.balance-header {
+  font-weight: 600;
   font-size: 0.875rem;
-  transition: background-color 0.2s;
+  padding: 0.5rem 0.75rem;
+  background: rgb(30 41 59);
+  border-radius: 0.25rem;
 }
 
-.balance-summary:hover {
-  background: rgb(51 65 85);
-}
-
-.balance-list {
-  padding: 0.5rem;
+.balance-items {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  max-height: 250px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
-.balance-row {
-  display: flex;
-  justify-content: space-between;
+.balance-item {
+  display: grid;
+  grid-template-columns: 1rem 1fr auto;
   align-items: center;
-  padding: 0.375rem 0.5rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(30, 41, 59, 0.5);
   border-radius: 0.25rem;
   font-size: 0.8125rem;
-  transition: background-color 0.2s;
+  transition: background-color 0.15s;
 }
 
-.balance-row:hover {
+.balance-item:hover {
   background: rgb(30 41 59);
 }
 
-.balance-row__info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.balance-row__name {
+.balance-name {
   font-weight: 500;
   color: var(--color-text);
   overflow: hidden;
@@ -580,10 +603,9 @@ const lostProfitData = computed(() => {
   font-size: 0.75rem;
 }
 
-.balance-row__stats {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.balance-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
 }
 
@@ -604,6 +626,10 @@ const lostProfitData = computed(() => {
   color: rgb(148, 163, 184);
 }
 
+.text-slate-500 {
+  color: rgb(100, 116, 139);
+}
+
 .text-xs {
   font-size: 0.75rem;
 }
@@ -612,15 +638,39 @@ const lostProfitData = computed(() => {
   font-weight: 600;
 }
 
+/* Mobile Responsive */
 @media (max-width: 768px) {
-  .details-grid {
+  .accordion-summary {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  .accordion-value {
+    font-size: 0.875rem;
+  }
+
+  .accordion-content {
+    padding: 0 0.875rem 0.875rem 0.875rem;
+  }
+
+  .worker-grid {
     grid-template-columns: 1fr;
   }
 
-  .material-row__stats {
+  .balance-split {
+    grid-template-columns: 1fr;
+  }
+
+  .material-stats {
     flex-direction: column;
     align-items: flex-end;
     gap: 0.25rem;
+  }
+
+  .workforce-item {
+    grid-template-columns: 2.5rem 3.5rem 1fr;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
   }
 }
 </style>
