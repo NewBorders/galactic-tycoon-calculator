@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
 import { translate, formatCurrency } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
@@ -16,31 +16,39 @@ const props = defineProps<{
 
 const periodFactor = computed(() => props.timeframeHours / 24)
 
-// Accordion state per section
-const openSections = ref({
-  net: true,
-  workers: false,
-  production: false,
-  purchases: false,
-  productivity: false,
-  balance: false,
-})
-
 // LocalStorage key for this base
 const storageKey = computed(() => `baseDetailExpanded_${props.summary.baseId}`)
 
-// Load state from localStorage on mount
-onMounted(() => {
+// Load initial state from localStorage or use defaults (all closed)
+const loadInitialState = () => {
   const stored = localStorage.getItem(storageKey.value)
   if (stored) {
     try {
       const parsed = JSON.parse(stored)
-      openSections.value = { ...openSections.value, ...parsed }
+      return {
+        net: parsed.net ?? false,
+        workers: parsed.workers ?? false,
+        production: parsed.production ?? false,
+        purchases: parsed.purchases ?? false,
+        productivity: parsed.productivity ?? false,
+        balance: parsed.balance ?? false,
+      }
     } catch (e) {
       // Ignore invalid JSON
     }
   }
-})
+  return {
+    net: false,
+    workers: false,
+    production: false,
+    purchases: false,
+    productivity: false,
+    balance: false,
+  }
+}
+
+// Accordion state per section
+const openSections = ref(loadInitialState())
 
 // Save state to localStorage when it changes
 watch(openSections, (newState) => {
