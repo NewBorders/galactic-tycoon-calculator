@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
 import { translate, formatCurrency } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
@@ -15,6 +15,42 @@ const props = defineProps<{
 }>()
 
 const periodFactor = computed(() => props.timeframeHours / 24)
+
+// Accordion state per section
+const openSections = ref({
+  net: true,
+  workers: false,
+  production: false,
+  purchases: false,
+  productivity: false,
+  balance: false,
+})
+
+// LocalStorage key for this base
+const storageKey = computed(() => `baseDetailExpanded_${props.summary.baseId}`)
+
+// Load state from localStorage on mount
+onMounted(() => {
+  const stored = localStorage.getItem(storageKey.value)
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored)
+      openSections.value = { ...openSections.value, ...parsed }
+    } catch (e) {
+      // Ignore invalid JSON
+    }
+  }
+})
+
+// Save state to localStorage when it changes
+watch(openSections, (newState) => {
+  localStorage.setItem(storageKey.value, JSON.stringify(newState))
+}, { deep: true })
+
+// Toggle handlers for each section
+const toggleSection = (section: keyof typeof openSections.value) => {
+  openSections.value[section] = !openSections.value[section]
+}
 
 const getMaterialName = (materialId: number): string => {
   return props.index.materialById.get(materialId)?.name || `Material ${materialId}`
@@ -91,7 +127,7 @@ const lostProfitData = computed(() => {
   <div class="base-details">
     <div class="accordion">
       <!-- Net Result Accordion -->
-      <details class="accordion-item" open>
+      <details class="accordion-item" :open="openSections.net" @toggle="toggleSection('net')">
         <summary class="accordion-summary">
           <span class="accordion-title">💰 {{ translate('netProfit') }}</span>
           <span
@@ -126,7 +162,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Worker Consumption Accordion -->
-      <details class="accordion-item">
+      <details class="accordion-item" :open="openSections.workers" @toggle="toggleSection('workers')">
         <summary class="accordion-summary">
           <span class="accordion-title">👷 {{ translate('workerConsumption') }}</span>
           <span class="accordion-value text-amber-400">
@@ -148,7 +184,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Production Revenue Accordion -->
-      <details class="accordion-item">
+      <details class="accordion-item" :open="openSections.production" @toggle="toggleSection('production')">
         <summary class="accordion-summary">
           <span class="accordion-title">📈 {{ translate('productionRevenue') }}</span>
           <span class="accordion-value text-emerald-400">
@@ -173,7 +209,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Material Purchases Accordion -->
-      <details class="accordion-item">
+      <details class="accordion-item" :open="openSections.purchases" @toggle="toggleSection('purchases')">
         <summary class="accordion-summary">
           <span class="accordion-title">🛒 {{ translate('materialPurchases') }}</span>
           <span class="accordion-value text-red-400">
@@ -198,7 +234,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Workforce Productivity Accordion -->
-      <details class="accordion-item">
+      <details class="accordion-item" :open="openSections.productivity" @toggle="toggleSection('productivity')">
         <summary class="accordion-summary">
           <span class="accordion-title">⚙️ {{ translate('workforceProductivity') }}</span>
           <span
@@ -240,7 +276,7 @@ const lostProfitData = computed(() => {
       </details>
 
       <!-- Material Balance Accordion -->
-      <details class="accordion-item">
+      <details class="accordion-item" :open="openSections.balance" @toggle="toggleSection('balance')">
         <summary class="accordion-summary">
           <span class="accordion-title">📦 {{ translate('materialBalance') }}</span>
           <span class="accordion-value text-slate-400">
