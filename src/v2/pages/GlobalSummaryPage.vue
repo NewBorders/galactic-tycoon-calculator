@@ -182,7 +182,7 @@ const isBaseExpanded = (baseId: string): boolean => {
 <template>
   <div class="global-summary">
     <!-- Timeframe Control -->
-    <div class="flex items-center justify-between px-4 py-3 bg-slate-900/50 border-b border-slate-700">
+    <div class="flex items-center justify-between px-4 py-3 bg-slate-900/50">
       <h1 class="text-xl font-semibold text-slate-100">{{ translate('globalSummary') }}</h1>
       <div class="flex items-center gap-2 text-sm">
         <label class="flex items-center gap-2 text-slate-300">
@@ -211,14 +211,14 @@ const isBaseExpanded = (baseId: string): boolean => {
             <div class="stat-card__value">{{ formatCurrency(summary.totalNetProfit.value, 0) }}</div>
           </div>
         </div>
-        
+
         <div class="stat-card stat-card--success">
           <div class="stat-card__content">
             <div class="stat-card__label">Export Net Profit</div>
             <div class="stat-card__value">{{ formatCurrency(summary.totalExportNetProfit.value, 0) }}</div>
           </div>
         </div>
-        
+
         <div class="stat-card" v-if="summary.totalWorkforceDeficitCost.value > 0">
           <div class="stat-card__content">
             <div class="stat-card__label">Workforce Deficit Cost</div>
@@ -227,7 +227,7 @@ const isBaseExpanded = (baseId: string): boolean => {
             </div>
           </div>
         </div>
-        
+
         <div class="stat-card" v-if="summary.totalConsumptionOverheadCost.value > 0">
           <div class="stat-card__content">
             <div class="stat-card__label">Consumption Overhead</div>
@@ -236,7 +236,7 @@ const isBaseExpanded = (baseId: string): boolean => {
             </div>
           </div>
         </div>
-        
+
         <div class="stat-card" v-if="summary.totalConsumptionOverheadCost.value > 0">
           <div class="stat-card__content">
             <div class="stat-card__label">Expansion Overhead Cost</div>
@@ -253,7 +253,7 @@ const isBaseExpanded = (baseId: string): boolean => {
       <h2 class="section-title">🏭 {{ translate('yourBases') }} ({{ bases.length }})</h2>
       <div class="bases-grid">
         <BaseCard
-          v-for="baseSummary in summary.baseSummaries.value" 
+          v-for="baseSummary in summary.baseSummaries.value"
           :key="baseSummary.baseId"
           :summary="baseSummary"
           :is-expanded="isBaseExpanded(baseSummary.baseId)"
@@ -273,7 +273,7 @@ const isBaseExpanded = (baseId: string): boolean => {
           </template>
         </BaseCard>
       </div>
-      
+
       <div v-if="bases.length === 0" class="empty-state">
         <div class="empty-state__icon">🏭</div>
         <div class="empty-state__text">{{ translate('noBasesConfigured') }}</div>
@@ -304,8 +304,8 @@ const isBaseExpanded = (baseId: string): boolean => {
             </tr>
           </thead>
           <tbody>
-            <tr 
-              v-for="material in summary.globalMaterials.value.filter((m: any) => Math.abs(m.netBalance) > 0.01)" 
+            <tr
+              v-for="material in summary.globalMaterials.value.filter((m: any) => Math.abs(m.netBalance) > 0.01)"
               :key="material.materialId"
             >
               <td class="material-name">
@@ -313,7 +313,7 @@ const isBaseExpanded = (baseId: string): boolean => {
               </td>
               <td class="text-right">{{ formatNumber(material.totalProduction) }}</td>
               <td class="text-right">{{ formatNumber(material.totalConsumption) }}</td>
-              <td 
+              <td
                 class="text-right"
                 :class="{
                   'text-success': material.netBalance > 0,
@@ -601,39 +601,39 @@ const isBaseExpanded = (baseId: string): boolean => {
   .global-summary {
     padding: 1rem;
   }
-  
+
   .global-summary__title {
     font-size: 1.5rem;
   }
-  
+
   .global-summary__stats {
     grid-template-columns: 1fr;
   }
-  
+
   .stat-card {
     padding: 1rem;
   }
-  
+
   .stat-card__icon {
     font-size: 2rem;
   }
-  
+
   .stat-card__value {
     font-size: 1.25rem;
   }
-  
+
   .section-title {
     font-size: 1.25rem;
   }
-  
+
   .bases-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .materials-table {
     font-size: 0.8125rem;
   }
-  
+
   .materials-table th,
   .materials-table td {
     padding: 0.5rem 0.75rem;
@@ -644,20 +644,20 @@ const isBaseExpanded = (baseId: string): boolean => {
   .global-summary {
     padding: 0.75rem;
   }
-  
+
   .global-summary__header {
     margin-bottom: 1.5rem;
   }
-  
+
   .stat-card {
     padding: 0.875rem;
   }
-  
+
   .materials-table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   .materials-table {
     min-width: 500px;
   }
