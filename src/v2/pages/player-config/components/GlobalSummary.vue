@@ -5,7 +5,8 @@ import type { PlayerBase } from '@/v2/services/playerBases'
 import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
 import { useWorldData } from '@/v2/services/worldData'
 import { formatPrice, formatNumber } from '@/v2/utils/formatNumber'
-import { translate } from '@/v2/localisation'
+import { translate, formatDays } from '@/v2/localisation'
+import { getMaterialNameById, getPlanetNameById } from '@/v2/services/gamedata/gameDataRepository'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import { getWorkerConsumableMaterialIds } from '@/v2/utils/workerConsumables'
 import { formatWeight, getMaterialWeight } from '@/v2/utils/materialHelpers'
@@ -60,11 +61,6 @@ function toggleBase(baseId: string) {
   }
 }
 
-function getMaterialName(materialId: number): string {
-  const material = props.gameData.materials.find((m) => m.id === materialId)
-  return material?.name ?? `Material ${materialId}`
-}
-
 const regularMaterials = computed(() => {
   return globalMaterials.value.filter(m => !workerConsumableIds.value.has(m.materialId))
 })
@@ -72,19 +68,6 @@ const regularMaterials = computed(() => {
 const workerConsumableMaterials = computed(() => {
   return globalMaterials.value.filter(m => workerConsumableIds.value.has(m.materialId))
 })
-
-function getPlanetName(planetId: number): string {
-  const planet = props.gameData.planets.find((p) => p.id === planetId)
-  return planet?.name ?? `Planet ${planetId}`
-}
-
-function formatDays(days: number): string {
-  if (days < 1) {
-    const hours = Math.floor(days * 24)
-    return `${hours}h`
-  }
-  return `${Math.floor(days)}d`
-}
 
 // Calculate total weight and value for export materials per base
 function getExportTotals(exportMaterials: typeof baseSummaries.value[0]['exportMaterials']) {
@@ -199,7 +182,7 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
                 <span class="font-medium truncate">{{ baseSummary.baseName }}</span>
-                <span class="text-sm text-slate-500 truncate">{{ getPlanetName(baseSummary.planetId) }}</span>
+                <span class="text-sm text-slate-500 truncate">{{ getPlanetNameById(baseSummary.planetId) }}</span>
                 <!-- Warning icon if materials running out -->
                 <svg
                   v-if="baseSummary.materialsRunningOut.length > 0"
@@ -257,8 +240,8 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                       :key="material.materialId"
                       class="flex items-center gap-2 text-sm"
                     >
-                      <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
-                      <span class="text-slate-300 flex-1 truncate">{{ getMaterialName(material.materialId) }}</span>
+                      <MaterialIcon :name="getMaterialNameById(material.materialId)" :size="16" />
+                      <span class="text-slate-300 flex-1 truncate">{{ getMaterialNameById(material.materialId) }}</span>
                       <span class="text-emerald-400 font-medium text-right w-20">
                         +{{ formatNumber(material.exportPerDay, 1) }}
                       </span>
@@ -308,8 +291,8 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                       :key="material.materialId"
                       class="flex items-center gap-2 text-sm"
                     >
-                      <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
-                      <span class="text-slate-300 flex-1 truncate">{{ getMaterialName(material.materialId) }}</span>
+                      <MaterialIcon :name="getMaterialNameById(material.materialId)" :size="16" />
+                      <span class="text-slate-300 flex-1 truncate">{{ getMaterialNameById(material.materialId) }}</span>
                       <span class="text-rose-400 font-medium text-right w-20">
                         {{ formatDays(material.daysUntilEmpty) }}
                       </span>
@@ -387,8 +370,8 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                     <tr class="border-b border-slate-800 hover:bg-slate-800/50">
                       <td class="py-1 px-2">
                         <div class="flex items-center gap-2">
-                          <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
-                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialName(material.materialId) }}</span>
+                          <MaterialIcon :name="getMaterialNameById(material.materialId)" :size="16" />
+                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialNameById(material.materialId) }}</span>
                         </div>
                       </td>
                       <td class="text-right py-1 px-2">
@@ -458,8 +441,8 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                     <tr class="border-b border-slate-800 hover:bg-slate-800/50">
                       <td class="py-1 px-2">
                         <div class="flex items-center gap-2">
-                          <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
-                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialName(material.materialId) }}</span>
+                          <MaterialIcon :name="getMaterialNameById(material.materialId)" :size="16" />
+                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialNameById(material.materialId) }}</span>
                         </div>
                       </td>
                       <td class="text-right py-1 px-2">

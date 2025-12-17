@@ -8,6 +8,7 @@ import { useWorldData } from '@/v2/services/worldData'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
+import { getMaterialNameById } from '@/v2/services/gamedata/gameDataRepository'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
 import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
@@ -17,6 +18,7 @@ import { analyzeStockSituation } from '@/v2/services/stockAnalysis'
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
+const MATERIALS_BALANCE_STORAGE_KEY = 'gt:v2:materialsBalance:collapsed'
 
 function sanitizeTimeframe(value: unknown): number {
   const numeric = typeof value === 'number' ? value : Number(value)
@@ -33,6 +35,32 @@ function loadTimeframe(): number {
   } catch {
     return DEFAULT_TIMEFRAME_HOURS
   }
+}
+
+// Collapsible state for Materials Balance
+const isMaterialsBalanceCollapsed = ref<boolean>(false)
+
+const loadMaterialsBalanceState = (): boolean => {
+  try {
+    const stored = localStorage.getItem(MATERIALS_BALANCE_STORAGE_KEY)
+    return stored === 'true'
+  } catch {
+    return false
+  }
+}
+
+isMaterialsBalanceCollapsed.value = loadMaterialsBalanceState()
+
+watch(isMaterialsBalanceCollapsed, (newValue) => {
+  try {
+    localStorage.setItem(MATERIALS_BALANCE_STORAGE_KEY, String(newValue))
+  } catch {
+    // Ignore localStorage errors
+  }
+})
+
+const toggleMaterialsBalance = () => {
+  isMaterialsBalanceCollapsed.value = !isMaterialsBalanceCollapsed.value
 }
 
 const props = defineProps<{
@@ -158,10 +186,6 @@ const stockAnalysis = computed(() => {
     },
   )
 })
-
-const getMaterialName = (materialId: number): string => {
-  return props.index.materialById.get(materialId)?.name || `Material ${materialId}`
-}
 
 const toggleBase = (baseId: string) => {
   toggleBaseOpen(baseId)
@@ -291,8 +315,11 @@ const isBaseExpanded = (baseId: string): boolean => {
 
     <!-- Global Materials Overview -->
     <section class="global-summary__section">
-      <h2 class="section-title">📦 Global Materials Balance</h2>
-      <div class="materials-table-wrapper">
+      <h2 class="section-title" @click="toggleMaterialsBalance" style="cursor: pointer;">
+        <span class="collapse-icon">{{ isMaterialsBalanceCollapsed ? '▶' : '▼' }}</span>
+        📦 Global Materials Balance
+      </h2>
+      <div v-if="!isMaterialsBalanceCollapsed" class="materials-table-wrapper">
         <table class="materials-table">
           <thead>
             <tr>
@@ -309,7 +336,7 @@ const isBaseExpanded = (baseId: string): boolean => {
               :key="material.materialId"
             >
               <td class="material-name">
-                {{ getMaterialName(material.materialId) }}
+                {{ getMaterialNameById(material.materialId) }}
               </td>
               <td class="text-right">{{ formatNumber(material.totalProduction) }}</td>
               <td class="text-right">{{ formatNumber(material.totalConsumption) }}</td>
@@ -417,6 +444,17 @@ const isBaseExpanded = (baseId: string): boolean => {
   font-weight: 600;
   margin: 0 0 1rem;
   color: var(--color-heading);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  user-select: none;
+}
+
+.collapse-icon {
+  display: inline-block;
+  width: 1rem;
+  text-align: center;
+  transition: transform 0.2s ease;
 }
 
 .bases-grid {

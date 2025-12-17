@@ -285,6 +285,11 @@ export const messages: Record<LanguageCode, Record<string, string>> = {
     priceAlertReset: 'Reset',
     priceAlertDelete: 'Delete',
     priceAlertCreateNew: 'Create Alert',
+    housingShortage: 'Housing shortage',
+    consumableShortage: 'Material shortage',
+    actionRedistribute: 'Redistribute',
+    actionPurchase: 'Purchase',
+    sourceBase: 'Source Base',
   },
   de: {
     language: 'Sprache',

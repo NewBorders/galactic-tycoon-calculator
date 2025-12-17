@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
 import { translate, formatCurrency } from '@/v2/localisation'
+import { getMaterialNameById } from '@/v2/services/gamedata/gameDataRepository'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import type { BaseSummaryData } from '@/v2/composables/useGlobalSummary'
 import type { BaseReport } from '@/v2/services/production/types'
@@ -59,10 +60,6 @@ watch(openSections, (newState) => {
 const syncSection = (section: keyof typeof openSections.value, event: Event) => {
   const detailsElement = event.target as HTMLDetailsElement
   openSections.value[section] = detailsElement.open
-}
-
-const getMaterialName = (materialId: number): string => {
-  return props.index.materialById.get(materialId)?.name || `Material ${materialId}`
 }
 
 // Production: Materials with positive balance (exports)
@@ -183,7 +180,7 @@ const lostProfitData = computed(() => {
             <div v-for="worker in workerConsumption" :key="worker.tier" class="worker-item">
               <span class="worker-tier">{{ getTierLabel(worker.tier) }}</span>
               <div class="worker-details">
-                <MaterialIcon :name="getMaterialName(worker.materialId)" :size="16" />
+                <MaterialIcon :name="getMaterialNameById(worker.materialId)" :size="16" />
                 <span class="worker-amount">{{ formatNumber(worker.consumptionPerPeriod, 0) }}x</span>
               </div>
               <span class="worker-cost text-amber-400">{{ formatCurrency(worker.costPerPeriod) }}</span>
@@ -204,8 +201,8 @@ const lostProfitData = computed(() => {
           <div class="material-list">
             <div v-for="mat in exportMaterials" :key="mat.materialId" class="material-item">
               <div class="material-info">
-                <MaterialIcon :name="getMaterialName(mat.materialId)" :size="16" />
-                <span class="material-name">{{ getMaterialName(mat.materialId) }}</span>
+                <MaterialIcon :name="getMaterialNameById(mat.materialId)" :size="16" />
+                <span class="material-name">{{ getMaterialNameById(mat.materialId) }}</span>
               </div>
               <div class="material-stats">
                 <span class="text-emerald-400">+{{ formatNumber(mat.balancePerPeriod, 0) }}</span>
@@ -229,8 +226,8 @@ const lostProfitData = computed(() => {
           <div class="material-list">
             <div v-for="mat in purchaseMaterials" :key="mat.materialId" class="material-item">
               <div class="material-info">
-                <MaterialIcon :name="getMaterialName(mat.materialId)" :size="16" />
-                <span class="material-name">{{ getMaterialName(mat.materialId) }}</span>
+                <MaterialIcon :name="getMaterialNameById(mat.materialId)" :size="16" />
+                <span class="material-name">{{ getMaterialNameById(mat.materialId) }}</span>
               </div>
               <div class="material-stats">
                 <span class="text-red-400">{{ formatNumber(mat.balancePerPeriod, 0) }}</span>
@@ -302,8 +299,8 @@ const lostProfitData = computed(() => {
               </div>
               <div class="balance-items">
                 <div v-for="mat in exportMaterials" :key="mat.materialId" class="balance-item">
-                  <MaterialIcon :name="getMaterialName(mat.materialId)" :size="14" />
-                  <span class="balance-name">{{ getMaterialName(mat.materialId) }}</span>
+                  <MaterialIcon :name="getMaterialNameById(mat.materialId)" :size="14" />
+                  <span class="balance-name">{{ getMaterialNameById(mat.materialId) }}</span>
                   <span class="balance-amount text-emerald-400">
                     +{{ formatNumber(mat.balancePerPeriod, 0) }}
                   </span>
@@ -317,8 +314,8 @@ const lostProfitData = computed(() => {
               </div>
               <div class="balance-items">
                 <div v-for="mat in purchaseMaterials" :key="mat.materialId" class="balance-item">
-                  <MaterialIcon :name="getMaterialName(mat.materialId)" :size="14" />
-                  <span class="balance-name">{{ getMaterialName(mat.materialId) }}</span>
+                  <MaterialIcon :name="getMaterialNameById(mat.materialId)" :size="14" />
+                  <span class="balance-name">{{ getMaterialNameById(mat.materialId) }}</span>
                   <span class="balance-amount text-red-400">
                     {{ formatNumber(mat.balancePerPeriod, 0) }}
                   </span>

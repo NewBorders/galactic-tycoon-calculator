@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { translate, formatCurrency, formatNumber } from '@/v2/localisation'
+import { getMaterialNameById } from '@/v2/services/gamedata/gameDataRepository'
 import type { BaseSummaryData } from '@/v2/composables/useGlobalSummary'
 import type { GdIndex } from '@/v2/services/gamedata/types'
 import MaterialIcon from './MaterialIcon.vue'
@@ -34,6 +35,48 @@ const productivityColor = computed(() => {
   return 'text-red-400'
 })
 
+// Get productivity reason if not 100%
+const productivityReason = computed(() => {
+  const productivity = props.summary.workforceProductivity
+  if (productivity.overallProductivityPercent >= 100) return null
+
+  if (!props.index) return null
+
+  // Collect all problems across all tiers
+  const problems: string[] = []
+  const tiersByFactor = new Map<string, number[]>()
+
+  productivity.tiers.forEach(tier => {
+    if (tier.productivityPercent >= 100) return
+
+    if (tier.limitingFactor === 'housing') {
+      if (!tiersByFactor.has('housing')) {
+        tiersByFactor.set('housing', [])
+      }
+      tiersByFactor.get('housing')!.push(tier.tier)
+    } else if (tier.limitingFactor === 'consumption' && tier.limitingMaterialId) {
+      const materialName = getMaterialNameById(tier.limitingMaterialId)
+      const key = `material:${materialName}`
+      if (!tiersByFactor.has(key)) {
+        tiersByFactor.set(key, [])
+      }
+      tiersByFactor.get(key)!.push(tier.tier)
+    }
+  })
+
+  // Format problems
+  tiersByFactor.forEach((tiers, key) => {
+    if (key === 'housing') {
+      problems.push(translate('housingShortage'))
+    } else if (key.startsWith('material:')) {
+      const materialName = key.substring(9)
+      problems.push(`${translate('consumableShortage')}: ${materialName}`)
+    }
+  })
+
+  return problems.length > 0 ? problems.join(' • ') : null
+})
+
 const hasIssues = computed(() => {
   return (
     props.summary.materialsRunningOut.length > 0 ||
@@ -46,11 +89,6 @@ const hasIssues = computed(() => {
 const topExportMaterials = computed(() => {
   return props.summary.exportMaterials
 })
-
-const getMaterialName = (materialId: number): string => {
-  if (!props.index) return `Material ${materialId}`
-  return props.index.materialById.get(materialId)?.name || `Material ${materialId}`
-}
 
 const priceTrendColor = computed(() => {
   const trend = props.summary.exportPriceTrend7d
@@ -126,15 +164,14 @@ const showPriceTrend = computed(() => {
                 v-for="exportMat in topExportMaterials"
                 :key="exportMat.materialId"
                 class="export-material-item"
-                :title="getMaterialName(exportMat.materialId)"
+                :title="getMaterialNameById(exportMat.materialId)"
               >
                 <MaterialIcon
-                  v-if="index"
-                  :name="getMaterialName(exportMat.materialId)"
+                  :name="getMaterialNameById(exportMat.materialId)"
                   :size="16"
                 />
-                <span v-else class="material-text">
-                  {{ getMaterialName(exportMat.materialId).substring(0, 3) }}
+                <span class="material-text">
+                  {{ getMaterialNameById(exportMat.materialId).substring(0, 3) }}
                 </span>
               </div>
             </div>
@@ -145,6 +182,9 @@ const showPriceTrend = computed(() => {
           <div class="metric__label">{{ translate('productivity') }}</div>
           <div class="metric__value" :class="productivityColor">
             {{ formatNumber(summary.workforceProductivity.overallProductivityPercent) }}%
+          </div>
+          <div v-if="productivityReason" class="metric__reason text-slate-400">
+            {{ productivityReason }}
           </div>
         </div>
       </div>
@@ -272,6 +312,12 @@ const showPriceTrend = computed(() => {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.metric__reason {
+  font-size: 0.6875rem;
+  font-style: italic;
+  margin-top: -0.125rem;
 }
 
 .price-trend {

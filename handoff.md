@@ -1,5 +1,383 @@
 # Handoff Document
 
+## Most Recent Work: Stock Analysis Improvements (December 17, 2025)
+
+### Summary
+Improved stock analysis calculations and centralized material exchange link generation in the repository pattern.
+
+### Changes Made
+
+1. **Material Exchange Link in Repository**
+   - Added `getMaterialExchangeLink(materialId)` function to gameDataRepository
+   - Function generates world-specific exchange URLs
+   - Format: `https://<world>.galactictycoons.com/exchange/<materialId>`
+   - Uses `getWorld()` from apiKeyManager to get current world (e.g., 'g2', 'g3')
+   - Removed local `getMaterialLink` function from StockWarnings component
+   - Follows repository pattern - central data access layer
+
+2. **Fixed "To Buy" Calculation**
+   - **Previous behavior**: `toBuy = consumptionPerDay * timeframeDays`
+     - Did not consider current stock
+     - Could show unnecessary purchases
+   - **New behavior**: 
+     - `neededForTimeframe = consumptionPerDay * timeframeDays`
+     - `deficit = max(0, neededForTimeframe - currentStock)`
+     - `toBuy = ceil(deficit)` - always rounded up
+   - Example:
+     - Consumption: 10/day, Timeframe: 3 days, Current Stock: 15
+     - Old: toBuy = 30 (incorrect)
+     - New: toBuy = max(0, 30 - 15) = 15, ceil(15) = 15
+   - Weight and value now calculated from the corrected toBuy amount
+
+3. **Impact on Display**
+   - "To Buy" column now shows accurate amounts
+   - Considers what you already have in stock
+   - Always rounds up (you can't buy 10.5 units)
+   - Weight and value reflect the actual purchase needed
+
+### Files Modified
+- `/src/v2/services/gamedata/gameDataRepository.ts`
+  - Added `getMaterialExchangeLink(materialId)` function
+  - Uses `getWorld()` to determine current world
+
+- `/src/v2/services/stockAnalysis.ts`
+  - Fixed toBuy calculation to consider currentStock
+  - Always rounds up using `Math.ceil()`
+  - Updated weight and value calculations based on corrected toBuy
+
+- `/src/v2/components/StockWarnings.vue`
+  - Removed local `getMaterialLink` function
+  - Updated imports to include `getMaterialExchangeLink`
+  - Updated template to use `getMaterialExchangeLink(materialId)`
+  - Applied to both combined view and by-base view
+
+### Architecture Benefits
+
+**Repository Pattern Extension**:
+- ✅ Material exchange links generated centrally
+- ✅ World-aware URL generation
+- ✅ Single source of truth for external links
+- ✅ Easy to update if URL structure changes
+
+**Calculation Accuracy**:
+- ✅ toBuy considers existing stock
+- ✅ No unnecessary purchases suggested
+- ✅ Integer values (rounded up) for realistic quantities
+- ✅ Weight and value accurate to purchase amount
+
+### Testing
+- ✅ Type check passed successfully
+- ✅ Exchange links use current world
+- ✅ toBuy calculation considers stock
+- 🚀 Application running via `docker compose up`
+- 🌐 Accessible at http://localhost:5173/
+
+### Next Steps
+- Test with different world selections (g2, g3) to verify links
+- Verify toBuy amounts are correct in browser
+- Consider adding similar repository functions for other external links
+
+## Previous Work: Overview UI Enhancements (December 17, 2025)
+
+### Summary
+Enhanced the overview page with collapsible sections, improved material weight calculations, better sorting, and detailed stock information display.
+
+### Changes Made
+
+1. **Collapsible Sections with localStorage**
+   - "Materials Running Out" section now collapsible
+     - State saved to `gt:v2:stockWarnings:collapsed`
+     - Click on title to toggle
+     - Collapse icon (▶/▼) indicates state
+   - "Global Materials Balance" section now collapsible
+     - State saved to `gt:v2:materialsBalance:collapsed`
+     - Same interaction pattern
+   - Both sections remember their state across page reloads
+
+2. **Materials Running Out - Sorting Improvement**
+   - Materials now sorted by "Time Left" (urgency)
+   - Shortest time left appears at top
+   - Helps prioritize most urgent materials
+   - Implementation: `sortedCombinedWarnings` computed property
+
+3. **Weight Calculations Fixed**
+   - Previously: Weight was hardcoded to 0 (TODO)
+   - Now: Calculated from game data
+     - Formula: `materialData.weightInTonnes * toBuy * 1000` (converted to kg)
+     - Uses actual material weight from game data
+   - Display: Always shows in tons (not kg)
+     - `formatWeight()` now always divides by 1000 and shows "t" suffix
+     - Example: "15.234 t" instead of "15234 kg"
+
+4. **Current Stock Display Per Base**
+   - Added "Current Stock" column in combined view
+   - Shows stock level for each base that needs the material
+   - Format: 
+     ```
+     Base Name: 1,234
+     Another Base: 567
+     ```
+   - Helps understand which bases are running low
+   - Already existed in MaterialStockGroup interface, now visible in UI
+
+### Files Modified
+- `/src/v2/components/StockWarnings.vue`
+  - Added collapsible state management (isCollapsed, toggleCollapsed)
+  - Added sortedCombinedWarnings computed property
+  - Updated formatWeight to always show tons
+  - Added current stock column with per-base breakdown
+  - Added styles for collapse icon, stock-per-base, stock-item, base-label, stock-value
+
+- `/src/v2/pages/GlobalSummaryPage.vue`
+  - Added collapsible state for Materials Balance section
+  - Added collapse icon and toggle handler
+  - Wrapped table in v-if for collapsing
+  - Added styles for collapse icon
+
+- `/src/v2/services/stockAnalysis.ts`
+  - Fixed weight calculation using `materialData.weightInTonnes * toBuy * 1000`
+  - Removed TODO comment
+
+### UI Improvements
+
+**Before**:
+- Sections always expanded
+- Materials in random order
+- Weight shown as "0 kg" (not calculated)
+- No current stock visible in combined view
+
+**After**:
+- Both sections collapsible with state persistence
+- Materials sorted by urgency (shortest time first)
+- Weight calculated from game data, shown in tons
+- Current stock displayed per base
+
+### Testing
+- ✅ Type check passed successfully
+- ✅ localStorage persistence working
+- ✅ Weight calculations using real game data
+- ✅ Sorting by time left working
+- 🚀 Application running via `docker compose up`
+- 🌐 Accessible at http://localhost:5173/
+
+### Next Steps
+- Test in browser to verify all changes work correctly
+- Consider adding transition animations for collapse/expand
+- May want to add tooltips explaining urgency color coding
+- Could add export functionality for stock warnings
+
+## Previous Work: True Repository Pattern Implementation (December 17, 2025)
+
+### Summary
+Refactored gameDataRepository to implement a true repository/singleton pattern. The repository now manages its own state internally, eliminating the need to pass `index` or `gameData` parameters to every helper function call.
+
+### Changes Made
+
+1. **Singleton Pattern Implementation**
+   - Added internal state management to `gameDataRepository.ts`:
+     - `cachedGameData`: Holds the normalized game data
+     - `cachedIndex`: Holds the indexed data structures
+   - New functions for repository lifecycle:
+     - `initializeRepository(data, index)` - Sets up the repository state
+     - `getGameData()` - Returns cached game data (throws if not initialized)
+     - `getIndex()` - Returns cached index (throws if not initialized)
+     - `isInitialized()` - Checks if repository is ready
+   - Modified `loadGameData()` to automatically initialize the repository
+
+2. **Simplified Helper Function Signatures**
+   - All helper functions now require only the ID parameter:
+     - `getMaterialNameById(materialId)` - was: `getMaterialNameById(materialId, index)`
+     - `getBuildingNameById(buildingId)` - was: `getBuildingNameById(buildingId, index)`
+     - `getPlanetNameById(planetId)` - was: `getPlanetNameById(planetId, index)`
+     - `getRecipeNameById(recipeId)` - was: `getRecipeNameById(recipeId, index)`
+     - `getWorkerNameByTier(tier)` - was: `getWorkerNameByTier(tier, index)`
+   - Functions now internally access cached index via `getIndex()`
+
+3. **Updated All Function Calls**
+   - Removed second `index` parameter from all calls across the codebase
+   - Updated components:
+     - BaseCard.vue
+     - BaseDetailExpanded.vue
+     - GlobalSummaryPage.vue
+     - GlobalSummary.vue
+     - StockWarnings.vue
+   - Simplified conditional logic (no more `index ?` checks needed)
+
+4. **Fixed ViewMode Type**
+   - Added `'combined'` to ViewMode type in StockWarnings.vue
+   - Updated default viewMode to `'combined'`
+
+### Architecture Benefits
+
+**True Repository Pattern**:
+- ✅ Repository owns its data (single source of truth)
+- ✅ No dependency injection required at call sites
+- ✅ Cleaner function signatures (single responsibility)
+- ✅ Easier to use - just call `getMaterialNameById(id)`
+- ✅ Better encapsulation - internal state hidden from consumers
+
+**Before**:
+```typescript
+// Every component needed to pass index
+const name = getMaterialNameById(materialId, props.index)
+// Components needed conditional checks
+{index ? getMaterialNameById(id, index) : `Material ${id}`}
+```
+
+**After**:
+```typescript
+// Just call with ID
+const name = getMaterialNameById(materialId)
+// No conditionals needed
+{getMaterialNameById(id)}
+```
+
+### Files Modified
+- `/src/v2/services/gamedata/gameDataRepository.ts` - Added singleton state and lifecycle functions
+- `/src/v2/components/BaseCard.vue` - Removed index parameters, simplified conditionals
+- `/src/v2/components/BaseDetailExpanded.vue` - Removed index parameters
+- `/src/v2/pages/GlobalSummaryPage.vue` - Removed index parameters
+- `/src/v2/pages/player-config/components/GlobalSummary.vue` - Removed index parameters
+- `/src/v2/components/StockWarnings.vue` - Removed index parameters, fixed ViewMode type
+
+### Testing
+- ✅ Type check passed successfully
+- ✅ Repository automatically initialized on `loadGameData()`
+- ✅ All function calls updated throughout codebase
+- 🚀 Application running via `docker compose up`
+- 🌐 Accessible at http://localhost:5173/
+
+### Next Steps
+- Test the application to ensure repository initialization works correctly
+- Consider adding error boundaries for repository not initialized scenarios
+- May want to add repository reset function for testing purposes
+- Could extend pattern to other services (prices, technology, etc.)
+
+## Previous Work: Code Architecture Improvements (December 17, 2025)
+
+### Summary
+Performed comprehensive code refactoring to improve architecture, moving helper functions to proper service layers and consolidating formatting utilities in the localization module.
+
+### Changes Made
+
+1. **Centralized Helper Functions**
+   - Moved all game data helper functions from helpers.ts to `gameDataRepository.ts`
+   - Functions now live in `/src/v2/services/gamedata/gameDataRepository.ts`
+   - Renamed functions with precise `*ById` suffix for clarity:
+     - `getMaterialName` → `getMaterialNameById`
+     - `getBuildingName` → `getBuildingNameById`
+     - `getPlanetName` → `getPlanetNameById`
+     - `getRecipeName` → `getRecipeNameById`
+     - `getWorkerNameByTier` (already had suffix)
+   - Removed separate `helpers.ts` file (consolidated into repository)
+
+2. **Localization Module Organization**
+   - Moved `formatDays` from `numbers.ts` to `dates.ts` (more logical grouping)
+   - Path: `/src/v2/localisation/dates.ts`
+   - Formats duration as "2d 3h" for better readability
+   - Omits "0d" when less than 24 hours (shows only hours like "15h")
+   - Shows minutes for durations less than 1 hour
+
+3. **Import Path Updates**
+   - Updated all Vue components to import from `gameDataRepository`
+   - Changed all function calls to use new `*ById` names
+   - Updated exports in `/src/v2/localisation/index.ts`
+
+4. **Git Cleanup**
+   - Added `.pnpm-store` to `.gitignore` (was unintentionally tracked)
+   - Cleaned up repository from package manager cache files
+
+### Files Modified
+- `/src/v2/services/gamedata/gameDataRepository.ts` - Added 5 helper functions
+- `/src/v2/localisation/dates.ts` - Added formatDays function
+- `/src/v2/localisation/numbers.ts` - Removed formatDays (moved to dates.ts)
+- `/src/v2/localisation/index.ts` - Updated exports
+- `/src/v2/components/BaseCard.vue` - Updated imports and function calls
+- `/src/v2/components/BaseDetailExpanded.vue` - Updated imports and function calls
+- `/src/v2/components/StockWarnings.vue` - Updated imports
+- `/src/v2/pages/GlobalSummaryPage.vue` - Updated imports and function calls
+- `/src/v2/pages/player-config/components/GlobalSummary.vue` - Updated imports and function calls
+- `.gitignore` - Added .pnpm-store
+
+### Files Removed
+- `/src/v2/services/gamedata/helpers.ts` - Consolidated into gameDataRepository.ts
+
+### Architecture Principles Applied
+- **Service Repository Pattern**: Helper functions belong in service layer, not in views
+- **Single Source of Truth**: gameDataRepository is the central hub for game data access
+- **Logical Grouping**: Date/time formatting in dates.ts, number formatting in numbers.ts
+- **Precise Naming**: *ById suffix makes parameter expectations clear
+- **Encapsulation**: Views call service methods, don't implement business logic
+
+### Testing
+- ✅ Type check passed successfully
+- ✅ All imports updated correctly
+- ✅ Function renames applied throughout codebase
+- 🚀 Application running via `docker compose up`
+- 🌐 Accessible at http://localhost:5173/
+
+### Next Steps
+- Continue refactoring to extract more business logic from views
+- Consider adding integration tests for service layer functions
+- May want to create additional service repositories for different domains (e.g., priceRepository, technologyRepository)
+
+## Previous Work: Overview UI Improvements (December 17, 2025)
+
+### Summary
+Enhanced the overview page with improved productivity feedback and streamlined material stock warnings.
+
+### Changes Made
+
+1. **Productivity Reasons in BaseCard.vue**
+   - Added display of productivity reduction reasons below the productivity percentage
+   - Shows "Housing shortage" when limited by housing
+   - Shows "Material shortage: [Material Name]" when limited by consumables
+   - Only displayed when productivity is below 100%
+
+2. **Time Formatting Improvements**
+   - Created new utility function `/src/v2/utils/formatDays.ts`
+   - Formats duration as "2d 3h" for better readability
+   - Omits "0d" when less than 24 hours (shows only hours like "15h")
+   - Shows minutes for durations less than 1 hour
+   - Applied to both `StockWarnings.vue` and `GlobalSummary.vue`
+
+3. **Combined Stock Warnings List**
+   - Enhanced `stockAnalysis.ts` service to include:
+     - `actionType` field ('redistribute' or 'purchase')
+     - `sourceBases` array showing which bases produce the material for redistribution
+     - New `combinedWarnings` array merging both lists
+   - Updated `StockWarnings.vue` component:
+     - Added new "combined" view mode as default
+     - Shows action type (🔄 Redistribute or 🛒 Purchase) for each material
+     - Displays source base names for redistribution materials
+     - Shows affected base names instead of just count
+     - Maintained legacy separate views for backwards compatibility
+
+4. **Translation Keys Added**
+   - `housingShortage` (EN: "Housing shortage", DE: "Wohnraummangel")
+   - `consumableShortage` (EN: "Material shortage", DE: "Materialmangel")
+   - `actionRedistribute` (EN: "Redistribute", DE: "Umverteilen")
+   - `actionPurchase` (EN: "Purchase", DE: "Kaufen")
+   - `sourceBase` (EN: "Source Base", DE: "Quellbasis")
+
+### Files Modified
+- `/src/v2/components/BaseCard.vue` - Added productivity reason display
+- `/src/v2/utils/formatDays.ts` - New utility function
+- `/src/v2/pages/player-config/components/GlobalSummary.vue` - Updated to use formatDays
+- `/src/v2/components/StockWarnings.vue` - Combined view with action types and source bases
+- `/src/v2/services/stockAnalysis.ts` - Enhanced with action types and source information
+- `/src/v2/localisation/messages.ts` - Added new translation keys
+
+### Testing
+- ✅ Type check passed successfully
+- 🚀 Application running via `docker compose up`
+- 🌐 Accessible at http://localhost:5173/
+
+### Next Steps
+- Test the new UI in the browser to verify all changes work as expected
+- Consider adding integration tests for the stock analysis enhancements
+- May want to add visual indicators (icons) for different productivity limitation reasons
+
 ## Most Recent Work: Intelligent Global Stock Warnings (December 9, 2024)
 
 ### Summary

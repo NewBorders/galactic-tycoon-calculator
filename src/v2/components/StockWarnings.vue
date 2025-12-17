@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { StockAnalysisResult } from '@/v2/services/stockAnalysis'
 import type { GdIndex } from '@/v2/services/gamedata/types'
-import { translate, formatNumber, formatCurrency } from '@/v2/localisation'
+import { translate, formatNumber, formatCurrency, formatDays } from '@/v2/localisation'
+import { getMaterialNameById, getMaterialExchangeLink } from '@/v2/services/gamedata/gameDataRepository'
 
 const props = defineProps<{
   analysis: StockAnalysisResult
@@ -10,13 +11,47 @@ const props = defineProps<{
   timeframeHours: number
 }>()
 
-type ViewMode = 'by-material' | 'by-base'
-const viewMode = ref<ViewMode>('by-material')
+type ViewMode = 'combined' | 'by-material' | 'by-base'
+const viewMode = ref<ViewMode>('combined')
+
+// Collapsible state with localStorage
+const STORAGE_KEY = 'gt:v2:stockWarnings:collapsed'
+const isCollapsed = ref<boolean>(false)
+
+// Load collapsed state from localStorage
+const loadCollapsedState = (): boolean => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return stored === 'true'
+  } catch {
+    return false
+  }
+}
+
+isCollapsed.value = loadCollapsedState()
+
+// Save collapsed state to localStorage
+watch(isCollapsed, (newValue) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, String(newValue))
+  } catch {
+    // Ignore localStorage errors
+  }
+})
+
+const toggleCollapsed = () => {
+  isCollapsed.value = !isCollapsed.value
+}
+
+// Sort combined warnings by urgency (time left)
+const sortedCombinedWarnings = computed(() => {
+  return [...props.analysis.combinedWarnings].sort((a, b) => a.urgency - b.urgency)
+})
 
 // Group warnings by base for "by-base" view
 const warningsByBase = computed(() => {
   const grouped = new Map<string, typeof props.analysis.allWarnings>()
-  
+
   props.analysis.allWarnings.forEach((warning) => {
     if (!grouped.has(warning.baseId)) {
       grouped.set(warning.baseId, [])
@@ -26,7 +61,7 @@ const warningsByBase = computed(() => {
 
   return Array.from(grouped.entries()).map(([baseId, warnings]) => {
     if (warnings.length === 0) return null
-    
+
     const totalWeight = warnings.reduce((sum, w) => sum + w.weight, 0)
     const totalValue = warnings.reduce((sum, w) => sum + w.value, 0)
     const urgency = Math.min(...warnings.map((w) => w.daysUntilEmpty))
@@ -43,14 +78,8 @@ const warningsByBase = computed(() => {
    .sort((a, b) => a.urgency - b.urgency)
 })
 
-const getMaterialLink = (materialId: number): string => {
-  return `https://www.galactictycoons.com/market/${materialId}`
-}
-
 const formatWeight = (kg: number): string => {
-  if (kg < 1000) {
-    return `${formatNumber(kg)} kg`
-  }
+  // Always show in tons
   return `${formatNumber(kg / 1000)} t`
 }
 
@@ -67,14 +96,17 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
 
 <template>
   <div class="stock-warnings">
-    <!-- View Mode Toggle -->
+    <!-- Header with Collapse Toggle -->
     <div class="stock-warnings__header">
-      <h2 class="section-title">⚠️ {{ translate('materialsRunningOut') }}</h2>
-      <div class="view-toggle">
+      <h2 class="section-title" @click="toggleCollapsed" style="cursor: pointer;">
+        <span class="collapse-icon">{{ isCollapsed ? '▶' : '▼' }}</span>
+        ⚠️ {{ translate('materialsRunningOut') }}
+      </h2>
+      <div v-if="!isCollapsed" class="view-toggle">
         <button
           class="view-toggle__btn"
-          :class="{ 'view-toggle__btn--active': viewMode === 'by-material' }"
-          @click="viewMode = 'by-material'"
+          :class="{ 'view-toggle__btn--active': viewMode === 'combined' }"
+          @click="viewMode = 'combined'"
         >
           {{ translate('groupByMaterial') }}
         </button>
@@ -83,31 +115,27 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
           :class="{ 'view-toggle__btn--active': viewMode === 'by-base' }"
           @click="viewMode = 'by-base'"
         >
-          {{ translate('groupByBase') }}
-        </button>
+          {{ translate('groupByBase') }}</button>
       </div>
     </div>
 
-    <div v-if="analysis.allWarnings.length === 0" class="empty-state">
-      <div class="empty-state__icon">✅</div>
-      <div class="empty-state__text">{{ translate('noMaterialsRunningOut') }}</div>
-    </div>
+    <div v-if="!isCollapsed">
+      <div v-if="analysis.allWarnings.length === 0" class="empty-state">
+        <div class="empty-state__icon">✅</div>
+        <div class="empty-state__text">{{ translate('noMaterialsRunningOut') }}</div>
+      </div>
 
-    <!-- By Material View -->
-    <div v-else-if="viewMode === 'by-material'" class="material-groups">
-      <!-- Redistribution Needed -->
-      <section v-if="hasRedistributionNeeded" class="material-group material-group--redistribution">
-        <h3 class="material-group__title">
-          🔄 {{ translate('redistributionNeeded') }}
-          <span class="material-group__subtitle">{{ translate('redistributionNeededHint') }}</span>
-        </h3>
-        
+      <!-- Combined View (Default) -->
+      <div v-else-if="viewMode === 'combined'" class="material-groups">
+      <section class="material-group">
         <div class="material-table-wrapper">
           <table class="material-table">
             <thead>
               <tr>
                 <th>{{ translate('material') }}</th>
+                <th class="text-center">{{ translate('actionRedistribute') }}</th>
                 <th class="text-right">{{ translate('timeLeft') }}</th>
+                <th class="text-right">{{ translate('currentStock') }}</th>
                 <th class="text-right">{{ translate('toBuy') }}</th>
                 <th class="text-right">{{ translate('weight') }}</th>
                 <th class="text-right">{{ translate('value') }}</th>
@@ -115,90 +143,60 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
               </tr>
             </thead>
             <tbody>
-              <tr v-for="group in analysis.redistributionNeeded" :key="group.materialId">
+              <tr v-for="group in sortedCombinedWarnings" :key="group.materialId">
                 <td class="material-cell">
-                  <a :href="getMaterialLink(group.materialId)" target="_blank" class="material-link">
-                    
+                  <a :href="getMaterialExchangeLink(group.materialId)" target="_blank" class="material-link">
                     <span>{{ group.materialName }}</span>
                   </a>
                 </td>
+                <td class="text-center">
+                  <span
+                    class="action-badge"
+                    :class="group.actionType === 'redistribute' ? 'action-badge--redistribute' : 'action-badge--purchase'"
+                  >
+                    {{ group.actionType === 'redistribute' ? '🔄' : '🛒' }}
+                    {{ group.actionType === 'redistribute' ? translate('actionRedistribute') : translate('actionPurchase') }}
+                  </span>
+                  <div v-if="group.actionType === 'redistribute' && group.sourceBases" class="source-bases">
+                    <span class="source-label">{{ translate('sourceBase') }}:</span>
+                    <span v-for="(source, idx) in group.sourceBases" :key="source.baseId" class="source-base">
+                      {{ source.baseName }}{{ idx < group.sourceBases.length - 1 ? ', ' : '' }}
+                    </span>
+                  </div>
+                </td>
                 <td class="text-right">
                   <span :class="getUrgencyClass(group.urgency)">
-                    {{ formatNumber(group.urgency) }}d
+                    {{ formatDays(group.urgency) }}
                   </span>
+                </td>
+                <td class="text-right">
+                  <div class="stock-per-base">
+                    <div v-for="base in group.bases" :key="base.baseId" class="stock-item">
+                      <span class="base-label">{{ base.baseName }}:</span>
+                      <span class="stock-value">{{ formatNumber(base.currentStock) }}</span>
+                    </div>
+                  </div>
                 </td>
                 <td class="text-right">{{ formatNumber(group.totalToBuy) }}</td>
                 <td class="text-right">{{ formatWeight(group.totalWeight) }}</td>
                 <td class="text-right">{{ formatCurrency(group.totalValue) }}</td>
                 <td class="text-center">
-                  <span class="badge">{{ group.bases.length }}</span>
+                  <div class="bases-list">
+                    <span v-for="base in group.bases" :key="base.baseId" class="base-name">
+                      {{ base.baseName }}
+                    </span>
+                  </div>
                 </td>
               </tr>
             </tbody>
-            <tfoot v-if="analysis.redistributionNeeded.length > 0">
+            <tfoot v-if="sortedCombinedWarnings.length > 0">
               <tr class="total-row">
-                <td colspan="3" class="text-right">{{ translate('total') }}</td>
+                <td colspan="5" class="text-right">{{ translate('total') }}</td>
                 <td class="text-right">
-                  {{ formatWeight(analysis.redistributionNeeded.reduce((s, g) => s + g.totalWeight, 0)) }}
-                </td>
-                <td class="text-right">
-                  {{ formatCurrency(analysis.redistributionNeeded.reduce((s, g) => s + g.totalValue, 0), 0) }}
-                </td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </section>
-
-      <!-- Purchase Needed -->
-      <section v-if="hasPurchaseNeeded" class="material-group material-group--purchase">
-        <h3 class="material-group__title">
-          🛒 {{ translate('purchaseNeeded') }}
-          <span class="material-group__subtitle">{{ translate('purchaseNeededHint') }}</span>
-        </h3>
-        
-        <div class="material-table-wrapper">
-          <table class="material-table">
-            <thead>
-              <tr>
-                <th>{{ translate('material') }}</th>
-                <th class="text-right">{{ translate('timeLeft') }}</th>
-                <th class="text-right">{{ translate('toBuy') }}</th>
-                <th class="text-right">{{ translate('weight') }}</th>
-                <th class="text-right">{{ translate('value') }}</th>
-                <th class="text-center">{{ translate('bases') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="group in analysis.purchaseNeeded" :key="group.materialId">
-                <td class="material-cell">
-                  <a :href="getMaterialLink(group.materialId)" target="_blank" class="material-link">
-                    
-                    <span>{{ group.materialName }}</span>
-                  </a>
+                  {{ formatWeight(sortedCombinedWarnings.reduce((s, g) => s + g.totalWeight, 0)) }}
                 </td>
                 <td class="text-right">
-                  <span :class="getUrgencyClass(group.urgency)">
-                    {{ formatNumber(group.urgency) }}d
-                  </span>
-                </td>
-                <td class="text-right">{{ formatNumber(group.totalToBuy) }}</td>
-                <td class="text-right">{{ formatWeight(group.totalWeight) }}</td>
-                <td class="text-right">{{ formatCurrency(group.totalValue) }}</td>
-                <td class="text-center">
-                  <span class="badge">{{ group.bases.length }}</span>
-                </td>
-              </tr>
-            </tbody>
-            <tfoot v-if="analysis.purchaseNeeded.length > 0">
-              <tr class="total-row">
-                <td colspan="3" class="text-right">{{ translate('total') }}</td>
-                <td class="text-right">
-                  {{ formatWeight(analysis.purchaseNeeded.reduce((s, g) => s + g.totalWeight, 0)) }}
-                </td>
-                <td class="text-right">
-                  {{ formatCurrency(analysis.purchaseNeeded.reduce((s, g) => s + g.totalValue, 0), 0) }}
+                  {{ formatCurrency(sortedCombinedWarnings.reduce((s, g) => s + g.totalValue, 0), 0) }}
                 </td>
                 <td></td>
               </tr>
@@ -225,7 +223,7 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
             <span class="base-summary-item">
               <span class="label">{{ translate('urgency') }}:</span>
               <span class="value" :class="getUrgencyClass(base.urgency)">
-                {{ formatNumber(base.urgency) }}d
+                {{ formatDays(base.urgency) }}
               </span>
             </span>
           </div>
@@ -246,14 +244,14 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
             <tbody>
               <tr v-for="warning in base.warnings" :key="warning.materialId">
                 <td class="material-cell">
-                  <a :href="getMaterialLink(warning.materialId)" target="_blank" class="material-link">
-                    
+                  <a :href="getMaterialExchangeLink(warning.materialId)" target="_blank" class="material-link">
+
                     <span>{{ warning.materialName }}</span>
                   </a>
                 </td>
                 <td class="text-right">
                   <span :class="getUrgencyClass(warning.daysUntilEmpty)">
-                    {{ formatNumber(warning.daysUntilEmpty) }}d
+                    {{ formatDays(warning.daysUntilEmpty) }}
                   </span>
                 </td>
                 <td class="text-right">{{ formatNumber(warning.currentStock) }}</td>
@@ -265,6 +263,7 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
           </table>
         </div>
       </section>
+    </div>
     </div>
   </div>
 </template>
@@ -289,6 +288,17 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
   font-weight: 600;
   margin: 0;
   color: var(--color-heading);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  user-select: none;
+}
+
+.collapse-icon {
+  display: inline-block;
+  width: 1rem;
+  text-align: center;
+  transition: transform 0.2s ease;
 }
 
 .view-toggle {
@@ -455,6 +465,89 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text);
+}
+
+.action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.action-badge--redistribute {
+  background: rgba(59, 130, 246, 0.2);
+  color: rgb(96, 165, 250);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.action-badge--purchase {
+  background: rgba(251, 191, 36, 0.2);
+  color: rgb(251, 191, 36);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.source-bases {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  font-size: 0.6875rem;
+}
+
+.source-label {
+  color: var(--color-text-soft);
+  font-weight: 500;
+}
+
+.source-base {
+  color: var(--color-text);
+  background: rgb(51 65 85);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  display: inline-block;
+}
+
+.bases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.stock-per-base {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.stock-item {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.base-label {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.stock-value {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.base-name {
+  color: var(--color-text);
+  background: rgb(51 65 85);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  white-space: nowrap;
 }
 
 .urgency-critical {

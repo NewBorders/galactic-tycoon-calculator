@@ -29,6 +29,12 @@ export interface MaterialStockGroup {
   totalWeight: number
   totalValue: number
   urgency: number // Minimum daysUntilEmpty across all bases
+  actionType: 'redistribute' | 'purchase' // Whether to redistribute or purchase
+  sourceBases?: Array<{ // Only for redistribute type
+    baseId: string
+    baseName: string
+    exportPerDay: number
+  }>
   bases: Array<{
     baseId: string
     baseName: string
@@ -42,6 +48,9 @@ export interface MaterialStockGroup {
 }
 
 export interface StockAnalysisResult {
+  // Combined warnings with action type
+  combinedWarnings: MaterialStockGroup[]
+  // Legacy separate lists (kept for backwards compatibility)
   // Export materials produced in at least one base but needed in others
   redistributionNeeded: MaterialStockGroup[]
   // Input materials not produced anywhere, need to be bought
@@ -75,8 +84,13 @@ export function analyzeStockSituation(
       const materialData = index.materialById.get(material.materialId)
       if (!materialData) return
 
-      const toBuy = material.consumptionPerDay * timeframeDays
-      const weight = 0 // TODO: Add weight calculation when material weight is available
+      // Calculate to buy: consumption for timeframe minus current stock, always rounded up
+      const neededForTimeframe = material.consumptionPerDay * timeframeDays
+      const deficit = Math.max(0, neededForTimeframe - material.currentStock)
+      const toBuy = Math.ceil(deficit)
+      
+      // Calculate weight: material weight (in tonnes) * toBuy amount, converted to kg
+      const weight = materialData.weightInTonnes * toBuy * 1000
       const value = toBuy * priceResolver(material.materialId)
 
       const warning: MaterialStockWarning = {
@@ -104,9 +118,19 @@ export function analyzeStockSituation(
 
   // Determine which materials are produced (exports) vs need to be bought
   const exportMaterialIds = new Set<number>()
+  const exportsByMaterial = new Map<number, Array<{ baseId: string; baseName: string; exportPerDay: number }>>()
+  
   baseSummaries.forEach((base) => {
     base.exportMaterials.forEach((exp) => {
       exportMaterialIds.add(exp.materialId)
+      if (!exportsByMaterial.has(exp.materialId)) {
+        exportsByMaterial.set(exp.materialId, [])
+      }
+      exportsByMaterial.get(exp.materialId)!.push({
+        baseId: base.baseId,
+        baseName: base.baseName,
+        exportPerDay: exp.exportPerDay,
+      })
     })
   })
 
@@ -129,6 +153,9 @@ export function analyzeStockSituation(
       value: warning.value,
     }))
 
+    const isExportMaterial = exportMaterialIds.has(materialId)
+    const sourceBases = isExportMaterial ? exportsByMaterial.get(materialId) : undefined
+
     const group: MaterialStockGroup = {
       materialId,
       materialName: materialData.name,
@@ -136,12 +163,14 @@ export function analyzeStockSituation(
       totalWeight: bases.reduce((sum, b) => sum + b.weight, 0),
       totalValue: bases.reduce((sum, b) => sum + b.value, 0),
       urgency: Math.min(...bases.map((b) => b.daysUntilEmpty)),
+      actionType: isExportMaterial ? 'redistribute' : 'purchase',
+      sourceBases,
       bases,
     }
 
     // If this material is exported by any base, it needs redistribution
     // Otherwise it needs to be purchased
-    if (exportMaterialIds.has(materialId)) {
+    if (isExportMaterial) {
       redistributionNeeded.push(group)
     } else {
       purchaseNeeded.push(group)
@@ -153,7 +182,11 @@ export function analyzeStockSituation(
   purchaseNeeded.sort((a, b) => a.urgency - b.urgency)
   allWarnings.sort((a, b) => a.daysUntilEmpty - b.daysUntilEmpty)
 
+  // Combine both lists for the new unified view
+  const combinedWarnings = [...redistributionNeeded, ...purchaseNeeded].sort((a, b) => a.urgency - b.urgency)
+
   return {
+    combinedWarnings,
     redistributionNeeded,
     purchaseNeeded,
     allWarnings,
