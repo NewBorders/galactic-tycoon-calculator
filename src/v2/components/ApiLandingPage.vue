@@ -15,7 +15,7 @@ const statusMessage = ref('')
 
 async function saveApiKey() {
   const trimmed = apiKeyInput.value.trim()
-  
+
   if (!trimmed) {
     error.value = 'Please enter your API key'
     return
@@ -30,11 +30,11 @@ async function saveApiKey() {
     if (selectedWorld.value !== activeWorld.value) {
       switchWorld(selectedWorld.value)
     }
-    
+
     // Validate API key by testing Company Data endpoint
     statusMessage.value = 'Testing API key...'
     const result = await validateApiKeySimple(trimmed, selectedWorld.value)
-    
+
     if (!result.valid) {
       // Build error message based on status code
       if (result.status === 401 || result.status === 403) {
@@ -48,23 +48,23 @@ async function saveApiKey() {
       }
       return
     }
-    
+
     // Validation passed, set the API key
     setApiKey(trimmed)
-    
+
     // Initialize sync service and load all data
     statusMessage.value = 'Loading your data...'
     await initializeSyncService()
-    
+
     // Set active tab to overview
     if (typeof window !== 'undefined' && (window as any).__setActiveTab) {
       (window as any).__setActiveTab('overview')
     }
-    
+
     statusMessage.value = 'Success! Loading application...'
     // Small delay to show success message before app loads
     await new Promise(resolve => setTimeout(resolve, 500))
-    
+
   } catch (err) {
     // Unexpected error during validation or data loading
     if (err instanceof Error) {
@@ -84,10 +84,9 @@ async function saveApiKey() {
     <div class="api-landing__container">
       <!-- Hero Section -->
       <div class="api-landing__hero">
-        <div class="api-landing__icon">🚀</div>
         <h1 class="api-landing__title">Welcome to Galactic Tycoon Calculator</h1>
         <p class="api-landing__subtitle">
-          Your production planning tool for Galactic Tycoons
+          Your production planning tool for Galactic Tycoon
         </p>
       </div>
 
@@ -95,8 +94,8 @@ async function saveApiKey() {
       <div class="api-landing__features">
         <div class="api-landing__feature">
           <div class="feature-icon">📊</div>
-          <h3 class="feature-title">Production Planning</h3>
-          <p class="feature-text">Plan your base expansions and optimize production chains</p>
+          <h3 class="feature-title">Production Insights</h3>
+          <p class="feature-text">Optimize production chains by knowing your numbers</p>
         </div>
         <div class="api-landing__feature">
           <div class="feature-icon">🎯</div>
@@ -114,7 +113,7 @@ async function saveApiKey() {
       <div class="api-landing__setup">
         <h2 class="setup-title">Get Started</h2>
         <p class="setup-description">
-          Select your galaxy and enter your Galactic Tycoons API key to sync your bases.
+          Select your galaxy and enter your Galactic Tycoons API key to sync your bases
         </p>
 
         <form @submit.prevent="saveApiKey" class="setup-form">
@@ -129,8 +128,8 @@ async function saveApiKey() {
               class="form-select"
               :disabled="saving"
             >
-              <option value="g1">🌌 Galaxy 1</option>
-              <option value="g2">🌠 Galaxy 2</option>
+              <option value="g1">🛠️ Galaxy 1</option>
+              <option value="g2">Galaxy 2</option>
             </select>
           </div>
 
@@ -172,18 +171,15 @@ async function saveApiKey() {
             <li>Log in to <a href="https://www.galactictycoon.com" target="_blank" rel="noopener" class="help-link">Galactic Tycoons</a></li>
             <li>Navigate to your account settings</li>
             <li>Find the "API Access" section</li>
-            <li>Copy your API key and paste it above</li>
+            <li>Create a "limited" API key and paste it above</li>
           </ol>
-          <p class="help-note">
-            💡 You can also use this calculator offline without an API key, but you won't be able to sync your bases.
-          </p>
         </div>
       </div>
 
       <!-- Footer -->
       <div class="api-landing__footer">
         <p class="footer-text">
-          Need help? Check out the 
+          Need help? Check out the
           <a href="https://github.com/NewBorders/galactic-tycoon-calculator" target="_blank" rel="noopener" class="footer-link">
             documentation
           </a>
@@ -196,7 +192,7 @@ async function saveApiKey() {
 <style scoped>
 .api-landing {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1f4dd6 100%);
   padding: 2rem;
   display: flex;
   align-items: center;
@@ -235,15 +231,15 @@ async function saveApiKey() {
 .api-landing__features {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 3rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .api-landing__feature {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
-  padding: 1.5rem;
-  border-radius: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
   text-align: center;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -269,14 +265,14 @@ async function saveApiKey() {
 
 .api-landing__setup {
   background: white;
-  padding: 2rem;
+  padding: 1rem;
   border-radius: 1rem;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .setup-title {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.25rem;
   font-size: 1.75rem;
   font-weight: 700;
   color: var(--color-heading, #1a202c);
@@ -284,7 +280,7 @@ async function saveApiKey() {
 }
 
 .setup-description {
-  margin: 0 0 2rem;
+  margin: 0 0 1rem;
   font-size: 1rem;
   color: var(--color-text-soft, #718096);
   text-align: center;
@@ -292,16 +288,16 @@ async function saveApiKey() {
 }
 
 .setup-form {
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .form-label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-heading, #2d3748);
@@ -414,7 +410,7 @@ async function saveApiKey() {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg,  #1f4dd6 0%, #011a53 100%);
   color: white;
 }
 
