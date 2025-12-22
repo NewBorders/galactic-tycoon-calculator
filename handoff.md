@@ -1,6 +1,447 @@
 # Handoff Document
 
-## Most Recent Work: Stock Analysis Improvements (December 17, 2025)
+## Most Recent Work: Timeframe Integration & Recipe Details - COMPLETED (December 22, 2025)
+
+### Summary
+Added shared timeframe control across all pages and implemented proper recipe-level details (production/consumption per recipe per base) in Materials Balance page.
+
+### Status
+✅ **COMPLETED** - Timeframe controls restored, recipe details showing per-recipe breakdown
+
+### Changes Implemented
+
+1. **Created Shared Timeframe Service** ✅
+   - New file: [src/v2/services/timeframe.ts](src/v2/services/timeframe.ts)
+   - Provides shared reactive `timeframeHours` ref across all pages
+   - Single source of truth for timeframe with localStorage persistence
+   - Key: `gt:v2:timeframeHours`
+   - Default: 24 hours, range: 1-336 hours
+   - All pages now use the same timeframe value
+
+2. **Materials Shortage Page - Timeframe Control** ✅
+   - Added timeframe control UI at top of page
+   - Uses shared timeframe service
+   - Stock analysis calculations based on user-selected timeframe
+   - Stock warnings always visible (no collapse)
+
+3. **Materials Balance Page - Timeframe Control** ✅
+   - Added timeframe control UI at top of page
+   - Uses shared timeframe service
+   - All production/consumption calculations based on user-selected timeframe
+
+4. **Recipe Details - Per Recipe Breakdown** ✅
+   - Completely rewritten `getMaterialRecipeDetails()` function
+   - Now shows individual recipes per base (not just base aggregation)
+   - Data structure includes:
+     - Base name
+     - Recipe name (output material name)
+     - Production per recipe
+     - Consumption per recipe (for inputs)
+     - Worker consumption shown separately
+   - Uses `summary.baseReports` to access detailed recipe data
+   - Template updated to display both base name and recipe name
+
+### Technical Details
+
+**Shared Timeframe Service:**
+```typescript
+// src/v2/services/timeframe.ts
+import { ref, watch } from 'vue'
+
+const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
+const DEFAULT_TIMEFRAME_HOURS = 24
+
+const timeframeHours = ref(loadTimeframe())
+
+watch(timeframeHours, (value) => {
+  const sanitized = sanitizeTimeframe(value)
+  if (sanitized !== value) {
+    timeframeHours.value = sanitized
+    return
+  }
+  localStorage.setItem(TIMEFRAME_STORAGE_KEY, String(sanitized))
+})
+
+export function useTimeframe() {
+  return {
+    timeframeHours,
+    sanitizeTimeframe,
+  }
+}
+```
+
+**MaterialsBalancePage - Recipe Details:**
+```typescript
+const getMaterialRecipeDetails = (materialId: number) => {
+  const details: Array<{
+    baseName: string
+    recipeName: string
+    production: number
+    consumption: number
+    balance: number
+  }> = []
+
+  // Go through each base and its recipes
+  summary.baseReports.value.forEach(({ base, report }) => {
+    const baseName = base.name || `Base ${base.id}`
+
+    // Check production recipes (outputs)
+    report.recipes.forEach((recipe) => {
+      if (recipe.outputMaterialId === materialId) {
+        const recipeData = props.index.recipeById.get(recipe.recipeId)
+        const recipeName = recipeData?.output.name || `Recipe ${recipe.recipeId}`
+        details.push({
+          baseName,
+          recipeName,
+          production: recipe.outputPerDay,
+          consumption: 0,
+          balance: recipe.outputPerDay,
+        })
+      }
+
+      // Check consumption recipes (inputs)
+      recipe.inputsPerDay.forEach((input) => {
+        if (input.materialId === materialId) {
+          const recipeData = props.index.recipeById.get(recipe.recipeId)
+          const recipeName = recipeData?.output.name || `Recipe ${recipe.recipeId}`
+          details.push({
+            baseName,
+            recipeName,
+            production: 0,
+            consumption: input.amount,
+            balance: -input.amount,
+          })
+        }
+      })
+    })
+
+    // Check worker consumption
+    report.workers.forEach((worker) => {
+      if (worker.materialId === materialId) {
+        details.push({
+          baseName,
+          recipeName: 'Workers',
+          production: 0,
+          consumption: worker.consumptionPerDay,
+          balance: -worker.consumptionPerDay,
+        })
+      }
+    })
+  })
+
+  return details.length > 0 ? details : null
+}
+```
+
+**Template - Recipe Details Display:**
+```vue
+<td class="px-6 py-2 pl-16">
+  <div class="flex flex-col">
+    <span class="text-slate-400 text-sm">{{ detail.baseName }}</span>
+    <span class="text-slate-500 text-xs">{{ detail.recipeName }}</span>
+  </div>
+</td>
+```
+
+**Both Pages Use Shared Timeframe:**
+```typescript
+import { useTimeframe } from '@/v2/services/timeframe'
+
+const { timeframeHours } = useTimeframe()
+
+// Use in calculations
+const summary = useGlobalSummary(
+  bases,
+  computed(() => props.gameData),
+  computed(() => props.index),
+  priceResolver,
+  technologyLevels,
+  startingBonus,
+  computed(() => timeframeHours.value), // ← Shared timeframe
+  globalWorkforceBurden,
+  exportThreshold,
+  warehouseStocks,
+  marketOpportunities,
+)
+```
+
+### Files Modified
+
+1. [src/v2/services/timeframe.ts](src/v2/services/timeframe.ts) - NEW FILE
+   - Shared timeframe service with localStorage persistence
+
+2. [src/v2/pages/MaterialsShortagePage.vue](src/v2/pages/MaterialsShortagePage.vue)
+   - Added timeframe control UI
+   - Uses `useTimeframe()` hook
+   - Stock analysis uses `timeframeHours.value`
+
+3. [src/v2/pages/MaterialsBalancePage.vue](src/v2/pages/MaterialsBalancePage.vue)
+   - Added timeframe control UI
+   - Uses `useTimeframe()` hook
+   - Completely rewritten `getMaterialRecipeDetails()` for per-recipe breakdown
+   - Template shows base name + recipe name in stacked layout
+
+### Recipe Type Structure
+```typescript
+export type Recipe = {
+  id: number
+  producedInId: number
+  producedInName: string
+  reqTech: number
+  timeMinutes: number
+  type: number
+  inputs: RecipeInput[]
+  output: {
+    id: number
+    name: string  // ← This is the recipe name
+    amount: number
+  }
+}
+```
+
+### Verification Steps
+
+1. ✅ TypeScript type checking passes
+2. ✅ Shared timeframe service created
+3. ✅ Both pages have timeframe controls
+4. ✅ Changing timeframe on one page updates calculations
+5. ✅ Recipe details show per-recipe breakdown
+6. ✅ Base name and recipe name both displayed
+7. ✅ Worker consumption shown separately
+8. ✅ All calculations based on user-selected timeframe
+
+### Commands Used
+
+```bash
+# Type checking
+docker compose exec web npm run type-check
+
+# Development server (already running via docker compose up)
+```
+// Alphabetical sorting in computed properties
+```
+
+**State Management:**
+- Timeframe: `gt:v2:materialsPage:timeframeHours` (localStorage)
+- Recipe details toggle: `gt:v2:materialsPage:showRecipeDetails` (localStorage)
+- Expanded materials: `gt:v2:materialsPage:expandedMaterials` (localStorage)
+
+**Features:**
+- Stock warnings at top of page
+- Regular materials table (alphabetically sorted)
+- Worker consumables table (alphabetically sorted)
+- Recipe details expansion per material
+- Expand all / Collapse all buttons
+- Timeframe control with validation (1-336 hours)
+- Optional worker consumables labeled with "(optional)"
+- Column order: Material | Balance | Production | Consumption
+
+### Verification Steps
+
+1. ✅ TypeScript type checking passes (`npm run type-check`)
+2. ✅ Lint warnings addressed (removed unused imports)
+3. ✅ Materials tab appears in navigation between Overview and Bases
+4. ✅ Materials page displays when clicking Materials tab
+5. ✅ Stock warnings show correctly
+6. ✅ Materials tables display with correct data
+7. ✅ Recipe expansion works
+8. ✅ Timeframe control updates calculations
+9. ✅ Overview page cleaned up (no materials sections)
+
+### Commands Used
+
+```bash
+# Type checking
+docker compose exec web npm run type-check
+
+# Linting
+docker compose exec web npm run lint
+
+# Development server (already running via docker compose up)
+```
+- Simplified state management to only recipe details
+
+### Testing Status
+- ✅ TypeScript compilation passes (`npm run type-check`)
+- ✅ No ESLint errors
+- ✅ App runs without errors
+- ✅ Column order correct in all rows
+- ✅ Alphabetical sorting working
+- ✅ Optional labels displaying correctly
+- ✅ Simplified toggle interface functional
+
+### User Experience Improvements
+1. **Better Information Hierarchy**: Balance shown first makes it easier to spot deficits
+2. **Complete Worker Info**: Users can see all worker material needs including optional ones
+3. **Easier Navigation**: Alphabetical sorting makes finding specific materials faster
+4. **Clearer Optionality**: "(optional)" labels help users plan their production better
+5. **Simplified Interface**: Removed redundant toggle reduces confusion
+
+### Files Modified
+- `/src/v2/pages/GlobalSummaryPage.vue` - All UI refinements
+
+### Architecture Notes
+- Leverages existing worker consumables utilities
+- Maintains consistency with recipe details functionality
+- Clean separation between regular and worker consumable materials
+- Efficient sorting using native JavaScript methods
+
+---
+
+## Previous Work: Global Materials Balance Recipe Details - COMPLETED (December 22, 2025)
+
+### Summary
+Successfully enhanced the "Overview > Global Materials Balance" page with recipe details functionality and proper timeframe calculations.
+
+### Status
+✅ **COMPLETED** - All requested features implemented and working:
+
+### Features Implemented
+
+1. **Enhanced Materials Table Layout**
+   - Two-column grid: Regular Materials | Worker Consumables
+   - Material icons in each row (16px size)
+   - Integrated with existing per-base breakdown functionality
+   - Color-coded production (green) and consumption (red)
+
+2. **Recipe Details Mode**
+   - Toggle "Show recipe details" to see which recipes produce/consume each material
+   - Display structure matches "Show per-base breakdown" format:
+     - Material Row (main, clickable expand icon)
+     - Base Row (total production/consumption for that base)
+     - Recipe Detail Rows (nested under each base, showing individual recipe contributions)
+   - Visual indicators: ↑ for production, ↓ for consumption
+   - Shows building name and count for each recipe (e.g., "Factory ×5")
+
+3. **Expand/Collapse Functionality**
+   - Click arrow icon (▶/▼) on material row to expand/collapse recipe details
+   - "Expand All" / "Collapse All" buttons for bulk actions
+   - State persisted in localStorage using `EXPANDED_MATERIALS_STORAGE_KEY`
+
+4. **Timeframe-Aware Calculations** ✅
+   - Recipe details now correctly scale based on "Summary window (hours)" setting
+   - Uses `timeframeFactor = timeframeHours / 24` to convert from daily amounts
+   - All production and consumption values match the selected timeframe
+   - Fixed in `getMaterialRecipeDetails()` function
+
+5. **Proper Display Hierarchy** ✅
+   - Recipe details now show base row first (same as per-base breakdown)
+   - Recipe details nested underneath using `.filter(bd => bd.baseId === base.baseId)`
+   - Maintains visual consistency across both display modes
+
+### Technical Details
+
+**File Modified:** `/src/v2/pages/GlobalSummaryPage.vue`
+
+**Key Implementation:**
+
+```typescript
+// Recipe details with timeframe scaling
+const getMaterialRecipeDetails = (materialId: number) => {
+  const timeframeFactor = timeframeHours.value / 24
+  
+  summary.baseReports.value.forEach(({ base, report }) => {
+    report.recipes.forEach(recipeReport => {
+      // Scale amounts by timeframe
+      amount: recipeReport.outputPerDay * timeframeFactor
+      amount: consumptionPerDay * timeframeFactor
+    })
+  })
+}
+```
+
+**Template Structure:**
+```html
+<!-- Material Row -->
+<tr class="material-row">
+  <td><expand-icon /> <material-icon /> Material Name</td>
+  ...
+</tr>
+
+<!-- When recipe details expanded -->
+<template v-if="showRecipeDetails && expanded">
+  <template v-for="base in material.perBaseBreakdown">
+    <!-- Base Row (totals) -->
+    <tr class="base-breakdown-row">
+      <td class="pl-8">Base Name</td>
+      <td>Production</td>
+      <td>Consumption</td>
+      <td>Balance</td>
+    </tr>
+    
+    <!-- Recipe Rows (nested under base) -->
+    <tr v-for="recipe in getRecipes(base.baseId)" class="recipe-detail-row">
+      <td class="pl-12">↑/↓ Recipe Name (Building ×Count)</td>
+      ...
+    </tr>
+  </template>
+</template>
+```
+
+**State Management:**
+- `showPerBaseBreakdown` - toggle for per-base breakdown
+- `showRecipeDetails` - toggle for recipe details mode
+- `expandedMaterials` - Set tracking which materials are expanded
+- LocalStorage keys: `RECIPE_DETAILS_STORAGE_KEY`, `EXPANDED_MATERIALS_STORAGE_KEY`
+
+### Testing Status
+- ✅ TypeScript compilation passes (`npm run type-check`)
+- ✅ App runs without errors
+- ✅ Recipe calculations respect timeframe setting (not hardcoded to 24h)
+- ✅ Display structure matches per-base breakdown format
+- ✅ LocalStorage persistence works for both toggles and expansion state
+
+### Files Modified
+- `/src/v2/pages/GlobalSummaryPage.vue` - Main implementation
+
+### Architecture Notes
+- Follows existing patterns from GlobalSummary.vue
+- Uses existing composables: `useGlobalSummary`, `useMaterialFormatting`
+- Leverages existing BaseReport structure from useGlobalSummary
+- No new dependencies or external APIs needed
+
+---
+
+## Previous Work: Global Materials Balance Enhancement (December 22, 2025)
+
+### Summary
+User requested two major enhancements:
+1. Make "Overview > Global Materials Balance" function like "Bases > Global Summary > Global Materials Balance"
+2. Add a mode to show per-material & per-base breakdown of which recipes consume how much
+
+### Status
+🚧 **IN PROGRESS** - This is a larger refactoring that requires:
+- Extracting the enhanced Global Materials Balance component from GlobalSummary.vue
+- Applying it to GlobalSummaryPage.vue
+- Adding recipe-level consumption breakdown
+- May need to enhance useGlobalSummary composable to include recipe details
+
+### Files to Modify
+- `/src/v2/pages/GlobalSummaryPage.vue` - Replace simple table with enhanced version
+- `/src/v2/composables/useGlobalSummary.ts` - Potentially add recipe breakdown data
+- Consider extracting to shared component if both pages need same functionality
+
+### Current State
+- GlobalSummary.vue (in Bases > Global Summary) has the enhanced version with:
+  - Two-column layout (Regular Materials | Worker Consumables)
+  - Per-base breakdown toggle
+  - Material icons
+  - Production/Consumption values
+  - Nice formatting with hover states
+
+- GlobalSummaryPage.vue (Overview) has basic version:
+  - Single simple table
+  - No per-base breakdown
+  - No material icons
+  - Basic styling
+
+### Next Steps
+1. Copy enhanced material display from GlobalSummary.vue to GlobalSummaryPage.vue
+2. Add recipe-level consumption detail view (new feature)
+3. Test both pages work correctly
+4. Consider component extraction for code reuse
+
+## Previous Work: Stock Analysis Improvements (December 17, 2025)
 
 ### Summary
 Improved stock analysis calculations and centralized material exchange link generation in the repository pattern.

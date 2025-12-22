@@ -1,6 +1,6 @@
 /**
  * Stock Analysis Service
- * 
+ *
  * Analyzes material stock levels across all bases and categorizes them into:
  * - Export materials that need redistribution between bases
  * - Input materials that need to be purchased from the exchange
@@ -88,7 +88,7 @@ export function analyzeStockSituation(
       const neededForTimeframe = material.consumptionPerDay * timeframeDays
       const deficit = Math.max(0, neededForTimeframe - material.currentStock)
       const toBuy = Math.ceil(deficit)
-      
+
       // Calculate weight: material weight (in tonnes) * toBuy amount, converted to kg
       const weight = materialData.weightInTonnes * toBuy * 1000
       const value = toBuy * priceResolver(material.materialId)
@@ -119,7 +119,7 @@ export function analyzeStockSituation(
   // Determine which materials are produced (exports) vs need to be bought
   const exportMaterialIds = new Set<number>()
   const exportsByMaterial = new Map<number, Array<{ baseId: string; baseName: string; exportPerDay: number }>>()
-  
+
   baseSummaries.forEach((base) => {
     base.exportMaterials.forEach((exp) => {
       exportMaterialIds.add(exp.materialId)

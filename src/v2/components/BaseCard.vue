@@ -164,15 +164,12 @@ const showPriceTrend = computed(() => {
                 v-for="exportMat in topExportMaterials"
                 :key="exportMat.materialId"
                 class="export-material-item"
-                :title="getMaterialNameById(exportMat.materialId)"
+                :data-tooltip="getMaterialNameById(exportMat.materialId)"
               >
                 <MaterialIcon
                   :name="getMaterialNameById(exportMat.materialId)"
-                  :size="16"
+                  :size="18"
                 />
-                <span class="material-text">
-                  {{ getMaterialNameById(exportMat.materialId).substring(0, 3) }}
-                </span>
               </div>
             </div>
           </div>
@@ -369,17 +366,45 @@ const showPriceTrend = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 0.25rem;
   background: rgb(15 23 42);
   border: 1px solid rgb(51 65 85);
   transition: all 0.2s;
+  flex-shrink: 0;
+  position: relative;
+  cursor: pointer;
+}
+
+.export-material-item::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  padding: 0.25rem 0.5rem;
+  background: rgb(15 23 42);
+  border: 1px solid rgb(71 85 105);
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: var(--color-text);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0s;
+  z-index: 100;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
 }
 
 .export-material-item:hover {
   border-color: rgb(71 85 105);
   transform: scale(1.1);
+}
+
+.export-material-item:hover::after {
+  opacity: 1;
+  transition: opacity 0s;
 }
 
 .material-text {

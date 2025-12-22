@@ -268,7 +268,7 @@ const lostProfitData = computed(() => {
               </span>
             </div>
           </div>
-          
+
           <div v-if="lostProfitData" class="lost-profit-alert">
             <span class="alert-icon">⚠️</span>
             <div class="alert-content">
@@ -307,7 +307,7 @@ const lostProfitData = computed(() => {
                 </div>
               </div>
             </div>
-            
+
             <div class="balance-column">
               <div class="balance-header text-red-400">
                 ▼ {{ translate('consuming') }} ({{ purchaseMaterials.length }})

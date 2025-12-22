@@ -8,17 +8,13 @@ import { useWorldData } from '@/v2/services/worldData'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
-import { getMaterialNameById } from '@/v2/services/gamedata/gameDataRepository'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import BaseCard from '@/v2/components/BaseCard.vue'
 import BaseDetailExpanded from '@/v2/components/BaseDetailExpanded.vue'
-import StockWarnings from '@/v2/components/StockWarnings.vue'
-import { translate, formatCurrency, formatNumber } from '@/v2/localisation'
-import { analyzeStockSituation } from '@/v2/services/stockAnalysis'
+import { translate, formatCurrency } from '@/v2/localisation'
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
-const MATERIALS_BALANCE_STORAGE_KEY = 'gt:v2:materialsBalance:collapsed'
 
 function sanitizeTimeframe(value: unknown): number {
   const numeric = typeof value === 'number' ? value : Number(value)
@@ -35,32 +31,6 @@ function loadTimeframe(): number {
   } catch {
     return DEFAULT_TIMEFRAME_HOURS
   }
-}
-
-// Collapsible state for Materials Balance
-const isMaterialsBalanceCollapsed = ref<boolean>(false)
-
-const loadMaterialsBalanceState = (): boolean => {
-  try {
-    const stored = localStorage.getItem(MATERIALS_BALANCE_STORAGE_KEY)
-    return stored === 'true'
-  } catch {
-    return false
-  }
-}
-
-isMaterialsBalanceCollapsed.value = loadMaterialsBalanceState()
-
-watch(isMaterialsBalanceCollapsed, (newValue) => {
-  try {
-    localStorage.setItem(MATERIALS_BALANCE_STORAGE_KEY, String(newValue))
-  } catch {
-    // Ignore localStorage errors
-  }
-})
-
-const toggleMaterialsBalance = () => {
-  isMaterialsBalanceCollapsed.value = !isMaterialsBalanceCollapsed.value
 }
 
 const props = defineProps<{
@@ -172,19 +142,6 @@ const baseReports = computed(() => {
     map.set(base.id, report)
   })
   return map
-})
-
-// Analyze stock situation for global stock warnings
-const stockAnalysis = computed(() => {
-  return analyzeStockSituation(
-    summary.baseSummaries.value,
-    props.gameData,
-    props.index,
-    {
-      timeframeDays: timeframeHours.value / 24,
-      priceResolver: priceResolver.value,
-    },
-  )
 })
 
 const toggleBase = (baseId: string) => {
@@ -303,58 +260,6 @@ const isBaseExpanded = (baseId: string): boolean => {
         <div class="empty-state__text">{{ translate('noBasesConfigured') }}</div>
       </div>
     </section>
-
-    <!-- Global Stock Warnings -->
-    <section class="global-summary__section" v-if="stockAnalysis.allWarnings.length > 0">
-      <StockWarnings
-        :analysis="stockAnalysis"
-        :index="index"
-        :timeframe-hours="timeframeHours"
-      />
-    </section>
-
-    <!-- Global Materials Overview -->
-    <section class="global-summary__section">
-      <h2 class="section-title" @click="toggleMaterialsBalance" style="cursor: pointer;">
-        <span class="collapse-icon">{{ isMaterialsBalanceCollapsed ? '▶' : '▼' }}</span>
-        📦 Global Materials Balance
-      </h2>
-      <div v-if="!isMaterialsBalanceCollapsed" class="materials-table-wrapper">
-        <table class="materials-table">
-          <thead>
-            <tr>
-              <th>Material</th>
-              <th class="text-right">Production</th>
-              <th class="text-right">Consumption</th>
-              <th class="text-right">Net Balance</th>
-              <th class="text-right">Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="material in summary.globalMaterials.value.filter((m: any) => Math.abs(m.netBalance) > 0.01)"
-              :key="material.materialId"
-            >
-              <td class="material-name">
-                {{ getMaterialNameById(material.materialId) }}
-              </td>
-              <td class="text-right">{{ formatNumber(material.totalProduction) }}</td>
-              <td class="text-right">{{ formatNumber(material.totalConsumption) }}</td>
-              <td
-                class="text-right"
-                :class="{
-                  'text-success': material.netBalance > 0,
-                  'text-danger': material.netBalance < 0
-                }"
-              >
-                {{ material.netBalance > 0 ? '+' : '' }}{{ formatNumber(material.netBalance) }}
-              </td>
-              <td class="text-right">{{ formatCurrency(material.totalValue, 0) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -455,6 +360,115 @@ const isBaseExpanded = (baseId: string): boolean => {
   width: 1rem;
   text-align: center;
   transition: transform 0.2s ease;
+}
+
+.materials-content {
+  padding: 1rem;
+  background: rgb(30 41 59);
+  border: 1px solid rgb(51 65 85);
+  border-radius: 0.75rem;
+}
+
+.materials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.materials-table-wrapper {
+  overflow-x: auto;
+}
+
+.materials-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.materials-table thead {
+  background: rgb(15 23 42);
+  border-bottom: 2px solid rgb(51 65 85);
+}
+
+.materials-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.material-row {
+  border-bottom: 1px solid rgb(51 65 85);
+  transition: background-color 0.2s;
+}
+
+.material-row:hover {
+  background: rgb(51 65 85 / 30%);
+}
+
+.material-cell {
+  padding: 0.75rem 1rem;
+  min-width: 180px;
+}
+
+.materials-table td {
+  padding: 0.75rem 1rem;
+}
+
+.material-name {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.value-text {
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+}
+
+.base-breakdown-row {
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  background: rgb(15 23 42 / 30%);
+}
+
+.base-breakdown-row td {
+  padding: 0.375rem 1rem;
+}
+
+.base-name {
+  color: var(--color-text-soft);
+  font-size: 0.8125rem;
+}
+
+.more-text {
+  text-align: center;
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+}
+
+.flex {
+  display: flex;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.pl-8 {
+  padding-left: 2rem;
 }
 
 .bases-grid {
@@ -633,6 +647,78 @@ const isBaseExpanded = (baseId: string): boolean => {
 .text-danger {
   color: #ef4444;
   font-weight: 600;
+}
+
+.base-breakdown-row {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.base-breakdown-row:hover {
+  background: rgba(30, 41, 59, 0.7);
+}
+
+.base-breakdown-row .base-name {
+  font-size: 0.875rem;
+  color: rgb(148 163 184);
+}
+
+/* Recipe details styles */
+.expand-button {
+  background: none;
+  border: none;
+  color: rgb(148 163 184);
+  cursor: pointer;
+  padding: 0.25rem;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+  width: 20px;
+  text-align: center;
+}
+
+.expand-button:hover {
+  color: rgb(203 213 225);
+}
+
+.expand-collapse-btn {
+  padding: 0.375rem 0.75rem;
+  background: rgb(51 65 85);
+  border: 1px solid rgb(71 85 105);
+  border-radius: 0.375rem;
+  color: rgb(203 213 225);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.expand-collapse-btn:hover {
+  background: rgb(71 85 105);
+  border-color: rgb(100 116 139);
+}
+
+.recipe-base-row {
+  background: rgba(30, 41, 59, 0.3);
+}
+
+.recipe-base-header {
+  padding: 0.5rem 0.75rem !important;
+  border-top: 1px solid rgba(71, 85, 105, 0.5);
+}
+
+.recipe-detail-row {
+  background: rgba(15, 23, 42, 0.3);
+  font-size: 0.875rem;
+}
+
+.recipe-detail-row:hover {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.recipe-detail-row td {
+  padding: 0.5rem 0.75rem;
+}
+
+.material-row.has-recipe-details {
+  border-bottom: 1px solid rgba(71, 85, 105, 0.3);
 }
 
 @media (max-width: 768px) {

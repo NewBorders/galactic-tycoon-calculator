@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import type { StockAnalysisResult } from '@/v2/services/stockAnalysis'
 import type { GdIndex } from '@/v2/services/gamedata/types'
 import { translate, formatNumber, formatCurrency, formatDays } from '@/v2/localisation'
@@ -13,35 +13,6 @@ const props = defineProps<{
 
 type ViewMode = 'combined' | 'by-material' | 'by-base'
 const viewMode = ref<ViewMode>('combined')
-
-// Collapsible state with localStorage
-const STORAGE_KEY = 'gt:v2:stockWarnings:collapsed'
-const isCollapsed = ref<boolean>(false)
-
-// Load collapsed state from localStorage
-const loadCollapsedState = (): boolean => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored === 'true'
-  } catch {
-    return false
-  }
-}
-
-isCollapsed.value = loadCollapsedState()
-
-// Save collapsed state to localStorage
-watch(isCollapsed, (newValue) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, String(newValue))
-  } catch {
-    // Ignore localStorage errors
-  }
-})
-
-const toggleCollapsed = () => {
-  isCollapsed.value = !isCollapsed.value
-}
 
 // Sort combined warnings by urgency (time left)
 const sortedCombinedWarnings = computed(() => {
@@ -80,7 +51,7 @@ const warningsByBase = computed(() => {
 
 const formatWeight = (kg: number): string => {
   // Always show in tons
-  return `${formatNumber(kg / 1000)} t`
+  return `${formatNumber(kg / 1000)}t`
 }
 
 const getUrgencyClass = (days: number): string => {
@@ -98,11 +69,10 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
   <div class="stock-warnings">
     <!-- Header with Collapse Toggle -->
     <div class="stock-warnings__header">
-      <h2 class="section-title" @click="toggleCollapsed" style="cursor: pointer;">
-        <span class="collapse-icon">{{ isCollapsed ? '▶' : '▼' }}</span>
+      <h2 class="section-title">
         ⚠️ {{ translate('materialsRunningOut') }}
       </h2>
-      <div v-if="!isCollapsed" class="view-toggle">
+      <div class="view-toggle">
         <button
           class="view-toggle__btn"
           :class="{ 'view-toggle__btn--active': viewMode === 'combined' }"
@@ -119,7 +89,7 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
       </div>
     </div>
 
-    <div v-if="!isCollapsed">
+    <div>
       <div v-if="analysis.allWarnings.length === 0" class="empty-state">
         <div class="empty-state__icon">✅</div>
         <div class="empty-state__text">{{ translate('noMaterialsRunningOut') }}</div>

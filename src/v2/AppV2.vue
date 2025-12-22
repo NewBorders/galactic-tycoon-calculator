@@ -10,6 +10,8 @@ import { useMaterialPricing } from './services/gamedata/prices'
 import { useWorldData } from './services/worldData'
 import { initializeSyncService } from './services/syncService'
 import GlobalSummaryPage from './pages/GlobalSummaryPage.vue'
+import MaterialsShortagePage from './pages/MaterialsShortagePage.vue'
+import MaterialsBalancePage from './pages/MaterialsBalancePage.vue'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
@@ -20,7 +22,7 @@ import TodoList from './components/TodoList.vue'
 import PlanningRequiredDialog from './components/PlanningRequiredDialog.vue'
 import ApiLandingPage from './components/ApiLandingPage.vue'
 
-type Tab = 'overview' | 'bases' | 'technology' | 'config' | 'market' | 'alerts'
+type Tab = 'overview' | 'bases' | 'matsShortage' | 'matsBalance' | 'technology' | 'config' | 'market' | 'alerts'
 const LS_KEY = 'gt:v2:activeTab'
 
 const active = ref<Tab>('overview')
@@ -76,7 +78,7 @@ if (typeof window !== 'undefined') {
 
 onMounted(async () => {
   const saved = localStorage.getItem(LS_KEY) as Tab | null
-  if (saved === 'bases' || saved === 'technology' || saved === 'config' || saved === 'market' || saved === 'alerts') {
+  if (saved === 'bases' || saved === 'matsShortage' || saved === 'matsBalance' || saved === 'technology' || saved === 'config' || saved === 'market' || saved === 'alerts') {
     active.value = saved
   } else {
     active.value = 'overview' // Default to overview
@@ -137,6 +139,13 @@ watch(getWorld, async () => {
         <nav class="flex gap-2">
           <button
             class="px-3 py-2 border rounded"
+            :class="active === 'bases' ? 'bg-gray-600' : ''"
+            @click="active = 'bases'"
+          >
+            {{ translate('tabPlayerConfig') }}
+          </button>
+          <button
+            class="px-3 py-2 border rounded"
             :class="active === 'overview' ? 'bg-gray-600' : ''"
             @click="active = 'overview'"
           >
@@ -144,10 +153,17 @@ watch(getWorld, async () => {
           </button>
           <button
             class="px-3 py-2 border rounded"
-            :class="active === 'bases' ? 'bg-gray-600' : ''"
-            @click="active = 'bases'"
+            :class="active === 'matsShortage' ? 'bg-gray-600' : ''"
+            @click="active = 'matsShortage'"
           >
-            {{ translate('tabPlayerConfig') }}
+            ⚠️ Mats Shortage
+          </button>
+          <button
+            class="px-3 py-2 border rounded"
+            :class="active === 'matsBalance' ? 'bg-gray-600' : ''"
+            @click="active = 'matsBalance'"
+          >
+            📦 Mats Balance
           </button>
           <button
             class="px-3 py-2 border rounded"
@@ -187,6 +203,16 @@ watch(getWorld, async () => {
 
       <GlobalSummaryPage
         v-if="gd && gdIndex && active === 'overview'"
+        :gameData="gd"
+        :index="gdIndex"
+      />
+      <MaterialsShortagePage
+        v-if="gd && gdIndex && active === 'matsShortage'"
+        :gameData="gd"
+        :index="gdIndex"
+      />
+      <MaterialsBalancePage
+        v-if="gd && gdIndex && active === 'matsBalance'"
         :gameData="gd"
         :index="gdIndex"
       />
