@@ -97,143 +97,140 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
 
       <!-- Combined View (Default) -->
       <div v-else-if="viewMode === 'combined'" class="material-groups">
-      <section class="material-group">
-        <div class="material-table-wrapper">
-          <table class="material-table">
-            <thead>
-              <tr>
-                <th>{{ translate('material') }}</th>
-                <th class="text-center">{{ translate('actionRedistribute') }}</th>
-                <th class="text-right">{{ translate('timeLeft') }}</th>
-                <th class="text-right">{{ translate('currentStock') }}</th>
-                <th class="text-right">{{ translate('toBuy') }}</th>
-                <th class="text-right">{{ translate('weight') }}</th>
-                <th class="text-right">{{ translate('value') }}</th>
-                <th class="text-center">{{ translate('bases') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="group in sortedCombinedWarnings" :key="group.materialId">
-                <td class="material-cell">
-                  <a :href="getMaterialExchangeLink(group.materialId)" target="_blank" class="material-link">
-                    <span>{{ group.materialName }}</span>
-                  </a>
-                </td>
-                <td class="text-center">
-                  <span
-                    class="action-badge"
-                    :class="group.actionType === 'redistribute' ? 'action-badge--redistribute' : 'action-badge--purchase'"
-                  >
-                    {{ group.actionType === 'redistribute' ? '🔄' : '🛒' }}
-                    {{ group.actionType === 'redistribute' ? translate('actionRedistribute') : translate('actionPurchase') }}
-                  </span>
-                  <div v-if="group.actionType === 'redistribute' && group.sourceBases" class="source-bases">
-                    <span class="source-label">{{ translate('sourceBase') }}:</span>
-                    <span v-for="(source, idx) in group.sourceBases" :key="source.baseId" class="source-base">
-                      {{ source.baseName }}{{ idx < group.sourceBases.length - 1 ? ', ' : '' }}
-                    </span>
-                  </div>
-                </td>
-                <td class="text-right">
-                  <span :class="getUrgencyClass(group.urgency)">
-                    {{ formatDays(group.urgency) }}
-                  </span>
-                </td>
-                <td class="text-right">
-                  <div class="stock-per-base">
-                    <div v-for="base in group.bases" :key="base.baseId" class="stock-item">
-                      <span class="base-label">{{ base.baseName }}:</span>
-                      <span class="stock-value">{{ formatNumber(base.currentStock) }}</span>
+        <section class="material-group">
+            <table class="material-table">
+              <thead>
+                <tr>
+                  <th class="text-left">{{ translate('material') }}</th>
+                  <th class="text-center">{{ translate('bases') }}</th>
+                  <th class="text-center">{{ translate('actionRedistribute') }}</th>
+                  <th class="text-right">{{ translate('timeLeft') }}</th>
+                  <th class="text-right">{{ translate('currentStock') }}</th>
+                  <th class="text-right">{{ translate('toBuy') }}</th>
+                  <th class="text-right">{{ translate('weight') }}</th>
+                  <th class="text-right">{{ translate('value') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="group in sortedCombinedWarnings" :key="group.materialId">
+                  <td class="material-cell">
+                    <a :href="getMaterialExchangeLink(group.materialId)" target="_blank" class="material-link">
+                      <span>{{ group.materialName }}</span>
+                    </a>
+                  </td>
+                  <td class="text-center">
+                    <div class="bases-list">
+                      <span v-for="base in group.bases" :key="base.baseId" class="base-name">
+                        {{ base.baseName }}
+                      </span>
                     </div>
-                  </div>
-                </td>
-                <td class="text-right">{{ formatNumber(group.totalToBuy) }}</td>
-                <td class="text-right">{{ formatWeight(group.totalWeight) }}</td>
-                <td class="text-right">{{ formatCurrency(group.totalValue) }}</td>
-                <td class="text-center">
-                  <div class="bases-list">
-                    <span v-for="base in group.bases" :key="base.baseId" class="base-name">
-                      {{ base.baseName }}
+                  </td>
+                  <td class="text-center">
+                    <span
+                      class="action-badge"
+                      :class="group.actionType === 'redistribute' ? 'action-badge--redistribute' : 'action-badge--purchase'"
+                    >
+                      {{ group.actionType === 'redistribute' ? '🔄' : '🛒' }}
+                      {{ group.actionType === 'redistribute' ? translate('actionRedistribute') : translate('actionPurchase') }}
                     </span>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-            <tfoot v-if="sortedCombinedWarnings.length > 0">
-              <tr class="total-row">
-                <td colspan="5" class="text-right">{{ translate('total') }}</td>
-                <td class="text-right">
-                  {{ formatWeight(sortedCombinedWarnings.reduce((s, g) => s + g.totalWeight, 0)) }}
-                </td>
-                <td class="text-right">
-                  {{ formatCurrency(sortedCombinedWarnings.reduce((s, g) => s + g.totalValue, 0), 0) }}
-                </td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </section>
-    </div>
+                    <div v-if="group.actionType === 'redistribute' && group.sourceBases" class="source-bases">
+                      <span class="source-label">{{ translate('sourceBase') }}:</span>
+                      <span v-for="(source, idx) in group.sourceBases" :key="source.baseId" class="source-base">
+                        {{ source.baseName }}{{ idx < group.sourceBases.length - 1 ? ', ' : '' }}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="text-right">
+                    <span :class="getUrgencyClass(group.urgency)">
+                      {{ formatDays(group.urgency) }}
+                    </span>
+                  </td>
+                  <td class="text-right">
+                    <div class="stock-per-base">
+                      <div v-for="base in group.bases" :key="base.baseId" class="stock-item">
+                        <span class="base-label">{{ base.baseName }}:</span>
+                        <span class="stock-value">{{ formatNumber(base.currentStock) }}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-right">{{ formatNumber(group.totalToBuy) }}</td>
+                  <td class="text-right">{{ formatWeight(group.totalWeight) }}</td>
+                  <td class="text-right">{{ formatCurrency(group.totalValue) }}</td>
+                </tr>
+              </tbody>
+              <tfoot v-if="sortedCombinedWarnings.length > 0">
+                <tr class="total-row">
+                  <td colspan="6" class="text-right">{{ translate('total') }}</td>
+                  <td class="text-right">
+                    {{ formatWeight(sortedCombinedWarnings.reduce((s, g) => s + g.totalWeight, 0)) }}
+                  </td>
+                  <td class="text-right">
+                    {{ formatCurrency(sortedCombinedWarnings.reduce((s, g) => s + g.totalValue, 0), 0) }}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+        </section>
+      </div>
 
-    <!-- By Base View -->
-    <div v-else class="base-groups">
-      <section v-for="base in warningsByBase" :key="base.baseId" class="base-group">
-        <div class="base-group__header">
-          <h3 class="base-group__title">{{ base.baseName }}</h3>
-          <div class="base-group__summary">
-            <span class="base-summary-item">
-              <span class="label">{{ translate('weight') }}:</span>
-              <span class="value">{{ formatWeight(base.totalWeight) }}</span>
-            </span>
-            <span class="base-summary-item">
-              <span class="label">{{ translate('value') }}:</span>
-              <span class="value">{{ formatCurrency(base.totalValue, 0) }}</span>
-            </span>
-            <span class="base-summary-item">
-              <span class="label">{{ translate('urgency') }}:</span>
-              <span class="value" :class="getUrgencyClass(base.urgency)">
-                {{ formatDays(base.urgency) }}
+      <!-- By Base View -->
+      <div v-else class="base-groups">
+        <section v-for="base in warningsByBase" :key="base.baseId" class="base-group">
+          <div class="base-group__header">
+            <h3 class="base-group__title">{{ base.baseName }}</h3>
+            <div class="base-group__summary">
+              <span class="base-summary-item">
+                <span class="label">{{ translate('weight') }}:</span>
+                <span class="value">{{ formatWeight(base.totalWeight) }}</span>
               </span>
-            </span>
+              <span class="base-summary-item">
+                <span class="label">{{ translate('value') }}:</span>
+                <span class="value">{{ formatCurrency(base.totalValue, 0) }}</span>
+              </span>
+              <span class="base-summary-item">
+                <span class="label">{{ translate('urgency') }}:</span>
+                <span class="value" :class="getUrgencyClass(base.urgency)">
+                  {{ formatDays(base.urgency) }}
+                </span>
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div class="material-table-wrapper">
-          <table class="material-table">
-            <thead>
-              <tr>
-                <th>{{ translate('material') }}</th>
-                <th class="text-right">{{ translate('timeLeft') }}</th>
-                <th class="text-right">{{ translate('currentStock') }}</th>
-                <th class="text-right">{{ translate('toBuy') }}</th>
-                <th class="text-right">{{ translate('weight') }}</th>
-                <th class="text-right">{{ translate('value') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="warning in base.warnings" :key="warning.materialId">
-                <td class="material-cell">
-                  <a :href="getMaterialExchangeLink(warning.materialId)" target="_blank" class="material-link">
+          <div class="material-table-wrapper">
+            <table class="material-table">
+              <thead>
+                <tr>
+                  <th class="text-left">{{ translate('material') }}</th>
+                  <th class="text-right">{{ translate('timeLeft') }}</th>
+                  <th class="text-right">{{ translate('currentStock') }}</th>
+                  <th class="text-right">{{ translate('toBuy') }}</th>
+                  <th class="text-right">{{ translate('weight') }}</th>
+                  <th class="text-right">{{ translate('value') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="warning in base.warnings" :key="warning.materialId">
+                  <td class="material-cell">
+                    <a :href="getMaterialExchangeLink(warning.materialId)" target="_blank" class="material-link">
 
-                    <span>{{ warning.materialName }}</span>
-                  </a>
-                </td>
-                <td class="text-right">
-                  <span :class="getUrgencyClass(warning.daysUntilEmpty)">
-                    {{ formatDays(warning.daysUntilEmpty) }}
-                  </span>
-                </td>
-                <td class="text-right">{{ formatNumber(warning.currentStock) }}</td>
-                <td class="text-right">{{ formatNumber(warning.toBuy) }}</td>
-                <td class="text-right">{{ formatWeight(warning.weight) }}</td>
-                <td class="text-right">{{ formatCurrency(warning.value, 0) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
+                      <span>{{ warning.materialName }}</span>
+                    </a>
+                  </td>
+                  <td class="text-right">
+                    <span :class="getUrgencyClass(warning.daysUntilEmpty)">
+                      {{ formatDays(warning.daysUntilEmpty) }}
+                    </span>
+                  </td>
+                  <td class="text-right">{{ formatNumber(warning.currentStock) }}</td>
+                  <td class="text-right">{{ formatNumber(warning.toBuy) }}</td>
+                  <td class="text-right">{{ formatWeight(warning.weight) }}</td>
+                  <td class="text-right">{{ formatCurrency(warning.value, 0) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 </template>
@@ -377,7 +374,6 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
 
 .material-table th {
   padding: 0.75rem 1rem;
-  text-align: left;
   font-weight: 600;
   color: var(--color-heading);
   white-space: nowrap;
@@ -417,6 +413,10 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
 
 .material-icon {
   flex-shrink: 0;
+}
+
+.text-left {
+  text-align: left;
 }
 
 .text-right {
