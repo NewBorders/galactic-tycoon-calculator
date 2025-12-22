@@ -1,6 +1,24 @@
 # Handoff Document
 
-## Most Recent Work Session: Per-Base Material Sort Order Persistence
+## Most Recent Work Session: Removed Display Limitations in Global Summary
+
+### Summary
+Removed all display limitations in the Global Summary view (v2) that were restricting the number of visible items. Previously, the "Per Base Summary" showed only the first 10 export materials and 10 materials running out, while "Global Material Production & Consumption" showed only 30 materials. All these limitations have been removed, and the "+xx more" messages have been deleted. Users can now see all entries without restrictions.
+
+### Technical Details
+**File**: `/src/v2/pages/player-config/components/GlobalSummary.vue`
+
+**Changes Made**:
+1. Removed `.slice(0, 10)` from `baseSummary.exportMaterials` loop (line ~250)
+2. Removed `.slice(0, 10)` from `baseSummary.materialsRunningOut` loop (line ~300)
+3. Removed `.slice(0, 30)` from `regularMaterials` loop (line ~373)
+4. Removed all three "+xx more" display messages that appeared when the limits were exceeded
+
+All type checking passes successfully after these changes.
+
+---
+
+## Previous Work Session: Per-Base Material Sort Order Persistence
 
 ### Summary
 Implemented persistence for the material balance sort order (name vs recipe) on a per-base level. Users can now toggle between alphabetical sorting and recipe order, and their preference is saved individually for each base in localStorage.

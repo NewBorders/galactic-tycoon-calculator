@@ -247,7 +247,7 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                       <span class="text-right w-14"></span>
                     </div>
                     <div
-                      v-for="material in baseSummary.exportMaterials.slice(0, 10)"
+                      v-for="material in baseSummary.exportMaterials"
                       :key="material.materialId"
                       class="flex items-center gap-2 text-sm"
                     >
@@ -265,9 +265,6 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                       <span class="text-slate-500 text-xs text-right w-14">
                         {{ formatNumber(material.exportRatio, 0) }}%
                       </span>
-                    </div>
-                    <div v-if="baseSummary.exportMaterials.length > 10" class="text-xs text-slate-500 pl-6">
-                      +{{ baseSummary.exportMaterials.length - 10 }} {{ translate('more') }}
                     </div>
                   </div>
                   <div v-else class="text-sm text-slate-500 italic">
@@ -298,7 +295,7 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                       </span>
                     </div>
                     <div
-                      v-for="material in baseSummary.materialsRunningOut.slice(0, 10)"
+                      v-for="material in baseSummary.materialsRunningOut"
                       :key="material.materialId"
                       class="flex items-center gap-2 text-sm"
                     >
@@ -316,9 +313,6 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                           return `${formatNumber(toBuy, 0)} / ${formatWeight(gameData, toBuy, material.materialId)}`
                         })() }}
                       </span>
-                    </div>
-                    <div v-if="baseSummary.materialsRunningOut.length > 10" class="text-xs text-slate-500 pl-6">
-                      +{{ baseSummary.materialsRunningOut.length - 10 }} {{ translate('more') }}
                     </div>
                   </div>
                   <div v-else class="text-sm text-slate-500 italic">
@@ -376,7 +370,7 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                   </tr>
                 </thead>
                 <tbody>
-                  <template v-for="material in regularMaterials.slice(0, 30)" :key="material.materialId">
+                  <template v-for="material in regularMaterials" :key="material.materialId">
                     <!-- Main material row -->
                     <tr class="border-b border-slate-800 hover:bg-slate-800/50">
                       <td class="py-1 px-2">
@@ -429,9 +423,6 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                   </template>
                 </tbody>
               </table>
-              <div v-if="regularMaterials.length > 30" class="text-xs text-slate-500 text-center py-2">
-                +{{ regularMaterials.length - 30 }} {{ translate('more') }}
-              </div>
             </div>
 
             <!-- Worker Consumables (Right) -->
