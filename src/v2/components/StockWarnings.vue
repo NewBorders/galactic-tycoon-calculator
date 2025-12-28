@@ -3,16 +3,50 @@ import { ref, computed } from 'vue'
 import type { StockAnalysisResult } from '@/v2/services/stockAnalysis'
 import type { GdIndex } from '@/v2/services/gamedata/types'
 import { translate, formatNumber, formatCurrency, formatDays } from '@/v2/localisation'
-import { getMaterialNameById, getMaterialExchangeLink } from '@/v2/services/gamedata/gameDataRepository'
+import { getMaterialExchangeLink } from '@/v2/services/gamedata/gameDataRepository'
+import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
+import AlertOverlay from '@/v2/components/AlertOverlay.vue'
 
 const props = defineProps<{
   analysis: StockAnalysisResult
   index: GdIndex
   timeframeHours: number
+  priceResolver: (materialId: number) => number
 }>()
 
 type ViewMode = 'combined' | 'by-material' | 'by-base'
 const viewMode = ref<ViewMode>('combined')
+
+// Price alert functionality
+const { getAlert } = usePriceAlerts()
+const alertOverlayOpen = ref(false)
+const alertMaterialId = ref<number | null>(null)
+const alertMaterialName = ref<string>('')
+
+function hasAlert(materialId: number, type: 'buy' | 'sell'): boolean {
+  return getAlert(materialId, type) !== undefined
+}
+
+function openAlertOverlay(materialId: number, materialName: string) {
+  alertMaterialId.value = materialId
+  alertMaterialName.value = materialName
+  alertOverlayOpen.value = true
+}
+
+function closeAlertOverlay() {
+  alertOverlayOpen.value = false
+  alertMaterialId.value = null
+  alertMaterialName.value = ''
+}
+
+const alertCurrentPrice = computed(() => {
+  if (alertMaterialId.value === null) return 0
+  return props.priceResolver(alertMaterialId.value)
+})
+
+// For average price, we'll use current price as fallback
+// In a real scenario, you might want to compute historical average
+const alertAveragePrice = computed(() => alertCurrentPrice.value)
 
 // Sort combined warnings by urgency (time left)
 const sortedCombinedWarnings = computed(() => {
@@ -60,9 +94,6 @@ const getUrgencyClass = (days: number): string => {
   if (days <= 7) return 'urgency-medium'
   return 'urgency-low'
 }
-
-const hasRedistributionNeeded = computed(() => props.analysis.redistributionNeeded.length > 0)
-const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 0)
 </script>
 
 <template>
@@ -109,6 +140,7 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
                   <th class="text-right">{{ translate('toBuy') }}</th>
                   <th class="text-right">{{ translate('weight') }}</th>
                   <th class="text-right">{{ translate('value') }}</th>
+                  <th class="text-right">{{ translate('alert') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,17 +188,32 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
                   <td class="text-right">{{ formatNumber(group.totalToBuy) }}</td>
                   <td class="text-right">{{ formatWeight(group.totalWeight) }}</td>
                   <td class="text-right">{{ formatCurrency(group.totalValue) }}</td>
+                  <td class="text-right">
+                    <button
+                      @click.stop="openAlertOverlay(group.materialId, group.materialName)"
+                      :class="[
+                        'alert-button',
+                        hasAlert(group.materialId, 'buy') ? 'alert-button--buy' :
+                        hasAlert(group.materialId, 'sell') ? 'alert-button--sell' :
+                        'alert-button--none'
+                      ]"
+                      :title="hasAlert(group.materialId, 'buy') ? 'Buy alert set' : hasAlert(group.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                    >
+                      {{ hasAlert(group.materialId, 'buy') ? '💰' : hasAlert(group.materialId, 'sell') ? '📈' : '🔔' }}
+                    </button>
+                  </td>
                 </tr>
               </tbody>
               <tfoot v-if="sortedCombinedWarnings.length > 0">
                 <tr class="total-row">
-                  <td colspan="6" class="text-right">{{ translate('total') }}</td>
+                  <td colspan="7" class="text-right">{{ translate('total') }}</td>
                   <td class="text-right">
                     {{ formatWeight(sortedCombinedWarnings.reduce((s, g) => s + g.totalWeight, 0)) }}
                   </td>
                   <td class="text-right">
                     {{ formatCurrency(sortedCombinedWarnings.reduce((s, g) => s + g.totalValue, 0), 0) }}
                   </td>
+                  <td></td>
                 </tr>
               </tfoot>
             </table>
@@ -206,6 +253,7 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
                   <th class="text-right">{{ translate('toBuy') }}</th>
                   <th class="text-right">{{ translate('weight') }}</th>
                   <th class="text-right">{{ translate('value') }}</th>
+                  <th class="text-right">{{ translate('alert') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -225,6 +273,20 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
                   <td class="text-right">{{ formatNumber(warning.toBuy) }}</td>
                   <td class="text-right">{{ formatWeight(warning.weight) }}</td>
                   <td class="text-right">{{ formatCurrency(warning.value, 0) }}</td>
+                  <td class="text-right">
+                    <button
+                      @click.stop="openAlertOverlay(warning.materialId, warning.materialName)"
+                      :class="[
+                        'alert-button',
+                        hasAlert(warning.materialId, 'buy') ? 'alert-button--buy' :
+                        hasAlert(warning.materialId, 'sell') ? 'alert-button--sell' :
+                        'alert-button--none'
+                      ]"
+                      :title="hasAlert(warning.materialId, 'buy') ? 'Buy alert set' : hasAlert(warning.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                    >
+                      {{ hasAlert(warning.materialId, 'buy') ? '💰' : hasAlert(warning.materialId, 'sell') ? '📈' : '🔔' }}
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -233,6 +295,17 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
       </div>
     </div>
   </div>
+
+  <!-- Alert Overlay -->
+  <AlertOverlay
+    v-if="alertOverlayOpen && alertMaterialId !== null"
+    :materialId="alertMaterialId"
+    :materialName="alertMaterialName"
+    :currentPrice="alertCurrentPrice"
+    :averagePrice="alertAveragePrice"
+    :open="alertOverlayOpen"
+    @close="closeAlertOverlay"
+  />
 </template>
 
 <style scoped>
@@ -585,6 +658,40 @@ const hasPurchaseNeeded = computed(() => props.analysis.purchaseNeeded.length > 
 .base-summary-item .value {
   color: var(--color-heading);
   font-weight: 600;
+}
+
+.alert-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.125rem;
+  padding: 0.25rem;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.alert-button--none {
+  color: rgb(100 116 139);
+}
+
+.alert-button--none:hover {
+  color: rgb(250 204 21);
+}
+
+.alert-button--buy {
+  color: rgb(59 130 246);
+}
+
+.alert-button--buy:hover {
+  color: rgb(96 165 250);
+}
+
+.alert-button--sell {
+  color: rgb(251 146 60);
+}
+
+.alert-button--sell:hover {
+  color: rgb(253 186 116);
 }
 
 @media (max-width: 768px) {

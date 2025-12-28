@@ -134,6 +134,7 @@ const stockAnalysis = computed(() => {
       :analysis="stockAnalysis"
       :index="props.index"
       :timeframe-hours="timeframeHours"
+      :price-resolver="priceResolver"
     />
   </div>
 </template>
