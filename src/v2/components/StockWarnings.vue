@@ -89,10 +89,8 @@ const formatWeight = (kg: number): string => {
 }
 
 const getUrgencyClass = (days: number): string => {
-  if (days <= 1) return 'urgency-critical'
-  if (days <= 3) return 'urgency-high'
-  if (days <= 7) return 'urgency-medium'
-  return 'urgency-low'
+  const timeframeDays = props.timeframeHours / 24
+  return days < timeframeDays ? 'urgency-red' : 'urgency-green'
 }
 </script>
 
@@ -140,7 +138,6 @@ const getUrgencyClass = (days: number): string => {
                   <th class="text-right">{{ translate('toBuy') }}</th>
                   <th class="text-right">{{ translate('weight') }}</th>
                   <th class="text-right">{{ translate('value') }}</th>
-                  <th class="text-right">{{ translate('alert') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,6 +146,19 @@ const getUrgencyClass = (days: number): string => {
                     <a :href="getMaterialExchangeLink(group.materialId)" target="_blank" class="material-link">
                       <span>{{ group.materialName }}</span>
                     </a>
+                    <button
+                      @click.stop="openAlertOverlay(group.materialId, group.materialName)"
+                      :class="[
+                        'alert-button',
+                        'alert-button--inline',
+                        hasAlert(group.materialId, 'buy') ? 'alert-button--buy' :
+                        hasAlert(group.materialId, 'sell') ? 'alert-button--sell' :
+                        'alert-button--none'
+                      ]"
+                      :title="hasAlert(group.materialId, 'buy') ? 'Buy alert set' : hasAlert(group.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                    >
+                      {{ hasAlert(group.materialId, 'buy') ? '💰' : hasAlert(group.materialId, 'sell') ? '📈' : '🔔' }}
+                    </button>
                   </td>
                   <td class="text-center">
                     <div class="bases-list">
@@ -188,32 +198,17 @@ const getUrgencyClass = (days: number): string => {
                   <td class="text-right">{{ formatNumber(group.totalToBuy) }}</td>
                   <td class="text-right">{{ formatWeight(group.totalWeight) }}</td>
                   <td class="text-right">{{ formatCurrency(group.totalValue) }}</td>
-                  <td class="text-right">
-                    <button
-                      @click.stop="openAlertOverlay(group.materialId, group.materialName)"
-                      :class="[
-                        'alert-button',
-                        hasAlert(group.materialId, 'buy') ? 'alert-button--buy' :
-                        hasAlert(group.materialId, 'sell') ? 'alert-button--sell' :
-                        'alert-button--none'
-                      ]"
-                      :title="hasAlert(group.materialId, 'buy') ? 'Buy alert set' : hasAlert(group.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
-                    >
-                      {{ hasAlert(group.materialId, 'buy') ? '💰' : hasAlert(group.materialId, 'sell') ? '📈' : '🔔' }}
-                    </button>
-                  </td>
                 </tr>
               </tbody>
               <tfoot v-if="sortedCombinedWarnings.length > 0">
                 <tr class="total-row">
-                  <td colspan="7" class="text-right">{{ translate('total') }}</td>
+                  <td colspan="6" class="text-right">{{ translate('total') }}</td>
                   <td class="text-right">
                     {{ formatWeight(sortedCombinedWarnings.reduce((s, g) => s + g.totalWeight, 0)) }}
                   </td>
                   <td class="text-right">
                     {{ formatCurrency(sortedCombinedWarnings.reduce((s, g) => s + g.totalValue, 0), 0) }}
                   </td>
-                  <td></td>
                 </tr>
               </tfoot>
             </table>
@@ -253,16 +248,27 @@ const getUrgencyClass = (days: number): string => {
                   <th class="text-right">{{ translate('toBuy') }}</th>
                   <th class="text-right">{{ translate('weight') }}</th>
                   <th class="text-right">{{ translate('value') }}</th>
-                  <th class="text-right">{{ translate('alert') }}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="warning in base.warnings" :key="warning.materialId">
                   <td class="material-cell">
                     <a :href="getMaterialExchangeLink(warning.materialId)" target="_blank" class="material-link">
-
                       <span>{{ warning.materialName }}</span>
                     </a>
+                    <button
+                      @click.stop="openAlertOverlay(warning.materialId, warning.materialName)"
+                      :class="[
+                        'alert-button',
+                        'alert-button--inline',
+                        hasAlert(warning.materialId, 'buy') ? 'alert-button--buy' :
+                        hasAlert(warning.materialId, 'sell') ? 'alert-button--sell' :
+                        'alert-button--none'
+                      ]"
+                      :title="hasAlert(warning.materialId, 'buy') ? 'Buy alert set' : hasAlert(warning.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                    >
+                      {{ hasAlert(warning.materialId, 'buy') ? '💰' : hasAlert(warning.materialId, 'sell') ? '📈' : '🔔' }}
+                    </button>
                   </td>
                   <td class="text-right">
                     <span :class="getUrgencyClass(warning.daysUntilEmpty)">
@@ -273,20 +279,6 @@ const getUrgencyClass = (days: number): string => {
                   <td class="text-right">{{ formatNumber(warning.toBuy) }}</td>
                   <td class="text-right">{{ formatWeight(warning.weight) }}</td>
                   <td class="text-right">{{ formatCurrency(warning.value, 0) }}</td>
-                  <td class="text-right">
-                    <button
-                      @click.stop="openAlertOverlay(warning.materialId, warning.materialName)"
-                      :class="[
-                        'alert-button',
-                        hasAlert(warning.materialId, 'buy') ? 'alert-button--buy' :
-                        hasAlert(warning.materialId, 'sell') ? 'alert-button--sell' :
-                        'alert-button--none'
-                      ]"
-                      :title="hasAlert(warning.materialId, 'buy') ? 'Buy alert set' : hasAlert(warning.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
-                    >
-                      {{ hasAlert(warning.materialId, 'buy') ? '💰' : hasAlert(warning.materialId, 'sell') ? '📈' : '🔔' }}
-                    </button>
-                  </td>
                 </tr>
               </tbody>
             </table>
@@ -472,7 +464,7 @@ const getUrgencyClass = (days: number): string => {
 }
 
 .material-link {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   color: var(--color-heading);
@@ -593,22 +585,14 @@ const getUrgencyClass = (days: number): string => {
   white-space: nowrap;
 }
 
-.urgency-critical {
+.urgency-red {
   color: #ef4444;
   font-weight: 600;
 }
 
-.urgency-high {
-  color: #f59e0b;
+.urgency-green {
+  color: #10b981;
   font-weight: 600;
-}
-
-.urgency-medium {
-  color: #eab308;
-}
-
-.urgency-low {
-  color: var(--color-text-soft);
 }
 
 .base-groups {
@@ -668,6 +652,11 @@ const getUrgencyClass = (days: number): string => {
   padding: 0.25rem;
   transition: all 0.2s;
   line-height: 1;
+}
+
+.alert-button--inline {
+  margin-left: 0.5rem;
+  font-size: 0.875rem;
 }
 
 .alert-button--none {
