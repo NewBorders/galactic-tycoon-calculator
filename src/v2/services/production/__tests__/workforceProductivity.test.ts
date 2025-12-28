@@ -40,12 +40,90 @@ describe('Workforce Productivity - Satisfaction Calculation', () => {
       6: 100, // pie
     }
 
-    const result = calculateWorkforceProductivity(report, stock, 1)
+    const result = calculateWorkforceProductivity(report, stock)
 
     expect(result.tiers[0].satisfaction).toBe(100)
     expect(result.tiers[0].missingEssentials).toBe(0)
     expect(result.tiers[0].missingOptionals).toBe(0)
     expect(result.tiers[0].productivityPercent).toBe(100)
+  })
+
+  /**
+   * Debug test to check actual scenario from user
+   */
+  it('DEBUG: should handle real-world scenario with all consumables available', () => {
+    const report: BaseReport = {
+      summary: { productionRevenue: 1000, materialPurchaseCosts: 100, workerPurchaseCosts: 200, net: 700 },
+      materials: [],
+      recipes: [],
+      workforceSummary: [{ tier: 1, required: 100, housing: 100, coverage: 1.0 }],
+      workers: [
+        // Essential consumables
+        { tier: 1, materialId: 1, consumptionPerDay: 24, costPerDay: 48, unitPrice: 2, optional: false, active: true },
+        { tier: 1, materialId: 2, consumptionPerDay: 32, costPerDay: 64, unitPrice: 2, optional: false, active: true },
+        { tier: 1, materialId: 3, consumptionPerDay: 12, costPerDay: 36, unitPrice: 3, optional: false, active: true },
+        // Optional but INACTIVE (consumptionPerDay = 0)
+        { tier: 1, materialId: 4, consumptionPerDay: 0, costPerDay: 0, unitPrice: 2, optional: true, active: false },
+        { tier: 1, materialId: 5, consumptionPerDay: 0, costPerDay: 0, unitPrice: 2, optional: true, active: false },
+        { tier: 1, materialId: 6, consumptionPerDay: 0, costPerDay: 0, unitPrice: 2, optional: true, active: false },
+      ],
+    }
+
+    const stock = {
+      1: 100,
+      2: 100,
+      3: 100,
+      4: 0, // inactive optional, no stock (should not matter)
+      5: 0, // inactive optional, no stock (should not matter)
+      6: 0, // inactive optional, no stock (should not matter)
+    }
+
+    const result = calculateWorkforceProductivity(report, stock)
+
+    console.log('DEBUG Test Results:', {
+      satisfaction: result.tiers[0].satisfaction,
+      missingEssentials: result.tiers[0].missingEssentials,
+      missingOptionals: result.tiers[0].missingOptionals,
+      productivity: result.tiers[0].productivityPercent,
+      tierConsumption: report.workers.filter(w => w.tier === 1 && w.active),
+    })
+
+    // Should be 100% because inactive consumables should not be counted
+    expect(result.tiers[0].satisfaction).toBe(100)
+    expect(result.tiers[0].missingEssentials).toBe(0)
+    expect(result.tiers[0].missingOptionals).toBe(0)
+    expect(result.tiers[0].productivityPercent).toBe(100)
+  })
+
+  /**
+   * Test case: Empty stock object (no materials at all)
+   * This simulates when user hasn't entered any stock data
+   */
+  it('should handle empty stock object - all essentials missing', () => {
+    const report: BaseReport = {
+      summary: { productionRevenue: 1000, materialPurchaseCosts: 100, workerPurchaseCosts: 200, net: 700 },
+      materials: [],
+      recipes: [],
+      workforceSummary: [{ tier: 1, required: 100, housing: 100, coverage: 1.0 }],
+      workers: [
+        { tier: 1, materialId: 1, consumptionPerDay: 24, costPerDay: 48, unitPrice: 2, optional: false, active: true },
+        { tier: 1, materialId: 2, consumptionPerDay: 32, costPerDay: 64, unitPrice: 2, optional: false, active: true },
+        { tier: 1, materialId: 3, consumptionPerDay: 12, costPerDay: 36, unitPrice: 3, optional: false, active: true },
+      ],
+    }
+
+    const stock = {} // Empty stock - all materials missing
+
+    const result = calculateWorkforceProductivity(report, stock)
+
+    console.log('Empty stock test:', {
+      satisfaction: result.tiers[0].satisfaction,
+      missingEssentials: result.tiers[0].missingEssentials,
+    })
+
+    // All essentials missing = 10% floor
+    expect(result.tiers[0].satisfaction).toBe(10)
+    expect(result.tiers[0].missingEssentials).toBe(3)
   })
 
   /**

@@ -273,7 +273,7 @@ const totalWorkerCosts = computed(() =>
 // Calculate workforce productivity
 const workforceProductivity = computed(() => {
   const stock = props.base.stock ?? {}
-  return calculateWorkforceProductivity(report.value, stock, timeframeHours.value / 24)
+  return calculateWorkforceProductivity(report.value, stock)
 })
 
 const productivityColor = (productivity: number) => {
@@ -595,6 +595,12 @@ onBeforeUnmount(() => {
       
       <!-- Workforce Productivity Section -->
       <div v-if="workerDisplayRows.length" class="space-y-3 pb-3 border-b border-slate-700">
+        <!-- No stock data warning -->
+        <div v-if="!workforceProductivity.hasStockData" class="flex items-center gap-2 p-2 bg-blue-900/20 border border-blue-700/30 rounded text-xs">
+          <span class="text-blue-400">ℹ️</span>
+          <span class="text-slate-300">{{ workforceProductivity.explanation }}</span>
+        </div>
+        
         <div class="flex items-center justify-between">
           <span class="text-sm font-semibold">⚙️ {{ translate('workforceProductivity') }}</span>
           <span

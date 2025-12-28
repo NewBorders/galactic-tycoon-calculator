@@ -2,9 +2,9 @@ import { computed, toValue, type MaybeRef } from 'vue'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
-import { 
-  calculateWorkforceProductivity, 
-  type WorkforceProductivitySummary 
+import {
+  calculateWorkforceProductivity,
+  type WorkforceProductivitySummary
 } from '@/v2/services/production/workforceProductivity'
 import type { MarketOpportunity } from '@/v2/services/marketAnalysis/types'
 
@@ -269,19 +269,18 @@ export function useGlobalSummary(
       // not long-term sustainability
       const workforceProductivity = calculateWorkforceProductivity(
         report,
-        stock,
-        1, // Always 1 day - productivity is about current capability
+        stock
       )
 
       // Calculate export net profit correctly:
       // Revenue from export sales - ALL costs of this base
       // This shows what net profit would be if we only consider export materials
-      
+
       const exportRevenue = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
-      
+
       // ALL costs of this base: material purchases + worker consumption
       const allCosts = (report.summary.materialPurchaseCosts + report.summary.workerPurchaseCosts) * periodFactor.value
-      
+
       const exportNetProfit = exportRevenue - allCosts
 
       // Calculate weighted average 7d price trend for export materials
@@ -289,10 +288,10 @@ export function useGlobalSummary(
       if (exportMaterials.length > 0 && marketOpportunities) {
         const opportunities = toValue(marketOpportunities) ?? []
         const opportunityMap = new Map(opportunities.map(o => [o.materialId, o]))
-        
+
         let totalWeight = 0
         let weightedTrendSum = 0
-        
+
         exportMaterials.forEach(exportMat => {
           const opportunity = opportunityMap.get(exportMat.materialId)
           if (opportunity) {
@@ -301,7 +300,7 @@ export function useGlobalSummary(
             weightedTrendSum += opportunity.priceTrend.changePercent7d * weight
           }
         })
-        
+
         if (totalWeight > 0) {
           exportPriceTrend7d = weightedTrendSum / totalWeight
         }
