@@ -34,7 +34,7 @@ const loadInitialState = () => {
         productivity: parsed.productivity ?? false,
         balance: parsed.balance ?? false,
       }
-    } catch (e) {
+    } catch {
       // Ignore invalid JSON
     }
   }
@@ -176,9 +176,49 @@ const lostProfitData = computed(() => {
           </span>
         </summary>
         <div class="accordion-content">
+          <!-- Workforce Productivity Section -->
+          <div class="workforce-section">
+            <div class="section-header">
+              <span class="section-title">⚙️ {{ translate('workforceProductivity') }}</span>
+              <span
+                class="section-value"
+                :class="productivityColor(summary.workforceProductivity.overallProductivityPercent)"
+              >
+                {{ formatNumber(summary.workforceProductivity.overallProductivityPercent, 0) }}%
+              </span>
+            </div>
+            <div class="workforce-grid">
+              <div v-for="tier in summary.workforceProductivity.tiers" :key="tier.tier" class="workforce-item">
+                <span class="workforce-tier">{{ getTierLabel(tier.tier) }}</span>
+                <span
+                  class="workforce-percent"
+                  :class="productivityColor(tier.productivityPercent)"
+                >
+                  {{ formatNumber(tier.productivityPercent, 0) }}%
+                </span>
+                <span v-if="tier.limitingFactor === 'housing'" class="workforce-limit text-slate-400">
+                  {{ translate('limitedByHousing') }}
+                </span>
+                <span v-else-if="tier.limitingFactor === 'consumption'" class="workforce-limit text-slate-400">
+                  {{ translate('limitedByConsumption') }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="lostProfitData" class="lost-profit-alert">
+              <span class="alert-icon">⚠️</span>
+              <div class="alert-content">
+                <span class="alert-label">{{ translate('lostProfitWarning') }}:</span>
+                <span class="alert-value text-amber-400">
+                  {{ formatCurrency(lostProfitData.lostProfitPerPeriod) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Worker Consumption Grid -->
           <div class="worker-grid">
             <div v-for="worker in workerConsumption" :key="worker.tier" class="worker-item">
-              <span class="worker-tier">{{ getTierLabel(worker.tier) }}</span>
               <div class="worker-details">
                 <MaterialIcon :name="getMaterialNameById(worker.materialId)" :size="16" />
                 <span class="worker-amount">{{ formatNumber(worker.consumptionPerPeriod, 0) }}x</span>
@@ -435,6 +475,32 @@ const lostProfitData = computed(() => {
   font-variant-numeric: tabular-nums;
 }
 
+/* Workforce Section */
+.workforce-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgb(51 65 85);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.section-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Worker Grid */
 .worker-grid {
   display: grid;
@@ -452,18 +518,11 @@ const lostProfitData = computed(() => {
   font-size: 0.875rem;
 }
 
-.worker-tier {
-  font-weight: 600;
-  color: var(--color-heading);
-  min-width: 2rem;
-}
-
 .worker-details {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex: 1;
-  margin: 0 0.75rem;
 }
 
 .worker-amount {
