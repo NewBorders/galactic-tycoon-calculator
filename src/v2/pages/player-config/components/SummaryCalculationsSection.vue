@@ -4,6 +4,7 @@ import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
 import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
+import { calculateWorkforceProductivity } from '@/v2/services/production/workforceProductivity'
 import { translate } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import { formatWeight } from '@/v2/utils/materialHelpers'
@@ -268,6 +269,29 @@ const workerDisplayRows = computed(() =>
 const totalWorkerCosts = computed(() =>
   workerDisplayRows.value.reduce((acc, row) => acc + row.costPerPeriod, 0),
 )
+
+// Calculate workforce productivity
+const workforceProductivity = computed(() => {
+  const stock = props.base.stock ?? {}
+  return calculateWorkforceProductivity(report.value, stock, timeframeHours.value / 24)
+})
+
+const productivityColor = (productivity: number) => {
+  if (productivity >= 95) return 'text-emerald-400'
+  if (productivity >= 75) return 'text-amber-400'
+  return 'text-red-400'
+}
+
+const lostProfitData = computed(() => {
+  const productivity = workforceProductivity.value
+  if (productivity.overallProductivityPercent >= 100) {
+    return null
+  }
+  return {
+    lostProfitPerPeriod: productivity.potentialLostProfitPerDay * periodFactor.value,
+    currentProductivity: productivity.overallProductivityPercent,
+  }
+})
 
 const optionalConsumables = computed(() => {
   const groups: Array<{ tier: 1 | 2 | 3 | 4; options: Array<{ materialId: number; amount: number }> }> = []
@@ -568,11 +592,52 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+      
+      <!-- Workforce Productivity Section -->
+      <div v-if="workerDisplayRows.length" class="space-y-3 pb-3 border-b border-slate-700">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-semibold">⚙️ {{ translate('workforceProductivity') }}</span>
+          <span
+            class="text-sm font-semibold"
+            :class="productivityColor(workforceProductivity.overallProductivityPercent)"
+          >
+            {{ formatNumber(workforceProductivity.overallProductivityPercent, 0) }}%
+          </span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div
+            v-for="tier in workforceProductivity.tiers"
+            :key="tier.tier"
+            class="flex items-center justify-between p-2 bg-slate-800 rounded text-xs"
+          >
+            <span class="text-slate-400">{{ tierLabel(tier.tier) }}</span>
+            <span
+              class="font-semibold"
+              :class="productivityColor(tier.productivityPercent)"
+            >
+              {{ formatNumber(tier.productivityPercent, 0) }}%
+            </span>
+            <span v-if="tier.limitingFactor === 'housing'" class="text-slate-500 text-[10px]">
+              {{ translate('limitedByHousing') }}
+            </span>
+            <span v-else-if="tier.limitingFactor === 'consumption'" class="text-slate-500 text-[10px]">
+              {{ translate('limitedByConsumption') }}
+            </span>
+          </div>
+        </div>
+        <div v-if="lostProfitData" class="flex items-center gap-2 p-2 bg-amber-900/20 border border-amber-700/30 rounded text-xs">
+          <span class="text-amber-400">⚠️</span>
+          <span class="text-slate-300">{{ translate('lostProfitWarning') }}:</span>
+          <span class="font-semibold text-amber-400">
+            {{ formatPrice(lostProfitData.lostProfitPerPeriod, 2) }}
+          </span>
+        </div>
+      </div>
+      
       <template v-if="workerDisplayRows.length">
         <table class="w-full text-sm">
           <thead class="text-slate-400 text-xs uppercase">
             <tr>
-              <th class="text-left pb-1">Tier</th>
               <th class="text-left pb-1">{{ translate('material') }}</th>
               <th class="text-right pb-1">{{ periodLabel }}</th>
               <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
@@ -586,11 +651,6 @@ onBeforeUnmount(() => {
               class="border-t border-slate-800/60"
               :class="{ 'opacity-60': row.optional && !row.active }"
             >
-              <td class="py-1 text-slate-400">
-                <span class="inline-flex items-center" :title="`${tierIconName(row.tier)} (${tierLabel(row.tier)})`">
-                  <MaterialIcon :name="tierIconName(row.tier)" variant="sm" />
-                </span>
-              </td>
               <td class="py-1">
                 <span class="inline-flex items-center gap-1">
                   <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
