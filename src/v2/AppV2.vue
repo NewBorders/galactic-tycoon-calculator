@@ -150,6 +150,17 @@ watch(getWorld, async () => {
         :gameData="gd"
         :index="gdIndex"
         :game-data-loaded-at="gdLoadedAt"
+        @gameDataRefreshed="async (loadedAt) => {
+          gdLoadedAt = loadedAt
+          // Reload the game data to get the fresh copy
+          try {
+            const result = await loadGameData(true)
+            gd = result.data
+            gdIndex = result.index
+          } catch (e) {
+            console.error('Failed to reload game data:', e)
+          }
+        }"
       />
       <TechnologyPanel v-if="active === 'technology'" />
       <MarketAnalysisPanel v-if="gd && gdIndex && active === 'market'" :gameData="gd" :index="gdIndex" />

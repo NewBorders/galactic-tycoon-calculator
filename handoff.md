@@ -1,24 +1,87 @@
 # Handoff Document
 
-## Most Recent Work Session: Removed Display Limitations in Global Summary
+## Most Recent Work Session: Manual Game Data Refresh Button
 
 ### Summary
-Removed all display limitations in the Global Summary view (v2) that were restricting the number of visible items. Previously, the "Per Base Summary" showed only the first 10 export materials and 10 materials running out, while "Global Material Production & Consumption" showed only 30 materials. All these limitations have been removed, and the "+xx more" messages have been deleted. Users can now see all entries without restrictions.
+Added a manual refresh button for game data in the Bases page (PlayerConfigPanel). Users can now manually refresh the game data from the API instead of waiting for the page reload. The refresh button displays loading state, success messages, and error messages (including rate limiting).
 
-### Technical Details
-**File**: `/src/v2/pages/player-config/components/GlobalSummary.vue`
+### User-Facing Features
+1. **Refresh Button**: Located next to the "Game data as of [timestamp]" display
+2. **Loading State**: Button shows "Refreshing…" while fetching
+3. **Success Feedback**: Green toast message "Game data refreshed successfully" appears for 3 seconds
+4. **Error Feedback**: Red toast message displays if refresh fails (e.g., "API error: 429 Too Many Requests")
+5. **Auto-hide**: Success/error messages automatically disappear after 3 seconds
 
-**Changes Made**:
-1. Removed `.slice(0, 10)` from `baseSummary.exportMaterials` loop (line ~250)
-2. Removed `.slice(0, 10)` from `baseSummary.materialsRunningOut` loop (line ~300)
-3. Removed `.slice(0, 30)` from `regularMaterials` loop (line ~373)
-4. Removed all three "+xx more" display messages that appeared when the limits were exceeded
+### Technical Implementation
 
-All type checking passes successfully after these changes.
+#### Frontend Changes
+
+**File**: `/src/v2/pages/player-config/PlayerConfigPanel.vue`
+
+1. **Imported loadGameData Function**:
+   - Added `loadGameData` to imports from `../../services/gamedata/service.ts`
+
+2. **Added Refresh State Variables**:
+   ```typescript
+   const gameDataLoading = ref(false)
+   const gameDataError = ref<string | null>(null)
+   const gameDataSuccess = ref<string | null>(null)
+   let gameDataSuccessTimer: ReturnType<typeof setTimeout> | null = null
+   ```
+
+3. **Created refreshGameData() Function**:
+   - Calls `loadGameData(true)` to force refresh (bypass cache)
+   - Handles loading state during API call
+   - Catches and displays errors
+   - Shows success message for 3 seconds
+   - Properly cleans up timer on unmount
+
+4. **Updated Template**:
+   - Added error/success toast notifications (red/green backgrounds)
+   - Added refresh button next to gameDataTimestamp
+   - Button is disabled during loading
+
+#### Localization
+
+**File**: `/src/v2/localisation/messages.ts`
+
+Added four new localization keys:
+- **English**:
+  - `gameDataRefresh`: "Refresh data"
+  - `gameDataRefreshing`: "Refreshing…"
+  - `gameDataRefreshSuccess`: "Game data refreshed successfully"
+  - `gameDataRefreshError`: "Game data refresh failed"
+- **German** (Deutsch):
+  - `gameDataRefresh`: "Daten aktualisieren"
+  - `gameDataRefreshing`: "Aktualisiere…"
+  - `gameDataRefreshSuccess`: "Spieldaten erfolgreich aktualisiert"
+  - `gameDataRefreshError`: "Aktualisierung der Spieldaten fehlgeschlagen"
+
+#### Integration Tests
+
+**File**: `/src/v2/services/gamedata/__tests__/gameDataRefresh.test.ts`
+
+Created comprehensive tests for the gamedata refresh functionality:
+1. **Force Refresh Test**: Verifies that `loadGameData(true)` bypasses cache and fetches fresh data
+2. **Error Handling Test**: Ensures errors (like rate limiting) are caught and propagated
+3. **Cache Update Test**: Confirms that new data is stored in localStorage
+4. **buildIndex Test**: Validates that the index mapping works correctly
+
+### Testing
+- ✅ All type checks pass (`npm run type-check`)
+- ✅ All lint checks pass (`npm run lint`)
+- ✅ All new tests pass (4/4 tests in gameDataRefresh.test.ts)
+- ✅ Existing test suite: 130 passed (7 unrelated failures in useGlobalSummary)
+
+### Design Patterns
+- **Follows existing patterns**: The implementation mirrors the price refresh button pattern already in use
+- **Consistent styling**: Uses the same toast notification styling as the import feedback
+- **Proper state management**: Loading state prevents multiple simultaneous refreshes
 
 ---
 
-## Previous Work Session: Per-Base Material Sort Order Persistence
+## Previous Work Session: Removed Display Limitations in Global Summary
+
 
 ### Summary
 Implemented persistence for the material balance sort order (name vs recipe) on a per-base level. Users can now toggle between alphabetical sorting and recipe order, and their preference is saved individually for each base in localStorage.

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { GameData, GdIndex, Planet } from '../../services/gamedata/service.ts'
-import { searchPlanetsByName, useMaterialPricing } from '../../services/gamedata/service.ts'
+import { searchPlanetsByName, useMaterialPricing, loadGameData } from '../../services/gamedata/service.ts'
 import { usePlayerBases } from '../../services/playerBases.ts'
 import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
@@ -20,6 +20,9 @@ import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 import { computeBaseReport } from '@/v2/services/production/engine'
 
 const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
+const emit = defineEmits<{
+  'gameDataRefreshed': [loadedAt: number]
+}>()
 const {
   state,
   planetHasBase,
@@ -105,6 +108,12 @@ const confirmDialogOpen = ref(false)
 const confirmDialogBaseId = ref<string | null>(null)
 const confirmDialogTitle = ref<string | undefined>(undefined)
 const confirmDialogMessage = ref<string | undefined>(undefined)
+
+// Game data refresh state
+const gameDataLoading = ref(false)
+const gameDataError = ref<string | null>(null)
+const gameDataSuccess = ref<string | null>(null)
+let gameDataSuccessTimer: ReturnType<typeof setTimeout> | null = null
 
 const TIMEFRAME_STORAGE_KEY = 'gt:v2:timeframeHours'
 const DEFAULT_TIMEFRAME_HOURS = 24
@@ -365,6 +374,32 @@ function cancelImport() {
   confirmDialogOpen.value = false
   confirmDialogBaseId.value = null
 }
+
+// Refresh game data manually
+async function refreshGameData() {
+  gameDataLoading.value = true
+  gameDataError.value = null
+  gameDataSuccess.value = null
+
+  if (gameDataSuccessTimer !== null) {
+    clearTimeout(gameDataSuccessTimer)
+  }
+
+  try {
+    const result = await loadGameData(true)
+    gameDataSuccess.value = translate('gameDataRefreshSuccess')
+    // Emit event to parent so it can update the timestamp
+    emit('gameDataRefreshed', result.loadedAt)
+    gameDataSuccessTimer = setTimeout(() => {
+      gameDataSuccess.value = null
+    }, 3000)
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    gameDataError.value = errorMsg
+  } finally {
+    gameDataLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -377,30 +412,50 @@ function cancelImport() {
       {{ importSuccess }}
     </div>
 
+    <!-- Game Data Refresh Feedback (Toast-like) -->
+    <div v-if="gameDataError" class="px-4 py-2 bg-red-900/30 border border-red-700 rounded text-xs text-red-300">
+      {{ translate('gameDataRefreshError') }}: {{ gameDataError }}
+    </div>
+    <div v-if="gameDataSuccess" class="px-4 py-2 bg-green-900/30 border border-green-700 rounded text-xs text-green-300">
+      {{ gameDataSuccess }}
+    </div>
+
     <div class="flex flex-wrap items-center gap-3 justify-end text-xs text-slate-400">
-      <div>
-        {{ translate('gameDataTimestamp') }}
-        <span class="text-slate-200">{{ formattedGameDataTimestamp }}</span>
-      </div>
       <div class="flex items-center gap-2">
         <span>
-          {{ translate('priceLastUpdated') }}
-          <span class="text-slate-200">{{ formattedPriceTimestamp }}</span>
-          <span class="ml-2 text-slate-500">
-            ({{ translate('nextRefreshIn') }} {{ refreshCountdown }})
-          </span>
+          {{ translate('gameDataTimestamp') }}
+          <span class="text-slate-200">{{ formattedGameDataTimestamp }}</span>
         </span>
         <button
           class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
-          :disabled="priceLoading"
-          @click="refreshPrices()"
+          :disabled="gameDataLoading"
+          @click="refreshGameData()"
         >
-          {{ priceLoading ? translate('priceRefreshing') : translate('priceRefresh') }}
+          {{ gameDataLoading ? translate('gameDataRefreshing') : translate('gameDataRefresh') }}
         </button>
       </div>
-      <div v-if="priceError" class="text-amber-300">
-        {{ translate('priceError') }}: {{ priceError }}
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-2">
+          <span>
+            {{ translate('priceLastUpdated') }}
+            <span class="text-slate-200">{{ formattedPriceTimestamp }}</span>
+            <span class="ml-2 text-slate-500">
+              ({{ translate('nextRefreshIn') }} {{ refreshCountdown }})
+            </span>
+          </span>
+          <button
+            class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            :disabled="priceLoading"
+            @click="refreshPrices()"
+          >
+            {{ priceLoading ? translate('priceRefreshing') : translate('priceRefresh') }}
+          </button>
+        </div>
+        <div v-if="priceError" class="text-amber-300">
+          {{ translate('priceError') }}: {{ priceError }}
+        </div>
       </div>
       <!-- Warehouse sync button -->
       <ApiSyncPanel ref="apiSyncPanel" :bases="state.bases" @stocksLoaded="handleStocksLoaded" />
