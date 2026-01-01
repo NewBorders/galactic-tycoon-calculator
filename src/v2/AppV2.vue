@@ -97,6 +97,16 @@ watch(getWorld, async () => {
     loading.value = false
   }
 })
+
+async function handleGameDataRefreshed(payload: {
+  data: GameData
+  index: GdIndex
+  loadedAt: number
+}) {
+  gd.value = payload.data
+  gdIndex.value = payload.index
+  gdLoadedAt.value = payload.loadedAt
+}
 </script>
 
 <template>
@@ -150,17 +160,7 @@ watch(getWorld, async () => {
         :gameData="gd"
         :index="gdIndex"
         :game-data-loaded-at="gdLoadedAt"
-        @gameDataRefreshed="async (loadedAt) => {
-          gdLoadedAt = loadedAt
-          // Reload the game data to get the fresh copy
-          try {
-            const result = await loadGameData(true)
-            gd = result.data
-            gdIndex = result.index
-          } catch (e) {
-            console.error('Failed to reload game data:', e)
-          }
-        }"
+        @gameDataRefreshed="handleGameDataRefreshed"
       />
       <TechnologyPanel v-if="active === 'technology'" />
       <MarketAnalysisPanel v-if="gd && gdIndex && active === 'market'" :gameData="gd" :index="gdIndex" />

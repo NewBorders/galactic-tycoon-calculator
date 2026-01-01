@@ -19,9 +19,13 @@ import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 import { computeBaseReport } from '@/v2/services/production/engine'
 
-const props = defineProps<{ gameData: GameData; index: GdIndex; gameDataLoadedAt?: number | null }>()
+const props = defineProps<{
+  gameData: GameData
+  index: GdIndex
+  gameDataLoadedAt?: number | null
+}>()
 const emit = defineEmits<{
-  'gameDataRefreshed': [loadedAt: number]
+  'gameDataRefreshed': [payload: { data: GameData; index: GdIndex; loadedAt: number }]
 }>()
 const {
   state,
@@ -171,6 +175,25 @@ function formatTimestamp(value: number | null | undefined) {
 
 const formattedPriceTimestamp = computed(() => formatTimestamp(priceLastFetched.value ?? null))
 const formattedGameDataTimestamp = computed(() => formatTimestamp(props.gameDataLoadedAt ?? null))
+
+type InferredGameDataSource = NonNullable<GameData['source']>
+const normalizedGameDataSource = computed<InferredGameDataSource>(
+  () => (props.gameData.source ?? 'api') as InferredGameDataSource,
+)
+const gameDataSourceBadge = computed(() => {
+  if (normalizedGameDataSource.value === 'fallback') {
+    return {
+      label: translate('gameDataSourceFallback'),
+      class: 'bg-amber-900/50 text-amber-100 border border-amber-700',
+      hint: translate('gameDataSourceFallbackHint'),
+    }
+  }
+  return {
+    label: translate('gameDataSourceApi'),
+    class: 'bg-emerald-900/50 text-emerald-100 border border-emerald-700',
+    hint: '',
+  }
+})
 
 const refreshCountdown = ref('—')
 let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -388,8 +411,11 @@ async function refreshGameData() {
   try {
     const result = await loadGameData(true)
     gameDataSuccess.value = translate('gameDataRefreshSuccess')
-    // Emit event to parent so it can update the timestamp
-    emit('gameDataRefreshed', result.loadedAt)
+    emit('gameDataRefreshed', {
+      data: result.data,
+      index: result.index,
+      loadedAt: result.loadedAt,
+    })
     gameDataSuccessTimer = setTimeout(() => {
       gameDataSuccess.value = null
     }, 3000)
@@ -422,7 +448,19 @@ async function refreshGameData() {
 
     <div class="flex flex-wrap items-center gap-3 justify-end text-xs text-slate-400">
       <div class="flex items-center gap-2">
-        <span>
+        <div class="flex items-center gap-2">
+          <span class="text-slate-500">{{ translate('gameDataSourceLabel') }}</span>
+          <span
+            class="px-2 py-1 rounded border font-semibold"
+            :class="gameDataSourceBadge.class"
+          >
+            {{ gameDataSourceBadge.label }}
+          </span>
+          <span v-if="gameDataSourceBadge.hint" class="text-amber-300">
+            {{ gameDataSourceBadge.hint }}
+          </span>
+        </div>
+        <span class="flex items-center gap-1">
           {{ translate('gameDataTimestamp') }}
           <span class="text-slate-200">{{ formattedGameDataTimestamp }}</span>
         </span>

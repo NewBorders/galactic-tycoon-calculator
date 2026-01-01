@@ -1,6 +1,46 @@
 # Handoff Document
 
-## Most Recent Work Session: Manual Game Data Refresh Button
+## Most Recent Work Session: Surface Game Data Source (API vs Fallback)
+
+### Summary
+- Surface where game data came from (API or bundled fallback) so users know if data might be stale.
+- Stop double-fetching on manual refresh by emitting the refreshed payload (data, index, timestamps, source) from the Bases panel to the app shell.
+- Added localized labels/hints for the data source badge.
+
+### User-Facing Changes
+- A badge next to "Game data as of" shows the current source:
+  - Green "Live API" when fresh API data is loaded.
+  - Amber "Fallback file (may be outdated)" when the API failed and the bundled JSON is used (with a short hint explaining why).
+
+### Technical Notes
+- Introduced `GameDataSource` union type (`api | fallback`) embedded on `GameData`.
+- `loadGameData` now stores `source` on the normalized GameData; caches carry it through.
+- AppV2 reads `gameData.source` directly; no separate source state.
+- PlayerConfigPanel emits the full refresh payload (data/index/loadedAt) to avoid a second fetch in AppV2.
+- Added source badge computation + hints in PlayerConfigPanel header.
+- New localisation keys for source labels/hints (EN/DE).
+
+### Files Touched
+- `/src/v2/services/gamedata/types.ts` – added `GameDataSource` union and optional `source` on GameData.
+- `/src/v2/services/gamedata/gameDataRepository.ts` – store `source` on GameData; cache keeps it; only `api|fallback`.
+- `/src/v2/services/gamedata/service.ts` – re-export types (no cache source).
+- `/src/v2/AppV2.vue` – rely on `gameData.source`; refresh handler takes payload without extra fetch.
+- `/src/v2/pages/player-config/PlayerConfigPanel.vue` – derive badge from `gameData.source` (no separate GameDataSource import); removed cache branch; emit payload without source.
+- `/src/v2/localisation/messages.ts` – source labels/hints (EN/DE), cache wording removed.
+
+### Testing
+- `docker compose up -d` to start the stack (web service).
+- `docker compose exec web npm install` (node_modules volume was empty after container spin-up).
+- `docker compose exec web npm run type-check` ✅
+- `docker compose exec web npm run lint` ✅
+
+### Follow-ups / Risks
+- Fallback file may still be old; badge makes this visible, but consider showing a "retry" affordance near the badge if API outages persist.
+- If other views need source visibility, pass `gdSource` down similarly.
+
+---
+
+## Previous Work Session: Manual Game Data Refresh Button
 
 ### Summary
 Added a manual refresh button for game data in the Bases page (PlayerConfigPanel). Users can now manually refresh the game data from the API instead of waiting for the page reload. The refresh button displays loading state, success messages, and error messages (including rate limiting).
@@ -19,27 +59,27 @@ Added a manual refresh button for game data in the Bases page (PlayerConfigPanel
 **File**: `/src/v2/pages/player-config/PlayerConfigPanel.vue`
 
 1. **Imported loadGameData Function**:
-   - Added `loadGameData` to imports from `../../services/gamedata/service.ts`
+  - Added `loadGameData` to imports from `../../services/gamedata/service.ts`
 
 2. **Added Refresh State Variables**:
-   ```typescript
-   const gameDataLoading = ref(false)
-   const gameDataError = ref<string | null>(null)
-   const gameDataSuccess = ref<string | null>(null)
-   let gameDataSuccessTimer: ReturnType<typeof setTimeout> | null = null
-   ```
+  ```typescript
+  const gameDataLoading = ref(false)
+  const gameDataError = ref<string | null>(null)
+  const gameDataSuccess = ref<string | null>(null)
+  let gameDataSuccessTimer: ReturnType<typeof setTimeout> | null = null
+  ```
 
 3. **Created refreshGameData() Function**:
-   - Calls `loadGameData(true)` to force refresh (bypass cache)
-   - Handles loading state during API call
-   - Catches and displays errors
-   - Shows success message for 3 seconds
-   - Properly cleans up timer on unmount
+  - Calls `loadGameData(true)` to force refresh (bypass cache)
+  - Handles loading state during API call
+  - Catches and displays errors
+  - Shows success message for 3 seconds
+  - Properly cleans up timer on unmount
 
 4. **Updated Template**:
-   - Added error/success toast notifications (red/green backgrounds)
-   - Added refresh button next to gameDataTimestamp
-   - Button is disabled during loading
+  - Added error/success toast notifications (red/green backgrounds)
+  - Added refresh button next to gameDataTimestamp
+  - Button is disabled during loading
 
 #### Localization
 
