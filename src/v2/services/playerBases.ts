@@ -294,6 +294,33 @@ export function usePlayerBases(gd: GameData) {
   }
 
   /**
+   * Update stock for all bases sharing the same warehouse
+   * Used when warehouse stock is fetched by warehouseId
+   */
+  function updateStockForWarehouse(gameWarehouseId: number, stocks: Record<number, number>) {
+    console.log('[PlayerBases] updateStockForWarehouse called', { gameWarehouseId, stockCount: Object.keys(stocks).length })
+    const sanitizedStocks = sanitizeStock(stocks)
+    const timestamp = Date.now()
+    
+    let updated = false
+    state.value.bases.forEach((base) => {
+      if (base.gameWarehouseId === gameWarehouseId) {
+        console.log('[PlayerBases] Updating stock for base', base.name, base.id)
+        base.stock = { ...sanitizedStocks }
+        base.lastStockRefresh = timestamp
+        updated = true
+      }
+    })
+    
+    if (updated) {
+      console.log('[PlayerBases] Stock updated, saving to localStorage')
+      saveState(state.value)
+    } else {
+      console.warn('[PlayerBases] No bases found with warehouseId', gameWarehouseId)
+    }
+  }
+
+  /**
    * Import full base data (buildings + production orders) from API payload
    * Overwrites existing buildings and recipes for the local base
    * Uses the unified addBuilding/addRecipe methods to ensure consistency
@@ -403,6 +430,7 @@ export function usePlayerBases(gd: GameData) {
     setStock,
     syncBaseFromApi,
     updateBaseStockFromApi,
+    updateStockForWarehouse,
     getLastStockRefresh,
     isBaseOpen,
     setBaseOpen,

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { getApiKey, getApiKeyRef, setApiKey, getWorld, setWorld } from '@/v2/services/api/apiKeyManager'
+import { getApiKey, getApiKeyRef, setApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
 import { getExportThreshold, setExportThreshold } from '@/v2/services/config/exportThreshold'
 import { translate } from '@/v2/localisation'
 import LanguageSwitcher from '@/v2/components/LanguageSwitcher.vue'
@@ -32,10 +32,6 @@ function handleSaveApiKey() {
   saveTimer = setTimeout(() => {
     saveSuccess.value = false
   }, 3000)
-}
-
-function handleWorldChange() {
-  setWorld(world.value)
 }
 
 function handleExportThresholdChange() {
@@ -124,7 +120,7 @@ function handleExportThresholdChange() {
             {{ translate('apiKeySaved') }}
           </div>
         </div>
-        
+
         <!-- Sync Status -->
         <div class="border-t border-slate-700 pt-4">
           <SyncStatus />

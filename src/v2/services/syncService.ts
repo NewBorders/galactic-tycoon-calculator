@@ -26,6 +26,7 @@ export interface SyncEntry {
 
 export interface SyncCallbacks {
   onCompanyDataLoaded?: (bases: Array<{ id: number; name: string; planetId: number; warehouseId: number }>) => void
+  onWarehouseStockLoaded?: (warehouseId: number, stocks: Record<number, number>) => void
 }
 
 // Global state
@@ -52,7 +53,9 @@ export function registerSyncCallbacks(newCallbacks: SyncCallbacks) {
 /**
  * Initialize sync entries based on current world and API key
  */
-export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[]) => void) {
+export async function initializeSyncService(
+  onCompanyDataLoaded?: (bases: Array<{ id: number; name: string; planetId: number; warehouseId: number }>) => void
+) {
   if (onCompanyDataLoaded) {
     callbacks.onCompanyDataLoaded = onCompanyDataLoaded
   }
@@ -97,7 +100,7 @@ export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[])
   // Load company bases to create entries for each base
   if (apiKey) {
     try {
-      const result = await fetchCompanyBases(apiKey, world, false)
+      const result = await fetchCompanyBases(apiKey, world, true) // Force refresh on init
       const bases = result.data.bases || []
       
       // Extract and set technology levels from Company Data
@@ -134,9 +137,11 @@ export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[])
         })
       }
       
-      // 5. Warehouse - one entry per base
+      // 5. Warehouse - one entry per base (with unique warehouse IDs)
+      const processedWarehouses = new Set<number>()
       for (const base of bases) {
-        if (base.warehouseId) {
+        if (base.warehouseId && !processedWarehouses.has(base.warehouseId)) {
+          processedWarehouses.add(base.warehouseId)
           entries.push({
             id: `warehouse-${base.warehouseId}`,
             name: `Warehouse: ${base.name || base.id}`,
@@ -162,6 +167,21 @@ export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[])
   if (countdownTimer === null) {
     startBackgroundRefresh()
   }
+  
+  // Initial warehouse stock load for all warehouses (after entries are set)
+  if (apiKey) {
+    const warehouseEntries = entries.filter(e => e.id.startsWith('warehouse-'))
+    for (const entry of warehouseEntries) {
+      try {
+        // Don't await - let them load in parallel
+        refreshEntry(entry.id).catch(e => {
+          console.warn('[SyncService] Initial warehouse load failed:', entry.id, e)
+        })
+      } catch (e) {
+        console.warn('[SyncService] Failed to trigger initial warehouse load:', entry.id, e)
+      }
+    }
+  }
 }
 
 /**
@@ -170,18 +190,45 @@ export async function initializeSyncService(onCompanyDataLoaded?: (bases: any[])
 function formatApiError(error: unknown): string {
   const errorMsg = error instanceof Error ? error.message : String(error)
   
-  // Extract HTTP status code
-  const match = errorMsg.match(/\b(401|403|404|429|500|502|503)\b/)
-  if (match) {
-    const status = parseInt(match[1]!, 10)
+  // Check for rate limit error with custom message
+  if (errorMsg.includes('429') || errorMsg.toLowerCase().includes('rate limit')) {
+    // Extract the actual error message if available
+    const match = errorMsg.match(/429:\s*(.+)/)
+    if (match && match[1]) {
+      return `Rate limit: ${match[1]}`
+    }
+    return 'Rate limit exceeded - please wait'
+  }
+  
+  // Check for other HTTP status codes with custom messages
+  const statusMatch = errorMsg.match(/(401|403|404|500|502|503):\s*(.+)/)
+  if (statusMatch) {
+    const status = parseInt(statusMatch[1]!, 10)
+    const detail = statusMatch[2]!
+    switch (status) {
+      case 401:
+      case 403:
+        return `Auth error: ${detail}`
+      case 404:
+        return `Not found: ${detail}`
+      case 500:
+        return `Server error: ${detail}`
+      case 502:
+      case 503:
+        return `Service unavailable: ${detail}`
+    }
+  }
+  
+  // Fallback: Check for status code without details
+  const simpleMatch = errorMsg.match(/\b(401|403|404|500|502|503)\b/)
+  if (simpleMatch) {
+    const status = parseInt(simpleMatch[1]!, 10)
     switch (status) {
       case 401:
       case 403:
         return 'Invalid API key'
       case 404:
         return 'Endpoint not found'
-      case 429:
-        return 'Too many requests - please wait'
       case 500:
         return 'Server error'
       case 502:
@@ -190,8 +237,8 @@ function formatApiError(error: unknown): string {
     }
   }
   
-  // Return shortened error message
-  return errorMsg.length > 50 ? errorMsg.substring(0, 47) + '...' : errorMsg
+  // Return full error message (don't truncate for better debugging)
+  return errorMsg.length > 100 ? errorMsg.substring(0, 97) + '...' : errorMsg
 }
 
 /**
@@ -251,18 +298,16 @@ export async function refreshEntry(entryId: string): Promise<void> {
       })
       
       // Update worldData with warehouse stocks (for global calculations)
-      const { updateCurrent, current } = useWorldData()
+      const { updateCurrent } = useWorldData()
       updateCurrent({ warehouseStocks })
       
-      // Also update each base's stock field (for per-base displays)
-      // Bases share a single warehouse, so all bases get the same stock
-      const bases = current.value.bases
-      bases.forEach(base => {
-        base.stock = { ...warehouseStocks }
-        base.lastStockRefresh = Date.now()
-      })
-      // Persist updated bases to worldData
-      updateCurrent({ bases: [...bases] })
+      // Trigger callback to update player bases
+      console.log('[SyncService] Warehouse stocks loaded', { warehouseId, stockCount: Object.keys(warehouseStocks).length, hasCallback: !!callbacks.onWarehouseStockLoaded })
+      if (callbacks.onWarehouseStockLoaded) {
+        callbacks.onWarehouseStockLoaded(warehouseId, warehouseStocks)
+      } else {
+        console.warn('[SyncService] No onWarehouseStockLoaded callback registered!')
+      }
     }
     
     entry.lastSync = Date.now()

@@ -78,7 +78,19 @@ export async function fetchCompanyBases(
     const response = await fetch(url.toString())
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`)
+      // Try to extract error message from response body
+      let errorDetail = `${response.status} ${response.statusText}`
+      try {
+        const errorBody = await response.json()
+        if (errorBody.error) {
+          errorDetail = `${response.status}: ${errorBody.error}`
+        } else if (errorBody.message) {
+          errorDetail = `${response.status}: ${errorBody.message}`
+        }
+      } catch {
+        // Failed to parse error body, use status text
+      }
+      throw new Error(`API error: ${errorDetail}`)
     }
 
     const data: CompanyResponse = await response.json()
@@ -119,7 +131,19 @@ export async function fetchWarehouseStockForBase(
     const response = await fetch(url.toString())
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`)
+      // Try to extract error message from response body
+      let errorDetail = `${response.status} ${response.statusText}`
+      try {
+        const errorBody = await response.json()
+        if (errorBody.error) {
+          errorDetail = `${response.status}: ${errorBody.error}`
+        } else if (errorBody.message) {
+          errorDetail = `${response.status}: ${errorBody.message}`
+        }
+      } catch {
+        // Failed to parse error body, use status text
+      }
+      throw new Error(`API error: ${errorDetail}`)
     }
 
     // Get raw response and transform to internal format
@@ -181,7 +205,21 @@ export async function fetchGameBaseDetails(
       const listUrl = new URL(`${baseUrl}/public/company/base`)
       listUrl.searchParams.set('apikey', apiKey)
       const listResp = await fetch(listUrl.toString())
-      if (!listResp.ok) throw new Error(`API error: ${listResp.status} ${listResp.statusText}`)
+      if (!listResp.ok) {
+        // Try to extract error message from response body
+        let errorDetail = `${listResp.status} ${listResp.statusText}`
+        try {
+          const errorBody = await listResp.json()
+          if (errorBody.error) {
+            errorDetail = `${listResp.status}: ${errorBody.error}`
+          } else if (errorBody.message) {
+            errorDetail = `${listResp.status}: ${errorBody.message}`
+          }
+        } catch {
+          // Failed to parse error body, use status text
+        }
+        throw new Error(`API error: ${errorDetail}`)
+      }
       const listData = await listResp.json()
       // Try to find matching base
       const found = Array.isArray(listData) ? listData.find((b: Record<string, unknown>) => b.id === gameBaseId) : null

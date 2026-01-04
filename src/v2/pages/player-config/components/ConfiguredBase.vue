@@ -20,6 +20,7 @@ const props = defineProps<{
   startingBonus: number
   timeframeHours: number
   globalWorkforceBurden: number
+  warehouseStocks: Record<number, number>
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean; dailySummary: boolean }
   isImporting?: boolean
@@ -251,6 +252,7 @@ function onKey(e: KeyboardEvent) {
           :starting-bonus="props.startingBonus"
           :timeframe-hours="props.timeframeHours"
           :global-workforce-burden="props.globalWorkforceBurden"
+          :warehouse-stocks="props.warehouseStocks"
           @updateOptional="
             (materialIds) => {
               $emit('setOptionalConsumables', materialIds)

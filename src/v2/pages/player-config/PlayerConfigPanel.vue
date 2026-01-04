@@ -7,6 +7,7 @@ import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { fetchCompanyBases, fetchGameBaseDetails, transformGameBase } from '@/v2/services/api/warehouseService'
 import { updateSyncTime, registerSyncCallbacks } from '@/v2/services/syncService'
+import { useWorldData } from '@/v2/services/worldData'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/index.js'
 import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
@@ -39,7 +40,7 @@ const {
   setStock,
   setMaterialSortOrder,
   syncBaseFromApi,
-  updateBaseStockFromApi,
+  updateStockForWarehouse,
   importBaseFromApiPayload,
   isBaseOpen,
   setBaseOpen,
@@ -57,6 +58,10 @@ function addBase(planetId: number) {
 function removeBase(baseId: string) {
   guardEdit(() => _removeBase(baseId), 'remove base')
 }
+
+// Get warehouseStocks from worldData as Single Source of Truth
+const { current: worldCurrent } = useWorldData()
+const warehouseStocks = computed(() => worldCurrent.value.warehouseStocks)
 
 const { state: technologyState } = usePlayerTechnology()
 const technologyLevels = computed(() => technologyState.value.levels ?? {})
@@ -108,7 +113,6 @@ const globalWorkforceBurden = computed(() => {
 })
 
 const query = ref('')
-const apiSyncPanel = ref()
 const importLoading = ref<string | null>(null) // baseId of base currently importing
 const importError = ref<string | null>(null)
 const importSuccess = ref<string | null>(null)
@@ -148,31 +152,9 @@ const suggestions = computed<Planet[]>(() => {
 
 const {
   priceResolver,
-  refreshPrices,
   loading: priceLoading,
-  error: priceError,
-  lastFetched: priceLastFetched,
   nextRefreshAt: priceNextRefreshAt,
 } = useMaterialPricing(props.gameData)
-
-function formatTimestamp(value: number | null | undefined) {
-  if (!value) return '—'
-  try {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return '—'
-    const year = date.getFullYear()
-    const month = `${date.getMonth() + 1}`.padStart(2, '0')
-    const day = `${date.getDate()}`.padStart(2, '0')
-    const hours = `${date.getHours()}`.padStart(2, '0')
-    const minutes = `${date.getMinutes()}`.padStart(2, '0')
-    return `${year}-${month}-${day} ${hours}:${minutes}`
-  } catch {
-    return '—'
-  }
-}
-
-const formattedPriceTimestamp = computed(() => formatTimestamp(priceLastFetched.value ?? null))
-const formattedGameDataTimestamp = computed(() => formatTimestamp(props.gameDataLoadedAt ?? null))
 
 const refreshCountdown = ref('—')
 let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -212,7 +194,8 @@ onMounted(() => {
   
   // Register callback for when sync service loads company data
   registerSyncCallbacks({
-    onCompanyDataLoaded: handleBasesLoaded
+    onCompanyDataLoaded: handleBasesLoaded,
+    onWarehouseStockLoaded: handleWarehouseStockLoaded
   })
 })
 
@@ -298,16 +281,10 @@ async function handleBasesLoaded(
   persist()
 }
 
-function handleStocksLoaded(
-  stocks: Array<{
-    gameBaseId: number
-    stock: Record<number, number>
-  }>,
-) {
-  stocks.forEach((warehouseData) => {
-    updateBaseStockFromApi(warehouseData.gameBaseId, warehouseData.stock)
-  })
-  persist()
+function handleWarehouseStockLoaded(warehouseId: number, stocks: Record<number, number>) {
+  console.log('[PlayerConfigPanel] handleWarehouseStockLoaded', { warehouseId, stockCount: Object.keys(stocks).length })
+  // Update all bases that share this warehouse
+  updateStockForWarehouse(warehouseId, stocks)
 }
 
 // Manual import of full base (buildings + production orders) from game API
@@ -458,6 +435,7 @@ function cancelImport() {
           :starting-bonus="startingBonus"
           :timeframe-hours="timeframeHours"
           :global-workforce-burden="globalWorkforceBurden"
+          :warehouse-stocks="warehouseStocks"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           :isImporting="importLoading === base.id"

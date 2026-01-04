@@ -55,12 +55,13 @@ export function calculateWorkforceProductivity(
   for (const wf of report.workforceSummary) {
     const housingCoverage = wf.coverage * 100 // convert from decimal (0-1) to percent (0-100)
 
-    // Find consumption materials for this tier
-    const tierConsumption = report.workers.filter(w => w.tier === wf.tier && w.active)
+    // Find ALL consumption materials for this tier (including inactive optionals)
+    // We need to check ALL optionals to warn user about missing/deactivated ones
+    const tierConsumption = report.workers.filter(w => w.tier === wf.tier)
 
     // Calculate satisfaction based on Wiki mechanics
     // Base satisfaction: 100%
-    // Missing optional: -10% per item
+    // Missing optional: -10% per item (missing = not in stock OR deactivated)
     // Missing essential: x0.6 multiplier per item
     // Floor: 10% minimum
 
@@ -73,28 +74,38 @@ export function calculateWorkforceProductivity(
       const currentStock = stock[consumption.materialId] ?? 0
       const consumptionPerDay = consumption.consumptionPerDay
 
-      if (consumptionPerDay <= 0) continue // no consumption required
+      // Essential materials: always required
+      if (!consumption.optional) {
+        if (consumptionPerDay <= 0) continue // no consumption required
 
-      // Check if material is in stock
-      if (currentStock <= 0) {
-        // Material missing - count as essential or optional
-        if (consumption.optional) {
-          missingOptionals++
-        } else {
+        // Check if material is in stock
+        if (currentStock <= 0) {
           missingEssentials++
-        }
-
-        // Track first missing material for limiting factor display
-        if (limitingMaterialId === undefined) {
-          limitingMaterialId = consumption.materialId
-          daysRemaining = 0
+          // Track first missing material for limiting factor display
+          if (limitingMaterialId === undefined) {
+            limitingMaterialId = consumption.materialId
+            daysRemaining = 0
+          }
+        } else {
+          // Material is available, calculate days for info purposes
+          const daysOfStock = currentStock / consumptionPerDay
+          if (daysRemaining === undefined || daysOfStock < daysRemaining) {
+            daysRemaining = daysOfStock
+            limitingMaterialId = consumption.materialId
+          }
         }
       } else {
-        // Material is available, calculate days for info purposes
-        const daysOfStock = currentStock / consumptionPerDay
-        if (daysRemaining === undefined || daysOfStock < daysRemaining) {
-          daysRemaining = daysOfStock
-          limitingMaterialId = consumption.materialId
+        // Optional materials: missing if not in stock OR deactivated
+        const isMissing = !consumption.active || currentStock <= 0
+        if (isMissing) {
+          missingOptionals++
+        } else if (consumption.active && currentStock > 0 && consumptionPerDay > 0) {
+          // Optional is active and in stock, track days
+          const daysOfStock = currentStock / consumptionPerDay
+          if (daysRemaining === undefined || daysOfStock < daysRemaining) {
+            daysRemaining = daysOfStock
+            limitingMaterialId = consumption.materialId
+          }
         }
       }
     }
@@ -102,8 +113,9 @@ export function calculateWorkforceProductivity(
     // Calculate satisfaction per Wiki formula
     let satisfaction = 100
 
-    // Count total consumables for this tier
-    const totalConsumables = tierConsumption.filter(c => c.consumptionPerDay > 0).length
+    // Count total consumables for this tier (ALL, not just active ones)
+    // We need to count all available consumables to determine if none are provided
+    const totalConsumables = tierConsumption.length
     const totalMissing = missingEssentials + missingOptionals
 
     // Per Wiki: "If no consumables are provided, satisfaction is set to 10%"
@@ -160,19 +172,25 @@ export function calculateWorkforceProductivity(
   const overallProductivityPercent = totalWorkers > 0 ? weightedProductivity / totalWorkers : 100
 
   // Calculate potential lost profit
-  // Lost profit = (production value at 100%) - (production value at current productivity)
-  // - (workforce costs at 100%) + (workforce costs saved at current productivity)
+  // Note: report.summary already reflects CURRENT productivity (not 100%)
+  // We need to calculate what revenue/costs would be at 100% productivity
+  
+  const productionRevenueAtCurrent = report.summary.productionRevenue
+  const workerCostsAtCurrent = report.summary.workerPurchaseCosts
+  
+  // Scale up to 100% (reverse the productivity reduction)
+  const productivityFactor = overallProductivityPercent / 100
+  const productionRevenueAt100 = productivityFactor > 0 
+    ? productionRevenueAtCurrent / productivityFactor 
+    : productionRevenueAtCurrent
+  const workerCostsAt100 = productivityFactor > 0
+    ? workerCostsAtCurrent / productivityFactor
+    : workerCostsAtCurrent
 
-  const productionRevenueAt100 = report.summary.productionRevenue
-  const workerCostsAt100 = report.summary.workerPurchaseCosts
-
-  // Assume production scales linearly with productivity (simplified)
-  const productionRevenueAtCurrent = productionRevenueAt100 * (overallProductivityPercent / 100)
-  const workerCostsAtCurrent = workerCostsAt100 * (overallProductivityPercent / 100)
-
-  const potentialLostProfitPerDay =
-    (productionRevenueAt100 - workerCostsAt100) -
-    (productionRevenueAtCurrent - workerCostsAtCurrent)
+  // Lost profit = what we would have made at 100% minus what we make at current productivity
+  const netProfitAt100 = productionRevenueAt100 - workerCostsAt100
+  const netProfitAtCurrent = productionRevenueAtCurrent - workerCostsAtCurrent
+  const potentialLostProfitPerDay = netProfitAt100 - netProfitAtCurrent
 
   // Generate explanation
   let explanation = ''

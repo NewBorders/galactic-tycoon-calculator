@@ -6,7 +6,6 @@
  * These functions provide backward compatibility and convenience.
  */
 
-import { computed } from 'vue'
 import type { World } from './types'
 import { useWorldData } from '../worldData'
 

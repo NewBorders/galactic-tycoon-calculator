@@ -34,11 +34,14 @@ const hasEntries = computed(() => syncEntries.value.length > 0)
             {{ entry.name }}
           </div>
           <div class="sync-status__cell">
-            <span v-if="entry.error" class="sync-status__error" :title="entry.error">❌ Error</span>
+            <span v-if="entry.error" class="sync-status__error" :title="entry.error">
+              ❌ {{ entry.error }}
+            </span>
             <span v-else>{{ formatRelativeTime(entry.lastSync) }}</span>
           </div>
           <div class="sync-status__cell">
-            {{ formatCountdown(entry.nextRefresh) }}
+            <span v-if="entry.error" class="sync-status__error-placeholder">—</span>
+            <span v-else>{{ formatCountdown(entry.nextRefresh) }}</span>
           </div>
           <div class="sync-status__cell">
             <button 
@@ -139,6 +142,15 @@ const hasEntries = computed(() => syncEntries.value.length > 0)
   color: var(--color-danger, #ef4444);
   font-weight: 500;
   cursor: help;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-status__error-placeholder {
+  color: var(--color-text-soft);
 }
 
 .sync-status__empty {

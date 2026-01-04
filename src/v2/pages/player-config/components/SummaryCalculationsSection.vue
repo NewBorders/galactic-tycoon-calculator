@@ -22,6 +22,7 @@ const props = defineProps<{
   startingBonus: number
   timeframeHours: number
   globalWorkforceBurden: number
+  warehouseStocks: Record<number, number>
 }>()
 
 const emit = defineEmits<{
@@ -30,7 +31,7 @@ const emit = defineEmits<{
   updateMaterialSortOrder: [sortOrder: 'name' | 'recipe']
 }>()
 
-const optionalActive = ref<Set<number>>(new Set())
+const optionalActive = ref<Set<number>>(new Set(props.base.optionalConsumables ?? []))
 
 // Materials balance sort order: 'name' (default) or 'recipe'
 type MaterialSortOrder = 'name' | 'recipe'
@@ -109,7 +110,7 @@ const technologyLevelsOption = computed(() => {
 
 const stockByMaterialId = computed(() => {
   const map = new Map<number, number>()
-  Object.entries(props.base.stock ?? {}).forEach(([key, value]) => {
+  Object.entries(props.warehouseStocks ?? {}).forEach(([key, value]) => {
     const materialId = Number(key)
     const amount = typeof value === 'number' ? value : Number(value)
     if (!Number.isFinite(materialId) || Number.isNaN(amount) || amount < 0) return
@@ -256,8 +257,6 @@ const workerRows = computed(() => {
   return rows
 })
 
-const workforceSummary = computed(() => report.value.workforceSummary)
-
 const workerDisplayRows = computed(() =>
   workerRows.value.map((row) => ({
     ...row,
@@ -272,8 +271,7 @@ const totalWorkerCosts = computed(() =>
 
 // Calculate workforce productivity
 const workforceProductivity = computed(() => {
-  const stock = props.base.stock ?? {}
-  return calculateWorkforceProductivity(report.value, stock)
+  return calculateWorkforceProductivity(report.value, props.warehouseStocks)
 })
 
 const productivityColor = (productivity: number) => {
@@ -282,13 +280,69 @@ const productivityColor = (productivity: number) => {
   return 'text-red-400'
 }
 
+// Calculate EXACT lost profit by comparing current state with optimal state
 const lostProfitData = computed(() => {
   const productivity = workforceProductivity.value
   if (productivity.overallProductivityPercent >= 100) {
     return null
   }
+
+  // Check if productivity loss is due to housing shortage or consumable shortage
+  const hasHousingShortage = productivity.tiers.some(t => t.housingCoverage < 100)
+  const hasConsumableShortage = productivity.tiers.some(t => t.missingEssentials > 0 || t.missingOptionals > 0)
+
+  let lostProfitPerDay = 0
+
+  if (hasHousingShortage || hasConsumableShortage) {
+    // Calculate optimal state: 100% housing AND all optionals active
+    
+    // Step 1: Get report with all optionals active (if consumable shortage exists)
+    let optimalReport = report.value
+    if (hasConsumableShortage) {
+      const allOptionalIds = new Set<number>()
+      ;[1, 2, 3, 4].forEach((tier) => {
+        const worker = props.index.workerByType.get(tier as Worker['type'])
+        if (!worker) return
+        worker.consumables
+          .filter((c) => !c.essential)
+          .forEach((c) => allOptionalIds.add(c.matId))
+      })
+
+      optimalReport = computeBaseReport(props.gameData, {
+        assignment: assignment.value,
+        horizonDays: 1,
+        options: {
+          activeOptionalConsumables: allOptionalIds,
+          priceResolver: props.priceResolver,
+          technologyLevels: technologyLevelsOption.value,
+          startingBonus: props.startingBonus,
+          globalWorkforceBurden: props.globalWorkforceBurden,
+        },
+      })
+    }
+
+    // Step 2: Scale to 100% housing if needed
+    let netAtOptimal = optimalReport.summary.net
+    
+    if (hasHousingShortage) {
+      const minHousingCoverage = Math.min(...productivity.tiers.map(t => t.housingCoverage))
+      const housingFactor = minHousingCoverage / 100
+
+      if (housingFactor > 0) {
+        // Scale revenue and costs of the optimal report to 100% housing
+        const revenueOptimal = optimalReport.summary.productionRevenue / housingFactor
+        const costsOptimal = (optimalReport.summary.workerPurchaseCosts + 
+                             optimalReport.summary.materialPurchaseCosts) / housingFactor
+        netAtOptimal = revenueOptimal - costsOptimal
+      }
+    }
+
+    // Lost profit = optimal state - current state
+    lostProfitPerDay = netAtOptimal - report.value.summary.net
+  }
+
   return {
-    lostProfitPerPeriod: productivity.potentialLostProfitPerDay * periodFactor.value,
+    lostProfitPerPeriod: lostProfitPerDay * periodFactor.value,
     currentProductivity: productivity.overallProductivityPercent,
   }
 })
@@ -345,27 +399,6 @@ function tierLabel(tier: number) {
     default:
       return `T${tier}`
   }
-}
-
-function tierIconName(tier: number) {
-  switch (tier) {
-    case 1:
-      return 'Worker'
-    case 2:
-      return 'Technician'
-    case 3:
-      return 'Engineer'
-    case 4:
-      return 'Scientist'
-    default:
-      return 'Worker'
-  }
-}
-
-function coverageClass(value: number) {
-  if (value >= 0.99) return 'text-emerald-300'
-  if (value >= 0.75) return 'text-amber-300'
-  return 'text-rose-300'
 }
 
 function toggleOptional(materialId: number) {
@@ -610,27 +643,37 @@ onBeforeUnmount(() => {
             {{ formatNumber(workforceProductivity.overallProductivityPercent, 0) }}%
           </span>
         </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div
-            v-for="tier in workforceProductivity.tiers"
-            :key="tier.tier"
-            class="flex items-center justify-between p-2 bg-slate-800 rounded text-xs"
-          >
-            <span class="text-slate-400">{{ tierLabel(tier.tier) }}</span>
-            <span
-              class="font-semibold"
-              :class="productivityColor(tier.productivityPercent)"
-            >
-              {{ formatNumber(tier.productivityPercent, 0) }}%
-            </span>
-            <span v-if="tier.limitingFactor === 'housing'" class="text-slate-500 text-[10px]">
-              {{ translate('limitedByHousing') }}
-            </span>
-            <span v-else-if="tier.limitingFactor === 'consumption'" class="text-slate-500 text-[10px]">
-              {{ translate('limitedByConsumption') }}
-            </span>
-          </div>
+
+        <!-- Detailed productivity issues if < 100% -->
+        <div v-if="workforceProductivity.overallProductivityPercent < 100 && workforceProductivity.hasStockData" class="space-y-2">
+          <template v-for="tier in workforceProductivity.tiers" :key="tier.tier">
+            <!-- Housing shortage -->
+            <div v-if="tier.housingCoverage < 100" class="flex items-center gap-2 p-2 bg-orange-900/20 border border-orange-700/30 rounded text-xs">
+              <span class="text-orange-400">🏠</span>
+              <span class="text-slate-300">
+                {{ tierLabel(tier.tier) }}: Housing shortage
+                ({{ formatNumber(tier.housingCoverage, 1) }}% coverage)
+              </span>
+            </div>
+            <!-- Missing essential materials -->
+            <div v-if="tier.missingEssentials > 0" class="flex items-center gap-2 p-2 bg-red-900/20 border border-red-700/30 rounded text-xs">
+              <span class="text-red-400">⚠️</span>
+              <span class="text-slate-300">
+                {{ tierLabel(tier.tier) }}: Missing {{ tier.missingEssentials }} essential material{{ tier.missingEssentials > 1 ? 's' : '' }}
+                ({{ formatNumber(tier.satisfaction, 0) }}% satisfaction)
+              </span>
+            </div>
+            <!-- Missing optional materials -->
+            <div v-if="tier.missingOptionals > 0" class="flex items-center gap-2 p-2 bg-amber-900/20 border border-amber-700/30 rounded text-xs">
+              <span class="text-amber-400">📦</span>
+              <span class="text-slate-300">
+                {{ tierLabel(tier.tier) }}: Missing {{ tier.missingOptionals }} optional material{{ tier.missingOptionals > 1 ? 's' : '' }}
+                ({{ formatNumber(tier.satisfaction, 0) }}% satisfaction)
+              </span>
+            </div>
+          </template>
         </div>
+
         <div v-if="lostProfitData" class="flex items-center gap-2 p-2 bg-amber-900/20 border border-amber-700/30 rounded text-xs">
           <span class="text-amber-400">⚠️</span>
           <span class="text-slate-300">{{ translate('lostProfitWarning') }}:</span>
@@ -680,38 +723,6 @@ onBeforeUnmount(() => {
           {{ translate('totalWorkerCosts') }}:
           <span class="text-slate-200">{{ formatPrice(totalWorkerCosts, 2) }}</span>
         </div>
-      </template>
-      <div v-else class="text-sm text-slate-400">—</div>
-    </div>
-
-    <!-- Workforce Coverage (right column, bottom) -->
-    <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-2">
-      <div class="font-semibold">{{ translate('workforceOverview') }}</div>
-      <template v-if="workforceSummary.some((row) => row.required > 0)">
-        <table class="w-full text-sm">
-          <thead class="text-slate-400 text-xs uppercase">
-            <tr>
-              <th class="text-left pb-1">Tier</th>
-              <th class="text-right pb-1">{{ translate('requiredWorkers') }}</th>
-              <th class="text-right pb-1">{{ translate('housingCapacity') }}</th>
-              <th class="text-right pb-1">{{ translate('coverage') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in workforceSummary" :key="row.tier" class="border-t border-slate-800/60">
-              <td class="py-1 text-slate-400">
-                <span class="inline-flex items-center" :title="`${tierIconName(row.tier)} (${tierLabel(row.tier)})`">
-                  <MaterialIcon :name="tierIconName(row.tier)" variant="sm" />
-                </span>
-              </td>
-              <td class="py-1 text-right">{{ formatNumber(row.required, 0) }}</td>
-              <td class="py-1 text-right">{{ formatNumber(row.housing, 0) }}</td>
-              <td class="py-1 text-right" :class="coverageClass(row.coverage)">
-                {{ formatShare(row.coverage * 100) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
       </template>
       <div v-else class="text-sm text-slate-400">—</div>
     </div>
