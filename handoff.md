@@ -1,6 +1,38 @@
 # Handoff Document
 
-## Most Recent Work Session: Surface Game Data Source (API vs Fallback)
+## Most Recent Work Session: Fixed Price Display Bug (Cents to Dollars Conversion)
+
+### Summary
+Fixed a critical bug where prices from the API (returned in cents) were not consistently converted to dollars in V2. Materials with prices of exactly $10.00 (1000 cents) or below were displayed incorrectly. For example, Grain with a current price of 1000 cents (=$10.00) was shown as $1000 in the Materials Balance view.
+
+### Root Cause
+The `toDollars()` function in `src/v2/services/gamedata/prices.ts` only converted values **greater than** 1000, not **equal to or greater than** 1000. This meant:
+- 1000 cents → $1000 (incorrect)
+- 1304 cents → $13.04 (correct, because 1304 > 1000)
+
+### Solution
+Changed `toDollars()` to **always** divide by 100, since the API always returns prices in cents:
+```typescript
+function toDollars(value: unknown): number | null {
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num) || num <= 0) return null
+  // API always returns prices in cents, so always convert to dollars
+  return num / 100
+}
+```
+
+### Files Modified
+- `src/v2/services/gamedata/prices.ts` - Fixed conversion logic
+- `src/v2/services/gamedata/__tests__/prices.test.ts` - Added test coverage
+
+### Testing
+1. Verify Materials Balance in Bases tab shows correct prices for all materials
+2. Check that materials around $10 (1000 cents) display as $10.00, not $1000
+3. Run: `docker compose exec web npm test src/v2/services/gamedata/__tests__/prices.test.ts`
+
+---
+
+## Previous Work Session: Surface Game Data Source (API vs Fallback)
 
 ### Summary
 - Surface where game data came from (API or bundled fallback) so users know if data might be stale.
