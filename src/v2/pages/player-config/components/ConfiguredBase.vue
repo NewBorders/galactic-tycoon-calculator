@@ -20,7 +20,6 @@ const props = defineProps<{
   startingBonus: number
   timeframeHours: number
   globalWorkforceBurden: number
-  warehouseStocks: Record<number, number>
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean; dailySummary: boolean }
   isImporting?: boolean

@@ -586,7 +586,6 @@ async function refreshGameData() {
           :starting-bonus="startingBonus"
           :timeframe-hours="timeframeHours"
           :global-workforce-burden="globalWorkforceBurden"
-          :warehouse-stocks="warehouseStocks"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           :isImporting="importLoading === base.id"
