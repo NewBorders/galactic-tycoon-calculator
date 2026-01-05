@@ -563,7 +563,7 @@ async function refreshGameData() {
       :starting-bonus="startingBonus"
       :timeframe-hours="timeframeHours"
       :global-workforce-burden="globalWorkforceBurden"
-      v-model:export-threshold="exportThreshold"
+      :export-threshold="exportThreshold"
     />
 
     <!-- Bases -->

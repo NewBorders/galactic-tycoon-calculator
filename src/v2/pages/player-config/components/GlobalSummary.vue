@@ -3,10 +3,8 @@ import { ref, toRef } from 'vue'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
-import { formatPrice, formatNumber } from '@/v2/utils/formatNumber'
+import { formatPrice } from '@/v2/utils/formatNumber'
 import { translate } from '@/v2/localisation'
-import { getMaterialNameById, getPlanetNameById } from '@/v2/services/gamedata/gameDataRepository'
-import { formatWeight, getMaterialWeight } from '@/v2/utils/materialHelpers'
 
 const props = defineProps<{
   bases: PlayerBase[]
@@ -20,14 +18,9 @@ const props = defineProps<{
   exportThreshold: number
 }>()
 
-const emit = defineEmits<{
-  'update:exportThreshold': [value: number]
-}>()
-
 const isOpen = ref(true)
-const expandedBases = ref<Set<string>>(new Set())
 
-const { baseSummaries, totalNetProfit, totalExportNetProfit, totalWorkforceDeficitCost, totalConsumptionOverheadCost } =
+const { totalNetProfit, totalExportNetProfit, totalWorkforceDeficitCost, totalConsumptionOverheadCost } =
   useGlobalSummary(
     toRef(() => props.bases),
     toRef(() => props.gameData),
@@ -40,27 +33,6 @@ const { baseSummaries, totalNetProfit, totalExportNetProfit, totalWorkforceDefic
     toRef(() => props.exportThreshold),
     undefined, // no market opportunities in player config page
   )
-
-function toggleBase(baseId: string) {
-  if (expandedBases.value.has(baseId)) {
-    expandedBases.value.delete(baseId)
-  } else {
-    expandedBases.value.add(baseId)
-  }
-}
-
-// Calculate total weight and value for export materials per base
-function getExportTotals(exportMaterials: typeof baseSummaries.value[0]['exportMaterials']) {
-  let totalWeight = 0
-  let totalValue = 0
-
-  exportMaterials.forEach((material) => {
-    totalWeight += material.exportPerDay * getMaterialWeight(props.gameData, material.materialId)
-    totalValue += material.valuePerDay
-  })
-
-  return { totalWeight, totalValue }
-}
 </script>
 
 <template>
@@ -104,119 +76,6 @@ function getExportTotals(exportMaterials: typeof baseSummaries.value[0]['exportM
             {{ formatPrice(totalConsumptionOverheadCost, 2) }}
           </div>
           <div class="text-xs text-slate-500 mt-1">{{ translate('consumptionOverheadHint') }}</div>
-        </div>
-      </div>
-
-      <!-- Per-Base Summary -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-slate-300">{{ translate('perBaseSummary') }}</h3>
-          <div class="flex items-center gap-2 text-sm">
-            <label class="flex items-center gap-2">
-              <span class="text-slate-400">{{ translate('exportThresholdLabel') }}:</span>
-              <input
-                :value="exportThreshold"
-                @input="emit('update:exportThreshold', Number(($event.target as HTMLInputElement).value))"
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-                class="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                :title="translate('exportThresholdHint')"
-              />
-              <span class="text-xs font-semibold text-purple-400 w-8 text-right">{{ exportThreshold }}%</span>
-            </label>
-          </div>
-        </div>
-        <div class="space-y-2">
-          <div
-            v-for="baseSummary in baseSummaries"
-            :key="baseSummary.baseId"
-            class="border border-slate-600 rounded bg-slate-800/50"
-          >
-            <div
-              class="px-3 py-2 cursor-pointer flex items-center justify-between hover:bg-slate-700/30"
-              @click="toggleBase(baseSummary.baseId)"
-            >
-              <div class="flex items-center gap-3 flex-1 min-w-0">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-4 w-4 transition-transform flex-shrink-0"
-                  :class="{ 'rotate-90': expandedBases.has(baseSummary.baseId) }"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-                <span class="font-medium truncate">{{ baseSummary.baseName }}</span>
-                <span class="text-sm text-slate-500 truncate">{{ getPlanetNameById(baseSummary.planetId) }}</span>
-              </div>
-              <div class="flex items-center gap-4 flex-shrink-0">
-                <div v-if="baseSummary.workforceDeficit > 0" class="text-right">
-                  <div class="text-sm text-slate-400">{{ translate('housingShortfall') }}</div>
-                  <div class="font-bold text-orange-300">
-                    {{ formatNumber(baseSummary.workforceDeficit, 0) }}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Expanded Base Details -->
-            <div v-if="expandedBases.has(baseSummary.baseId)" class="px-3 py-2 border-t border-slate-600">
-              <!-- Export Materials -->
-              <div>
-                <div class="text-sm font-semibold text-emerald-300 mb-2">{{ translate('exportMaterials') }}:</div>
-                  <div v-if="baseSummary.exportMaterials.length > 0" class="space-y-1">
-                    <!-- Header -->
-                    <div class="flex items-center gap-2 text-xs text-slate-400 border-b border-slate-600 pb-1">
-                      <div class="w-4"></div>
-                      <span class="flex-1">Material</span>
-                      <span class="text-right w-20">Balance</span>
-                      <span class="text-right w-20">Value</span>
-                      <span class="text-right w-20">Weight</span>
-                      <span class="text-right w-14">Export %</span>
-                    </div>
-                    <!-- Total Summary Row -->
-                    <div class="flex items-center gap-2 text-sm font-semibold bg-slate-700/50 rounded px-1 py-1">
-                      <div class="w-4"></div>
-                      <span class="flex-1 text-amber-300">Total</span>
-                      <span class="text-right w-20"></span>
-                      <span class="text-amber-300 text-xs text-right w-20">
-                        {{ formatPrice(getExportTotals(baseSummary.exportMaterials).totalValue, 0) }}
-                      </span>
-                      <span class="text-amber-300 text-xs text-right w-20">
-                        {{ formatNumber(getExportTotals(baseSummary.exportMaterials).totalWeight, 1) }}t
-                      </span>
-                      <span class="text-right w-14"></span>
-                    </div>
-                    <div
-                      v-for="material in baseSummary.exportMaterials"
-                      :key="material.materialId"
-                      class="flex items-center gap-2 text-sm"
-                    >
-                      <MaterialIcon :name="getMaterialNameById(material.materialId)" :size="16" />
-                      <span class="text-slate-300 flex-1 truncate">{{ getMaterialNameById(material.materialId) }}</span>
-                      <span class="text-emerald-400 font-medium text-right w-20">
-                        +{{ formatNumber(material.exportPerDay, 1) }}
-                      </span>
-                      <span class="text-slate-400 text-xs text-right w-20">
-                        {{ formatPrice(material.valuePerDay, 0) }}
-                      </span>
-                      <span class="text-slate-500 text-xs text-right w-20">
-                        {{ formatWeight(gameData, material.exportPerDay, material.materialId) }}
-                      </span>
-                      <span class="text-slate-500 text-xs text-right w-14">
-                        {{ formatNumber(material.exportRatio, 0) }}%
-                      </span>
-                    </div>
-                  </div>
-                  <div v-else class="text-sm text-slate-500 italic">
-                    {{ translate('noExportMaterials') }}
-                  </div>
-                </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
