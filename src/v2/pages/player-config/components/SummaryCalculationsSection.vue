@@ -736,41 +736,13 @@ onBeforeUnmount(() => {
           </span>
         </div>
 
-        <!-- Detailed productivity issues if < 100% -->
-        <div v-if="workforceProductivity.overallProductivityPercent < 100 && workforceProductivity.hasStockData" class="space-y-2">
-          <template v-for="tier in workforceProductivity.tiers" :key="tier.tier">
-            <!-- Housing shortage -->
-            <div v-if="tier.housingCoverage < 100" class="flex items-center gap-2 p-2 bg-orange-900/20 border border-orange-700/30 rounded text-xs">
-              <span class="text-orange-400">🏠</span>
-              <span class="text-slate-300">
-                {{ tierLabel(tier.tier) }}: Housing shortage
-                ({{ formatNumber(tier.housingCoverage, 1) }}% coverage)
-              </span>
-            </div>
-            <!-- Missing essential materials -->
-            <div v-if="tier.missingEssentials > 0" class="flex items-center gap-2 p-2 bg-red-900/20 border border-red-700/30 rounded text-xs">
-              <span class="text-red-400">⚠️</span>
-              <span class="text-slate-300">
-                {{ tierLabel(tier.tier) }}: Missing {{ tier.missingEssentials }} essential material{{ tier.missingEssentials > 1 ? 's' : '' }}
-                ({{ formatNumber(tier.satisfaction, 0) }}% satisfaction)
-              </span>
-            </div>
-            <!-- Missing optional materials -->
-            <div v-if="tier.missingOptionals > 0" class="flex items-center gap-2 p-2 bg-amber-900/20 border border-amber-700/30 rounded text-xs">
-              <span class="text-amber-400">📦</span>
-              <span class="text-slate-300">
-                {{ tierLabel(tier.tier) }}: Missing {{ tier.missingOptionals }} optional material{{ tier.missingOptionals > 1 ? 's' : '' }}
-                ({{ formatNumber(tier.satisfaction, 0) }}% satisfaction)
-              </span>
-            </div>
-          </template>
-        </div>
-
-        <div v-if="lostProfitData" class="flex items-center gap-2 p-2 bg-amber-900/20 border border-amber-700/30 rounded text-xs">
-          <span class="text-amber-400">⚠️</span>
-          <span class="text-slate-300">{{ translate('lostProfitWarning') }}:</span>
-          <span class="font-semibold text-amber-400">
-            {{ formatPrice(lostProfitData.lostProfitPerPeriod, 2) }}
+        <!-- Compact productivity summary if < 100% -->
+        <div v-if="workforceProductivity.overallProductivityPercent < 100 && workforceProductivity.hasStockData && lostProfitData" class="flex items-center gap-2 p-2 bg-orange-900/20 border border-orange-700/30 rounded text-xs">
+          <span class="text-orange-400">⚠️</span>
+          <span class="text-slate-300">
+            Lost Profit {{ formatPrice(lostProfitData.lostProfitPerPeriod, 0) }}
+            ({{ Math.floor(Math.min(...workforceProductivity.tiers.map(t => t.housingCoverage))) }}% housing,
+            {{ formatNumber(Math.min(...workforceProductivity.tiers.map(t => t.satisfaction)), 0) }}% satisfaction)
           </span>
         </div>
       </div>
