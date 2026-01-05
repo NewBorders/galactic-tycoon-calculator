@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch, onMounted } from 'vue'
 import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
 import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
@@ -52,9 +52,32 @@ const alertMaterialId = ref<number | null>(null)
 const alertMaterialName = ref<string>('')
 
 // Warehouse stock refresh state
+const WAREHOUSE_STORAGE_KEY = 'warehouseLastRefresh'
 const warehouseLoading = ref(false)
 const warehouseError = ref<string | null>(null)
 const warehouseLastRefresh = ref<number | null>(null)
+
+// Load timestamp from localStorage on mount
+onMounted(() => {
+  try {
+    const stored = localStorage.getItem(WAREHOUSE_STORAGE_KEY)
+    if (stored) {
+      warehouseLastRefresh.value = Number(stored)
+    }
+  } catch {
+    // Silently fail on storage read
+  }
+})
+
+// Save timestamp to localStorage when it changes
+watch(warehouseLastRefresh, (newValue) => {
+  if (newValue === null) return
+  try {
+    localStorage.setItem(WAREHOUSE_STORAGE_KEY, String(newValue))
+  } catch {
+    // Silently fail on storage write
+  }
+})
 
 const { getMarketEntry } = useMaterialPricing(props.gameData)
 const { getAlert, toggleMute } = usePriceAlerts()
