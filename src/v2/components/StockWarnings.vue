@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { StockAnalysisResult } from '@/v2/services/stockAnalysis'
 import type { GdIndex } from '@/v2/services/gamedata/types'
 import { translate, formatNumber, formatCurrency, formatDays } from '@/v2/localisation'
@@ -15,7 +15,31 @@ const props = defineProps<{
 }>()
 
 type ViewMode = 'combined' | 'by-material' | 'by-base'
-const viewMode = ref<ViewMode>('combined')
+const STORAGE_KEY = 'gt:v2:matsShortage:viewMode'
+
+// Load view mode from localStorage
+function loadViewMode(): ViewMode {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored === 'combined' || stored === 'by-material' || stored === 'by-base') {
+      return stored
+    }
+  } catch {
+    // Ignore localStorage errors
+  }
+  return 'combined'
+}
+
+const viewMode = ref<ViewMode>(loadViewMode())
+
+// Save view mode to localStorage when it changes
+watch(viewMode, (newMode) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, newMode)
+  } catch {
+    // Ignore localStorage errors
+  }
+})
 
 // Price alert functionality
 const { getAlert } = usePriceAlerts()

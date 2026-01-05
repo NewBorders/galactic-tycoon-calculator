@@ -4,7 +4,7 @@ import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
 import { formatPrice, formatNumber } from '@/v2/utils/formatNumber'
-import { translate, formatDays } from '@/v2/localisation'
+import { translate } from '@/v2/localisation'
 import { getMaterialNameById, getPlanetNameById } from '@/v2/services/gamedata/gameDataRepository'
 import { formatWeight, getMaterialWeight } from '@/v2/utils/materialHelpers'
 
@@ -60,18 +60,6 @@ function getExportTotals(exportMaterials: typeof baseSummaries.value[0]['exportM
   })
 
   return { totalWeight, totalValue }
-}
-
-// Calculate total weight for running out materials per base
-function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.value[0]['materialsRunningOut']) {
-  let totalWeight = 0
-
-  materialsRunningOut.forEach((material) => {
-    const toBuy = Math.max(0, (material.consumptionPerDay * props.timeframeHours / 24) - material.currentStock)
-    totalWeight += toBuy * getMaterialWeight(props.gameData, material.materialId)
-  })
-
-  return totalWeight
 }
 </script>
 
@@ -163,18 +151,6 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                 </svg>
                 <span class="font-medium truncate">{{ baseSummary.baseName }}</span>
                 <span class="text-sm text-slate-500 truncate">{{ getPlanetNameById(baseSummary.planetId) }}</span>
-                <!-- Warning icon if materials running out -->
-                <svg
-                  v-if="baseSummary.materialsRunningOut.length > 0"
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5 text-rose-400 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  title="Materials running out"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
               </div>
               <div class="flex items-center gap-4 flex-shrink-0">
                 <div v-if="baseSummary.workforceDeficit > 0" class="text-right">
@@ -188,10 +164,9 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
 
             <!-- Expanded Base Details -->
             <div v-if="expandedBases.has(baseSummary.baseId)" class="px-3 py-2 border-t border-slate-600">
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <!-- Export Materials (Left Column) -->
-                <div>
-                  <div class="text-sm font-semibold text-emerald-300 mb-2">{{ translate('exportMaterials') }}:</div>
+              <!-- Export Materials -->
+              <div>
+                <div class="text-sm font-semibold text-emerald-300 mb-2">{{ translate('exportMaterials') }}:</div>
                   <div v-if="baseSummary.exportMaterials.length > 0" class="space-y-1">
                     <!-- Header -->
                     <div class="flex items-center gap-2 text-xs text-slate-400 border-b border-slate-600 pb-1">
@@ -240,55 +215,6 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                     {{ translate('noExportMaterials') }}
                   </div>
                 </div>
-
-                <!-- Materials Running Out (Right Column) -->
-                <div>
-                  <div class="text-sm font-semibold text-rose-300 mb-2">{{ translate('materialsRunningOut') }}:</div>
-                  <div v-if="baseSummary.materialsRunningOut.length > 0" class="space-y-1">
-                    <!-- Header -->
-                    <div class="flex items-center gap-2 text-xs text-slate-400 border-b border-slate-600 pb-1">
-                      <div class="w-4"></div>
-                      <span class="flex-1">Material</span>
-                      <span class="text-right w-20">Time Left</span>
-                      <span class="text-right w-20">Stock</span>
-                      <span class="text-right w-24">To Buy</span>
-                    </div>
-                    <!-- Total Summary Row -->
-                    <div class="flex items-center gap-2 text-sm font-semibold bg-slate-700/50 rounded px-1 py-1">
-                      <div class="w-4"></div>
-                      <span class="flex-1 text-amber-300">Total Weight</span>
-                      <span class="text-right w-20"></span>
-                      <span class="text-right w-20"></span>
-                      <span class="text-amber-300 text-xs text-right w-24">
-                        {{ formatNumber(getRunningOutTotalWeight(baseSummary.materialsRunningOut), 1) }}t
-                      </span>
-                    </div>
-                    <div
-                      v-for="material in baseSummary.materialsRunningOut"
-                      :key="material.materialId"
-                      class="flex items-center gap-2 text-sm"
-                    >
-                      <MaterialIcon :name="getMaterialNameById(material.materialId)" :size="16" />
-                      <span class="text-slate-300 flex-1 truncate">{{ getMaterialNameById(material.materialId) }}</span>
-                      <span class="text-rose-400 font-medium text-right w-20">
-                        {{ formatDays(material.daysUntilEmpty) }}
-                      </span>
-                      <span class="text-slate-500 text-xs text-right w-20">
-                        {{ formatNumber(material.currentStock, 0) }}
-                      </span>
-                      <span class="text-slate-400 text-xs text-right w-24">
-                        {{ (() => {
-                          const toBuy = Math.max(0, (material.consumptionPerDay * timeframeHours / 24) - material.currentStock)
-                          return `${formatNumber(toBuy, 0)} / ${formatWeight(gameData, toBuy, material.materialId)}`
-                        })() }}
-                      </span>
-                    </div>
-                  </div>
-                  <div v-else class="text-sm text-slate-500 italic">
-                    {{ translate('noMaterialsRunningOut') }}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
