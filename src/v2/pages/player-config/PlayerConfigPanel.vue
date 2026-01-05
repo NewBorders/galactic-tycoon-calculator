@@ -16,6 +16,7 @@ import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
 import ImportConfirmDialog from './components/ImportConfirmDialog.vue'
 import GlobalSummary from './components/GlobalSummary.vue'
+import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 
 import { computeBaseReport } from '@/v2/services/production/engine'
@@ -48,6 +49,7 @@ const {
   setMaterialSortOrder,
   syncBaseFromApi,
   updateStockForWarehouse,
+  updateBaseStockFromApi,
   importBaseFromApiPayload,
   isBaseOpen,
   setBaseOpen,
@@ -127,6 +129,7 @@ const confirmDialogOpen = ref(false)
 const confirmDialogBaseId = ref<string | null>(null)
 const confirmDialogTitle = ref<string | undefined>(undefined)
 const confirmDialogMessage = ref<string | undefined>(undefined)
+const apiSyncPanel = ref()
 
 // Game data refresh state
 const gameDataLoading = ref(false)
@@ -165,7 +168,10 @@ const suggestions = computed<Planet[]>(() => {
 
 const {
   priceResolver,
+  refreshPrices,
   loading: priceLoading,
+  error: priceError,
+  lastFetched: priceLastFetched,
   nextRefreshAt: priceNextRefreshAt,
 } = useMaterialPricing(props.gameData)
 
@@ -336,6 +342,18 @@ function handleWarehouseStockLoaded(warehouseId: number, stocks: Record<number, 
   console.log('[PlayerConfigPanel] handleWarehouseStockLoaded', { warehouseId, stockCount: Object.keys(stocks).length })
   // Update all bases that share this warehouse
   updateStockForWarehouse(warehouseId, stocks)
+}
+
+function handleStocksLoaded(
+  stocks: Array<{
+    gameBaseId: number
+    stock: Record<number, number>
+  }>,
+) {
+  stocks.forEach((warehouseData) => {
+    updateBaseStockFromApi(warehouseData.gameBaseId, warehouseData.stock)
+  })
+  persist()
 }
 
 // Manual import of full base (buildings + production orders) from game API

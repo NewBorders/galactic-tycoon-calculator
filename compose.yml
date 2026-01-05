@@ -25,7 +25,9 @@ services:
       - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=1
       - WATCHPACK_POLLING=true
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
     tty: true
+    stdin_open: true
 
 volumes:
   web_node_modules:

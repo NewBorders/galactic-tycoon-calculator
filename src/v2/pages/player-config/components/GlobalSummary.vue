@@ -9,6 +9,7 @@ import { translate, formatDays } from '@/v2/localisation'
 import { getMaterialNameById, getPlanetNameById } from '@/v2/services/gamedata/gameDataRepository'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import { formatWeight, getMaterialWeight } from '@/v2/utils/materialHelpers'
+import { getWorkerConsumableMaterialIds } from '@/v2/utils/workerConsumables'
 
 const props = defineProps<{
   bases: PlayerBase[]
@@ -28,11 +29,16 @@ const emit = defineEmits<{
 
 const isOpen = ref(true)
 const expandedBases = ref<Set<string>>(new Set())
+const expandedMaterials = ref(false)
+const showPerBaseBreakdown = ref(false)
+
+// Get worker consumable material IDs from game data (single source of truth)
+const workerConsumableIds = computed(() => getWorkerConsumableMaterialIds(props.gameData))
 
 const { current: worldCurrent } = useWorldData()
 const warehouseStocks = computed(() => worldCurrent.value.warehouseStocks)
 
-const { baseSummaries, totalNetProfit, totalExportNetProfit, totalWorkforceDeficitCost, totalConsumptionOverheadCost } =
+const { baseSummaries, totalNetProfit, totalExportNetProfit, totalWorkforceDeficitCost, totalConsumptionOverheadCost, globalMaterials } =
   useGlobalSummary(
     toRef(() => props.bases),
     toRef(() => props.gameData),
@@ -54,6 +60,14 @@ function toggleBase(baseId: string) {
     expandedBases.value.add(baseId)
   }
 }
+
+const regularMaterials = computed(() => {
+  return globalMaterials.value.filter(m => !workerConsumableIds.value.has(m.materialId))
+})
+
+const workerConsumableMaterials = computed(() => {
+  return globalMaterials.value.filter(m => workerConsumableIds.value.has(m.materialId))
+})
 
 // Calculate total weight and value for export materials per base
 function getExportTotals(exportMaterials: typeof baseSummaries.value[0]['exportMaterials']) {
@@ -350,8 +364,8 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                     <tr class="border-b border-slate-800 hover:bg-slate-800/50">
                       <td class="py-1 px-2">
                         <div class="flex items-center gap-2">
-                          <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
-                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialName(material.materialId) }}</span>
+                          <MaterialIcon :name="getMaterialNameById(material.materialId)" :size="16" />
+                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialNameById(material.materialId) }}</span>
                         </div>
                       </td>
                       <td class="text-right py-1 px-2">
@@ -418,8 +432,8 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                     <tr class="border-b border-slate-800 hover:bg-slate-800/50">
                       <td class="py-1 px-2">
                         <div class="flex items-center gap-2">
-                          <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
-                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialName(material.materialId) }}</span>
+                          <MaterialIcon :name="getMaterialNameById(material.materialId)" :size="16" />
+                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialNameById(material.materialId) }}</span>
                         </div>
                       </td>
                       <td class="text-right py-1 px-2">

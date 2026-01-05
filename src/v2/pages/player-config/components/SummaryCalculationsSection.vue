@@ -12,6 +12,8 @@ import AlertOverlay from '@/v2/components/AlertOverlay.vue'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
 import { getExportThresholdRatio, getExportThresholdRef, setExportThreshold } from '@/v2/services/config/exportThreshold'
+import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
+import { fetchWarehouseStockForBase } from '@/v2/services/api/warehouseService'
 
 const props = defineProps<{
   base: PlayerBase
@@ -49,6 +51,11 @@ const alertOverlayOpen = ref(false)
 const alertMaterialId = ref<number | null>(null)
 const alertMaterialName = ref<string>('')
 
+// Warehouse stock refresh state
+const warehouseLoading = ref(false)
+const warehouseError = ref<string | null>(null)
+const warehouseLastRefresh = ref<number | null>(null)
+
 const { getMarketEntry } = useMaterialPricing(props.gameData)
 const { getAlert, toggleMute } = usePriceAlerts()
 
@@ -77,6 +84,58 @@ function closeAlertOverlay() {
   alertOverlayOpen.value = false
   alertMaterialId.value = null
   alertMaterialName.value = ''
+}
+
+async function handleRefreshWarehouseStock() {
+  const key = getApiKey()
+  if (!key) {
+    warehouseError.value = translate('apiKeyNotConfigured')
+    return
+  }
+
+  if (!props.base.gameWarehouseId || !props.base.gameBaseId) {
+    warehouseError.value = 'Base not linked to game warehouse'
+    return
+  }
+
+  warehouseLoading.value = true
+  warehouseError.value = null
+
+  try {
+    const world = getWorld()
+    const result = await fetchWarehouseStockForBase(key, props.base.gameWarehouseId, world, true)
+
+    // Convert items array to stock record: materialId → quantity
+    const stockRecord: Record<number, number> = {}
+    if (result.data.items) {
+      result.data.items.forEach((item) => {
+        stockRecord[item.materialId] = item.quantity
+      })
+    }
+
+    emit('updateStock', stockRecord)
+    warehouseLastRefresh.value = Date.now()
+  } catch (e) {
+    warehouseError.value = `Warehouse load error: ${e instanceof Error ? e.message : String(e)}`
+  } finally {
+    warehouseLoading.value = false
+  }
+}
+
+function formatTimestamp(value: number | null | undefined) {
+  if (!value) return '—'
+  try {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '—'
+    const year = date.getFullYear()
+    const month = `${date.getMonth() + 1}`.padStart(2, '0')
+    const day = `${date.getDate()}`.padStart(2, '0')
+    const hours = `${date.getHours()}`.padStart(2, '0')
+    const minutes = `${date.getMinutes()}`.padStart(2, '0')
+    return `${year}-${month}-${day} ${hours}:${minutes}`
+  } catch {
+    return '—'
+  }
 }
 
 const timeframeHours = computed(() => {
@@ -446,7 +505,20 @@ onBeforeUnmount(() => {
     <!-- Materials Balance - Split into Export and Non-Export (left column, full height) -->
     <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-4 lg:row-span-2">
       <div class="flex items-center justify-between gap-2 flex-wrap">
-        <div class="font-semibold">{{ translate('materialBalance') }}</div>
+        <div class="flex items-center gap-2">
+          <div class="font-semibold">{{ translate('materialBalance') }}</div>
+          <button
+            @click="handleRefreshWarehouseStock"
+            :disabled="warehouseLoading || !base.gameWarehouseId"
+            class="text-xs px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            :title="base.gameWarehouseId ? 'Refresh warehouse stock from API' : 'Base not linked to warehouse'"
+          >
+            {{ warehouseLoading ? '⏳' : '🔄' }} {{ warehouseLoading ? translate('loading') : 'Refresh Stock' }}
+          </button>
+          <span v-if="warehouseLastRefresh" class="text-xs text-slate-500">
+            {{ formatTimestamp(warehouseLastRefresh) }}
+          </span>
+        </div>
         <div class="flex items-center gap-2">
           <!-- Export Threshold Control -->
           <div class="flex items-center gap-2">
@@ -474,55 +546,12 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Export Materials Table -->
-      <div v-if="exportMaterials.length" class="space-y-2">
-        <div class="text-sm font-semibold text-emerald-300">{{ translate('exportMaterials') }}</div>
-        <table class="w-full text-sm">
-          <thead class="text-slate-400 text-xs uppercase">
-            <tr>
-              <th class="text-left pb-1">{{ translate('material') }}</th>
-              <th class="text-right pb-1">{{ periodLabel }}</th>
-              <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
-              <th class="text-right pb-1">{{ translate('netResult') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in exportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
-              <td class="py-1">
-                <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
-                  <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
-                  <span>{{ materialName(row.materialId) }}</span>
-                </a>
-              </td>
-              <td class="py-1 text-right text-emerald-300">
-                {{ formatNumber(row.balancePerPeriod) }} / {{ formatWeight(gameData, row.balancePerPeriod, row.materialId) }}
-              </td>
-              <td class="py-1 text-right">
-                <div class="flex items-center justify-end gap-1">
-                  <span>{{ formatPrice(row.unitPrice,2) }}</span>
-                  <button
-                    @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
-                    :class="[
-                      'transition-colors',
-                      hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
-                      hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
-                      'text-slate-500 hover:text-yellow-400'
-                    ]"
-                    :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
-                  >
-                    {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
-                  </button>
-                </div>
-              </td>
-              <td class="py-1 text-right text-emerald-300">
-                {{ formatPrice(row.valuePerPeriod,2) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Warehouse Error Message -->
+      <div v-if="warehouseError" class="px-3 py-2 bg-rose-900/30 border border-rose-700 rounded text-xs text-rose-300">
+        {{ warehouseError }}
       </div>
 
-      <!-- Non-Export Materials Table (with To Buy info) -->
+      <!-- Non-Export Materials Table (with To Buy info) - NOW FIRST -->
       <div v-if="nonExportMaterials.length" class="space-y-2">
         <div class="text-sm font-semibold text-slate-300">{{ translate('otherMaterials') }}</div>
         <table class="w-full text-sm">
@@ -584,6 +613,54 @@ onBeforeUnmount(() => {
                 class="py-1 text-right"
                 :class="row.valuePerPeriod >= 0 ? 'text-emerald-300' : 'text-rose-300'"
               >
+                {{ formatPrice(row.valuePerPeriod,2) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Export Materials Table - NOW SECOND -->
+      <div v-if="exportMaterials.length" class="space-y-2">
+        <div class="text-sm font-semibold text-emerald-300">{{ translate('exportMaterials') }}</div>
+        <table class="w-full text-sm">
+          <thead class="text-slate-400 text-xs uppercase">
+            <tr>
+              <th class="text-left pb-1">{{ translate('material') }}</th>
+              <th class="text-right pb-1">{{ periodLabel }}</th>
+              <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
+              <th class="text-right pb-1">{{ translate('netResult') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in exportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
+              <td class="py-1">
+                <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
+                  <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
+                  <span>{{ materialName(row.materialId) }}</span>
+                </a>
+              </td>
+              <td class="py-1 text-right text-emerald-300">
+                {{ formatNumber(row.balancePerPeriod) }} / {{ formatWeight(gameData, row.balancePerPeriod, row.materialId) }}
+              </td>
+              <td class="py-1 text-right">
+                <div class="flex items-center justify-end gap-1">
+                  <span>{{ formatPrice(row.unitPrice,2) }}</span>
+                  <button
+                    @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
+                    :class="[
+                      'transition-colors',
+                      hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
+                      hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
+                      'text-slate-500 hover:text-yellow-400'
+                    ]"
+                    :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                  >
+                    {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
+                  </button>
+                </div>
+              </td>
+              <td class="py-1 text-right text-emerald-300">
                 {{ formatPrice(row.valuePerPeriod,2) }}
               </td>
             </tr>
