@@ -12,7 +12,6 @@ import { resetPriceCache } from './gamedata/prices'
 import { fetchCompanyBases, fetchGameBaseDetails, fetchWarehouseStockForBase } from './api/warehouseService'
 import { extractMarketDetails } from './marketAnalysis/extractor'
 import { usePlayerTechnology } from './playerTechnology'
-import { useWorldData } from './worldData'
 
 export interface SyncEntry {
   id: string
@@ -297,9 +296,8 @@ export async function refreshEntry(entryId: string): Promise<void> {
         warehouseStocks[item.materialId] = item.quantity
       })
       
-      // Update worldData with warehouse stocks (for global calculations)
-      const { updateCurrent } = useWorldData()
-      updateCurrent({ warehouseStocks })
+      // NOTE: We do NOT update worldData.warehouseStocks anymore (removed for single source of truth)
+      // Warehouse stocks are now ONLY stored in base.stock (via callback below)
       
       // Update warehouseLastRefresh timestamp in localStorage for UI display
       try {
@@ -308,7 +306,7 @@ export async function refreshEntry(entryId: string): Promise<void> {
         // Silently fail on storage write
       }
       
-      // Trigger callback to update player bases
+      // Trigger callback to update player bases (single source of truth)
       console.log('[SyncService] Warehouse stocks loaded', { warehouseId, stockCount: Object.keys(warehouseStocks).length, hasCallback: !!callbacks.onWarehouseStockLoaded })
       if (callbacks.onWarehouseStockLoaded) {
         callbacks.onWarehouseStockLoaded(warehouseId, warehouseStocks)

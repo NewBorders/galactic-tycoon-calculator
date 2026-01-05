@@ -4,7 +4,6 @@ import { usePlayerBases } from '@/v2/services/playerBases'
 import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
-import { useWorldData } from '@/v2/services/worldData'
 import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { getMaterialNameById } from '@/v2/services/gamedata/gameDataRepository'
@@ -90,9 +89,6 @@ const collapseAllMaterials = () => {
 const { state: basesState } = usePlayerBases(props.gameData)
 const bases = computed(() => basesState.value.bases)
 
-const { current: worldCurrent } = useWorldData()
-const warehouseStocks = computed(() => worldCurrent.value.warehouseStocks)
-
 const { priceResolver } = useMaterialPricing(props.gameData)
 const { state: technologyState } = usePlayerTechnology()
 const exportThreshold = getExportThresholdRef()
@@ -160,7 +156,6 @@ const summary = useGlobalSummary(
   computed(() => timeframeHours.value),
   globalWorkforceBurden,
   exportThreshold,
-  warehouseStocks,
   marketOpportunities,
 )
 

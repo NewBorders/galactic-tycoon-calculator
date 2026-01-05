@@ -183,15 +183,6 @@ describe('WorldData Integration', () => {
       
       expect(current.value.bases).toHaveLength(2) // Bases still there
       expect(current.value.technology).toEqual({ 1: 5, 2: 3 })
-      
-      // Update 3: Add warehouse stocks
-      updateCurrent({
-        warehouseStocks: { 101: 1000, 102: 500 },
-      })
-      
-      expect(current.value.bases).toHaveLength(2) // Still there
-      expect(current.value.technology).toEqual({ 1: 5, 2: 3 }) // Still there
-      expect(current.value.warehouseStocks).toEqual({ 101: 1000, 102: 500 })
     })
 
     it('should handle partial updates correctly', () => {

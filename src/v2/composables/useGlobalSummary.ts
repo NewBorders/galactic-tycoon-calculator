@@ -71,7 +71,6 @@ export function useGlobalSummary(
   timeframeHours: MaybeRef<number>,
   globalWorkforceBurden: MaybeRef<number>,
   exportThreshold: MaybeRef<number>, // percentage threshold (0-100) to consider material as export
-  warehouseStocks: MaybeRef<Record<number, number>>, // global warehouse stocks (materialId -> amount)
   marketOpportunities?: MaybeRef<MarketOpportunity[] | undefined>, // optional market analysis data
 ) {
   const periodFactor = computed(() => {
@@ -187,13 +186,14 @@ export function useGlobalSummary(
       const workerDeficitCost = report.summary.workerPurchaseCosts * (totalDeficit / (totalDeficit + 1))
 
       // Find materials that will run out of stock within the configured timeframe
+      // Use base-specific stock from the base object (single source of truth)
       const materialsRunningOut: BaseSummaryData['materialsRunningOut'] = []
-      const stock = toValue(warehouseStocks)
+      const baseStock = base.stock ?? {}
       const timeframeDays = periodFactor.value
 
       report.materials.forEach((material) => {
         if (material.balancePerDay >= 0) return // producing or balanced
-        const currentStock = stock[material.materialId] ?? 0
+        const currentStock = baseStock[material.materialId] ?? 0
         if (currentStock <= 0) return // already empty
         const consumptionPerDay = Math.abs(material.balancePerDay)
         const daysUntilEmpty = currentStock / consumptionPerDay
@@ -267,9 +267,10 @@ export function useGlobalSummary(
       // Calculate workforce productivity with stock awareness
       // Always use 1 day horizon for productivity - it represents current worker capability,
       // not long-term sustainability
+      // Use base-specific stock from the base object (single source of truth)
       const workforceProductivity = calculateWorkforceProductivity(
         report,
-        stock
+        baseStock
       )
 
       // Calculate export net profit correctly:

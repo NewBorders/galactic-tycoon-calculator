@@ -252,7 +252,7 @@ function onKey(e: KeyboardEvent) {
           :starting-bonus="props.startingBonus"
           :timeframe-hours="props.timeframeHours"
           :global-workforce-burden="props.globalWorkforceBurden"
-          :warehouse-stocks="props.warehouseStocks"
+          :warehouse-stocks="base.stock ?? {}"
           @updateOptional="
             (materialIds) => {
               $emit('setOptionalConsumables', materialIds)

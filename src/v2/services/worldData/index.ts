@@ -109,9 +109,7 @@ export function useWorldData() {
     if (updates.technology) {
       worldData.value.lastSync.technology = Date.now()
     }
-    if (updates.warehouseStocks) {
-      worldData.value.lastSync.warehouse = Date.now()
-    }
+    // NOTE: warehouseStocks removed - now stored in base.stock
   }
   
   /**

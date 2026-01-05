@@ -7,7 +7,6 @@ import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { fetchCompanyBases, fetchGameBaseDetails, transformGameBase } from '@/v2/services/api/warehouseService'
 import { updateSyncTime, registerSyncCallbacks } from '@/v2/services/syncService'
-import { useWorldData } from '@/v2/services/worldData'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/index.js'
 import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
@@ -67,10 +66,6 @@ function addBase(planetId: number) {
 function removeBase(baseId: string) {
   guardEdit(() => _removeBase(baseId), 'remove base')
 }
-
-// Get warehouseStocks from worldData as Single Source of Truth
-const { current: worldCurrent } = useWorldData()
-const warehouseStocks = computed(() => worldCurrent.value.warehouseStocks)
 
 const { state: technologyState } = usePlayerTechnology()
 const technologyLevels = computed(() => technologyState.value.levels ?? {})

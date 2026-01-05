@@ -24,7 +24,6 @@ describe('WorldData Storage', () => {
       expect(data.lastSync).toEqual({})
       expect(data.current.bases).toEqual([])
       expect(data.current.technology).toEqual({})
-      expect(data.current.warehouseStocks).toEqual({})
       expect(data.current.fetchedAt).toBe(0)
       expect(data.planning).toBeNull()
       expect(data.uiState).toEqual({ basesOpen: {}, sections: {} })

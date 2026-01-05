@@ -10,11 +10,13 @@ import type { World } from '../api/types'
 
 /**
  * Current state synced from API (read-only)
+ * 
+ * NOTE: Warehouse stocks are stored per-base in PlayerBase.stock
+ * to maintain single source of truth. Do not add warehouseStocks here.
  */
 export interface CurrentState {
   bases: PlayerBase[]
   technology: Record<number, number> // techId -> level
-  warehouseStocks: Record<number, number> // materialId -> amount
   fetchedAt: number // timestamp of last sync
 }
 
