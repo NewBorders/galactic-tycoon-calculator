@@ -7,6 +7,7 @@ import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { fetchCompanyBases, fetchGameBaseDetails, transformGameBase } from '@/v2/services/api/warehouseService'
 import { updateSyncTime, registerSyncCallbacks } from '@/v2/services/syncService'
+import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/index.js'
 import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
@@ -57,6 +58,12 @@ const {
 } = usePlayerBases(props.gameData)
 
 const { guardEdit } = usePlanningGuards()
+
+// Market analysis for price trends
+const { opportunities: marketOpportunities, fetch: fetchMarketData } = useMarketAnalysis()
+
+// Fetch market data on mount
+fetchMarketData()
 
 // Guarded versions of edit operations
 function addBase(planetId: number) {
@@ -586,6 +593,7 @@ async function refreshGameData() {
           :starting-bonus="startingBonus"
           :timeframe-hours="timeframeHours"
           :global-workforce-burden="globalWorkforceBurden"
+          :market-opportunities="marketOpportunities"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           :isImporting="importLoading === base.id"

@@ -133,7 +133,7 @@ function tierLabel(tier: number) {
 </script>
 
 <template>
-  <div 
+  <div
     class="rounded border p-4 space-y-3 h-full transition-all"
     :class="(props.count ?? 1) === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
   >

@@ -2,6 +2,7 @@
 import { computed, nextTick, ref } from 'vue'
 import type { Building, GameData, GdIndex, Planet } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
+import type { MarketOpportunity } from '@/v2/services/marketAnalysis/types'
 import { translate } from '@/v2/localisation'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { calculateWorkforceProductivity } from '@/v2/services/production/workforceProductivity'
@@ -24,6 +25,7 @@ const props = defineProps<{
   startingBonus: number
   timeframeHours: number
   globalWorkforceBurden: number
+  marketOpportunities?: MarketOpportunity[]
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean; dailySummary: boolean }
   isImporting?: boolean
@@ -346,6 +348,7 @@ const productivitySummary = computed(() => {
             :starting-bonus="props.startingBonus"
             :timeframe-hours="props.timeframeHours"
             :global-workforce-burden="props.globalWorkforceBurden"
+            :market-opportunities="props.marketOpportunities"
           />
 <!--        </div>-->
       </summary>
