@@ -136,26 +136,79 @@ const workforceProductivity = computed(() => {
 })
 
 const showProductivityWarning = computed(() => {
-  return workforceProductivity.value.overallProductivityPercent < 100
+  return workforceProductivity.value.overallProductivityPercent < 100 && workforceProductivity.value.hasStockData
 })
 
-const productivityWarningText = computed(() => {
-  const percent = workforceProductivity.value.overallProductivityPercent
-  const tiersWithLowProductivity = workforceProductivity.value.tiers.filter(t => t.productivityPercent < 100)
+// Generate productivity warnings exactly like SummaryCalculationsSection
+const productivityWarnings = computed(() => {
+  const warnings: Array<{ type: 'housing' | 'essential' | 'optional'; tier: number; text: string; icon: string; color: string; bgColor: string; borderColor: string }> = []
   
-  if (tiersWithLowProductivity.length === 0) return ''
+  if (!showProductivityWarning.value) return warnings
   
-  const tierNames = tiersWithLowProductivity.map(t => `T${t.tier}`).join(', ')
-  const limitingFactors = [...new Set(tiersWithLowProductivity.map(t => t.limitingFactor))]
-  
-  let reason = ''
-  if (limitingFactors.includes('housing')) {
-    reason = translate('housingShortfall') || 'Housing shortage'
-  } else if (limitingFactors.includes('consumption')) {
-    reason = translate('consumptionShortfall') || 'Consumption shortage'
+  for (const tier of workforceProductivity.value.tiers) {
+    const tierLabel = `T${tier.tier}`
+    
+    // Housing shortage
+    if (tier.housingCoverage < 100) {
+      warnings.push({
+        type: 'housing',
+        tier: tier.tier,
+        icon: '🏠',
+        text: `${tierLabel}: Housing shortage (${formatNumber(tier.housingCoverage, 1)}% coverage)`,
+        color: 'text-orange-400',
+        bgColor: 'bg-orange-900/20',
+        borderColor: 'border-orange-700/30'
+      })
+    }
+    
+    // Missing essential materials
+    if (tier.missingEssentials > 0) {
+      warnings.push({
+        type: 'essential',
+        tier: tier.tier,
+        icon: '⚠️',
+        text: `${tierLabel}: Missing ${tier.missingEssentials} essential material${tier.missingEssentials > 1 ? 's' : ''} (${formatNumber(tier.satisfaction, 0)}% satisfaction)`,
+        color: 'text-red-400',
+        bgColor: 'bg-red-900/20',
+        borderColor: 'border-red-700/30'
+      })
+    }
+    
+    // Missing optional materials
+    if (tier.missingOptionals > 0) {
+      warnings.push({
+        type: 'optional',
+        tier: tier.tier,
+        icon: '📦',
+        text: `${tierLabel}: Missing ${tier.missingOptionals} optional material${tier.missingOptionals > 1 ? 's' : ''} (${formatNumber(tier.satisfaction, 0)}% satisfaction)`,
+        color: 'text-amber-400',
+        bgColor: 'bg-amber-900/20',
+        borderColor: 'border-amber-700/30'
+      })
+    }
   }
   
-  return `${formatNumber(percent, 0)}% (${tierNames}: ${reason})`
+  return warnings
+})
+
+// Generate compact summary for collapsed view
+const productivitySummary = computed(() => {
+  if (!showProductivityWarning.value) return ''
+  
+  const percent = workforceProductivity.value.overallProductivityPercent
+  const warnings = productivityWarnings.value
+  
+  if (warnings.length === 0) return ''
+  
+  // Get unique warning types
+  const types = [...new Set(warnings.map(w => w.type))]
+  const typeLabels = types.map(t => {
+    if (t === 'housing') return 'Housing'
+    if (t === 'essential') return 'Essential'
+    return 'Optional'
+  }).join(', ')
+  
+  return `${formatNumber(percent, 0)}% - ${typeLabels}`
 })
 </script>
 
@@ -232,27 +285,13 @@ const productivityWarningText = computed(() => {
             <span class="px-2 py-1 bg-slate-900 border border-slate-700 rounded max-w-56 truncate">
               {{ props.base.name || 'Base' }}
             </span>
-            <!-- Workforce Productivity Warning -->
+            <!-- Workforce Productivity Warning - Compact Summary -->
             <div
               v-if="showProductivityWarning"
-              class="flex items-center gap-1 px-2 py-1 bg-orange-900/30 border border-orange-600 rounded text-orange-300 text-xs"
-              :title="productivityWarningText"
+              class="flex items-center gap-1 px-2 py-1 bg-orange-900/30 border border-orange-600 rounded text-orange-300 text-xs whitespace-nowrap"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-4 w-4 flex-shrink-0"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              <span class="whitespace-nowrap">{{ productivityWarningText }}</span>
+              <span>⚙️</span>
+              <span>{{ productivitySummary }}</span>
             </div>
             <button
               class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700"
@@ -315,6 +354,19 @@ const productivityWarningText = computed(() => {
           </span>
         </span>
         <span class="whitespace-nowrap">• Fertility: {{ planet?.fertility ?? '0' }}</span>
+      </div>
+
+      <!-- Detailed Workforce Productivity Warnings (when expanded) -->
+      <div v-if="showProductivityWarning && productivityWarnings.length > 0" class="space-y-1 pt-2">
+        <div
+          v-for="(warning, index) in productivityWarnings"
+          :key="`${warning.tier}-${warning.type}-${index}`"
+          class="flex items-center gap-2 p-2 rounded text-xs"
+          :class="[warning.bgColor, warning.borderColor, 'border']"
+        >
+          <span :class="warning.color">{{ warning.icon }}</span>
+          <span class="text-slate-300">{{ warning.text }}</span>
+        </div>
       </div>
     </summary>
 
