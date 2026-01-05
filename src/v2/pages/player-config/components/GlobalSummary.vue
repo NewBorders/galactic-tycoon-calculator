@@ -20,7 +20,7 @@ const props = defineProps<{
 
 const isOpen = ref(true)
 
-const { totalNetProfit, totalExportNetProfit, totalWorkforceDeficitCost, totalConsumptionOverheadCost } =
+const { totalNetProfit, totalExportNetProfit, totalConsumptionOverheadCost } =
   useGlobalSummary(
     toRef(() => props.bases),
     toRef(() => props.gameData),
@@ -46,33 +46,25 @@ const { totalNetProfit, totalExportNetProfit, totalWorkforceDeficitCost, totalCo
 
     <div class="px-4 py-3 space-y-4">
       <!-- Key Metrics -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-slate-700/50 rounded p-3">
           <div class="text-sm text-slate-400">{{ translate('totalNetProfit') }}</div>
-          <div class="text-2xl font-bold" :class="totalNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+          <div class="text-xl font-bold" :class="totalNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
             {{ formatPrice(totalNetProfit, 2) }}
           </div>
         </div>
 
         <div class="bg-slate-700/50 rounded p-3">
           <div class="text-sm text-slate-400">{{ translate('exportNetProfit') }}</div>
-          <div class="text-2xl font-bold" :class="totalExportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+          <div class="text-xl font-bold" :class="totalExportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
             {{ formatPrice(totalExportNetProfit, 2) }}
           </div>
           <div class="text-xs text-slate-500 mt-1">{{ translate('exportNetProfitHint') }}</div>
         </div>
 
         <div class="bg-slate-700/50 rounded p-3">
-          <div class="text-sm text-slate-400">{{ translate('workforceDeficitCost') }}</div>
-          <div class="text-2xl font-bold text-rose-300">
-            {{ formatPrice(totalWorkforceDeficitCost, 2) }}
-          </div>
-          <div class="text-xs text-slate-500 mt-1">{{ translate('workforceDeficitHint') }}</div>
-        </div>
-
-        <div class="bg-slate-700/50 rounded p-3">
           <div class="text-sm text-slate-400">{{ translate('consumptionOverheadCost') }}</div>
-          <div class="text-2xl font-bold text-amber-300">
+          <div class="text-xl font-bold text-amber-300">
             {{ formatPrice(totalConsumptionOverheadCost, 2) }}
           </div>
           <div class="text-xs text-slate-500 mt-1">{{ translate('consumptionOverheadHint') }}</div>

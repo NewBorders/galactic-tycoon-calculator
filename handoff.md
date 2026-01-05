@@ -1,6 +1,72 @@
 # Project Handoff
 
-## Recent Work: Single Source of Truth Refactoring (Warehouse Stocks)
+## Most Recent Work: GlobalSummary Component Simplification
+
+### Task 4: Remove "Per-Base Summary" Section (Latest)
+
+**Date:** Current session
+
+**Objective:** Remove redundant "Per-Base Summary" section from GlobalSummary component, as detailed per-base information is already available in individual base cards.
+
+**Changes Completed:**
+
+1. **Removed Per-Base Summary Section** (`src/v2/pages/player-config/components/GlobalSummary.vue`)
+   - Deleted entire expandable per-base details section (lines 110-222, ~112 lines)
+   - Removed export threshold slider control
+   - Removed expandable base cards showing export materials with detailed tables
+
+2. **Code Cleanup**
+   - Removed unused functions:
+     - `toggleBase()` - managed expanding/collapsing base cards
+     - `getExportTotals()` - calculated total weight and value for export materials
+   - Removed unused refs:
+     - `expandedBases` - tracked which base cards were expanded
+     - `baseSummaries` from destructuring (still used internally by useGlobalSummary)
+   - Removed emit definition for `update:exportThreshold`
+   - Removed unused imports:
+     - `formatNumber` from formatNumber utils
+     - `getMaterialNameById`, `getPlanetNameById` from gameDataRepository
+     - `formatWeight`, `getMaterialWeight` from materialHelpers
+     - `MaterialIcon` component
+
+3. **Parent Component Update** (`src/v2/pages/player-config/PlayerConfigPanel.vue`)
+   - Changed `v-model:export-threshold="exportThreshold"` to `:export-threshold="exportThreshold"`
+   - Export threshold is now read-only prop (no two-way binding)
+
+**Results:**
+- GlobalSummary component reduced from ~220 lines to 84 lines
+- Component now focuses solely on high-level Key Metrics:
+  - Total Net Profit
+  - Export Net Profit
+  - Workforce Deficit Cost
+  - Consumption Overhead Cost
+- Type-check passes ✅
+- No lint errors in modified files ✅
+- Changes committed and pushed to `71-planning-mode` branch
+
+### Task 3: Remove "Materials Running Out" Section
+
+**Changes:**
+- Removed Materials Running Out section from GlobalSummary
+- Removed warning icon and getRunningOutTotalWeight() function
+- Removed formatDays import
+- Functionality moved to dedicated "Mats Shortage" tab
+
+### Task 2: Add localStorage Persistence for Mats Shortage View Mode
+
+**Changes:**
+- Added localStorage persistence in StockWarnings.vue
+- STORAGE_KEY: 'gt:v2:matsShortage:viewMode'
+- View mode (combined/by-material/by-base) now persists across page reloads
+
+### Task 1: Remove "Global Material Production & Consumption" Section
+
+**Changes:**
+- Removed entire materials section (~173 lines) from GlobalSummary
+- Cleaned up unused code (expandedMaterials, showPerBaseBreakdown refs, MaterialIcon import)
+- Functionality available in dedicated "Mats Balance" tab
+
+## Previous Work: Single Source of Truth Refactoring (Warehouse Stocks)
 
 ### Context
 User identified an architectural problem: We had **two separate data sources** for warehouse stocks:

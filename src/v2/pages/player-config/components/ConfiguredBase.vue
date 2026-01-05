@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import type { Building, GameData, GdIndex, Planet } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { translate } from '@/v2/localisation'
+import { computeBaseReport } from '@/v2/services/production/engine'
+import { calculateWorkforceProductivity } from '@/v2/services/production/workforceProductivity'
+import { formatNumber } from '@/v2/utils/formatNumber'
 import BuildingSearch from './BuildingSearch.vue'
 import BaseBuildingsSection from './BaseBuildingsSection.vue'
 import ProductionSection from './ProductionSection.vue'
@@ -77,6 +80,83 @@ function onKey(e: KeyboardEvent) {
     cancelEdit()
   }
 }
+
+// Workforce productivity calculation for warning indicator
+const technologyLevelMap = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.technologyLevels ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    map.set(spec, Math.max(0, Math.floor(level)))
+  })
+  return map
+})
+
+const technologyLevelsOption = computed(() => {
+  const obj: Record<number, number> = {}
+  technologyLevelMap.value.forEach((level, spec) => {
+    obj[spec] = level
+  })
+  return obj
+})
+
+const assignment = computed(() => ({
+  planetId: props.base.planetId,
+  buildings: props.base.buildings.map((b) => ({
+    buildingId: b.buildingId,
+    level: b.level,
+  })),
+  recipes: props.base.recipes.map((r) => ({
+    recipeId: r.recipeId,
+    count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(1, Math.floor(r.count)) : 1,
+  })),
+}))
+
+const activeOptionalConsumables = computed(() => {
+  return new Set((props.base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'))
+})
+
+const report = computed(() =>
+  computeBaseReport(props.gameData, {
+    assignment: assignment.value,
+    horizonDays: 1,
+    options: {
+      activeOptionalConsumables: activeOptionalConsumables.value,
+      priceResolver: props.priceResolver,
+      technologyLevels: technologyLevelsOption.value,
+      startingBonus: props.startingBonus,
+      globalWorkforceBurden: props.globalWorkforceBurden,
+    },
+  }),
+)
+
+const workforceProductivity = computed(() => {
+  return calculateWorkforceProductivity(report.value, props.base.stock ?? {})
+})
+
+const showProductivityWarning = computed(() => {
+  return workforceProductivity.value.overallProductivityPercent < 100
+})
+
+const productivityWarningText = computed(() => {
+  const percent = workforceProductivity.value.overallProductivityPercent
+  const tiersWithLowProductivity = workforceProductivity.value.tiers.filter(t => t.productivityPercent < 100)
+  
+  if (tiersWithLowProductivity.length === 0) return ''
+  
+  const tierNames = tiersWithLowProductivity.map(t => `T${t.tier}`).join(', ')
+  const limitingFactors = [...new Set(tiersWithLowProductivity.map(t => t.limitingFactor))]
+  
+  let reason = ''
+  if (limitingFactors.includes('housing')) {
+    reason = translate('housingShortfall') || 'Housing shortage'
+  } else if (limitingFactors.includes('consumption')) {
+    reason = translate('consumptionShortfall') || 'Consumption shortage'
+  }
+  
+  return `${formatNumber(percent, 0)}% (${tierNames}: ${reason})`
+})
 </script>
 
 <template>
@@ -152,6 +232,28 @@ function onKey(e: KeyboardEvent) {
             <span class="px-2 py-1 bg-slate-900 border border-slate-700 rounded max-w-56 truncate">
               {{ props.base.name || 'Base' }}
             </span>
+            <!-- Workforce Productivity Warning -->
+            <div
+              v-if="showProductivityWarning"
+              class="flex items-center gap-1 px-2 py-1 bg-orange-900/30 border border-orange-600 rounded text-orange-300 text-xs"
+              :title="productivityWarningText"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4 flex-shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <span class="whitespace-nowrap">{{ productivityWarningText }}</span>
+            </div>
             <button
               class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700"
               @click.stop="startEdit"
