@@ -175,7 +175,7 @@ const productivitySummary = computed(() => {
   }
 
   const details = parts.length > 0 ? ` (${parts.join(', ')})` : ''
-  return `${translate('workforceProductivity')} ${formatNumber(percent, 0)}% : Lost Profit ${formatPrice(lostProfit.lostProfitPerDay, 0)}${details}`
+  return `${translate('workforceProductivity')} ${formatNumber(percent, 0)}%: Lost Profit ${formatPrice(lostProfit.lostProfitPerDay, 0)}${details}`
 })
 </script>
 

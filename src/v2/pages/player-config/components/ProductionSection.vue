@@ -9,6 +9,7 @@ import { computeBaseReport, productionUnitsFromLevel } from '@/v2/services/produ
 import { evaluateRecipeAvailability } from '@/v2/services/production/availability'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation'
+import { BuildingSpecialization } from '@/v2/constants/buildingSpecialization'
 import RecipeTile from './RecipeTile.vue'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
@@ -32,6 +33,32 @@ const emit = defineEmits<{
 
 const query = ref('')
 const optionalActive = ref<Set<number>>(new Set())
+
+function getSpecializationName(specId: number): string {
+  switch (specId) {
+    case BuildingSpecialization.Construction:
+      return 'Construction'
+    case BuildingSpecialization.Manufacturing:
+      return 'Manufacturing'
+    case BuildingSpecialization.Agriculture:
+      return 'Agriculture'
+    case BuildingSpecialization.ResourceExtraction:
+      return 'Resource Extraction'
+    case BuildingSpecialization.Metallurgy:
+      return 'Metallurgy'
+    case BuildingSpecialization.Chemistry:
+      return 'Chemistry'
+    case BuildingSpecialization.Electronics:
+      return 'Electronics'
+    case BuildingSpecialization.FoodProduction:
+      return 'Food Production'
+    case BuildingSpecialization.Science:
+      return 'Science'
+    default:
+      return `Specialization ${specId}`
+  }
+}
+
 const technologyLevelMap = computed(() => {
   const map = new Map<number, number>()
   Object.entries(props.technologyLevels ?? {}).forEach(([key, value]) => {
@@ -126,14 +153,16 @@ const cardsById = computed(() => {
       units: number
       technologyLevel: number
       requiredTech: number
+      technologyName: string
     }
   >()
   props.base.recipes.forEach((selection) => {
     const recipe = props.index.recipeById.get(selection.recipeId)
     if (!recipe) return
     const building = props.index.buildingById.get(recipe.producedInId)
+    const specialization = building?.specialization ?? 0
     const technologyLevel = building
-      ? (technologyLevelMap.value.get(building.specialization) ?? 0)
+      ? (technologyLevelMap.value.get(specialization) ?? 0)
       : 0
     const requiredTech = recipe.reqTech ?? 0
     map.set(selection.id, {
@@ -143,6 +172,7 @@ const cardsById = computed(() => {
       units: buildingUnits.value.get(recipe.producedInId) ?? 0,
       technologyLevel,
       requiredTech,
+      technologyName: getSpecializationName(specialization),
     })
   })
   return map
@@ -182,8 +212,9 @@ const suggestions = computed(() => {
         material,
       })
       const hasBuilding = units > 0
+      const specialization = building?.specialization ?? 0
       const technologyLevel = building
-        ? (technologyLevelMap.value.get(building.specialization) ?? 0)
+        ? (technologyLevelMap.value.get(specialization) ?? 0)
         : 0
       const requiredTech = recipe.reqTech ?? 0
       const technologySatisfied = technologyLevel >= requiredTech
@@ -211,6 +242,7 @@ const suggestions = computed(() => {
         technologyLevel,
         requiredTech,
         technologySatisfied,
+        technologyName: getSpecializationName(specialization),
         inputs: recipe.inputs.map((i) => ({
           name: props.index.materialById.get(i.id)?.name ?? `#${i.id}`,
           amount: i.amount * runsPerPeriod,
@@ -330,14 +362,11 @@ watch(
               {{ translate('technologyLevel') }}: {{ item.technologyLevel }} /
               {{ item.requiredTech }}
             </div>
-            <div v-if="!item.technologySatisfied" class="text-xs text-amber-300">
-              {{ translate('technologyRequirement') }} {{ item.requiredTech }}
-            </div>
             <div v-if="!item.hasBuilding" class="text-xs text-red-400">
               {{ translate('requiresBuilding') }} {{ item.buildingName }}
             </div>
-            <div v-else-if="item.blockedReason === 'technology'" class="text-xs text-amber-300">
-              {{ translate('technologyRequirement') }} {{ item.requiredTech }}
+            <div v-else-if="!item.technologySatisfied" class="text-xs text-amber-300">
+               {{ translate('technologyRequirement') }} {{ item.technologyName }} {{ item.requiredTech }}
             </div>
             <div v-else-if="item.blockedReason === 'abundance'" class="text-xs text-amber-300">
               {{ translate('requiresAbundance') }}
@@ -369,6 +398,7 @@ watch(
               :count="typeof element.count === 'number' ? element.count : 1"
               :technology-level="cardsById.get(element.id)!.technologyLevel"
               :required-tech="cardsById.get(element.id)!.requiredTech"
+              :technology-name="cardsById.get(element.id)!.technologyName"
               :material-lookup="props.index.materialById"
               :timeframe-hours="props.timeframeHours"
               @remove="removeRecipe(element.id)"

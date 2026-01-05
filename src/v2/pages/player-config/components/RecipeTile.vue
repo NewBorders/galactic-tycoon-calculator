@@ -15,6 +15,7 @@ const props = defineProps<{
   materialLookup: Map<number, { name: string }>
   technologyLevel: number
   requiredTech: number
+  technologyName?: string
   timeframeHours: number
 }>()
 
@@ -148,7 +149,12 @@ function tierLabel(tier: number) {
             </div>
             <div class="text-xs text-slate-400">{{ buildingName }}</div>
             <div class="text-xs" :class="hasTechnology ? 'text-slate-500' : 'text-amber-300'">
-              {{ translate('technologyLevel') }}: {{ technologyLevel }} / Req. {{ requiredTech }}
+              <template v-if="props.technologyName">
+                {{ props.technologyName }} {{ translate('technologyLevel') }}: {{ technologyLevel }} / {{ requiredTech }}
+              </template>
+              <template v-else>
+                {{ translate('technologyLevel') }}: {{ technologyLevel }} / Req. {{ requiredTech }}
+              </template>
             </div>
             <div class="text-xs text-slate-500">
               {{ translate('productivityFactor') }}: {{ formatShare(productivityFactor * 100) }} ·
