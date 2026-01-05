@@ -9,6 +9,7 @@ import { usePriceAlerts } from './services/priceAlerts/alertManager'
 import { useMaterialPricing } from './services/gamedata/prices'
 import { useWorldData } from './services/worldData'
 import { initializeSyncService } from './services/syncService'
+import { loadSvgSprite } from './services/spriteLoader'
 import GlobalSummaryPage from './pages/GlobalSummaryPage.vue'
 import MaterialsShortagePage from './pages/MaterialsShortagePage.vue'
 import MaterialsBalancePage from './pages/MaterialsBalancePage.vue'
@@ -83,6 +84,11 @@ onMounted(async () => {
   } else {
     active.value = 'overview' // Default to overview
   }
+
+  // Load SVG sprite first (parallel with game data)
+  loadSvgSprite().catch((e) => {
+    console.error('[AppV2] Failed to load SVG sprite:', e)
+  })
 
   loading.value = true
   try {

@@ -16,7 +16,7 @@ const symbolId = computed(() => {
   void spriteIndexReady.value
   return resolveIconId(props.name)
 })
-const href = computed(() => `/galactic_tycoon_sprites.svg#${symbolId.value}`)
+const href = computed(() => `#${symbolId.value}`)
 </script>
 
 <template>
