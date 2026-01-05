@@ -5,7 +5,7 @@ import type { PlayerBase } from '@/v2/services/playerBases'
 import { translate } from '@/v2/localisation'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { calculateWorkforceProductivity } from '@/v2/services/production/workforceProductivity'
-import { formatNumber } from '@/v2/utils/formatNumber'
+import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
 import BuildingSearch from './BuildingSearch.vue'
 import BaseBuildingsSection from './BaseBuildingsSection.vue'
 import ProductionSection from './ProductionSection.vue'
@@ -139,76 +139,79 @@ const showProductivityWarning = computed(() => {
   return workforceProductivity.value.overallProductivityPercent < 100 && workforceProductivity.value.hasStockData
 })
 
-// Generate productivity warnings exactly like SummaryCalculationsSection
-const productivityWarnings = computed(() => {
-  const warnings: Array<{ type: 'housing' | 'essential' | 'optional'; tier: number; text: string; icon: string; color: string; bgColor: string; borderColor: string }> = []
+// Calculate lost profit (similar to SummaryCalculationsSection)
+const lostProfitPerDay = computed(() => {
+  const productivity = workforceProductivity.value
+  if (productivity.overallProductivityPercent >= 100) {
+    return 0
+  }
+
+  const hasHousingShortage = productivity.tiers.some(t => t.housingCoverage < 100)
+  const hasConsumableShortage = productivity.tiers.some(t => t.missingEssentials > 0 || t.missingOptionals > 0)
+
+  if (!hasHousingShortage && !hasConsumableShortage) {
+    return 0
+  }
+
+  // Calculate optimal state with all optionals active
+  let optimalReport = report.value
+  if (hasConsumableShortage) {
+    const allOptionalIds = new Set<number>()
+    ;[1, 2, 3, 4].forEach((tier) => {
+      const worker = props.index.workerByType.get(tier as 1 | 2 | 3 | 4)
+      if (!worker) return
+      worker.consumables
+        .filter((c) => !c.essential)
+        .forEach((c) => allOptionalIds.add(c.matId))
+    })
+
+    optimalReport = computeBaseReport(props.gameData, {
+      assignment: assignment.value,
+      horizonDays: 1,
+      options: {
+        activeOptionalConsumables: allOptionalIds,
+        priceResolver: props.priceResolver,
+        technologyLevels: technologyLevelsOption.value,
+        startingBonus: props.startingBonus,
+        globalWorkforceBurden: props.globalWorkforceBurden,
+      },
+    })
+  }
+
+  // Scale to 100% housing if needed
+  let netAtOptimal = optimalReport.summary.net
   
-  if (!showProductivityWarning.value) return warnings
-  
-  for (const tier of workforceProductivity.value.tiers) {
-    const tierLabel = `T${tier.tier}`
-    
-    // Housing shortage
-    if (tier.housingCoverage < 100) {
-      warnings.push({
-        type: 'housing',
-        tier: tier.tier,
-        icon: '🏠',
-        text: `${tierLabel}: Housing shortage (${formatNumber(tier.housingCoverage, 1)}% coverage)`,
-        color: 'text-orange-400',
-        bgColor: 'bg-orange-900/20',
-        borderColor: 'border-orange-700/30'
-      })
-    }
-    
-    // Missing essential materials
-    if (tier.missingEssentials > 0) {
-      warnings.push({
-        type: 'essential',
-        tier: tier.tier,
-        icon: '⚠️',
-        text: `${tierLabel}: Missing ${tier.missingEssentials} essential material${tier.missingEssentials > 1 ? 's' : ''} (${formatNumber(tier.satisfaction, 0)}% satisfaction)`,
-        color: 'text-red-400',
-        bgColor: 'bg-red-900/20',
-        borderColor: 'border-red-700/30'
-      })
-    }
-    
-    // Missing optional materials
-    if (tier.missingOptionals > 0) {
-      warnings.push({
-        type: 'optional',
-        tier: tier.tier,
-        icon: '📦',
-        text: `${tierLabel}: Missing ${tier.missingOptionals} optional material${tier.missingOptionals > 1 ? 's' : ''} (${formatNumber(tier.satisfaction, 0)}% satisfaction)`,
-        color: 'text-amber-400',
-        bgColor: 'bg-amber-900/20',
-        borderColor: 'border-amber-700/30'
-      })
+  if (hasHousingShortage) {
+    const minHousingCoverage = Math.min(...productivity.tiers.map(t => t.housingCoverage))
+    const housingFactor = minHousingCoverage / 100
+
+    if (housingFactor > 0) {
+      const revenueOptimal = optimalReport.summary.productionRevenue / housingFactor
+      const costsOptimal = (optimalReport.summary.workerPurchaseCosts + 
+                           optimalReport.summary.materialPurchaseCosts) / housingFactor
+      netAtOptimal = revenueOptimal - costsOptimal
     }
   }
-  
-  return warnings
+
+  return netAtOptimal - report.value.summary.net
 })
 
-// Generate compact summary for collapsed view
+// Generate compact summary with lost profit, housing coverage, and satisfaction
 const productivitySummary = computed(() => {
   if (!showProductivityWarning.value) return ''
   
-  const percent = workforceProductivity.value.overallProductivityPercent
-  const warnings = productivityWarnings.value
+  const productivity = workforceProductivity.value
+  const percent = productivity.overallProductivityPercent
   
-  if (warnings.length === 0) return ''
+  // Calculate min housing coverage and min satisfaction
+  const minHousingCoverage = Math.min(...productivity.tiers.map(t => t.housingCoverage))
+  const minSatisfaction = Math.min(...productivity.tiers.map(t => t.satisfaction))
   
-  // Get unique warning types
-  const types = [...new Set(warnings.map(w => w.type))]
-  const typeLabels = types.map(t => {
-    if (t === 'housing') return 'Housing'
-    if (t === 'essential') return 'Essential'
-    return 'Optional'
-  }).join(', ')
+  // Format lost profit
+  const lostProfit = lostProfitPerDay.value
+  const lostProfitFormatted = formatPrice(lostProfit, 0)
   
-  return `${formatNumber(percent, 0)}% - ${typeLabels}`
+  return `${formatNumber(percent, 0)}% ${translate('workforceProductivity')}: Lost Profit ${lostProfitFormatted} (${formatNumber(minHousingCoverage, 0)}% housing, ${formatNumber(minSatisfaction, 0)}% satisfaction)`
 })
 </script>
 
@@ -354,19 +357,6 @@ const productivitySummary = computed(() => {
           </span>
         </span>
         <span class="whitespace-nowrap">• Fertility: {{ planet?.fertility ?? '0' }}</span>
-      </div>
-
-      <!-- Detailed Workforce Productivity Warnings (when expanded) -->
-      <div v-if="showProductivityWarning && productivityWarnings.length > 0" class="space-y-1 pt-2">
-        <div
-          v-for="(warning, index) in productivityWarnings"
-          :key="`${warning.tier}-${warning.type}-${index}`"
-          class="flex items-center gap-2 p-2 rounded text-xs"
-          :class="[warning.bgColor, warning.borderColor, 'border']"
-        >
-          <span :class="warning.color">{{ warning.icon }}</span>
-          <span class="text-slate-300">{{ warning.text }}</span>
-        </div>
       </div>
     </summary>
 
