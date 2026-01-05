@@ -5,6 +5,7 @@ import type { PlayerBase } from '@/v2/services/playerBases'
 import { translate } from '@/v2/localisation'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { calculateWorkforceProductivity } from '@/v2/services/production/workforceProductivity'
+import { calculateLostProfit } from '@/v2/services/production/lostProfit'
 import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
 import BuildingSearch from './BuildingSearch.vue'
 import BaseBuildingsSection from './BaseBuildingsSection.vue'
@@ -139,79 +140,30 @@ const showProductivityWarning = computed(() => {
   return workforceProductivity.value.overallProductivityPercent < 100 && workforceProductivity.value.hasStockData
 })
 
-// Calculate lost profit (similar to SummaryCalculationsSection)
-const lostProfitPerDay = computed(() => {
-  const productivity = workforceProductivity.value
-  if (productivity.overallProductivityPercent >= 100) {
-    return 0
-  }
-
-  const hasHousingShortage = productivity.tiers.some(t => t.housingCoverage < 100)
-  const hasConsumableShortage = productivity.tiers.some(t => t.missingEssentials > 0 || t.missingOptionals > 0)
-
-  if (!hasHousingShortage && !hasConsumableShortage) {
-    return 0
-  }
-
-  // Calculate optimal state with all optionals active
-  let optimalReport = report.value
-  if (hasConsumableShortage) {
-    const allOptionalIds = new Set<number>()
-    ;[1, 2, 3, 4].forEach((tier) => {
-      const worker = props.index.workerByType.get(tier as 1 | 2 | 3 | 4)
-      if (!worker) return
-      worker.consumables
-        .filter((c) => !c.essential)
-        .forEach((c) => allOptionalIds.add(c.matId))
-    })
-
-    optimalReport = computeBaseReport(props.gameData, {
-      assignment: assignment.value,
-      horizonDays: 1,
-      options: {
-        activeOptionalConsumables: allOptionalIds,
-        priceResolver: props.priceResolver,
-        technologyLevels: technologyLevelsOption.value,
-        startingBonus: props.startingBonus,
-        globalWorkforceBurden: props.globalWorkforceBurden,
-      },
-    })
-  }
-
-  // Scale to 100% housing if needed
-  let netAtOptimal = optimalReport.summary.net
-  
-  if (hasHousingShortage) {
-    const minHousingCoverage = Math.min(...productivity.tiers.map(t => t.housingCoverage))
-    const housingFactor = minHousingCoverage / 100
-
-    if (housingFactor > 0) {
-      const revenueOptimal = optimalReport.summary.productionRevenue / housingFactor
-      const costsOptimal = (optimalReport.summary.workerPurchaseCosts + 
-                           optimalReport.summary.materialPurchaseCosts) / housingFactor
-      netAtOptimal = revenueOptimal - costsOptimal
-    }
-  }
-
-  return netAtOptimal - report.value.summary.net
+// Calculate lost profit using service
+const lostProfitResult = computed(() => {
+  return calculateLostProfit(
+    workforceProductivity.value,
+    report.value,
+    props.gameData,
+    props.index,
+    assignment.value,
+    props.priceResolver,
+    technologyLevelsOption.value,
+    props.startingBonus,
+    props.globalWorkforceBurden,
+  )
 })
 
 // Generate compact summary with lost profit, housing coverage, and satisfaction
 const productivitySummary = computed(() => {
   if (!showProductivityWarning.value) return ''
-  
+
   const productivity = workforceProductivity.value
   const percent = productivity.overallProductivityPercent
-  
-  // Calculate min housing coverage and min satisfaction
-  const minHousingCoverage = Math.min(...productivity.tiers.map(t => t.housingCoverage))
-  const minSatisfaction = Math.min(...productivity.tiers.map(t => t.satisfaction))
-  
-  // Format lost profit
-  const lostProfit = lostProfitPerDay.value
-  const lostProfitFormatted = formatPrice(lostProfit, 0)
-  
-  return `${formatNumber(percent, 0)}% ${translate('workforceProductivity')}: Lost Profit ${lostProfitFormatted} (${Math.floor(minHousingCoverage)}% housing, ${formatNumber(minSatisfaction, 0)}% satisfaction)`
+  const lostProfit = lostProfitResult.value
+
+  return `${translate('workforceProductivity')} ${formatNumber(percent, 0)}% : Lost Profit ${formatPrice(lostProfit.lostProfitPerDay, 0)} (${Math.floor(lostProfit.minHousingCoverage)}% housing coverage, ${formatNumber(lostProfit.minSatisfaction, 0)}% satisfaction)`
 })
 </script>
 
@@ -288,14 +240,6 @@ const productivitySummary = computed(() => {
             <span class="px-2 py-1 bg-slate-900 border border-slate-700 rounded max-w-56 truncate">
               {{ props.base.name || 'Base' }}
             </span>
-            <!-- Workforce Productivity Warning - Compact Summary -->
-            <div
-              v-if="showProductivityWarning"
-              class="flex items-center gap-1 px-2 py-1 bg-orange-900/30 border border-orange-600 rounded text-orange-300 text-xs whitespace-nowrap"
-            >
-              <span>⚙️</span>
-              <span>{{ productivitySummary }}</span>
-            </div>
             <button
               class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700"
               @click.stop="startEdit"
@@ -317,6 +261,14 @@ const productivitySummary = computed(() => {
                 />
               </svg>
             </button>
+            <!-- Workforce Productivity Warning - Compact Summary -->
+            <div
+              v-if="showProductivityWarning"
+              class="flex items-center gap-1 px-2 py-1 bg-orange-900/30 border border-orange-600 rounded text-orange-300 text-xs whitespace-nowrap"
+            >
+              <span>⚙️</span>
+              <span>{{ productivitySummary }}</span>
+            </div>
           </template>
         </div>
 

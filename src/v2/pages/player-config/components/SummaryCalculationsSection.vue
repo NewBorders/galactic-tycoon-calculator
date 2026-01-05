@@ -5,6 +5,7 @@ import type { GameData, GdIndex, Worker } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { calculateWorkforceProductivity } from '@/v2/services/production/workforceProductivity'
+import { calculateLostProfit } from '@/v2/services/production/lostProfit'
 import { translate } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import { formatWeight } from '@/v2/utils/materialHelpers'
@@ -354,70 +355,28 @@ const productivityColor = (productivity: number) => {
   return 'text-red-400'
 }
 
-// Calculate EXACT lost profit by comparing current state with optimal state
+// Calculate EXACT lost profit using service
+const lostProfitResult = computed(() => {
+  return calculateLostProfit(
+    workforceProductivity.value,
+    report.value,
+    props.gameData,
+    props.index,
+    assignment.value,
+    props.priceResolver,
+    technologyLevelsOption.value,
+    props.startingBonus,
+    props.globalWorkforceBurden,
+  )
+})
+
 const lostProfitData = computed(() => {
-  const productivity = workforceProductivity.value
-  if (productivity.overallProductivityPercent >= 100) {
+  if (workforceProductivity.value.overallProductivityPercent >= 100) {
     return null
   }
-
-  // Check if productivity loss is due to housing shortage or consumable shortage
-  const hasHousingShortage = productivity.tiers.some(t => t.housingCoverage < 100)
-  const hasConsumableShortage = productivity.tiers.some(t => t.missingEssentials > 0 || t.missingOptionals > 0)
-
-  let lostProfitPerDay = 0
-
-  if (hasHousingShortage || hasConsumableShortage) {
-    // Calculate optimal state: 100% housing AND all optionals active
-    
-    // Step 1: Get report with all optionals active (if consumable shortage exists)
-    let optimalReport = report.value
-    if (hasConsumableShortage) {
-      const allOptionalIds = new Set<number>()
-      ;[1, 2, 3, 4].forEach((tier) => {
-        const worker = props.index.workerByType.get(tier as Worker['type'])
-        if (!worker) return
-        worker.consumables
-          .filter((c) => !c.essential)
-          .forEach((c) => allOptionalIds.add(c.matId))
-      })
-
-      optimalReport = computeBaseReport(props.gameData, {
-        assignment: assignment.value,
-        horizonDays: 1,
-        options: {
-          activeOptionalConsumables: allOptionalIds,
-          priceResolver: props.priceResolver,
-          technologyLevels: technologyLevelsOption.value,
-          startingBonus: props.startingBonus,
-          globalWorkforceBurden: props.globalWorkforceBurden,
-        },
-      })
-    }
-
-    // Step 2: Scale to 100% housing if needed
-    let netAtOptimal = optimalReport.summary.net
-    
-    if (hasHousingShortage) {
-      const minHousingCoverage = Math.min(...productivity.tiers.map(t => t.housingCoverage))
-      const housingFactor = minHousingCoverage / 100
-
-      if (housingFactor > 0) {
-        // Scale revenue and costs of the optimal report to 100% housing
-        const revenueOptimal = optimalReport.summary.productionRevenue / housingFactor
-        const costsOptimal = (optimalReport.summary.workerPurchaseCosts + 
-                             optimalReport.summary.materialPurchaseCosts) / housingFactor
-        netAtOptimal = revenueOptimal - costsOptimal
-      }
-    }
-
-    // Lost profit = optimal state - current state
-    lostProfitPerDay = netAtOptimal - report.value.summary.net
-  }
-
   return {
-    lostProfitPerPeriod: lostProfitPerDay * periodFactor.value,
-    currentProductivity: productivity.overallProductivityPercent,
+    lostProfitPerPeriod: lostProfitResult.value.lostProfitPerDay * periodFactor.value,
+    currentProductivity: workforceProductivity.value.overallProductivityPercent,
   }
 })
 
@@ -740,9 +699,10 @@ onBeforeUnmount(() => {
         <div v-if="workforceProductivity.overallProductivityPercent < 100 && workforceProductivity.hasStockData && lostProfitData" class="flex items-center gap-2 p-2 bg-orange-900/20 border border-orange-700/30 rounded text-xs">
           <span class="text-orange-400">⚠️</span>
           <span class="text-slate-300">
+            {{ translate('workforceProductivity') }} {{ formatNumber(workforceProductivity.overallProductivityPercent, 0) }}% :
             Lost Profit {{ formatPrice(lostProfitData.lostProfitPerPeriod, 0) }}
-            ({{ Math.floor(Math.min(...workforceProductivity.tiers.map(t => t.housingCoverage))) }}% housing,
-            {{ formatNumber(Math.min(...workforceProductivity.tiers.map(t => t.satisfaction)), 0) }}% satisfaction)
+            ({{ Math.floor(lostProfitResult.minHousingCoverage) }}% housing coverage,
+            {{ formatNumber(lostProfitResult.minSatisfaction, 0) }}% satisfaction)
           </span>
         </div>
       </div>
