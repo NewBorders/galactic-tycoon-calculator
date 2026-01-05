@@ -211,7 +211,7 @@ const productivitySummary = computed(() => {
   const lostProfit = lostProfitPerDay.value
   const lostProfitFormatted = formatPrice(lostProfit, 0)
   
-  return `${formatNumber(percent, 0)}% ${translate('workforceProductivity')}: Lost Profit ${lostProfitFormatted} (${formatNumber(minHousingCoverage, 0)}% housing, ${formatNumber(minSatisfaction, 0)}% satisfaction)`
+  return `${formatNumber(percent, 0)}% ${translate('workforceProductivity')}: Lost Profit ${lostProfitFormatted} (${Math.floor(minHousingCoverage)}% housing, ${formatNumber(minSatisfaction, 0)}% satisfaction)`
 })
 </script>
 
