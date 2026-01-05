@@ -128,7 +128,7 @@ async function handleRefreshWarehouseStock() {
   try {
     // Use syncService as single source of truth
     await refreshEntry(`warehouse-${props.base.gameWarehouseId}`)
-    
+
     // Update timestamp (syncService already updated it, but we update local state too)
     warehouseLastRefresh.value = Date.now()
   } catch (e) {
@@ -283,7 +283,7 @@ const materialRows = computed(() => {
       return nameA.localeCompare(nameB)
     })
   }
-  
+
   // 'recipe' order: keep as is (from production order)
   return rows
 })
@@ -349,12 +349,6 @@ const workforceProductivity = computed(() => {
   return calculateWorkforceProductivity(report.value, props.warehouseStocks)
 })
 
-const productivityColor = (productivity: number) => {
-  if (productivity >= 95) return 'text-emerald-400'
-  if (productivity >= 75) return 'text-amber-400'
-  return 'text-red-400'
-}
-
 // Calculate EXACT lost profit using service
 const lostProfitResult = computed(() => {
   return calculateLostProfit(
@@ -394,10 +388,6 @@ const optionalConsumables = computed(() => {
   })
   return groups
 })
-
-function formatShare(value: number) {
-  return `${formatNumber(value, 1)}%`
-}
 
 function formatCoverage(days: number | null) {
   if (days == null || !Number.isFinite(days)) return '—'
@@ -676,7 +666,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
-      
+
       <!-- Workforce Productivity Section -->
       <div v-if="workerDisplayRows.length" class="space-y-3 pb-3 border-b border-slate-700">
         <!-- No stock data warning -->
@@ -684,29 +674,21 @@ onBeforeUnmount(() => {
           <span class="text-blue-400">ℹ️</span>
           <span class="text-slate-300">{{ workforceProductivity.explanation }}</span>
         </div>
-        
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-semibold">⚙️ {{ translate('workforceProductivity') }}</span>
-          <span
-            class="text-sm font-semibold"
-            :class="productivityColor(workforceProductivity.overallProductivityPercent)"
-          >
+
+        <div class="flex justify-between">
+          <span class="text-sm font-semibold">⚙️
+            {{ translate('workforceProductivity') }}
             {{ formatNumber(workforceProductivity.overallProductivityPercent, 0) }}%
           </span>
-        </div>
-
-        <!-- Compact productivity summary if < 100% -->
-        <div v-if="workforceProductivity.overallProductivityPercent < 100 && workforceProductivity.hasStockData && lostProfitData" class="flex items-center gap-2 p-2 bg-orange-900/20 border border-orange-700/30 rounded text-xs">
-          <span class="text-orange-400">⚠️</span>
-          <span class="text-slate-300">
-            {{ translate('workforceProductivity') }} {{ formatNumber(workforceProductivity.overallProductivityPercent, 0) }}% :
+          <span v-if="workforceProductivity.overallProductivityPercent < 100 && workforceProductivity.hasStockData && lostProfitData" class="text-sm gap-1 px-2 bg-orange-900/30 border border-orange-600 rounded text-orange-300">
             Lost Profit {{ formatPrice(lostProfitData.lostProfitPerPeriod, 0) }}
-            ({{ Math.floor(lostProfitResult.minHousingCoverage) }}% housing coverage,
-            {{ formatNumber(lostProfitResult.minSatisfaction, 0) }}% satisfaction)
+            <template v-if="Math.floor(lostProfitResult.minHousingCoverage) < 100 || Math.floor(lostProfitResult.minSatisfaction) < 100">
+              (<template v-if="Math.floor(lostProfitResult.minHousingCoverage) < 100">{{ Math.floor(lostProfitResult.minHousingCoverage) }}% housing coverage<template v-if="Math.floor(lostProfitResult.minSatisfaction) < 100">, </template></template><template v-if="Math.floor(lostProfitResult.minSatisfaction) < 100">{{ Math.floor(lostProfitResult.minSatisfaction) }}% satisfaction</template>)
+            </template>
           </span>
         </div>
       </div>
-      
+
       <template v-if="workerDisplayRows.length">
         <table class="w-full text-sm">
           <thead class="text-slate-400 text-xs uppercase">

@@ -163,7 +163,19 @@ const productivitySummary = computed(() => {
   const percent = productivity.overallProductivityPercent
   const lostProfit = lostProfitResult.value
 
-  return `${translate('workforceProductivity')} ${formatNumber(percent, 0)}% : Lost Profit ${formatPrice(lostProfit.lostProfitPerDay, 0)} (${Math.floor(lostProfit.minHousingCoverage)}% housing coverage, ${formatNumber(lostProfit.minSatisfaction, 0)}% satisfaction)`
+  const parts: string[] = []
+  const housingCoverage = Math.floor(lostProfit.minHousingCoverage)
+  const satisfaction = Math.floor(lostProfit.minSatisfaction)
+
+  if (housingCoverage < 100) {
+    parts.push(`${housingCoverage}% housing coverage`)
+  }
+  if (satisfaction < 100) {
+    parts.push(`${satisfaction}% satisfaction`)
+  }
+
+  const details = parts.length > 0 ? ` (${parts.join(', ')})` : ''
+  return `${translate('workforceProductivity')} ${formatNumber(percent, 0)}% : Lost Profit ${formatPrice(lostProfit.lostProfitPerDay, 0)}${details}`
 })
 </script>
 
