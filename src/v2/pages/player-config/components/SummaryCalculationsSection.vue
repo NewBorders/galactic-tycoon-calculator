@@ -12,8 +12,8 @@ import AlertOverlay from '@/v2/components/AlertOverlay.vue'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
 import { getExportThresholdRatio, getExportThresholdRef, setExportThreshold } from '@/v2/services/config/exportThreshold'
-import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
-import { fetchWarehouseStockForBase } from '@/v2/services/api/warehouseService'
+import { getApiKey } from '@/v2/services/api/apiKeyManager'
+import { refreshEntry } from '@/v2/services/syncService'
 
 const props = defineProps<{
   base: PlayerBase
@@ -116,7 +116,7 @@ async function handleRefreshWarehouseStock() {
     return
   }
 
-  if (!props.base.gameWarehouseId || !props.base.gameBaseId) {
+  if (!props.base.gameWarehouseId) {
     warehouseError.value = 'Base not linked to game warehouse'
     return
   }
@@ -125,18 +125,10 @@ async function handleRefreshWarehouseStock() {
   warehouseError.value = null
 
   try {
-    const world = getWorld()
-    const result = await fetchWarehouseStockForBase(key, props.base.gameWarehouseId, world, true)
-
-    // Convert items array to stock record: materialId → quantity
-    const stockRecord: Record<number, number> = {}
-    if (result.data.items) {
-      result.data.items.forEach((item) => {
-        stockRecord[item.materialId] = item.quantity
-      })
-    }
-
-    emit('updateStock', stockRecord)
+    // Use syncService as single source of truth
+    await refreshEntry(`warehouse-${props.base.gameWarehouseId}`)
+    
+    // Update timestamp (syncService already updated it, but we update local state too)
     warehouseLastRefresh.value = Date.now()
   } catch (e) {
     warehouseError.value = `Warehouse load error: ${e instanceof Error ? e.message : String(e)}`

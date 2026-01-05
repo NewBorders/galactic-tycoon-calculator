@@ -36,6 +36,11 @@ export async function loadSvgSprite(): Promise<void> {
       
       spriteLoaded = true
       console.log('[SpriteLoader] SVG sprite loaded and injected into DOM')
+      
+      // Notify spriteIndex that DOM is ready
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sprite-loaded'))
+      }
     } catch (error) {
       console.error('[SpriteLoader] Failed to load sprite:', error)
       spriteLoadPromise = null // Allow retry

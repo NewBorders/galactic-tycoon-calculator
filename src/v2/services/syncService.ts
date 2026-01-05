@@ -301,6 +301,13 @@ export async function refreshEntry(entryId: string): Promise<void> {
       const { updateCurrent } = useWorldData()
       updateCurrent({ warehouseStocks })
       
+      // Update warehouseLastRefresh timestamp in localStorage for UI display
+      try {
+        localStorage.setItem('warehouseLastRefresh', String(Date.now()))
+      } catch {
+        // Silently fail on storage write
+      }
+      
       // Trigger callback to update player bases
       console.log('[SyncService] Warehouse stocks loaded', { warehouseId, stockCount: Object.keys(warehouseStocks).length, hasCallback: !!callbacks.onWarehouseStockLoaded })
       if (callbacks.onWarehouseStockLoaded) {
