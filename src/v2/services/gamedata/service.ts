@@ -1,6 +1,6 @@
 import type { Planet } from './types'
 
-export type { GameData, System, Planet, Material, Building, Recipe, GdIndex } from './types'
+export type { GameData, System, Planet, Material, Building, Recipe, GdIndex, GameDataSource } from './types'
 export { loadGameData } from './gameDataRepository'
 export { useMaterialPricing } from './prices'
 

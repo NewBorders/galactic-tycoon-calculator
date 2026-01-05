@@ -2,9 +2,13 @@ import type { Building, Material, Planet } from '../gamedata/types'
 
 // Buildings which require planetary fertility to produce (use fertility
 // instead of material abundance). These are building IDs from the
-// game's data (e.g. farm, orchard, aquaponics_farm). Ranch (id 17)
+// game's data:
+// Farm: 10
+// Ranch: 17
+// Orchard: 19
+// Aquaponics Farm: 34
 // intentionally excluded because it produces animal products everywhere.
-const FERTILITY_BUILDING_IDS = [10, 19, 34]
+const FERTILITY_BUILDING_IDS = [10, 19]
 
 type AvailabilityArgs = {
   planet?: Planet

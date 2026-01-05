@@ -222,7 +222,7 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                       <span class="text-right w-14"></span>
                     </div>
                     <div
-                      v-for="material in baseSummary.exportMaterials.slice(0, 10)"
+                      v-for="material in baseSummary.exportMaterials"
                       :key="material.materialId"
                       class="flex items-center gap-2 text-sm"
                     >
@@ -240,9 +240,6 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                       <span class="text-slate-500 text-xs text-right w-14">
                         {{ formatNumber(material.exportRatio, 0) }}%
                       </span>
-                    </div>
-                    <div v-if="baseSummary.exportMaterials.length > 10" class="text-xs text-slate-500 pl-6">
-                      +{{ baseSummary.exportMaterials.length - 10 }} {{ translate('more') }}
                     </div>
                   </div>
                   <div v-else class="text-sm text-slate-500 italic">
@@ -273,7 +270,7 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                       </span>
                     </div>
                     <div
-                      v-for="material in baseSummary.materialsRunningOut.slice(0, 10)"
+                      v-for="material in baseSummary.materialsRunningOut"
                       :key="material.materialId"
                       class="flex items-center gap-2 text-sm"
                     >
@@ -292,15 +289,183 @@ function getRunningOutTotalWeight(materialsRunningOut: typeof baseSummaries.valu
                         })() }}
                       </span>
                     </div>
-                    <div v-if="baseSummary.materialsRunningOut.length > 10" class="text-xs text-slate-500 pl-6">
-                      +{{ baseSummary.materialsRunningOut.length - 10 }} {{ translate('more') }}
-                    </div>
                   </div>
                   <div v-else class="text-sm text-slate-500 italic">
                     {{ translate('noMaterialsRunningOut') }}
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Global Material Production/Consumption -->
+      <div class="space-y-2">
+        <div
+          class="flex items-center justify-between cursor-pointer hover:bg-slate-700/30 rounded px-2 py-1"
+          @click="expandedMaterials = !expandedMaterials"
+        >
+          <h3 class="text-lg font-semibold text-slate-300 flex items-center gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 transition-transform"
+              :class="{ 'rotate-90': expandedMaterials }"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            {{ translate('globalMaterialSummary') }}
+          </h3>
+          <span class="text-sm text-slate-500">{{ globalMaterials.length }} {{ translate('materials') }}</span>
+        </div>
+
+        <div v-if="expandedMaterials" class="space-y-2">
+          <!-- Toggle for per-base breakdown -->
+          <div class="flex items-center gap-2 text-sm">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="showPerBaseBreakdown" class="rounded" />
+              <span class="text-slate-400">{{ translate('showPerBaseBreakdown') }}</span>
+            </label>
+          </div>
+
+          <!-- Materials Tables: Two column layout -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Regular Materials (Left) -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="text-xs text-slate-400 border-b border-slate-700">
+                  <tr>
+                    <th class="text-left py-2 px-2">{{ translate('material') }}</th>
+                    <th class="text-right py-2 px-2">{{ translate('production') }}</th>
+                    <th class="text-right py-2 px-2">{{ translate('consumption') }}</th>
+                    <th class="text-right py-2 px-2">{{ translate('balance') }} / {{ translate('value') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template v-for="material in regularMaterials" :key="material.materialId">
+                    <!-- Main material row -->
+                    <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                      <td class="py-1 px-2">
+                        <div class="flex items-center gap-2">
+                          <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
+                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialName(material.materialId) }}</span>
+                        </div>
+                      </td>
+                      <td class="text-right py-1 px-2">
+                        <div class="text-emerald-400">{{ formatNumber(material.totalProduction, 1) }}</div>
+                        <div class="text-xs text-slate-500">{{ formatPrice(material.perBaseBreakdown.reduce((sum: number, b) => sum + b.productionValue, 0), 0) }}</div>
+                      </td>
+                      <td class="text-right py-1 px-2">
+                        <div class="text-rose-400">{{ formatNumber(material.totalConsumption, 1) }}</div>
+                        <div class="text-xs text-slate-500">{{ formatPrice(material.perBaseBreakdown.reduce((sum: number, b) => sum + b.consumptionValue, 0), 0) }}</div>
+                      </td>
+                      <td class="text-right py-1 px-2">
+                        <div class="font-medium" :class="material.netBalance >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+                          {{ material.netBalance >= 0 ? '+' : '' }}{{ formatNumber(material.netBalance, 1) }} / {{ formatPrice(material.totalValue, 0) }}
+                        </div>
+                      </td>
+                    </tr>
+
+                    <!-- Per-base breakdown rows (if enabled) -->
+                    <template v-if="showPerBaseBreakdown">
+                      <tr
+                        v-for="base in material.perBaseBreakdown"
+                        :key="`${material.materialId}-${base.baseId}`"
+                        class="text-xs text-slate-500 bg-slate-800/30"
+                      >
+                        <td class="py-0.5 px-2 pl-8">
+                          <span class="truncate max-w-xs">{{ base.baseName }}</span>
+                        </td>
+                        <td class="text-right py-0.5 px-2">
+                          <span v-if="base.production > 0" class="text-emerald-400">{{ formatNumber(base.production, 1) }}</span>
+                          <span v-else>—</span>
+                        </td>
+                        <td class="text-right py-0.5 px-2">
+                          <span v-if="base.consumption > 0" class="text-rose-400">{{ formatNumber(base.consumption, 1) }}</span>
+                          <span v-else>—</span>
+                        </td>
+                        <td class="text-right py-0.5 px-2">
+                          <span v-if="base.production > 0 || base.consumption > 0">
+                            {{ formatNumber(base.production - base.consumption, 1) }} / {{ formatPrice(base.productionValue - base.consumptionValue, 0) }}
+                          </span>
+                          <span v-else>—</span>
+                        </td>
+                      </tr>
+                    </template>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Worker Consumables (Right) -->
+            <div class="overflow-x-auto">
+              <div class="text-sm font-semibold text-slate-300 mb-2">{{ translate('workerConsumption') }}</div>
+              <table class="w-full text-sm">
+                <thead class="text-xs text-slate-400 border-b border-slate-700">
+                  <tr>
+                    <th class="text-left py-2 px-2">{{ translate('material') }}</th>
+                    <th class="text-right py-2 px-2">{{ translate('production') }}</th>
+                    <th class="text-right py-2 px-2">{{ translate('consumption') }}</th>
+                    <th class="text-right py-2 px-2">{{ translate('balance') }} / {{ translate('value') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template v-for="material in workerConsumableMaterials" :key="material.materialId">
+                    <!-- Main material row -->
+                    <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                      <td class="py-1 px-2">
+                        <div class="flex items-center gap-2">
+                          <MaterialIcon :name="getMaterialName(material.materialId)" :size="16" />
+                          <span class="text-slate-300 truncate max-w-xs">{{ getMaterialName(material.materialId) }}</span>
+                        </div>
+                      </td>
+                      <td class="text-right py-1 px-2">
+                        <div class="text-emerald-400">{{ formatNumber(material.totalProduction, 1) }}</div>
+                        <div class="text-xs text-slate-500">{{ formatPrice(material.perBaseBreakdown.reduce((sum: number, b) => sum + b.productionValue, 0), 0) }}</div>
+                      </td>
+                      <td class="text-right py-1 px-2">
+                        <div class="text-rose-400">{{ formatNumber(material.totalConsumption, 1) }}</div>
+                        <div class="text-xs text-slate-500">{{ formatPrice(material.perBaseBreakdown.reduce((sum: number, b) => sum + b.consumptionValue, 0), 0) }}</div>
+                      </td>
+                      <td class="text-right py-1 px-2">
+                        <div class="font-medium" :class="material.netBalance >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+                          {{ material.netBalance >= 0 ? '+' : '' }}{{ formatNumber(material.netBalance, 1) }} / {{ formatPrice(material.totalValue, 0) }}
+                        </div>
+                      </td>
+                    </tr>
+
+                    <!-- Per-base breakdown rows (if enabled) -->
+                    <template v-if="showPerBaseBreakdown">
+                      <tr
+                        v-for="base in material.perBaseBreakdown"
+                        :key="`${material.materialId}-${base.baseId}`"
+                        class="text-xs text-slate-500 bg-slate-800/30"
+                      >
+                        <td class="py-0.5 px-2 pl-8">
+                          <span class="truncate max-w-xs">{{ base.baseName }}</span>
+                        </td>
+                        <td class="text-right py-0.5 px-2">
+                          <span v-if="base.production > 0" class="text-emerald-400">{{ formatNumber(base.production, 1) }}</span>
+                          <span v-else>—</span>
+                        </td>
+                        <td class="text-right py-0.5 px-2">
+                          <span v-if="base.consumption > 0" class="text-rose-400">{{ formatNumber(base.consumption, 1) }}</span>
+                          <span v-else>—</span>
+                        </td>
+                        <td class="text-right py-0.5 px-2">
+                          <span v-if="base.production > 0 || base.consumption > 0">
+                            {{ formatNumber(base.production - base.consumption, 1) }} / {{ formatPrice(base.productionValue - base.consumptionValue, 0) }}
+                          </span>
+                          <span v-else>—</span>
+                        </td>
+                      </tr>
+                    </template>
+                  </template>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

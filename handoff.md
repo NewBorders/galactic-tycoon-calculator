@@ -2,6 +2,190 @@
 
 ## Most Recent Work (January 4, 2026 - Part 8)
 
+### Improved Workforce Productivity Calculations and Lost Profit Accuracy
+
+#### Summary
+Refactored workforce productivity calculations to remove obsolete UI components, improve optional consumables handling, fix satisfaction calculations, and implement accurate lost profit calculations using two-report comparison. Also established Single Source of Truth for warehouse stocks.
+
+#### Changes Made
+1. **Removed Workforce Coverage Table**: Cleaned up obsolete UI component from summary section
+2. **Fixed Optional Consumables Warnings**: Now trigger warnings when deactivated OR out of stock
+3. **Corrected Satisfaction Formula**: All optionals deactivated = 70% per Wiki mechanics
+4. **Accurate Lost Profit**: Two-report comparison (current vs optimal) for exact calculations
+5. **Housing Coverage Precision**: Display with 1 decimal to prevent false 100% rounding
+6. **Combined Shortage Handling**: Sequential processing for housing + consumable shortages
+7. **SSOT for Warehouse Stocks**: Unified via useWorldData service
+
+#### Files Modified
+- `handoff.md` - Updated documentation
+- `src/v2/pages/config/ConfigPanel.vue` - Planning mode integration
+- `src/v2/pages/config/components/SyncStatus.vue` - Sync improvements
+- `src/v2/pages/player-config/PlayerConfigPanel.vue` - Added warehouseStocks SSOT
+- `src/v2/pages/player-config/components/ConfiguredBase.vue` - Props passthrough
+- `src/v2/pages/player-config/components/SummaryCalculationsSection.vue` - Major refactoring
+- `src/v2/services/api/apiKeyManager.ts` - API improvements
+- `src/v2/services/api/warehouseService.ts` - Warehouse sync
+- `src/v2/services/playerBases.ts` - Base management
+- `src/v2/services/production/workforceProductivity.ts` - Core calculation fixes
+- `src/v2/services/syncService.ts` - Sync coordination
+
+---
+
+## Previous Work Session: Fixed Price Display Bug (Cents to Dollars Conversion)
+
+### Summary
+Fixed a critical bug where prices from the API (returned in cents) were not consistently converted to dollars in V2. Materials with prices of exactly $10.00 (1000 cents) or below were displayed incorrectly. For example, Grain with a current price of 1000 cents (=$10.00) was shown as $1000 in the Materials Balance view.
+
+### Root Cause
+The `toDollars()` function in `src/v2/services/gamedata/prices.ts` only converted values **greater than** 1000, not **equal to or greater than** 1000. This meant:
+- 1000 cents → $1000 (incorrect)
+- 1304 cents → $13.04 (correct, because 1304 > 1000)
+
+### Solution
+Changed `toDollars()` to **always** divide by 100, since the API always returns prices in cents:
+```typescript
+function toDollars(value: unknown): number | null {
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num) || num <= 0) return null
+  // API always returns prices in cents, so always convert to dollars
+  return num / 100
+}
+```
+
+### Files Modified
+- `src/v2/services/gamedata/prices.ts` - Fixed conversion logic
+- `src/v2/services/gamedata/__tests__/prices.test.ts` - Added test coverage
+
+### Testing
+1. Verify Materials Balance in Bases tab shows correct prices for all materials
+2. Check that materials around $10 (1000 cents) display as $10.00, not $1000
+3. Run: `docker compose exec web npm test src/v2/services/gamedata/__tests__/prices.test.ts`
+
+---
+
+## Previous Work Session: Surface Game Data Source (API vs Fallback)
+
+### Summary
+- Surface where game data came from (API or bundled fallback) so users know if data might be stale.
+- Stop double-fetching on manual refresh by emitting the refreshed payload (data, index, timestamps, source) from the Bases panel to the app shell.
+- Added localized labels/hints for the data source badge.
+
+### User-Facing Changes
+- A badge next to "Game data as of" shows the current source:
+  - Green "Live API" when fresh API data is loaded.
+  - Amber "Fallback file (may be outdated)" when the API failed and the bundled JSON is used (with a short hint explaining why).
+
+### Technical Notes
+- Introduced `GameDataSource` union type (`api | fallback`) embedded on `GameData`.
+- `loadGameData` now stores `source` on the normalized GameData; caches carry it through.
+- AppV2 reads `gameData.source` directly; no separate source state.
+- PlayerConfigPanel emits the full refresh payload (data/index/loadedAt) to avoid a second fetch in AppV2.
+- Added source badge computation + hints in PlayerConfigPanel header.
+- New localisation keys for source labels/hints (EN/DE).
+
+### Files Touched
+- `/src/v2/services/gamedata/types.ts` – added `GameDataSource` union and optional `source` on GameData.
+- `/src/v2/services/gamedata/gameDataRepository.ts` – store `source` on GameData; cache keeps it; only `api|fallback`.
+- `/src/v2/services/gamedata/service.ts` – re-export types (no cache source).
+- `/src/v2/AppV2.vue` – rely on `gameData.source`; refresh handler takes payload without extra fetch.
+- `/src/v2/pages/player-config/PlayerConfigPanel.vue` – derive badge from `gameData.source` (no separate GameDataSource import); removed cache branch; emit payload without source.
+- `/src/v2/localisation/messages.ts` – source labels/hints (EN/DE), cache wording removed.
+
+### Testing
+- `docker compose up -d` to start the stack (web service).
+- `docker compose exec web npm install` (node_modules volume was empty after container spin-up).
+- `docker compose exec web npm run type-check` ✅
+- `docker compose exec web npm run lint` ✅
+
+### Follow-ups / Risks
+- Fallback file may still be old; badge makes this visible, but consider showing a "retry" affordance near the badge if API outages persist.
+- If other views need source visibility, pass `gdSource` down similarly.
+
+---
+
+## Previous Work Session: Manual Game Data Refresh Button
+
+### Summary
+Added a manual refresh button for game data in the Bases page (PlayerConfigPanel). Users can now manually refresh the game data from the API instead of waiting for the page reload. The refresh button displays loading state, success messages, and error messages (including rate limiting).
+
+### User-Facing Features
+1. **Refresh Button**: Located next to the "Game data as of [timestamp]" display
+2. **Loading State**: Button shows "Refreshing…" while fetching
+3. **Success Feedback**: Green toast message "Game data refreshed successfully" appears for 3 seconds
+4. **Error Feedback**: Red toast message displays if refresh fails (e.g., "API error: 429 Too Many Requests")
+5. **Auto-hide**: Success/error messages automatically disappear after 3 seconds
+
+### Technical Implementation
+
+#### Frontend Changes
+
+**File**: `/src/v2/pages/player-config/PlayerConfigPanel.vue`
+
+1. **Imported loadGameData Function**:
+  - Added `loadGameData` to imports from `../../services/gamedata/service.ts`
+
+2. **Added Refresh State Variables**:
+  ```typescript
+  const gameDataLoading = ref(false)
+  const gameDataError = ref<string | null>(null)
+  const gameDataSuccess = ref<string | null>(null)
+  let gameDataSuccessTimer: ReturnType<typeof setTimeout> | null = null
+  ```
+
+3. **Created refreshGameData() Function**:
+  - Calls `loadGameData(true)` to force refresh (bypass cache)
+  - Handles loading state during API call
+  - Catches and displays errors
+  - Shows success message for 3 seconds
+  - Properly cleans up timer on unmount
+
+4. **Updated Template**:
+  - Added error/success toast notifications (red/green backgrounds)
+  - Added refresh button next to gameDataTimestamp
+  - Button is disabled during loading
+
+#### Localization
+
+**File**: `/src/v2/localisation/messages.ts`
+
+Added four new localization keys:
+- **English**:
+  - `gameDataRefresh`: "Refresh data"
+  - `gameDataRefreshing`: "Refreshing…"
+  - `gameDataRefreshSuccess`: "Game data refreshed successfully"
+  - `gameDataRefreshError`: "Game data refresh failed"
+- **German** (Deutsch):
+  - `gameDataRefresh`: "Daten aktualisieren"
+  - `gameDataRefreshing`: "Aktualisiere…"
+  - `gameDataRefreshSuccess`: "Spieldaten erfolgreich aktualisiert"
+  - `gameDataRefreshError`: "Aktualisierung der Spieldaten fehlgeschlagen"
+
+#### Integration Tests
+
+**File**: `/src/v2/services/gamedata/__tests__/gameDataRefresh.test.ts`
+
+Created comprehensive tests for the gamedata refresh functionality:
+1. **Force Refresh Test**: Verifies that `loadGameData(true)` bypasses cache and fetches fresh data
+2. **Error Handling Test**: Ensures errors (like rate limiting) are caught and propagated
+3. **Cache Update Test**: Confirms that new data is stored in localStorage
+4. **buildIndex Test**: Validates that the index mapping works correctly
+
+### Testing
+- ✅ All type checks pass (`npm run type-check`)
+- ✅ All lint checks pass (`npm run lint`)
+- ✅ All new tests pass (4/4 tests in gameDataRefresh.test.ts)
+- ✅ Existing test suite: 130 passed (7 unrelated failures in useGlobalSummary)
+
+### Design Patterns
+- **Follows existing patterns**: The implementation mirrors the price refresh button pattern already in use
+- **Consistent styling**: Uses the same toast notification styling as the import feedback
+- **Proper state management**: Loading state prevents multiple simultaneous refreshes
+
+---
+
+## Previous Work Session: Removed Display Limitations in Global Summary
+
+
 ### Fixed: Lost Profit for Combined Housing + Consumable Shortage
 
 #### Problem

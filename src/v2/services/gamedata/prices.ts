@@ -147,10 +147,8 @@ function saveMarketCache(world: World, data: MarketPriceEntry[]) {
 function toDollars(value: unknown): number | null {
   const num = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(num) || num <= 0) return null
-  if (num > 1000) {
-    return num / 100
-  }
-  return num
+  // API always returns prices in cents, so always convert to dollars
+  return num / 100
 }
 
 type ApiPriceEntry = {

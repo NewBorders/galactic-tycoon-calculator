@@ -1,5 +1,5 @@
 import { normalize } from './transformRawToTypes'
-import type { GameData, GdIndex } from './types'
+import type { GameData, GameDataSource, GdIndex } from './types'
 import { extractRaw } from './extractRawGameData'
 import type { World } from '../api/types'
 import { getWorld } from '../api/apiKeyManager'
@@ -85,7 +85,7 @@ export function isInitialized(): boolean {
 export async function loadGameData(force = false): Promise<{
   data: GameData
   index: GdIndex
-  source: 'api' | 'fallback' | 'cache'
+  source: GameDataSource
   loadedAt: number
 }> {
   const world = getWorld()
@@ -95,11 +95,12 @@ export async function loadGameData(force = false): Promise<{
       const data = c.data
       const index = buildIndex(data)
       initializeRepository(data, index)
-      return { data, index, source: 'cache', loadedAt: c.ts }
+      const cachedSource: GameDataSource = c.data.source ?? 'api'
+      return { data, index, source: cachedSource, loadedAt: c.ts }
     }
   }
   const { raw, source } = await extractRaw()
-  const data = normalize(raw)
+  const data: GameData = { ...normalize(raw), source }
   const ts = Date.now()
   writeCache(world, { ts, data })
   const index = buildIndex(data)

@@ -1,3 +1,5 @@
+export type GameDataSource = 'api' | 'fallback'
+
 export type GameData = {
   systems: System[]
   planets: Planet[]
@@ -5,6 +7,7 @@ export type GameData = {
   buildings: Building[]
   recipes: Recipe[]
   workers: Worker[]
+  source?: GameDataSource
 }
 
 export type GdIndex = {
