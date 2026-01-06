@@ -32,6 +32,7 @@ export function createEmptyWorldData(worldId: World, apiKey: string = ''): World
     current: {
       bases: [],
       technology: {},
+      startingBonus: 1,
       fetchedAt: 0,
     },
     planning: null,

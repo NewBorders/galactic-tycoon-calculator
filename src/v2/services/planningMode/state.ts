@@ -42,6 +42,7 @@ export function usePlanningMode() {
       modifiedAt: Date.now(),
       bases: cloneBases(worldData.value.current.bases),
       technology: { ...worldData.value.current.technology },
+      startingBonus: worldData.value.current.startingBonus || 1,
       history: [],
       historyIndex: -1,
     }
@@ -65,6 +66,7 @@ export function usePlanningMode() {
       // Apply planned changes to current state
       worldData.value.current.bases = cloneBases(worldData.value.planning.bases)
       worldData.value.current.technology = { ...worldData.value.planning.technology }
+      worldData.value.current.startingBonus = worldData.value.planning.startingBonus
       worldData.value.current.fetchedAt = Date.now()
     }
     

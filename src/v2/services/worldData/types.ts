@@ -17,6 +17,7 @@ import type { World } from '../api/types'
 export interface CurrentState {
   bases: PlayerBase[]
   technology: Record<number, number> // techId -> level
+  startingBonus: number // Starting bonus multiplier
   fetchedAt: number // timestamp of last sync
 }
 
@@ -29,6 +30,7 @@ export interface PlanningState {
   modifiedAt: number
   bases: PlayerBase[] // cloned & modified from current
   technology: Record<number, number>
+  startingBonus: number // Starting bonus multiplier
   history: HistoryEntry[]
   historyIndex: number
 }
