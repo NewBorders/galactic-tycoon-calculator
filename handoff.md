@@ -2,52 +2,54 @@
 
 ## Most Recent Work (2026-01-06)
 
-### Refactored Base Summary Calculations to Service Layer
+### Always-On Planning Mode - Transparent Production Planning
 
 **Context:**
-Following best practices to keep business logic out of view components, we extracted all calculation logic from `BaseSummaryCard.vue` into a dedicated service module. This improves testability, reusability, and maintainability.
+Refactored the planning mode concept to be always-on and transparent. Users no longer need to toggle planning mode - all manual changes automatically count as "planned production", while only API imports update "current production".
 
 **Changes Made:**
 
-1. **Created New Service: `baseSummaryMetrics.ts`**
-   - Location: `/src/v2/services/production/baseSummaryMetrics.ts`
-   - Exports three main functions:
-     - `calculateExportMaterials(report: BaseReport): Set<number>` - Determines which materials are exports based on local consumption ratio and export threshold
-     - `calculateExportMetrics(report, exportIds, periodFactor): ExportMaterialsResult` - Calculates export revenue and export net profit
-     - `calculateNetProfitPriceTrend(report, marketOpportunities): number` - Calculates weighted average 7-day price trend
-   - All functions are pure and easily testable
-   - Fully type-safe with TypeScript
+1. **Planning Mode is Now Always Active (Transparent)**
+   - No toggle button needed - planning mode runs in the background
+   - All manual edits (tech levels, buildings, recipes) automatically affect "planned production"
+   - Only API imports via "Refresh" buttons update "current production"
+   - Users see side-by-side comparison: Current (from API) vs Planned (their workspace)
 
-2. **Simplified BaseSummaryCard.vue Component**
-   - Removed ~100 lines of calculation logic from view layer
-   - Now imports and uses service functions for all calculations
-   - **Removed Export Net Profit price trend** - Makes no sense since Export Net Profit and Net Profit share the same costs, so price changes affect both equally
-   - Removed debug console.log statements
-   - Component now focused purely on presentation logic
-   - Reduced from ~245 lines to ~160 lines
+2. **Technology Panel Improvements**
+   - **Current Tech Level**: Display-only text (no inputs) - shows API data
+     - Format: "Current: 5" with bonus display
+   - **Planned Tech Level**: Editable input - your working state
+     - Highlights with blue border when different from current
+     - Format: Input field with bonus display
+   - **Manual Refresh Button**: Added next to "Company data last updated"
+     - Calls same sync function as Config > API Sync Status > Company Data
+     - Shows refresh icon (🔄) and loading state (⏳)
+     - Timestamp syncs across both locations
 
-3. **Key Design Decisions:**
-   - Export Net Profit = Export Revenue - ALL costs (both material + worker purchase costs)
-   - Only Net Profit shows 7-day price trend indicator
-   - Export materials determined by formula: `localConsumptionRatio < (1 - threshold)`
-   - Price trend weighted by absolute material value per day (`Math.abs(valuePerDay)`)
+3. **Code Simplification**
+   - Removed complex isPlanningActive conditionals
+   - Simplified state management - planned state is the default workspace
+   - Current state is read-only snapshot from API
+   - Planning state types already include `startingBonus` field
 
 **Technical Details:**
-- Uses existing `getExportThresholdRatio()` from config service
-- Integrates with `MarketOpportunity` type for price trend data
-- Export materials: Only materials with `balancePerDay > 0` can be exports
-- Returns structured results via TypeScript interfaces
+- `current.technology` = Read-only from API (via `useWorldData().current`)
+- `state.value.levels` = Editable planned levels (via `usePlayerTechnology()`)
+- `refreshEntry('company')` = Manually triggers Company Data sync
+- Planning mode state management stays in `worldData` for future features
 
 **Testing:**
-- ✅ Type-check passes (`npm run type-check`)
-- ✅ Application runs successfully on http://localhost:5173
-- ✅ Export Net Profit displays correctly
-- ✅ Net Profit with 7d price trend displays correctly
-- ✅ No new lint errors introduced
+- ✅ Type-check passes
+- ✅ Application runs on http://localhost:5173
+- ✅ Current levels display correctly (text only)
+- ✅ Planned levels editable with blue highlight when changed
+- ✅ Refresh button triggers company data sync
 
 **Git:**
 - Branch: `71-planning-mode`
-- Commit: `85b5042` - "refactor: extract base summary calculations to service layer"
+- Commits:
+  - `ad95b8e` - "feat: implement planning mode for technology levels"
+  - `aaa742b` - "refactor: make planning mode always-on and transparent"
 - Status: Committed and pushed to remote
 
 ---
@@ -55,62 +57,58 @@ Following best practices to keep business logic out of view components, we extra
 ## Previous Work Summary
 
 ### Base Summary Enhancements (2026-01-06)
-- Added Export Net Profit calculation and display
-- Added 7-day price trends with visual indicators (📈↗→↘📉)
-- Integrated market analysis data with auto-fetch
-- Renamed "Net result" to "Net Profit"
-- Fixed price trend visibility issues
-- Color-coded trends: emerald/green for positive, orange/red for negative
+- Created `baseSummaryMetrics.ts` service for calculation logic
+- Removed Export Net Profit price trend (shared same costs as Net Profit)
+- Extracted business logic from view components
+- Simplified BaseSummaryCard from ~245 to ~160 lines
 
 ### Technology Names in Production (2026-01-06)
 - Added specialization names to recipe requirements
 - Shows "Metallurgy require technology level 1" instead of just "require technology level 1"
-- Created `getSpecializationName()` utility function
-- Uses `BuildingSpecialization` enum for type safety
 
 ### Workforce Productivity Warnings (2026-01-05)
-- Added compact warnings with lost profit calculations
-- Extracted lost profit logic to `lostProfit.ts` service
-- Shows housing coverage and satisfaction metrics
-- Displays when productivity < 100%
-
-### UI Cleanup (2026-01-05)
-- Removed redundant sections from GlobalSummary
-- Removed Workforce Deficit Cost card
-- Simplified GlobalSummary from ~220 lines to 84 lines
+- Added warnings with lost profit calculations
+- Extracted logic to `lostProfit.ts` service
 
 ---
 
 ## Architecture Patterns Used
 
+### Always-On Planning Mode Pattern
+- Planning state is the default workspace (what users edit)
+- Current state is read-only baseline from API
+- No mode switching needed - transparent to user
+- Future: Can add undo/redo, change tracking, etc.
+
 ### Service Layer Pattern
-- Business logic extracted to service modules (e.g., `lostProfit.ts`, `baseSummaryMetrics.ts`)
-- View components focus on presentation only
-- Services are pure functions that are easily testable
+- Business logic in service modules
+- View components focus on presentation
+- Pure, testable functions
 
 ### Repository Pattern
-- Configuration values retrieved via dedicated services (e.g., `getExportThresholdRatio()`)
+- Configuration via dedicated services
 - Single source of truth for data access
-
-### Composables Pattern
-- `useMarketAnalysis()` for market data fetching and state management
-- Provides reactive state and fetch methods
 
 ---
 
 ## Next Steps / Open Tasks
 
-### Potential Improvements
-1. **Integration Tests** - Consider adding tests for `baseSummaryMetrics.ts` service
-2. **Tooltips** - Add explanatory tooltips for price trends
-3. **Similar Refactoring** - Apply service extraction pattern to other complex view components
-4. **Documentation** - Consider adding JSDoc comments to service functions
+### Remaining Planning Mode Work
+1. **PlayerConfigPanel Integration**
+   - Use current vs planned state for base calculations
+   - Pass correct state to child components
+   
+2. **Side-by-Side Views in ConfiguredBase**
+   - Show Materials Balance: Current | Planned
+   - Show Worker Consumption: Current | Planned
+   - Calculate both production states simultaneously
 
-### Technical Debt
-- Some lint errors remain in unrelated files (not introduced by recent work)
-- Consider addressing `@typescript-eslint/no-explicit-any` warnings in other components
+3. **Building & Recipe Changes**
+   - Ensure building/recipe edits update planned state
+   - Keep current state untouched except via API sync
 
-### Feature Ideas
-- Extend trend indicators to other views (e.g., material overview)
-- Add trend prediction/forecasting based on historical data
-- Consider adding trend charts/graphs
+### Future Enhancements
+- Add change indicators (e.g., badge showing "3 changes from current")
+- Consider adding undo/redo functionality
+- Tooltips explaining Current vs Planned
+
