@@ -887,7 +887,8 @@ onBeforeUnmount(() => {
       <div v-if="!materialRows.length" class="text-sm text-slate-400">—</div>
     </div>
 
-    <!-- Worker Consumption (right column, top) -->
+    <!-- Export Materials Summary (right column, top) -->
+    <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-4">
       <div v-if="exportMaterials.length" class="space-y-2">
         <div class="text-sm font-semibold text-emerald-300">{{ translate('exportMaterials') }}</div>
         <div class="overflow-x-auto">
@@ -960,7 +961,7 @@ onBeforeUnmount(() => {
       <div v-if="!materialRows.length" class="text-sm text-slate-400">—</div>
     </div>
 
-    <!-- Worker Consumption (right column, top) -->
+    <!-- Worker Consumption (right column, bottom) -->
     <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3">
       <div class="font-semibold">{{ translate('workerConsumption') }}</div>
       <div v-if="optionalConsumables.length" class="space-y-2 text-xs text-slate-400">
@@ -992,8 +993,9 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Workforce Productivity Section -->
-      <div v-if="workerDisplayRows.length" class="space-y-3 pb-3 border-b border-slate-700">
+      <template v-if="workerDisplayRows.length">
+        <!-- Workforce Productivity Section -->
+        <div class="space-y-3 pb-3 border-b border-slate-700">
         <!-- No stock data warning -->
         <div v-if="!workforceProductivity.hasStockData" class="flex items-center gap-2 p-2 bg-blue-900/20 border border-blue-700/30 rounded text-xs">
           <span class="text-blue-400">ℹ️</span>
@@ -1012,9 +1014,8 @@ onBeforeUnmount(() => {
             </template>
           </span>
         </div>
-      </div>
+        </div>
 
-      <template v-if="workerDisplayRows.length">
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="text-slate-400 text-xs uppercase">
