@@ -5,8 +5,12 @@ import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { translate } from '@/v2/localisation'
-import { getExportThresholdRatio } from '@/v2/services/config/exportThreshold'
 import type { MarketOpportunity } from '@/v2/services/marketAnalysis/types'
+import {
+  calculateExportMaterials,
+  calculateExportMetrics,
+  calculateNetProfitPriceTrend,
+} from '@/v2/services/production/baseSummaryMetrics'
 
 const props = defineProps<{
   base: PlayerBase
@@ -85,108 +89,16 @@ const summaryForPeriod = computed(() => ({
   net: summary.value.net * periodFactor.value,
 }))
 
-// Calculate export materials using same logic as useGlobalSummary
-const exportMaterialIds = computed(() => {
-  const threshold = getExportThresholdRatio()
-  const exportIds = new Set<number>()
-
-  // Build production and consumption maps
-  const productionMap = new Map<number, number>()
-  const consumptionMap = new Map<number, number>()
-
-  // Get production from recipe outputs
-  report.value.recipes.forEach((recipe) => {
-    const current = productionMap.get(recipe.outputMaterialId) || 0
-    productionMap.set(recipe.outputMaterialId, current + recipe.outputPerDay)
-  })
-
-  // Get consumption from recipe inputs
-  report.value.recipes.forEach((recipe) => {
-    recipe.inputsPerDay.forEach((input) => {
-      const current = consumptionMap.get(input.materialId) || 0
-      consumptionMap.set(input.materialId, current + input.amount)
-    })
-  })
-
-  // Add worker consumption
-  report.value.workers.forEach((worker) => {
-    const current = consumptionMap.get(worker.materialId) || 0
-    consumptionMap.set(worker.materialId, current + worker.consumptionPerDay)
-  })
-
-  // Determine export materials
-  productionMap.forEach((production, materialId) => {
-    const consumption = consumptionMap.get(materialId) || 0
-    if (production > 0) {
-      const localConsumptionRatio = consumption / production
-      // Material is exported if less than threshold is consumed locally
-      if (localConsumptionRatio < (1 - threshold)) {
-        exportIds.add(materialId)
-      }
-    }
-  })
-
-  return exportIds
+// Calculate export materials and metrics
+const exportMetrics = computed(() => {
+  const exportIds = calculateExportMaterials(report.value)
+  return calculateExportMetrics(report.value, exportIds, periodFactor.value)
 })
 
-// Calculate export revenue (only from export materials)
-const exportRevenue = computed(() => {
-  let revenue = 0
-  report.value.materials.forEach((mat) => {
-    if (exportMaterialIds.value.has(mat.materialId) && mat.balancePerDay > 0) {
-      revenue += mat.valuePerDay
-    }
-  })
-  return revenue * periodFactor.value
-})
-
-// Export net profit = export revenue - ALL costs
-const exportNetProfit = computed(() => {
-  const allCosts = summaryForPeriod.value.materialPurchaseCosts + summaryForPeriod.value.workerPurchaseCosts
-  return exportRevenue.value - allCosts
-})
-
-// Calculate weighted average 7d price trend for export materials
-const exportPriceTrend7d = computed(() => {
-  if (!props.marketOpportunities || exportMaterialIds.value.size === 0) return 0
-
-  const opportunityMap = new Map(props.marketOpportunities.map(o => [o.materialId, o]))
-  let totalWeight = 0
-  let weightedTrendSum = 0
-
-  report.value.materials.forEach((mat) => {
-    if (exportMaterialIds.value.has(mat.materialId) && mat.balancePerDay > 0) {
-      const opportunity = opportunityMap.get(mat.materialId)
-      if (opportunity) {
-        const weight = mat.valuePerDay // weight by export value
-        totalWeight += weight
-        weightedTrendSum += opportunity.priceTrend.changePercent7d * weight
-      }
-    }
-  })
-
-  return totalWeight > 0 ? weightedTrendSum / totalWeight : 0
-})
-
-const netProfitPriceTrend7d = computed(() => {
-  if (!props.marketOpportunities) return 0
-
-  const opportunityMap = new Map(props.marketOpportunities.map(o => [o.materialId, o]))
-  let totalWeight = 0
-  let weightedTrendSum = 0
-
-  // Weight by absolute value (both production and consumption matter)
-  report.value.materials.forEach((mat) => {
-    const opportunity = opportunityMap.get(mat.materialId)
-    if (opportunity) {
-      const weight = Math.abs(mat.valuePerDay)
-      totalWeight += weight
-      weightedTrendSum += opportunity.priceTrend.changePercent7d * weight
-    }
-  })
-
-  return totalWeight > 0 ? weightedTrendSum / totalWeight : 0
-})
+// Calculate price trend for net profit
+const netProfitPriceTrend7d = computed(() =>
+  calculateNetProfitPriceTrend(report.value, props.marketOpportunities),
+)
 
 const priceTrendColor = (trend: number) => {
   if (!Number.isFinite(trend)) return 'text-slate-400'
@@ -207,15 +119,7 @@ const priceTrendIcon = (trend: number) => {
 }
 
 const showNetProfitTrend = computed(() => {
-  const hasData = props.marketOpportunities && props.marketOpportunities.length > 0
-  console.log('[BaseSummaryCard] showNetProfitTrend:', hasData, 'marketOpportunities:', props.marketOpportunities?.length, 'trend:', netProfitPriceTrend7d.value)
-  return hasData
-})
-
-const showExportProfitTrend = computed(() => {
-  const hasData = props.marketOpportunities && props.marketOpportunities.length > 0 && exportMaterialIds.value.size > 0
-  console.log('[BaseSummaryCard] showExportProfitTrend:', hasData, 'exportMaterialIds:', exportMaterialIds.value.size, 'trend:', exportPriceTrend7d.value)
-  return hasData
+  return props.marketOpportunities && props.marketOpportunities.length > 0
 })
 
 </script>
@@ -226,7 +130,7 @@ const showExportProfitTrend = computed(() => {
       <div>
         {{ translate('netProfit') }}:
         <span :class="summaryForPeriod.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-          {{ formatPrice(summaryForPeriod.net,2) }}
+          {{ formatPrice(summaryForPeriod.net, 2) }}
         </span>
         <span v-if="showNetProfitTrend" class="text-sm ml-1" :class="priceTrendColor(netProfitPriceTrend7d)">
           {{ priceTrendIcon(netProfitPriceTrend7d) }} {{ formatNumber(Math.abs(netProfitPriceTrend7d), 1) }}%
@@ -234,24 +138,21 @@ const showExportProfitTrend = computed(() => {
       </div>
       <div>
         {{ translate('exportNetProfit') }}:
-        <span :class="exportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-          {{ formatPrice(exportNetProfit,2) }}
-        </span>
-        <span v-if="showExportProfitTrend" class="text-sm ml-1" :class="priceTrendColor(exportPriceTrend7d)">
-          {{ priceTrendIcon(exportPriceTrend7d) }} {{ formatNumber(Math.abs(exportPriceTrend7d), 1) }}%
+        <span :class="exportMetrics.exportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+          {{ formatPrice(exportMetrics.exportNetProfit, 2) }}
         </span>
       </div>
       <div>
         {{ translate('workerPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.workerPurchaseCosts,2) }}</span>
+        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.workerPurchaseCosts, 2) }}</span>
       </div>
       <div>
         {{ translate('materialPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.materialPurchaseCosts,2) }}</span>
+        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.materialPurchaseCosts, 2) }}</span>
       </div>
       <div>
         {{ translate('productionRevenue') }}:
-        <span class="text-emerald-300">{{ formatPrice(summaryForPeriod.productionRevenue,2) }}</span>
+        <span class="text-emerald-300">{{ formatPrice(summaryForPeriod.productionRevenue, 2) }}</span>
       </div>
     </div>
   </div>
