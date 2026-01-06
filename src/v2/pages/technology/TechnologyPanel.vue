@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { translate } from '@/v2/localisation'
 import {
   TECHNOLOGIES,
@@ -11,9 +11,25 @@ import { useWorldData } from '@/v2/services/worldData'
 import { refreshEntry } from '@/v2/services/syncService'
 
 const { state, setLevel, setStartingBonus } = usePlayerTechnology()
-const { current } = useWorldData()
+const { current, worldData } = useWorldData()
 
 const isRefreshing = ref(false)
+
+// Initialize current state with saved values if not yet loaded from API
+onMounted(() => {
+  if (!current.value.fetchedAt || Object.keys(current.value.technology).length === 0) {
+    // Copy current saved values to current state (one-time initialization)
+    // Filter out undefined values to match Record<number, number> type
+    const technologyLevels: Record<number, number> = {}
+    for (const [techId, level] of Object.entries(state.value.levels)) {
+      if (level !== undefined) {
+        technologyLevels[Number(techId)] = level
+      }
+    }
+    worldData.value.current.technology = technologyLevels
+    worldData.value.current.startingBonus = state.value.startingBonus
+  }
+})
 
 // Last fetched timestamp for company data (technology levels)
 const lastFetched = computed(() => {
@@ -47,12 +63,9 @@ const startingBonus = computed({
 })
 
 // Current level from API (read-only)
-// Falls noch nicht vom API geladen, zeige die aktuell gespeicherten Werte
+// Zeigt immer nur die Werte aus current.technology
 function currentLevel(id: TechnologySpecialisation): number {
-  const apiLevel = current.value.technology?.[id]
-  const savedLevel = state.value.levels?.[id] ?? 0
-  // Wenn API-Daten vorhanden sind (fetchedAt gesetzt), nutze diese, sonst Fallback zu gespeicherten Werten
-  return current.value.fetchedAt && apiLevel !== undefined ? apiLevel : savedLevel
+  return current.value.technology?.[id] ?? 0
 }
 
 // Planned level (editable, affects planned production)
