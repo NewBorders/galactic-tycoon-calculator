@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { translate } from '@/v2/localisation'
 import {
   TECHNOLOGIES,
@@ -7,12 +7,13 @@ import {
   type TechnologySpecialisation,
   usePlayerTechnology,
 } from '@/v2/services/playerTechnology'
-import { usePlanningMode } from '@/v2/services/planningMode'
 import { useWorldData } from '@/v2/services/worldData'
+import { refreshEntry } from '@/v2/services/syncService'
 
 const { state, setLevel, setStartingBonus } = usePlayerTechnology()
-const { isPlanningActive, plannedTechnology } = usePlanningMode()
-const { current, worldData } = useWorldData()
+const { current } = useWorldData()
+
+const isRefreshing = ref(false)
 
 // Last fetched timestamp for company data (technology levels)
 const lastFetched = computed(() => {
@@ -34,20 +35,12 @@ const formattedLastFetched = computed(() => {
   }
 })
 
+// Starting bonus for planned production
 const startingBonus = computed({
-  get: () => {
-    if (isPlanningActive.value && worldData.value.planning) {
-      return worldData.value.planning.startingBonus ?? state.value.startingBonus
-    }
-    return state.value.startingBonus
-  },
+  get: () => state.value.startingBonus,
   set: (value) => {
     const numeric = typeof value === 'number' ? value : Number(value)
-    if (!Number.isFinite(numeric)) return
-    
-    if (isPlanningActive.value && worldData.value.planning) {
-      worldData.value.planning.startingBonus = numeric
-    } else {
+    if (Number.isFinite(numeric)) {
       setStartingBonus(numeric)
     }
   },
@@ -58,11 +51,8 @@ function currentLevel(id: TechnologySpecialisation): number {
   return current.value.technology?.[id] ?? 0
 }
 
-// Planned level (editable)
+// Planned level (editable, affects planned production)
 function plannedLevel(id: TechnologySpecialisation): number {
-  if (isPlanningActive.value) {
-    return plannedTechnology.value?.[id] ?? currentLevel(id)
-  }
   return state.value.levels?.[id] ?? 0
 }
 
@@ -71,11 +61,19 @@ function onLevelInput(id: TechnologySpecialisation, event: Event) {
   if (!target) return
   const value = target.valueAsNumber
   const level = Number.isNaN(value) ? 0 : value
-  
-  if (isPlanningActive.value && worldData.value.planning) {
-    worldData.value.planning.technology[id] = level
-  } else {
-    setLevel(id, level)
+  setLevel(id, level)
+}
+
+// Manual refresh of company data
+async function handleRefreshCompanyData() {
+  isRefreshing.value = true
+  try {
+    await refreshEntry('company')
+  } finally {
+    // Add small delay so user sees the refresh happened
+    setTimeout(() => {
+      isRefreshing.value = false
+    }, 500)
   }
 }
 
@@ -98,8 +96,18 @@ const startingBonusDisplay = computed(() => {
   <div class="space-y-6 text-slate-100">
     <!-- Company Data Last Updated -->
     <div class="rounded border border-slate-700 bg-slate-900 p-4">
-      <div class="text-sm text-slate-400">
-        {{ translate('companyDataLastUpdated') }}: <span class="text-slate-300">{{ formattedLastFetched }}</span>
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-slate-400">
+          {{ translate('companyDataLastUpdated') }}: <span class="text-slate-300">{{ formattedLastFetched }}</span>
+        </div>
+        <button
+          @click="handleRefreshCompanyData"
+          :disabled="isRefreshing"
+          class="px-3 py-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm flex items-center gap-2"
+        >
+          <span>{{ isRefreshing ? '⏳' : '🔄' }}</span>
+          <span>{{ translate('refresh') }}</span>
+        </button>
       </div>
     </div>
 
@@ -138,23 +146,18 @@ const startingBonusDisplay = computed(() => {
             <p class="text-xs text-slate-400 leading-relaxed">{{ translate(tech.descriptionKey) }}</p>
           </div>
           
-          <!-- Current Level (Read-only) -->
+          <!-- Current Level (from API) -->
           <div class="flex flex-wrap items-center gap-3 text-sm">
-            <label class="flex items-center gap-2">
-              <span class="text-slate-400">{{ translate('currentLevel') }}</span>
-              <input
-                :value="currentLevel(tech.id)"
-                type="number"
-                readonly
-                class="bg-slate-800/50 border border-slate-700 rounded px-2 py-1 w-20 text-slate-400 cursor-not-allowed"
-              />
-            </label>
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400">{{ translate('currentLevel') }}:</span>
+              <span class="text-slate-300 font-semibold">{{ currentLevel(tech.id) }}</span>
+            </div>
             <span class="text-xs text-slate-400">
               {{ formatBonus(currentLevel(tech.id)) }}
             </span>
           </div>
           
-          <!-- Planned Level (Editable, affects "Planned Production") -->
+          <!-- Planned Level (Editable, for planning your production) -->
           <div class="flex flex-wrap items-center gap-3 text-sm">
             <label class="flex items-center gap-2">
               <span class="text-slate-300">{{ translate('plannedLevel') }}</span>
@@ -164,7 +167,7 @@ const startingBonusDisplay = computed(() => {
                 min="0"
                 step="1"
                 class="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-20"
-                :class="{ 'border-blue-500': isPlanningActive && plannedLevel(tech.id) !== currentLevel(tech.id) }"
+                :class="{ 'border-blue-500 ring-1 ring-blue-500': plannedLevel(tech.id) !== currentLevel(tech.id) }"
                 @input="onLevelInput(tech.id, $event)"
               />
             </label>

@@ -13,4 +13,4 @@
 * Work smart. When debugging, take a step back and think deeply about what might be going wrong.
   When something is not working as intended, add logging to check your assumptions.
 * Use ETL (extraction, transformation/enrichment and load) for external connections like API
-* Use MVC and Service Repository Pattern to keep everything encapsulated and to keep logic out of frontend views
+* Use MVC, Service Repository Pattern, Repository Pattern and Composables Pattern to keep everything encapsulated and to keep logic out of frontend views
