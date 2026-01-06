@@ -23,6 +23,8 @@ const props = defineProps<{
   priceResolver: (materialId: number) => number
   technologyLevels: Partial<Record<number, number>>
   startingBonus: number
+  currentTechnologyLevels: Partial<Record<number, number>>
+  currentStartingBonus: number
   timeframeHours: number
   globalWorkforceBurden: number
   warehouseStocks: Record<number, number>

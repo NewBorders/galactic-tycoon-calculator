@@ -18,6 +18,7 @@ import ImportConfirmDialog from './components/ImportConfirmDialog.vue'
 import GlobalSummary from './components/GlobalSummary.vue'
 import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
+import { useWorldData } from '@/v2/services/worldData'
 
 import { computeBaseReport } from '@/v2/services/production/engine'
 
@@ -75,8 +76,19 @@ function removeBase(baseId: string) {
 }
 
 const { state: technologyState } = usePlayerTechnology()
-const technologyLevels = computed(() => technologyState.value.levels ?? {})
-const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
+const { current: currentWorldState } = useWorldData()
+
+// Planned technology levels and starting bonus (user's planned changes)
+const plannedTechnologyLevels = computed(() => technologyState.value.levels ?? {})
+const plannedStartingBonus = computed(() => technologyState.value.startingBonus ?? 1)
+
+// Current technology levels and starting bonus (from API, read-only)
+const currentTechnologyLevels = computed(() => currentWorldState.value.technology ?? {})
+const currentStartingBonus = computed(() => currentWorldState.value.startingBonus ?? 1)
+
+// For backward compatibility and global calculations, use planned values
+const technologyLevels = plannedTechnologyLevels
+const startingBonus = plannedStartingBonus
 
 // Calculate global workforce burden across all bases for expansion overhead
 const globalWorkforceBurden = computed(() => {
@@ -591,6 +603,8 @@ async function refreshGameData() {
           :price-resolver="priceResolver"
           :technology-levels="technologyLevels"
           :starting-bonus="startingBonus"
+          :current-technology-levels="currentTechnologyLevels"
+          :current-starting-bonus="currentStartingBonus"
           :timeframe-hours="timeframeHours"
           :global-workforce-burden="globalWorkforceBurden"
           :market-opportunities="marketOpportunities"

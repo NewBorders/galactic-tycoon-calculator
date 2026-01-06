@@ -21,8 +21,10 @@ const props = defineProps<{
   gameData: GameData
   index: GdIndex
   priceResolver: (materialId: number) => number
-  technologyLevels: Partial<Record<number, number>>
-  startingBonus: number
+  technologyLevels: Partial<Record<number, number>> // Planned levels
+  startingBonus: number // Planned starting bonus
+  currentTechnologyLevels: Partial<Record<number, number>> // Current levels from API
+  currentStartingBonus: number // Current starting bonus from API
   timeframeHours: number
   globalWorkforceBurden: number
   marketOpportunities?: MarketOpportunity[]
@@ -96,9 +98,28 @@ const technologyLevelMap = computed(() => {
   return map
 })
 
+const currentTechnologyLevelMap = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.currentTechnologyLevels ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    map.set(spec, Math.max(0, Math.floor(level)))
+  })
+  return map
+})
+
 const technologyLevelsOption = computed(() => {
   const obj: Record<number, number> = {}
   technologyLevelMap.value.forEach((level, spec) => {
+    obj[spec] = level
+  })
+  return obj
+})
+
+const currentTechnologyLevelsOption = computed(() => {
+  const obj: Record<number, number> = {}
+  currentTechnologyLevelMap.value.forEach((level, spec) => {
     obj[spec] = level
   })
   return obj
@@ -120,6 +141,7 @@ const activeOptionalConsumables = computed(() => {
   return new Set((props.base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'))
 })
 
+// Planned production report (uses planned technology levels)
 const report = computed(() =>
   computeBaseReport(props.gameData, {
     assignment: assignment.value,
@@ -129,6 +151,21 @@ const report = computed(() =>
       priceResolver: props.priceResolver,
       technologyLevels: technologyLevelsOption.value,
       startingBonus: props.startingBonus,
+      globalWorkforceBurden: props.globalWorkforceBurden,
+    },
+  }),
+)
+
+// Current production report (uses current technology levels from API)
+const reportCurrent = computed(() =>
+  computeBaseReport(props.gameData, {
+    assignment: assignment.value,
+    horizonDays: 1,
+    options: {
+      activeOptionalConsumables: activeOptionalConsumables.value,
+      priceResolver: props.priceResolver,
+      technologyLevels: currentTechnologyLevelsOption.value,
+      startingBonus: props.currentStartingBonus,
       globalWorkforceBurden: props.globalWorkforceBurden,
     },
   }),
@@ -346,6 +383,8 @@ const productivitySummary = computed(() => {
             :price-resolver="props.priceResolver"
             :technology-levels="props.technologyLevels"
             :starting-bonus="props.startingBonus"
+            :current-technology-levels="props.currentTechnologyLevels"
+            :current-starting-bonus="props.currentStartingBonus"
             :timeframe-hours="props.timeframeHours"
             :global-workforce-burden="props.globalWorkforceBurden"
             :market-opportunities="props.marketOpportunities"
@@ -360,6 +399,8 @@ const productivitySummary = computed(() => {
           :price-resolver="props.priceResolver"
           :technology-levels="props.technologyLevels"
           :starting-bonus="props.startingBonus"
+          :current-technology-levels="props.currentTechnologyLevels"
+          :current-starting-bonus="props.currentStartingBonus"
           :timeframe-hours="props.timeframeHours"
           :global-workforce-burden="props.globalWorkforceBurden"
           :warehouse-stocks="base.stock ?? {}"
@@ -407,6 +448,8 @@ const productivitySummary = computed(() => {
           :price-resolver="props.priceResolver"
           :technology-levels="props.technologyLevels"
           :starting-bonus="props.startingBonus"
+          :current-technology-levels="props.currentTechnologyLevels"
+          :current-starting-bonus="props.currentStartingBonus"
           :timeframe-hours="props.timeframeHours"
           :global-workforce-burden="props.globalWorkforceBurden"
           @addRecipe="

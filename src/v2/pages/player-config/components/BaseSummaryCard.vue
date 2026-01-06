@@ -19,6 +19,8 @@ const props = defineProps<{
   priceResolver: (materialId: number) => number
   technologyLevels: Partial<Record<number, number>>
   startingBonus: number
+  currentTechnologyLevels: Partial<Record<number, number>>
+  currentStartingBonus: number
   timeframeHours: number
   globalWorkforceBurden: number
   marketOpportunities?: MarketOpportunity[]
@@ -59,6 +61,7 @@ const activeOptionalConsumables = computed(() => {
   return new Set((props.base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'))
 })
 
+// Planned production report (using planned technology levels)
 const report = computed(() =>
   computeBaseReport(props.gameData, {
     assignment: assignment.value,
