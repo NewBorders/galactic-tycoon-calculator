@@ -303,30 +303,128 @@ const exportMaterialIds = computed(() => {
   return exportIds
 })
 
+// Combined material rows with both current and planned data
 const materialRows = computed(() => {
-  const rows = report.value.materials.map((row) => {
+  // Build a map of material ID to combined row data
+  const combinedMap = new Map<number, {
+    materialId: number
+    current: {
+      balancePerDay: number
+      balancePerPeriod: number
+      valuePerDay: number
+      valuePerPeriod: number
+      unitPrice: number
+      stock: number
+      daysCoverage: number | null
+      toBuy: number
+    }
+    planned: {
+      balancePerDay: number
+      balancePerPeriod: number
+      valuePerDay: number
+      valuePerPeriod: number
+      unitPrice: number
+      stock: number
+      daysCoverage: number | null
+      toBuy: number
+    }
+  }>()
+
+  // Process planned materials
+  report.value.materials.forEach((row) => {
     const stock = stockByMaterialId.value.get(row.materialId) ?? 0
     const daysCoverage = row.balancePerDay < 0 ? (stock > 0 ? stock / -row.balancePerDay : 0) : null
     const balancePerPeriod = row.balancePerDay * periodFactor.value
     const valuePerPeriod = row.valuePerDay * periodFactor.value
     const toBuy = row.balancePerDay < 0 ? Math.max(0, -balancePerPeriod - stock) : 0
-    return { ...row, stock, daysCoverage, balancePerPeriod, valuePerPeriod, toBuy }
+    
+    combinedMap.set(row.materialId, {
+      materialId: row.materialId,
+      current: {
+        balancePerDay: 0,
+        balancePerPeriod: 0,
+        valuePerDay: 0,
+        valuePerPeriod: 0,
+        unitPrice: row.unitPrice,
+        stock: 0,
+        daysCoverage: null,
+        toBuy: 0,
+      },
+      planned: {
+        balancePerDay: row.balancePerDay,
+        balancePerPeriod,
+        valuePerDay: row.valuePerDay,
+        valuePerPeriod,
+        unitPrice: row.unitPrice,
+        stock,
+        daysCoverage,
+        toBuy,
+      },
+    })
   })
+
+  // Process current materials and merge
+  reportCurrent.value.materials.forEach((row) => {
+    const stock = stockByMaterialId.value.get(row.materialId) ?? 0
+    const daysCoverage = row.balancePerDay < 0 ? (stock > 0 ? stock / -row.balancePerDay : 0) : null
+    const balancePerPeriod = row.balancePerDay * periodFactor.value
+    const valuePerPeriod = row.valuePerDay * periodFactor.value
+    const toBuy = row.balancePerDay < 0 ? Math.max(0, -balancePerPeriod - stock) : 0
+    
+    const existing = combinedMap.get(row.materialId)
+    if (existing) {
+      existing.current = {
+        balancePerDay: row.balancePerDay,
+        balancePerPeriod,
+        valuePerDay: row.valuePerDay,
+        valuePerPeriod,
+        unitPrice: row.unitPrice,
+        stock,
+        daysCoverage,
+        toBuy,
+      }
+    } else {
+      combinedMap.set(row.materialId, {
+        materialId: row.materialId,
+        current: {
+          balancePerDay: row.balancePerDay,
+          balancePerPeriod,
+          valuePerDay: row.valuePerDay,
+          valuePerPeriod,
+          unitPrice: row.unitPrice,
+          stock,
+          daysCoverage,
+          toBuy,
+        },
+        planned: {
+          balancePerDay: 0,
+          balancePerPeriod: 0,
+          valuePerDay: 0,
+          valuePerPeriod: 0,
+          unitPrice: row.unitPrice,
+          stock: 0,
+          daysCoverage: null,
+          toBuy: 0,
+        },
+      })
+    }
+  })
+
+  let rows = Array.from(combinedMap.values())
 
   // Sort by name or keep recipe order
   if (materialSortOrder.value === 'name') {
-    return rows.sort((a, b) => {
+    rows = rows.sort((a, b) => {
       const nameA = materialName(a.materialId).toLowerCase()
       const nameB = materialName(b.materialId).toLowerCase()
       return nameA.localeCompare(nameB)
     })
   }
 
-  // 'recipe' order: keep as is (from production order)
   return rows
 })
 
-// Split materials into export and non-export
+// Split materials into export and non-export (based on planned production)
 const exportMaterials = computed(() => {
   return materialRows.value.filter(row => exportMaterialIds.value.has(row.materialId))
 })
@@ -344,10 +442,10 @@ watch([materialRows, timeframeHours], () => {
   const thresholdHours = timeframeHours.value
 
   materialRows.value.forEach((row) => {
-    // Only for materials with negative balance (consumption)
-    if (row.balancePerDay >= 0) return
+    // Only for materials with negative balance (consumption) - use planned values
+    if (row.planned.balancePerDay >= 0) return
 
-    const daysCoverage = row.daysCoverage ?? 0
+    const daysCoverage = row.planned.daysCoverage ?? 0
     const hoursCoverage = daysCoverage * 24
 
     // If stock coverage is below threshold, unmute existing buy alert if muted
@@ -360,8 +458,78 @@ watch([materialRows, timeframeHours], () => {
   })
 }, { deep: true })
 
+// Combined worker rows with both current and planned data
 const workerRows = computed(() => {
-  const rows = report.value.workers.slice()
+  // Build a map of worker type + materialId to combined row data
+  const combinedMap = new Map<string, {
+    tier: 1 | 2 | 3 | 4
+    materialId: number
+    optional: boolean
+    active: boolean
+    current: {
+      consumptionPerDay: number
+      costPerDay: number
+      unitPrice: number
+    }
+    planned: {
+      consumptionPerDay: number
+      costPerDay: number
+      unitPrice: number
+    }
+  }>()
+
+  // Process planned workers
+  report.value.workers.forEach((row) => {
+    const key = `${row.tier}-${row.materialId}`
+    combinedMap.set(key, {
+      tier: row.tier,
+      materialId: row.materialId,
+      optional: row.optional,
+      active: row.active,
+      current: {
+        consumptionPerDay: 0,
+        costPerDay: 0,
+        unitPrice: row.unitPrice,
+      },
+      planned: {
+        consumptionPerDay: row.consumptionPerDay,
+        costPerDay: row.costPerDay,
+        unitPrice: row.unitPrice,
+      },
+    })
+  })
+
+  // Process current workers and merge
+  reportCurrent.value.workers.forEach((row) => {
+    const key = `${row.tier}-${row.materialId}`
+    const existing = combinedMap.get(key)
+    if (existing) {
+      existing.current = {
+        consumptionPerDay: row.consumptionPerDay,
+        costPerDay: row.costPerDay,
+        unitPrice: row.unitPrice,
+      }
+    } else {
+      combinedMap.set(key, {
+        tier: row.tier,
+        materialId: row.materialId,
+        optional: row.optional,
+        active: row.active,
+        current: {
+          consumptionPerDay: row.consumptionPerDay,
+          costPerDay: row.costPerDay,
+          unitPrice: row.unitPrice,
+        },
+        planned: {
+          consumptionPerDay: 0,
+          costPerDay: 0,
+          unitPrice: row.unitPrice,
+        },
+      })
+    }
+  })
+
+  const rows = Array.from(combinedMap.values())
   rows.sort((a, b) => {
     if (a.tier !== b.tier) return a.tier - b.tier
     if (a.optional !== b.optional) return a.optional ? 1 : -1
@@ -373,13 +541,21 @@ const workerRows = computed(() => {
 const workerDisplayRows = computed(() =>
   workerRows.value.map((row) => ({
     ...row,
-    consumptionPerPeriod: row.consumptionPerDay * periodFactor.value,
-    costPerPeriod: row.costPerDay * periodFactor.value,
+    current: {
+      ...row.current,
+      consumptionPerPeriod: row.current.consumptionPerDay * periodFactor.value,
+      costPerPeriod: row.current.costPerDay * periodFactor.value,
+    },
+    planned: {
+      ...row.planned,
+      consumptionPerPeriod: row.planned.consumptionPerDay * periodFactor.value,
+      costPerPeriod: row.planned.costPerDay * periodFactor.value,
+    },
   })),
 )
 
 const totalWorkerCosts = computed(() =>
-  workerDisplayRows.value.reduce((acc, row) => acc + row.costPerPeriod, 0),
+  workerDisplayRows.value.reduce((acc, row) => acc + row.planned.costPerPeriod, 0),
 )
 
 // Calculate workforce productivity
@@ -556,118 +732,229 @@ onBeforeUnmount(() => {
       <!-- Non-Export Materials Table (with To Buy info) - NOW FIRST -->
       <div v-if="nonExportMaterials.length" class="space-y-2">
         <div class="text-sm font-semibold text-slate-300">{{ translate('otherMaterials') }}</div>
-        <table class="w-full text-sm">
-          <thead class="text-slate-400 text-xs uppercase">
-            <tr>
-              <th class="text-left pb-1">{{ translate('material') }}</th>
-              <th class="text-right pb-1">{{ periodLabel }}</th>
-              <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
-              <th class="text-right pb-1">{{ translate('toBuy') }}</th>
-              <th class="text-right pb-1">{{ translate('stockCoverage') }}</th>
-              <th class="text-right pb-1">{{ translate('netResult') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in nonExportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
-              <td class="py-1">
-                <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
-                  <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
-                  <span>{{ materialName(row.materialId) }}</span>
-                </a>
-              </td>
-              <td
-                class="py-1 text-right"
-                :class="row.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300'"
-              >
-                {{ formatNumber(row.balancePerPeriod) }} / {{ formatWeight(gameData, row.balancePerPeriod, row.materialId) }}
-              </td>
-              <td class="py-1 text-right">
-                <div class="flex items-center justify-end gap-1">
-                  <span>{{ formatPrice(row.unitPrice,2) }}</span>
-                  <button
-                    @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
-                    :class="[
-                      'transition-colors',
-                      hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
-                      hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
-                      'text-slate-500 hover:text-yellow-400'
-                    ]"
-                    :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
-                  >
-                    {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
-                  </button>
-                </div>
-              </td>
-              <td class="py-1 text-right">
-                <span v-if="row.toBuy > 0">{{ formatNumber(row.toBuy,0,true) }} / {{ formatWeight(gameData, row.toBuy, row.materialId) }}</span>
-                <span v-else>—</span>
-              </td>
-              <td
-                class="py-1 text-right"
-                :class="row.toBuy > 0 ? 'text-rose-300' : 'text-emerald-300'"
-              >
-                <template v-if="row.balancePerDay < 0">
-                  {{ formatNumber(row.stock, 0) }} / {{ formatCoverage(row.daysCoverage ?? null) }}
-                </template>
-                <template v-else>—</template>
-              </td>
-              <td
-                class="py-1 text-right"
-                :class="row.valuePerPeriod >= 0 ? 'text-emerald-300' : 'text-rose-300'"
-              >
-                {{ formatPrice(row.valuePerPeriod,2) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400 text-xs uppercase">
+              <tr>
+                <th class="text-left pb-1" rowspan="2">{{ translate('material') }}</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Current</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Planned</th>
+                <th class="text-right pb-1 border-l border-slate-700" rowspan="2">{{ translate('unitPrice') }}</th>
+              </tr>
+              <tr>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('stockCoverage') }}</th>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('stockCoverage') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in nonExportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
+                <td class="py-1">
+                  <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
+                    <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
+                    <span>{{ materialName(row.materialId) }}</span>
+                  </a>
+                </td>
+                <!-- Current Production -->
+                <td
+                  class="py-1 text-right px-1 border-l border-slate-700/50 text-xs"
+                  :class="row.current.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300'"
+                >
+                  {{ formatNumber(row.current.balancePerPeriod) }}
+                </td>
+                <td class="py-1 text-right px-1 text-xs text-slate-400">
+                  <span v-if="row.current.daysCoverage !== null">
+                    {{ formatNumber(row.current.daysCoverage, 1) }}d
+                  </span>
+                  <span v-else>—</span>
+                </td>
+                <!-- Planned Production -->
+                <td
+                  class="py-1 text-right px-1 border-l border-slate-700/50 text-xs"
+                  :class="[
+                    row.planned.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300',
+                    Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''
+                  ]"
+                >
+                  {{ formatNumber(row.planned.balancePerPeriod) }}
+                </td>
+                <td 
+                  class="py-1 text-right px-1 text-xs"
+                  :class="[
+                    'text-slate-400',
+                    Math.abs((row.planned.daysCoverage ?? 0) - (row.current.daysCoverage ?? 0)) > 0.01 ? 'bg-blue-900/20' : ''
+                  ]"
+                >
+                  <span v-if="row.planned.daysCoverage !== null">
+                    {{ formatNumber(row.planned.daysCoverage, 1) }}d
+                  </span>
+                  <span v-else>—</span>
+                </td>
+                <td class="py-1 text-right border-l border-slate-700/50">
+                  <div class="flex items-center justify-end gap-1">
+                    <span>{{ formatPrice(row.planned.unitPrice, 2) }}</span>
+                    <button
+                      @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
+                      :class="[
+                        'transition-colors',
+                        hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
+                        hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
+                        'text-slate-500 hover:text-yellow-400'
+                      ]"
+                      :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                    >
+                      {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- Export Materials Table - NOW SECOND -->
+      <!-- Export Materials Table -->
+      <div v-if="exportMaterials.length" class="space-y-2">
+        <div class="text-sm font-semibold text-slate-300">{{ translate('exportMaterials') }}</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400 text-xs uppercase">
+              <tr>
+                <th class="text-left pb-1" rowspan="2">{{ translate('material') }}</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Current</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Planned</th>
+                <th class="text-right pb-1 border-l border-slate-700" rowspan="2">{{ translate('unitPrice') }}</th>
+              </tr>
+              <tr>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Value</th>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in exportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
+                <td class="py-1">
+                  <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
+                    <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
+                    <span>{{ materialName(row.materialId) }}</span>
+                  </a>
+                </td>
+                <!-- Current Production -->
+                <td class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300">
+                  {{ formatNumber(row.current.balancePerPeriod) }}
+                </td>
+                <td class="py-1 text-right px-1 text-xs text-emerald-300">
+                  {{ formatPrice(row.current.valuePerPeriod, 2) }}
+                </td>
+                <!-- Planned Production -->
+                <td 
+                  class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300"
+                  :class="Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatNumber(row.planned.balancePerPeriod) }}
+                </td>
+                <td 
+                  class="py-1 text-right px-1 text-xs text-emerald-300"
+                  :class="Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatPrice(row.planned.valuePerPeriod, 2) }}
+                </td>
+                <td class="py-1 text-right border-l border-slate-700/50">
+                  <div class="flex items-center justify-end gap-1">
+                    <span>{{ formatPrice(row.planned.unitPrice, 2) }}</span>
+                    <button
+                      @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
+                      :class="[
+                        'transition-colors',
+                        hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
+                        hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
+                        'text-slate-500 hover:text-yellow-400'
+                      ]"
+                      :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                    >
+                      {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div v-if="!materialRows.length" class="text-sm text-slate-400">—</div>
+    </div>
+
+    <!-- Worker Consumption (right column, top) -->
       <div v-if="exportMaterials.length" class="space-y-2">
         <div class="text-sm font-semibold text-emerald-300">{{ translate('exportMaterials') }}</div>
-        <table class="w-full text-sm">
-          <thead class="text-slate-400 text-xs uppercase">
-            <tr>
-              <th class="text-left pb-1">{{ translate('material') }}</th>
-              <th class="text-right pb-1">{{ periodLabel }}</th>
-              <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
-              <th class="text-right pb-1">{{ translate('netResult') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in exportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
-              <td class="py-1">
-                <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
-                  <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
-                  <span>{{ materialName(row.materialId) }}</span>
-                </a>
-              </td>
-              <td class="py-1 text-right text-emerald-300">
-                {{ formatNumber(row.balancePerPeriod) }} / {{ formatWeight(gameData, row.balancePerPeriod, row.materialId) }}
-              </td>
-              <td class="py-1 text-right">
-                <div class="flex items-center justify-end gap-1">
-                  <span>{{ formatPrice(row.unitPrice,2) }}</span>
-                  <button
-                    @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
-                    :class="[
-                      'transition-colors',
-                      hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
-                      hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
-                      'text-slate-500 hover:text-yellow-400'
-                    ]"
-                    :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
-                  >
-                    {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
-                  </button>
-                </div>
-              </td>
-              <td class="py-1 text-right text-emerald-300">
-                {{ formatPrice(row.valuePerPeriod,2) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400 text-xs uppercase">
+              <tr>
+                <th class="text-left pb-1" rowspan="2">{{ translate('material') }}</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Current</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Planned</th>
+                <th class="text-right pb-1 border-l border-slate-700" rowspan="2">{{ translate('unitPrice') }}</th>
+              </tr>
+              <tr>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Value</th>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in exportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
+                <td class="py-1">
+                  <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
+                    <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
+                    <span>{{ materialName(row.materialId) }}</span>
+                  </a>
+                </td>
+                <!-- Current Production -->
+                <td class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300">
+                  {{ formatNumber(row.current.balancePerPeriod) }}
+                </td>
+                <td class="py-1 text-right px-1 text-xs text-emerald-300">
+                  {{ formatPrice(row.current.valuePerPeriod, 2) }}
+                </td>
+                <!-- Planned Production -->
+                <td 
+                  class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300"
+                  :class="Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatNumber(row.planned.balancePerPeriod) }}
+                </td>
+                <td 
+                  class="py-1 text-right px-1 text-xs text-emerald-300"
+                  :class="Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatPrice(row.planned.valuePerPeriod, 2) }}
+                </td>
+                <td class="py-1 text-right border-l border-slate-700/50">
+                  <div class="flex items-center justify-end gap-1">
+                    <span>{{ formatPrice(row.planned.unitPrice, 2) }}</span>
+                    <button
+                      @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
+                      :class="[
+                        'transition-colors',
+                        hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
+                        hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
+                        'text-slate-500 hover:text-yellow-400'
+                      ]"
+                      :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                    >
+                      {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div v-if="!materialRows.length" class="text-sm text-slate-400">—</div>
@@ -728,47 +1015,66 @@ onBeforeUnmount(() => {
       </div>
 
       <template v-if="workerDisplayRows.length">
-        <table class="w-full text-sm">
-          <thead class="text-slate-400 text-xs uppercase">
-            <tr>
-              <th class="text-left pb-1">{{ translate('material') }}</th>
-              <th class="text-right pb-1">{{ periodLabel }}</th>
-              <th class="text-right pb-1">{{ translate('unitPrice') }}</th>
-              <th class="text-right pb-1">{{ translate('totalCosts') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in workerDisplayRows"
-              :key="row.tier + '-' + row.materialId"
-              class="border-t border-slate-800/60"
-              :class="{ 'opacity-60': row.optional && !row.active }"
-            >
-              <td class="py-1">
-                <span class="inline-flex items-center gap-1">
-                  <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
-                  <span>{{ materialName(row.materialId) }}</span>
-                </span>
-                <span
-                  v-if="row.optional"
-                  class="ml-2 text-[11px]"
-                  :class="row.active ? 'text-emerald-300' : 'text-slate-500'"
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400 text-xs uppercase">
+              <tr>
+                <th class="text-left pb-1" rowspan="2">{{ translate('material') }}</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Current</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Planned</th>
+              </tr>
+              <tr>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('totalCosts') }}</th>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('totalCosts') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in workerDisplayRows"
+                :key="row.tier + '-' + row.materialId"
+                class="border-t border-slate-800/60"
+                :class="{ 'opacity-40': row.optional && !row.active }"
+              >
+                <td class="py-1">
+                  <div class="flex items-center gap-1">
+                    <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
+                    <span>{{ materialName(row.materialId) }}</span>
+                    <span v-if="row.optional" class="text-xs text-orange-400">({{ translate('optional') }})</span>
+                  </div>
+                </td>
+                <!-- Current Consumption -->
+                <td class="py-1 text-right px-1 border-l border-slate-700/50 text-xs">
+                  {{ formatNumber(row.current.consumptionPerPeriod) }}
+                </td>
+                <td class="py-1 text-right px-1 text-xs text-rose-300">
+                  {{ formatPrice(row.current.costPerPeriod, 2) }}
+                </td>
+                <!-- Planned Consumption -->
+                <td 
+                  class="py-1 text-right px-1 border-l border-slate-700/50 text-xs"
+                  :class="Math.abs(row.planned.consumptionPerPeriod - row.current.consumptionPerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
                 >
-                  {{ row.active ? translate('optionalActive') : translate('optionalInactive') }}
-                </span>
-              </td>
-              <td class="py-1 text-right">{{ formatNumber(row.consumptionPerPeriod) }}</td>
-              <td class="py-1 text-right">{{ formatPrice(row.unitPrice) }}</td>
-              <td class="py-1 text-right">{{ formatPrice(row.costPerPeriod, 2) }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="text-right text-xs text-slate-400">
-          {{ translate('totalWorkerCosts') }}:
-          <span class="text-slate-200">{{ formatPrice(totalWorkerCosts, 2) }}</span>
+                  {{ formatNumber(row.planned.consumptionPerPeriod) }}
+                </td>
+                <td 
+                  class="py-1 text-right px-1 text-xs text-rose-300"
+                  :class="Math.abs(row.planned.costPerPeriod - row.current.costPerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatPrice(row.planned.costPerPeriod, 2) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pt-2 border-t border-slate-700 text-sm font-semibold text-right">
+          {{ translate('totalWorkerCosts') }}: <span class="text-rose-300">{{ formatPrice(totalWorkerCosts, 2) }}</span>
         </div>
       </template>
-      <div v-else class="text-sm text-slate-400">—</div>
+      <template v-else>
+        <div class="text-sm text-slate-400">—</div>
+      </template>
     </div>
   </div>
 
