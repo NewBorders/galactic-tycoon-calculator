@@ -47,8 +47,12 @@ const startingBonus = computed({
 })
 
 // Current level from API (read-only)
+// Falls noch nicht vom API geladen, zeige die aktuell gespeicherten Werte
 function currentLevel(id: TechnologySpecialisation): number {
-  return current.value.technology?.[id] ?? 0
+  const apiLevel = current.value.technology?.[id]
+  const savedLevel = state.value.levels?.[id] ?? 0
+  // Wenn API-Daten vorhanden sind (fetchedAt gesetzt), nutze diese, sonst Fallback zu gespeicherten Werten
+  return current.value.fetchedAt && apiLevel !== undefined ? apiLevel : savedLevel
 }
 
 // Planned level (editable, affects planned production)
@@ -61,7 +65,8 @@ function onLevelInput(id: TechnologySpecialisation, event: Event) {
   if (!target) return
   const value = target.valueAsNumber
   const level = Number.isNaN(value) ? 0 : value
-  setLevel(id, level)
+  const minLevel = currentLevel(id) // Kann nicht unter current level gesetzt werden
+  setLevel(id, Math.max(minLevel, level))
 }
 
 // Manual refresh of company data
@@ -164,7 +169,7 @@ const startingBonusDisplay = computed(() => {
               <input
                 :value="plannedLevel(tech.id)"
                 type="number"
-                min="0"
+                :min="currentLevel(tech.id)"
                 step="1"
                 class="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-20"
                 :class="{ 'border-blue-500 ring-1 ring-blue-500': plannedLevel(tech.id) !== currentLevel(tech.id) }"
