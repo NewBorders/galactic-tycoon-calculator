@@ -41,7 +41,7 @@ const list = computed<PlayerBuilding[]>({
     v-model="list"
     item-key="id"
     handle=".dnd-handle-bld"
-    class="grid gap-3 md:grid-cols-2"
+    class="grid gap-3 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]"
     @end="$emit('persist')"
   >
     <template #item="{ element: inst }">
