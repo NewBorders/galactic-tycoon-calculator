@@ -15,6 +15,7 @@ import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
 import ImportConfirmDialog from './components/ImportConfirmDialog.vue'
+import GlobalSummary from './components/GlobalSummary.vue'
 import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
@@ -261,7 +262,7 @@ onMounted(() => {
   refreshTimer = setInterval(() => {
     updateCountdown()
   }, 1000)
-  
+
   // Register callback for when sync service loads company data
   registerSyncCallbacks({
     onCompanyDataLoaded: handleBasesLoaded,
@@ -306,7 +307,7 @@ async function handleBasesLoaded(
 ) {
   // Update sync timestamp for company data
   updateSyncTime('company')
-  
+
   // Track existing gameBaseIds before sync to detect newly added bases
   const existingIds = new Set(
     state.value.bases
@@ -568,6 +569,20 @@ async function refreshGameData() {
       :suggestions="suggestions"
       :hasBase="planetHasBase"
       @select="selectPlanet"
+    />
+
+    <!-- Global Summary -->
+    <GlobalSummary
+      v-if="state.bases.length > 0"
+      :bases="state.bases"
+      :game-data="props.gameData"
+      :index="props.index"
+      :price-resolver="priceResolver"
+      :technology-levels="technologyLevels"
+      :starting-bonus="startingBonus"
+      :timeframe-hours="timeframeHours"
+      :global-workforce-burden="globalWorkforceBurden"
+      :export-threshold="exportThreshold"
     />
 
     <!-- Bases -->

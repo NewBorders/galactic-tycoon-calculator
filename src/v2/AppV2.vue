@@ -10,7 +10,6 @@ import { useMaterialPricing } from './services/gamedata/prices'
 import { useWorldData } from './services/worldData'
 import { initializeSyncService } from './services/syncService'
 import { loadSvgSprite } from './services/spriteLoader'
-import GlobalSummaryPage from './pages/GlobalSummaryPage.vue'
 import MaterialsShortagePage from './pages/MaterialsShortagePage.vue'
 import MaterialsBalancePage from './pages/MaterialsBalancePage.vue'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
@@ -23,10 +22,10 @@ import TodoList from './components/TodoList.vue'
 import PlanningRequiredDialog from './components/PlanningRequiredDialog.vue'
 import ApiLandingPage from './components/ApiLandingPage.vue'
 
-type Tab = 'overview' | 'bases' | 'matsShortage' | 'matsBalance' | 'technology' | 'config' | 'market' | 'alerts'
+type Tab = 'bases' | 'matsShortage' | 'matsBalance' | 'technology' | 'config' | 'market' | 'alerts'
 const LS_KEY = 'gt:v2:activeTab'
 
-const active = ref<Tab>('overview')
+const active = ref<Tab>('bases')
 const gd = ref<GameData | null>(null)
 const gdIndex = ref<GdIndex | null>(null)
 const gdLoadedAt = ref<number | null>(null)
@@ -82,7 +81,7 @@ onMounted(async () => {
   if (saved === 'bases' || saved === 'matsShortage' || saved === 'matsBalance' || saved === 'technology' || saved === 'config' || saved === 'market' || saved === 'alerts') {
     active.value = saved
   } else {
-    active.value = 'overview' // Default to overview
+    active.value = 'bases' // Default to bases
   }
 
   // Load SVG sprite first (parallel with game data)
@@ -162,13 +161,6 @@ async function handleGameDataRefreshed(payload: {
           </button>
           <button
             class="px-3 py-2 border rounded"
-            :class="active === 'overview' ? 'bg-gray-600' : ''"
-            @click="active = 'overview'"
-          >
-            Overview
-          </button>
-          <button
-            class="px-3 py-2 border rounded"
             :class="active === 'matsShortage' ? 'bg-gray-600' : ''"
             @click="active = 'matsShortage'"
           >
@@ -217,11 +209,6 @@ async function handleGameDataRefreshed(payload: {
       <p v-if="err" class="text-red-600 text-sm">{{ err }}</p>
       <p v-else-if="loading">…</p>
 
-      <GlobalSummaryPage
-        v-if="gd && gdIndex && active === 'overview'"
-        :gameData="gd"
-        :index="gdIndex"
-      />
       <MaterialsShortagePage
         v-if="gd && gdIndex && active === 'matsShortage'"
         :gameData="gd"
