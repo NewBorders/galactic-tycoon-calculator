@@ -177,16 +177,17 @@ function tierLabel(tier: number) {
 
 <template>
   <div
-    class="rounded border p-4 space-y-3 h-full transition-all"
+    class="rounded border p-2 space-y-3 h-full transition-all"
     :class="(props.count ?? 1) === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
   >
-    <!-- Header: Recipe name, building, recipe count controls -->
-    <div class="flex items-start gap-3">
-      <span class="recipe-dnd-handle cursor-move px-2 py-1 border border-slate-700 rounded select-none">↕</span>
-      <div class="flex-1 min-w-0">
-        <!-- Title row with recipe name and controls -->
-        <div class="flex items-start justify-between gap-2">
-          <div class="flex-1 min-w-0">
+    <!-- Header: compact layout with icon, name, building, counts, delete -->
+    <div class="flex-1 min-w-0">
+      <!-- Title row: drag handle + name + building + current/planned + delete -->
+      <div class="flex items-start justify-between gap-2">
+        <!-- Left: Icon + name + building -->
+        <div class="flex items-center gap-1 min-w-0 flex-1">
+          <span class="recipe-dnd-handle cursor-move px-1.5 py-1 border border-slate-700 rounded select-none flex-shrink-0">↕</span>
+          <div class="min-w-0 flex-1">
             <div class="font-semibold truncate inline-flex items-center gap-1">
               <MaterialIcon :name="recipe.output.name" variant="md" />
               <span class="truncate">{{ recipe.output.name }}</span>
@@ -194,211 +195,215 @@ function tierLabel(tier: number) {
             </div>
             <div class="text-xs text-slate-400">{{ buildingName }}</div>
           </div>
-          <!-- Remove button -->
-          <button class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700 transition text-sm" @click.prevent="emit('remove')">
-            {{ translate('delete') }}
+        </div>
+
+        <!-- Middle: Current | Planned counts (compact) -->
+        <div class="text-xs whitespace-nowrap text-slate-400 flex-shrink-0">
+          <span>{{ translate('current') }}: </span>
+          <span class="font-semibold text-slate-300">
+            <template v-if="typeof props.currentCount === 'number'">{{ props.currentCount }}×</template>
+            <template v-else>—</template>
+          </span>
+          <span class="mx-1">|</span>
+          <span>{{ translate('planned') }}: </span>
+          <span class="font-semibold text-slate-300">{{ props.count ?? 1 }}×</span>
+        </div>
+
+        <!-- Right: Delete button -->
+        <button class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700 transition text-sm flex-shrink-0" @click.prevent="emit('remove')">
+          {{ translate('delete') }}
+        </button>
+      </div>
+
+      <!-- Second header row: Planned count controls -->
+      <div class="mt-1.5 flex items-center gap-1 text-xs">
+        <span class="text-slate-400">{{ translate('adjust') }}:</span>
+        <div class="flex items-center border border-slate-700 rounded px-1.5 py-0.5 bg-slate-800">
+          <button
+            :class="(props.count ?? 1) <= 0 ? 'px-1 text-slate-400 opacity-50 cursor-not-allowed' : 'px-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition'"
+            title="Decrease quantity"
+            :disabled="(props.count ?? 1) <= 0"
+            @click.prevent="emit('updateCount', Math.max(0, (props.count ?? 1) - 1))"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            class="w-8 bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300"
+            :value="props.count ?? 1"
+            min="0"
+            @input="(e) => emit('updateCount', Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value) || 0)))"
+          />
+          <button
+            class="px-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition"
+            title="Increase quantity"
+            @click.prevent="emit('updateCount', (props.count ?? 1) + 1)"
+          >
+            +
           </button>
         </div>
+      </div>
+    </div>
 
-        <!-- Second header row: Current count | Planned count controls -->
-        <div class="mt-2 flex items-center justify-between gap-2 text-xs">
-          <div class="text-slate-400">
-            {{ translate('current') }}: 
-            <span class="text-slate-300 font-semibold">
-              <template v-if="typeof props.currentCount === 'number'">{{ props.currentCount }}×</template>
-              <template v-else>—</template>
-            </span>
-          </div>
-          <div class="flex items-center gap-1">
-            <span class="text-slate-400">{{ translate('planned') }}:</span>
-            <div class="flex items-center border border-slate-700 rounded px-1.5 py-0.5 bg-slate-800">
-              <button
-                :class="(props.count ?? 1) <= 0 ? 'px-1 text-slate-400 opacity-50 cursor-not-allowed' : 'px-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition'"
-                title="Decrease quantity"
-                :disabled="(props.count ?? 1) <= 0"
-                @click.prevent="emit('updateCount', Math.max(0, (props.count ?? 1) - 1))"
-              >
-                −
-              </button>
-              <input
-                type="number"
-                class="w-8 bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300"
-                :value="props.count ?? 1"
-                min="0"
-                @input="(e) => emit('updateCount', Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value) || 0)))"
-              />
-              <button
-                class="px-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition"
-                title="Increase quantity"
-                @click.prevent="emit('updateCount', (props.count ?? 1) + 1)"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        </div>
+    <!-- Shared information (productivity and abundance in one line) -->
+    <div class="mt-2 text-xs text-slate-500">
+      {{ translate('productivityFactor') }}:
+      <span class="text-slate-300">{{ formatShare(productivityFactor * 100) }}</span>
+      <span class="mx-1">·</span>
+      {{ translate(props.reportRow?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}:
+      <span class="text-slate-300">{{ formatShare(abundanceFactor * 100) }}</span>
+    </div>
 
-        <!-- Shared information (productivity and abundance in one line) -->
-        <div class="mt-2 text-xs text-slate-500">
-          {{ translate('productivityFactor') }}: 
-          <span class="text-slate-300">{{ formatShare(productivityFactor * 100) }}</span>
-          <span class="mx-1">·</span>
-          {{ translate(props.reportRow?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}: 
-          <span class="text-slate-300">{{ formatShare(abundanceFactor * 100) }}</span>
-        </div>
+    <!-- Workforce demand (if applicable) -->
+    <div v-if="workforce.length" class="mt-1 text-xs text-slate-500">
+      {{ translate('workforceDemand') }}:
+      <ul class="ml-3 list-disc text-slate-400">
+        <li
+          v-for="wf in workforce"
+          :key="wf.tier"
+          :class="wf.assigned + 1e-3 < wf.required ? 'text-amber-300' : ''"
+        >
+          {{ tierLabel(wf.tier) }}: {{ formatNumber(wf.assigned, 0) }} / {{ formatNumber(wf.required, 0) }}
+        </li>
+      </ul>
+    </div>
 
-        <!-- Workforce demand (if applicable) -->
-        <div v-if="workforce.length" class="mt-1 text-xs text-slate-500">
-          {{ translate('workforceDemand') }}:
-          <ul class="ml-3 list-disc text-slate-400">
-            <li
-              v-for="wf in workforce"
-              :key="wf.tier"
-              :class="wf.assigned + 1e-3 < wf.required ? 'text-amber-300' : ''"
-            >
-              {{ tierLabel(wf.tier) }}: {{ formatNumber(wf.assigned, 0) }} / {{ formatNumber(wf.required, 0) }}
-            </li>
-          </ul>
-        </div>
+    <!-- Current vs Planned Table -->
+    <div class="mt-3 overflow-x-auto">
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="border-b border-slate-700">
+            <th class="text-left px-2 py-1 text-xs font-semibold text-slate-400"></th>
+            <th class="text-center px-2 py-1 text-xs font-semibold text-slate-400">{{ translate('current') }}</th>
+            <th class="text-center px-2 py-1 text-xs font-semibold text-slate-400">{{ translate('planned') }}</th>
+          </tr>
+        </thead>
+        <tbody class="text-xs">
+          <!-- Technology Level -->
+          <tr class="border-b border-slate-700/50">
+            <td class="px-2 py-2 text-slate-400">
+              <span v-if="props.technologyName">{{ props.technologyName }}</span>
+              <span v-else>{{ translate('technologyLevel') }}</span>
+            </td>
+            <td class="px-2 py-2 text-center" :class="currentHasTechnology ? 'text-slate-300' : 'text-amber-300'">
+              {{ currentTechnologyLevel }} / {{ requiredTech }}
+            </td>
+            <td class="px-2 py-2 text-center" :class="hasTechnology ? 'text-slate-300' : 'text-amber-300'">
+              {{ technologyLevel }} / {{ requiredTech }}
+            </td>
+          </tr>
 
-        <!-- Current vs Planned Table -->
-        <div class="mt-3 overflow-x-auto">
-          <table class="w-full text-sm border-collapse">
-            <thead>
-              <tr class="border-b border-slate-700">
-                <th class="text-left px-2 py-1 text-xs font-semibold text-slate-400"></th>
-                <th class="text-center px-2 py-1 text-xs font-semibold text-slate-400">{{ translate('current') }}</th>
-                <th class="text-center px-2 py-1 text-xs font-semibold text-slate-400">{{ translate('planned') }}</th>
-              </tr>
-            </thead>
-            <tbody class="text-xs">
-              <!-- Technology Level -->
-              <tr class="border-b border-slate-700/50">
-                <td class="px-2 py-2 text-slate-400">
-                  <span v-if="props.technologyName">{{ props.technologyName }}</span>
-                  <span v-else>{{ translate('technologyLevel') }}</span>
-                </td>
-                <td class="px-2 py-2 text-center" :class="currentHasTechnology ? 'text-slate-300' : 'text-amber-300'">
-                  {{ currentTechnologyLevel }} / {{ requiredTech }}
-                </td>
-                <td class="px-2 py-2 text-center" :class="hasTechnology ? 'text-slate-300' : 'text-amber-300'">
-                  {{ technologyLevel }} / {{ requiredTech }}
-                </td>
-              </tr>
+          <!-- Queue Share -->
+          <tr class="border-b border-slate-700/50">
+            <td class="px-2 py-2 text-slate-400">{{ translate('queueTimeShare') }}</td>
+            <td class="px-2 py-2 text-center text-slate-300">
+              {{ formatShare((props.reportRowCurrent?.queueShare ?? 1) * 100) }}
+            </td>
+            <td class="px-2 py-2 text-center text-slate-300">
+              {{ formatShare(queueShare * 100) }}
+            </td>
+          </tr>
 
-              <!-- Queue Share -->
-              <tr class="border-b border-slate-700/50">
-                <td class="px-2 py-2 text-slate-400">{{ translate('queueTimeShare') }}</td>
-                <td class="px-2 py-2 text-center text-slate-300">
-                  {{ formatShare((props.reportRowCurrent?.queueShare ?? 1) * 100) }}
-                </td>
-                <td class="px-2 py-2 text-center text-slate-300">
-                  {{ formatShare(queueShare * 100) }}
-                </td>
-              </tr>
+          <!-- Runs per Period -->
+          <tr class="border-b border-slate-700/50">
+            <td class="px-2 py-2 text-slate-400">{{ translate('runsPerHours', { hours: displayHours }) }}</td>
+            <td class="px-2 py-2 text-center text-slate-300">
+              {{ formatNumber(currentRunsPerModulePerDay * periodFactor) }}
+            </td>
+            <td class="px-2 py-2 text-center text-slate-300">
+              {{ formatNumber(runsPerModulePerPeriod) }}
+            </td>
+          </tr>
 
-              <!-- Runs per Period -->
-              <tr class="border-b border-slate-700/50">
-                <td class="px-2 py-2 text-slate-400">{{ translate('runsPerHours', { hours: displayHours }) }}</td>
-                <td class="px-2 py-2 text-center text-slate-300">
-                  {{ formatNumber(currentRunsPerModulePerDay * periodFactor) }}
-                </td>
-                <td class="px-2 py-2 text-center text-slate-300">
-                  {{ formatNumber(runsPerModulePerPeriod) }}
-                </td>
-              </tr>
+          <!-- Output per Period -->
+          <tr class="border-b border-slate-700/50">
+            <td class="px-2 py-2 text-slate-400">{{ translate('outputPerHours', { hours: displayHours }) }}</td>
+            <td class="px-2 py-2 text-center">
+              <div class="inline-flex items-center gap-1">
+                <span class="text-slate-300">{{ formatNumber(currentOutputPerPeriod) }}</span>
+                <span>×</span>
+                <MaterialIcon :name="recipe.output.name" variant="sm" />
+                <span class="text-slate-300">{{ recipe.output.name }}</span>
+              </div>
+            </td>
+            <td class="px-2 py-2 text-center">
+              <div class="inline-flex items-center gap-1">
+                <span class="text-emerald-300">{{ formatNumber(outputPerPeriod) }}</span>
+                <span>×</span>
+                <MaterialIcon :name="recipe.output.name" variant="sm" />
+                <span class="text-emerald-300">{{ recipe.output.name }}</span>
+              </div>
+            </td>
+          </tr>
 
-              <!-- Output per Period -->
-              <tr class="border-b border-slate-700/50">
-                <td class="px-2 py-2 text-slate-400">{{ translate('outputPerHours', { hours: displayHours }) }}</td>
-                <td class="px-2 py-2 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <span class="text-slate-300">{{ formatNumber(currentOutputPerPeriod) }}</span>
-                    <span>×</span>
-                    <MaterialIcon :name="recipe.output.name" variant="sm" />
-                    <span class="text-slate-300">{{ recipe.output.name }}</span>
-                  </div>
-                </td>
-                <td class="px-2 py-2 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <span class="text-emerald-300">{{ formatNumber(outputPerPeriod) }}</span>
-                    <span>×</span>
-                    <MaterialIcon :name="recipe.output.name" variant="sm" />
-                    <span class="text-emerald-300">{{ recipe.output.name }}</span>
-                  </div>
-                </td>
-              </tr>
+          <!-- Inputs per Period -->
+          <tr>
+            <td class="px-2 py-2 text-slate-400 align-top">{{ translate('inputsPerHours', { hours: displayHours }) }}</td>
+            <td class="px-2 py-2 align-top">
+              <ul class="space-y-1">
+                <li v-for="input in currentInputsPerPeriod" :key="input.materialId" class="flex items-center justify-center gap-1">
+                  <span class="text-slate-400">{{ formatNumber(input.amount) }} ×</span>
+                  <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
+                  <span class="text-slate-400 truncate">{{ materialName(input.materialId) }}</span>
+                </li>
+                <li v-if="!currentInputsPerPeriod.length" class="text-slate-600 text-center">—</li>
+              </ul>
+            </td>
+            <td class="px-2 py-2 align-top">
+              <ul class="space-y-1">
+                <li v-for="input in inputsPerPeriod" :key="input.materialId" class="flex items-center justify-center gap-1">
+                  <span class="text-slate-300">{{ formatNumber(input.amount) }} ×</span>
+                  <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
+                  <span class="text-slate-300 truncate">{{ materialName(input.materialId) }}</span>
+                </li>
+                <li v-if="!inputsPerPeriod.length" class="text-slate-500 text-center">—</li>
+              </ul>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-              <!-- Inputs per Period -->
-              <tr>
-                <td class="px-2 py-2 text-slate-400 align-top">{{ translate('inputsPerHours', { hours: displayHours }) }}</td>
-                <td class="px-2 py-2 align-top">
-                  <ul class="space-y-1">
-                    <li v-for="input in currentInputsPerPeriod" :key="input.materialId" class="flex items-center justify-center gap-1">
-                      <span class="text-slate-400">{{ formatNumber(input.amount) }} ×</span>
-                      <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
-                      <span class="text-slate-400 truncate">{{ materialName(input.materialId) }}</span>
-                    </li>
-                    <li v-if="!currentInputsPerPeriod.length" class="text-slate-600 text-center">—</li>
-                  </ul>
-                </td>
-                <td class="px-2 py-2 align-top">
-                  <ul class="space-y-1">
-                    <li v-for="input in inputsPerPeriod" :key="input.materialId" class="flex items-center justify-center gap-1">
-                      <span class="text-slate-300">{{ formatNumber(input.amount) }} ×</span>
-                      <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
-                      <span class="text-slate-300 truncate">{{ materialName(input.materialId) }}</span>
-                    </li>
-                    <li v-if="!inputsPerPeriod.length" class="text-slate-500 text-center">—</li>
-                  </ul>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    <!-- Warnings and Status Messages -->
+    <div class="mt-3 space-y-1 text-xs">
+      <!-- Current warnings -->
+      <div v-if="currentBlockedReason || !currentHasTechnology || currentWorkforceFactor < 0.999" class="text-amber-300">
+        <span class="font-semibold">{{ translate('current') }}:</span>
+        <template v-if="currentBlockedByAbundance">
+          {{ translate('abundanceZeroWarning') }}
+        </template>
+        <template v-else-if="currentBlockedByFertility">
+          {{ translate('fertilityZeroWarning') }}
+        </template>
+        <template v-else-if="currentBlockedByTechnology">
+          {{ translate('technologyBlockedWarning') }}
+        </template>
+        <template v-else-if="!currentHasTechnology">
+          {{ translate('technologyRequirement') }} {{ requiredTech }}
+        </template>
+        <template v-else-if="currentWorkforceFactor < 0.999">
+          {{ translate('workforcePenalty') }}
+        </template>
+      </div>
 
-        <!-- Warnings and Status Messages -->
-        <div class="mt-3 space-y-1 text-xs">
-          <!-- Current warnings -->
-          <div v-if="currentBlockedReason || !currentHasTechnology || currentWorkforceFactor < 0.999" class="text-amber-300">
-            <span class="font-semibold">{{ translate('current') }}:</span>
-            <template v-if="currentBlockedByAbundance">
-              {{ translate('abundanceZeroWarning') }}
-            </template>
-            <template v-else-if="currentBlockedByFertility">
-              {{ translate('fertilityZeroWarning') }}
-            </template>
-            <template v-else-if="currentBlockedByTechnology">
-              {{ translate('technologyBlockedWarning') }}
-            </template>
-            <template v-else-if="!currentHasTechnology">
-              {{ translate('technologyRequirement') }} {{ requiredTech }}
-            </template>
-            <template v-else-if="currentWorkforceFactor < 0.999">
-              {{ translate('workforcePenalty') }}
-            </template>
-          </div>
-
-          <!-- Planned warnings -->
-          <div v-if="blockedReason || !hasTechnology || workforceFactor < 0.999" class="text-amber-300">
-            <span class="font-semibold">{{ translate('planned') }}:</span>
-            <template v-if="blockedByAbundance">
-              {{ translate('abundanceZeroWarning') }}
-            </template>
-            <template v-else-if="blockedByFertility">
-              {{ translate('fertilityZeroWarning') }}
-            </template>
-            <template v-else-if="blockedByTechnology">
-              {{ translate('technologyBlockedWarning') }}
-            </template>
-            <template v-else-if="!hasTechnology">
-              {{ translate('technologyRequirement') }} {{ requiredTech }}
-            </template>
-            <template v-else-if="workforceFactor < 0.999">
-              {{ translate('workforcePenalty') }}
-            </template>
-          </div>
-        </div>
+      <!-- Planned warnings -->
+      <div v-if="blockedReason || !hasTechnology || workforceFactor < 0.999" class="text-amber-300">
+        <span class="font-semibold">{{ translate('planned') }}:</span>
+        <template v-if="blockedByAbundance">
+          {{ translate('abundanceZeroWarning') }}
+        </template>
+        <template v-else-if="blockedByFertility">
+          {{ translate('fertilityZeroWarning') }}
+        </template>
+        <template v-else-if="blockedByTechnology">
+          {{ translate('technologyBlockedWarning') }}
+        </template>
+        <template v-else-if="!hasTechnology">
+          {{ translate('technologyRequirement') }} {{ requiredTech }}
+        </template>
+        <template v-else-if="workforceFactor < 0.999">
+          {{ translate('workforcePenalty') }}
+        </template>
       </div>
     </div>
   </div>
