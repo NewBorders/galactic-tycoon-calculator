@@ -1,34 +1,47 @@
 // Handoff Document
 
-## Current Task: Global Summary & Per-Base Summary - Current vs Planned Display
+## Current Task: Global Summary & Per-Base Summary - Current vs Planned Display ✅
 
 **Branch**: `71-planning-mode`  
-**Status**: IN PROGRESS – Extending summary views to show both current and planned values
+**Status**: COMPLETE – Both current and planned values now displayed in summary views
 
 **User Requirements:**
-1. **Global Summary Page**: Each stat card should show both "current" and "planned" values
+1. **Global Summary Page**: Each stat card should show both "current" and "planned" values ✅
 2. **Per-Base Summary**: Each base should show small cards (like global summary) for:
-   - Net Profit (current vs planned)
-   - Export Net Profit (current vs planned)
-   - Worker Consumables Cost (current vs planned)
-   - Material Purchases (current vs planned)
-   - Revenue (current vs planned)
-   - Only show "planned" row if values differ from "current"
+   - Net Profit (current vs planned) ✅
+   - Export Net Profit (current vs planned) ✅
+   - Worker Consumables Cost (current vs planned) ✅
+   - Material Purchases (current vs planned) ✅
+   - Revenue (current vs planned) ✅
+   - Only show "planned" row if values differ from "current" ✅
+   - Include price trend indicator in net profit cards ✅
 
-**Implementation Plan:**
-1. ✅ Extend `useGlobalSummary` to calculate both `current` and `planned` reports
+**Implementation Complete:**
+1. ✅ Extended `useGlobalSummary` to calculate both `current` and `planned` reports
    - Current: Uses `currentBuildings` and `currentCount`
    - Planned: Uses `buildings` and `count`
-2. ✅ Update `BaseSummaryData` type to include both current and planned values
-3. ✅ Modify `GlobalSummaryPage` to display current/planned in stat cards
-4. ✅ Create per-base summary cards component (similar to global stat cards)
-5. ✅ Add conditional "planned" row when values differ from current
+   - Created helper functions: `computeReport` and `calculateMetrics`
+2. ✅ Updated `BaseSummaryData` type to include both current and planned values
+3. ✅ Modified `GlobalSummaryPage` to display current/planned in stat cards
+4. ✅ Updated `BaseCard` to show current/planned in collapsed view
+5. ✅ Added per-base summary cards in `BaseDetailExpanded` with trend indicators
 
-**Files to Modify:**
-- `/src/v2/composables/useGlobalSummary.ts` - Add current report calculation
-- `/src/v2/pages/GlobalSummaryPage.vue` - Update stat cards to show current/planned
-- `/src/v2/components/BaseCard.vue` - Add per-base stat cards
-- `/src/v2/components/BaseDetailExpanded.vue` - Show detailed current/planned breakdown
+**Most Recent Commits:**
+1. **4006a65**: feat: Add current/planned structure to global summary
+2. **d1d0d26**: feat: Show current/planned values in BaseCard collapsed view
+3. **d5297a5**: feat: Add per-base summary cards with current/planned values
+
+**Quality:**
+- Type-check: ✅ CLEAN
+- Lint: ✅ CLEAN
+- Tests: ✅ 235/235 PASSING
+
+**Files Modified:**
+- `/src/v2/composables/useGlobalSummary.ts` - Dual report calculation
+- `/src/v2/pages/GlobalSummaryPage.vue` - Global stat cards with current/planned
+- `/src/v2/components/BaseCard.vue` - Collapsed view current/planned display
+- `/src/v2/components/BaseDetailExpanded.vue` - Per-base summary cards with trends
+- `/src/v2/composables/__tests__/useGlobalSummary.test.ts` - Updated tests
 
 ---
 
