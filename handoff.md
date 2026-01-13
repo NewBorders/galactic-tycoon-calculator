@@ -1,103 +1,223 @@
-# Handoff Document
+// Handoff Document
 
-## Current Session: Planning Mode UI Refinement - Final Polish ✅
+## Current Session: Planning Mode - Production Display Separation ✅
 
 **Branch**: `71-planning-mode`  
-**Status**: All UI improvements completed and tested
+**Status**: RecipeTile Current/Planned separation complete. Ready for further work.
 
 **Most Recent Changes**:
-- ✅ Revenue cell coloring: Red if negative, Green if positive (Materials Balance > Other Materials)
-- ✅ Added dual summary rows (Consumption/Production) when both types exist
-- ✅ Localized weight formatting using `formatWeight` utility
-- ✅ Renamed "Production revenue" to "Revenue"
+- ✅ Separated Current Production (readonly, API-based) from Planned Production (editable, user-modified) in RecipeTile
+- ✅ Updated ProductionSection to create dual reports (reportCurrent vs report)
+- ✅ Implemented side-by-side UI display showing Current (left) and Planned (right) columns
+- ✅ All tests passing (240/240), type-check and lint clean
 
 ---
 
 ## Completed Features This Session
 
-### 1. ✅ Fixed Workforce Productivity Optional Consumables Logic
-- **Issue**: Deactivating optional consumables didn't reduce productivity
-- **Root Cause**: Logic only counted missing when stock was empty; didn't account for inactive status
-- **Solution**: Updated `calculateWorkforceProductivity()` in `/src/v2/services/production/workforceProductivity.ts`
-- **Impact**: Each inactive optional now reduces satisfaction by -10%
-- **Test**: `src/v2/pages/player-config/components/__tests__/workforce-productivity-reactivity.test.ts`
+### 1. ✅ Implemented Current vs Planned Production Display (RecipeTile)
 
-### 2. ✅ Worker Consumption Table Cleanup
-- Removed empty placeholder div above table
-- Added Unit Price column with price alert buttons
-- Renamed "Total costs" header to "Costs" with translation support (EN/DE)
-- Matched styling to Materials Balance table design
+**Objective**: Enforce Planning Mode philosophy - show API data (Current) as readonly, allow user to modify Planned values
 
-### 3. ✅ Materials Balance Other Materials Table Styling
-- **Revenue Column**: Changed color from `text-slate-400` to `text-rose-300` (red)
-  - Now matches Amount column coloring for consistency
-  
-- **Days Column Renamed to Stock**: 
-  - Header updated in both Current and Planned sections
-  - Implemented conditional coloring logic:
-    - Red (`text-rose-300`) when stock coverage < timeframe period
-    - Green (`text-emerald-400`) when stock coverage >= timeframe period
-    - Uses `periodFactor` computed property for timeframe comparison
-  
-- **Code Location**: `src/v2/pages/player-config/components/SummaryCalculationsSection.vue`
-  - Lines 755-830: Other Materials table structure
-  - Revenue cells: `text-rose-300` styling
-  - Stock cells: Conditional class binding with dynamic color
+**Architecture Changes**:
+- **ProductionSection.vue**:
+  - Added `currentTechnologyLevelMap` computed (from props.currentTechnologyLevels)
+  - Added `currentTechnologyLevelsOption` computed (converts map to object)
+  - Created `reportCurrent` computed (uses currentTechnologyLevelsOption + currentStartingBonus for API-based calculations)
+  - Kept `report` computed (uses technologyLevelsOption + startingBonus for user-modified calculations)
+  - Added dual CardData structures: `cardsByIdCurrent` (API data) and `cardsById` (planned/editable)
+  - Updated RecipeTile props to pass `reportRowCurrent` and `currentTechnologyLevel`
+
+- **RecipeTile.vue**:
+  - Added comprehensive Current production computed properties:
+    - `currentActiveUnits`, `currentRunsPerModulePerDay`, `currentRunsPerDay`
+    - `currentOutputPerDay`, `currentInputsPerDay`
+    - `currentOutputPerPeriod`, `currentInputsPerPeriod`
+    - `currentWorkforce`, `currentWorkforceFactor`, `currentAbundanceFactor`, `currentProductivityFactor`
+    - `currentBlockedReason` and related status helpers
+  - Updated template to show side-by-side comparison:
+    - Left column: Current Production (readonly, uses currentXxx computeds)
+    - Right column: Planned Production (editable, uses existing xxx computeds)
+    - Both sections show: Tech level, factors, queue share, runs/hour, output, inputs, workforce demands
+  - Applied consistent styling: Current uses slate-400/500 (dimmed), Planned uses emerald-300 (bright)
+
+**Code Quality**:
+- Type-check: ✅ 0 errors
+- Lint: ✅ 0 errors (all unused vars removed)
+- Tests: ✅ 240/240 passing
 
 ---
 
-## Test Results - All Passing ✅
+## Architecture Overview
+
+### Planning Mode Philosophy
+1. **Current State** (readonly, from API):
+   - Shows what the user's base actually produces right now
+   - Based on API-sourced technology levels and starting bonus
+   - Display only - cannot be modified
+   
+2. **Planned State** (editable, user input):
+   - Shows what the user plans to configure
+   - Based on user-modified technology levels and starting bonus
+   - User can modify through UI
+
+### Dual Report Pattern
+```
+ProductionSection:
+├── reportCurrent (computed from props.currentTechnologyLevels + props.currentStartingBonus)
+│   └── used for readonly Current display
+├── report (computed from props.technologyLevels + props.startingBonus)  
+│   └── used for editable Planned display
+├── cardsByIdCurrent (from reportCurrent)
+│   └── passed to RecipeTile as reportRowCurrent
+└── cardsById (from report)
+    └── passed to RecipeTile as reportRow
+```
+
+### RecipeTile Two-Column Layout
+```
+┌─ Header: Recipe Name, Building, Controls ─┐
+├─ [CURRENT] │ [PLANNED] (two-column grid) │
+│ (readonly) │ (editable)                  │
+├─ Tech Level │ Tech Level (user-modified) │
+├─ Factors   │ Factors (updated on input)  │
+├─ Queue/Runs│ Queue/Runs (computed)       │
+├─ Output    │ Output (based on plan)      │
+├─ Inputs    │ Inputs (based on plan)      │
+└─ Workforce │ Workforce (from report)     ─┘
+```
+
+---
+
+## Test Results
 
 ```
 Type Check:    ✅ 0 errors
-Lint:          ✅ 0 errors  
+Lint:          ✅ 0 errors
 Tests:         ✅ 240/240 passing
+Commit:        fac0ba4 + e304b11
 ```
 
 ---
 
-## Files Modified
+## Files Modified This Session
 
-1. **SummaryCalculationsSection.vue** (Main component)
-   - Worker Consumption: Added Unit Price column (lines 1040-1057)
-   - Worker Consumption: Updated header translations (lines 1001, 1003)
-   - Materials Balance: Updated Revenue and Stock column styling (lines 755-830)
+1. **ProductionSection.vue**
+   - Lines 58-88: Added currentTechnologyLevelMap and currentTechnologyLevelsOption
+   - Lines 92-108: Added reportCurrent and dual report logic
+   - Lines 135-145: Added cardsByIdCurrent and cardsById separation
+   - Template: Updated RecipeTile props for current/planned data
 
-2. **localisation/messages.ts**
-   - Added 'costs' translation key (EN: "Costs", DE: "Kosten")
-
-3. **services/production/workforceProductivity.ts**
-   - Fixed optional consumable satisfaction penalty logic
-
----
-
-## Key Technical Details
-
-### Materials Balance Stock Coloring Logic
-```vue
-:class="(row.current.daysCoverage ?? 0) < periodFactor ? 'text-rose-300' : 'text-emerald-400'"
-```
-- Compares `daysCoverage` against `periodFactor` (computed timeframe multiplier)
-- Uses nullish coalescing (`??`) for safe null handling
-- Applied to both Current and Planned columns
-
-### Price Alert System (Worker Consumption)
-- Reuses existing `hasAlert()` and `openAlertOverlay()` functions
-- Shows emoji indicators: 💰 (buy), 📈 (sell), 🔔 (neutral)
-- Integrated with existing alert management system
+2. **RecipeTile.vue**
+   - Lines 7-26: Updated props to include reportRowCurrent and currentTechnologyLevel
+   - Lines 50-169: Added comprehensive Current production computed properties
+   - Lines 160-165: Added blocked status helpers (blockedByAbundance, etc.)
+   - Lines 167-169: Added hasTechnology and currentHasTechnology comparisons
+   - Lines 184-438: Updated template to show Current (left) and Planned (right) columns
+   - Styling: Current uses dimmed colors (slate-400), Planned uses bright (emerald-300)
 
 ---
 
-## Design Consistency Notes
+## Known Limitations & Future Work
 
-### Color Palette Applied
-- **Revenue values**: `text-rose-300` (red) - matches negative amounts
-- **Stock values (low)**: `text-rose-300` (red) - alerts to low inventory
-- **Stock values (adequate)**: `text-emerald-400` (green) - safe inventory
-- **Weight**: `text-slate-400` (neutral gray)
+### Pending: BaseBuildingsSection.vue Current/Planned Separation
+**Status**: ⚠️ Not yet implemented
+**Reason**: Requires architectural change to state management
+- Current implementation: PlayerBase stores single `buildings` array (planned/user-editable)
+- Needed for Current/Planned: Store current buildings separately when imported from API
+- Would require tracking API-sourced buildings in CurrentState, then passing to ConfiguredBase
+- Complexity: Affects playerBases service, worldData types, and ConfiguredBase component hierarchy
 
-### Change Highlighting
-- Maintained `bg-blue-900/20` background for all changed values
+**Approach for future work**:
+1. Modify PlayerBase type to optionally store currentBuildings
+2. Update syncBaseFromApi to preserve current building levels
+3. Add currentBuildings prop to ConfiguredBase
+4. Update BaseBuildingsSection to show dual Current/Planned like RecipeTile
+5. Consider extracting to reusable "DualDisplay" component pattern
+
+---
+
+## How to Continue This Work
+
+If implementing BaseBuildingsSection.vue Current/Planned:
+1. Read this document section on state architecture
+2. Review ProductionSection + RecipeTile changes as the pattern reference
+3. Assess if PlayerBase type needs currentBuildings field
+4. Update synchronization logic in playerBases.ts
+5. Apply dual-column layout from RecipeTile to BaseBuildingsSection
+6. Run full test suite and lint checks
+
+---
+
+## Key Technical Patterns Established
+
+1. **Dual Report Generation**:
+   - Create separate `reportCurrent` and `report` computed properties
+   - Both use same calculation engine, just different input sources
+
+2. **Side-by-Side UI Display**:
+   - Use CSS Grid `grid-cols-2` for two equal columns
+   - Left column: Current (readonly, dimmed styling)
+   - Right column: Planned (editable, bright styling)
+   - Border separator between columns for clarity
+
+3. **Computed Property Naming Convention**:
+   - Planned: `activeUnits`, `outputPerDay`, `blockedReason`
+   - Current: `currentActiveUnits`, `currentOutputPerDay`, `currentBlockedReason`
+   - Makes it clear which source (API vs user) each computes from
+
+4. **Props Passing Pattern**:
+   - For Current: pass `reportRowCurrent` and `currentTechnologyLevel`
+   - For Planned: pass `reportRow` (contains all needed data) and `technologyLevel`
+   - Child component mirrors parent's dual structure
+
+---
+
+## Code Review Checklist
+
+- [x] Type-check passes (0 errors)
+- [x] Linter passes (0 errors)
+- [x] All tests passing (240/240)
+- [x] Current production shows readonly (no inputs, dimmed colors)
+- [x] Planned production shows editable (user can modify)
+- [x] Both sections show same metrics for easy comparison
+- [x] Styling clearly distinguishes Current (slate-400) vs Planned (emerald-300)
+- [x] Git history clean (meaningful commit messages)
+
+---
+
+## Next Steps (Recommended Order)
+
+1. **Optional**: Implement BaseBuildingsSection.vue Current/Planned display
+   - Requires state management changes
+   - Use RecipeTile pattern as reference
+   
+2. **QA Testing**: Manual testing of Planning Mode workflows
+   - Import base from API
+   - Verify Current Production shows API data
+   - Modify technology levels
+   - Verify Planned Production updates while Current stays fixed
+   - Test with multiple recipes and buildings
+
+3. **Polish**: UI refinements based on user feedback
+   - Column widths and spacing
+   - Color contrast for accessibility
+   - Mobile responsiveness of two-column layout
+
+4. **Performance**: Monitor re-render cycles if needed
+   - Current dual-structure should be efficient
+   - No extra API calls or calculations
+
+---
+
+## Session End Notes
+
+Production display separation is the largest piece of Planning Mode UI refactoring. The Current vs Planned separation now works for Recipes (ProductionSection).
+
+Building configuration (BaseBuildingsSection) would benefit from the same treatment but requires more architectural work to track API-sourced building levels separately.
+
+All quality gates passed - code is ready for review and deployment.
+
 - Applied consistently to all Revenue and Stock cells showing differences
 
 ---
