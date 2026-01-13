@@ -82,7 +82,9 @@ describe('useGlobalSummary', () => {
     )
 
     expect(totalNetProfit.value).toBeDefined()
-    expect(typeof totalNetProfit.value).toBe('number')
+    expect(typeof totalNetProfit.value).toBe('object')
+    expect(typeof totalNetProfit.value.planned).toBe('number')
+    expect(typeof totalNetProfit.value.current).toBe('number')
   })
 
   it('calculates workforce deficit cost', () => {
@@ -111,8 +113,11 @@ describe('useGlobalSummary', () => {
     )
 
     expect(totalWorkforceDeficitCost.value).toBeDefined()
-    expect(typeof totalWorkforceDeficitCost.value).toBe('number')
-    expect(totalWorkforceDeficitCost.value).toBeGreaterThanOrEqual(0)
+    expect(typeof totalWorkforceDeficitCost.value).toBe('object')
+    expect(typeof totalWorkforceDeficitCost.value.planned).toBe('number')
+    expect(typeof totalWorkforceDeficitCost.value.current).toBe('number')
+    expect(totalWorkforceDeficitCost.value.planned).toBeGreaterThanOrEqual(0)
+    expect(totalWorkforceDeficitCost.value.current).toBeGreaterThanOrEqual(0)
   })
 
   it('calculates consumption overhead cost for large workforce', () => {
@@ -306,7 +311,7 @@ describe('useGlobalSummary', () => {
     )
 
     // 48h should be approximately 2x the 24h values
-    const ratio = result48h.totalNetProfit.value / result24h.totalNetProfit.value
+    const ratio = result48h.totalNetProfit.value.planned / result24h.totalNetProfit.value.planned
     expect(ratio).toBeCloseTo(2, 0)
   })
 })

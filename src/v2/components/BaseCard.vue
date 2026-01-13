@@ -19,8 +19,16 @@ const emit = defineEmits<{
 }>()
 
 // Summary values are already scaled by periodFactor for the selected timeframe
-const netProfit = computed(() => props.summary.netProfit)
-const exportNetProfit = computed(() => props.summary.exportNetProfit)
+const netProfit = computed(() => props.summary.planned.netProfit)
+const currentNetProfit = computed(() => props.summary.current.netProfit)
+const exportNetProfit = computed(() => props.summary.planned.exportNetProfit)
+const currentExportNetProfit = computed(() => props.summary.current.exportNetProfit)
+const exportPriceTrend = computed(() => props.summary.planned.exportPriceTrend7d)
+
+const hasDifferentPlanned = computed(() => {
+  return Math.abs(netProfit.value - currentNetProfit.value) > 0.01 ||
+         Math.abs(exportNetProfit.value - currentExportNetProfit.value) > 0.01
+})
 
 const profitColor = computed(() => {
   if (netProfit.value > 0) return 'text-emerald-400'
@@ -91,7 +99,7 @@ const topExportMaterials = computed(() => {
 })
 
 const priceTrendColor = computed(() => {
-  const trend = props.summary.exportPriceTrend7d
+  const trend = exportPriceTrend.value
   if (!trend || !Number.isFinite(trend)) return 'text-slate-400'
   if (trend > 5) return 'text-emerald-400' // strong positive
   if (trend > 0) return 'text-green-300' // slight positive
@@ -101,7 +109,7 @@ const priceTrendColor = computed(() => {
 })
 
 const priceTrendIcon = computed(() => {
-  const trend = props.summary.exportPriceTrend7d
+  const trend = exportPriceTrend.value
   if (!trend || !Number.isFinite(trend)) return ''
   if (trend > 5) return '📈' // strong positive
   if (trend > 0) return '↗' // slight positive
@@ -111,7 +119,7 @@ const priceTrendIcon = computed(() => {
 })
 
 const showPriceTrend = computed(() => {
-  const trend = props.summary.exportPriceTrend7d
+  const trend = exportPriceTrend.value
   return trend !== undefined && Number.isFinite(trend) && trend !== 0
 })
 </script>
@@ -141,17 +149,25 @@ const showPriceTrend = computed(() => {
         <div class="metric">
           <div class="metric__label">{{ translate('netProfit') }}</div>
           <div class="metric__value" :class="profitColor">
-            {{ formatCurrency(netProfit) }}
+            <div>{{ formatCurrency(netProfit) }}</div>
+            <div v-if="hasDifferentPlanned && Math.abs(currentNetProfit) > 0.01" class="metric__secondary">
+              Current: {{ formatCurrency(currentNetProfit) }}
+            </div>
           </div>
         </div>
 
         <div class="metric">
           <div class="metric__label">{{ translate('exportNetProfit') }}</div>
           <div class="metric__value text-emerald-400">
-            {{ formatCurrency(exportNetProfit) }}
-            <span v-if="showPriceTrend" class="price-trend" :class="priceTrendColor">
-              {{ priceTrendIcon }} {{ formatNumber(Math.abs(summary.exportPriceTrend7d), { maximumFractionDigits: 1 }) }}%
-            </span>
+            <div>
+              {{ formatCurrency(exportNetProfit) }}
+              <span v-if="showPriceTrend" class="price-trend" :class="priceTrendColor">
+                {{ priceTrendIcon }} {{ formatNumber(Math.abs(exportPriceTrend), { maximumFractionDigits: 1 }) }}%
+              </span>
+            </div>
+            <div v-if="hasDifferentPlanned && Math.abs(currentExportNetProfit) > 0.01" class="metric__secondary">
+              Current: {{ formatCurrency(currentExportNetProfit) }}
+            </div>
           </div>
         </div>
 
@@ -306,9 +322,14 @@ const showPriceTrend = computed(() => {
   font-weight: 600;
   color: var(--color-text);
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metric__secondary {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-soft);
 }
 
 .metric__reason {
