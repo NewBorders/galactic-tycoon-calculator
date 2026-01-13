@@ -495,7 +495,8 @@ watch(
         v-model="list"
         item-key="id"
         handle=".recipe-dnd-handle"
-        class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        class="grid gap-3"
+        style="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr))"
       >
         <template #item="{ element }">
           <div class="h-full">

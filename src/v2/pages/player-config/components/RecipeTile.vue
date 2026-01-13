@@ -195,19 +195,17 @@ function tierLabel(tier: number) {
         </div>
       </div>
 
-      <!-- Middle: Current count -->
-      <div class="text-xs text-slate-400 flex-shrink-0 text-center">
-        <div>{{ translate('current') }}</div>
-        <div class="font-semibold text-slate-300">
-          <template v-if="typeof props.currentCount === 'number'">{{ props.currentCount }}×</template>
-          <template v-else>—</template>
+      <!-- Middle/Right: Current and planned counts aligned -->
+      <div class="flex items-stretch gap-3 flex-shrink-0">
+        <div class="flex flex-col items-center justify-between text-xs text-slate-400 min-w-[64px] min-h-[56px] pt-1">
+          <div class="font-semibold text-slate-300 leading-tight">
+            <template v-if="typeof props.currentCount === 'number'">{{ props.currentCount }}×</template>
+            <template v-else>0</template>
+          </div>
+          <div class="leading-tight">{{ translate('current') }}</div>
         </div>
-      </div>
 
-      <!-- Right: Planned count controls -->
-      <div class="flex items-start gap-0.5 flex-shrink-0">
-        <div class="text-xs text-slate-400 text-center">
-          <div>{{ translate('planned') }}</div>
+        <div class="flex flex-col items-center justify-between text-xs text-slate-400 flex-shrink-0 min-h-[56px]">
           <div class="flex items-center border border-slate-700 rounded px-1 py-0.5 bg-slate-800 gap-0.5">
             <button
               :class="(props.count ?? 1) <= 0 ? 'px-0.5 text-slate-400 opacity-50 cursor-not-allowed text-xs' : 'px-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition text-xs'"
@@ -232,6 +230,7 @@ function tierLabel(tier: number) {
               +
             </button>
           </div>
+          <div class="leading-tight">{{ translate('planned') }}</div>
         </div>
       </div>
 
@@ -241,26 +240,32 @@ function tierLabel(tier: number) {
       </button>
     </div>
 
-    <!-- Shared information (productivity and abundance in one line) -->
-    <div class="mt-2 text-xs text-slate-500">
-      {{ translate('productivityFactor') }}:
-      <span class="text-slate-300">{{ formatShare(productivityFactor * 100) }}</span>
-      <span class="mx-1">·</span>
-      {{ translate(props.reportRow?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}:
-      <span class="text-slate-300">{{ formatShare(abundanceFactor * 100) }}</span>
+    <!-- Shared information (productivity and abundance) -->
+    <div class="mt-2 text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span>
+        {{ translate('productivityFactor') }}:
+        <span class="text-slate-300">{{ formatShare(productivityFactor * 100) }}</span>
+      </span>
+      <span class="text-slate-600">·</span>
+      <span>
+        {{ translate(props.reportRow?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}:
+        <span class="text-slate-300">{{ formatShare(abundanceFactor * 100) }}</span>
+      </span>
     </div>
 
-    <!-- Workforce demand (if applicable) - responsive grid without markers -->
-    <div v-if="workforce.length" class="mt-1 text-xs text-slate-500">
-      <div class="font-semibold mb-1">{{ translate('workforceDemand') }}</div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-1 text-slate-400">
-        <div
+    <!-- Workforce demand on its own line -->
+    <div v-if="workforce.length" class="text-xs text-slate-500 mt-1">
+      <div class="font-semibold text-slate-400 mb-1">{{ translate('workforceDemand') }}</div>
+      <div class="flex flex-wrap items-center gap-2 text-slate-400">
+        <span
           v-for="wf in workforce"
           :key="wf.tier"
+          class="inline-flex items-center gap-1"
           :class="wf.assigned + 1e-3 < wf.required ? 'text-amber-300' : ''"
         >
-          <span class="font-semibold">{{ tierLabel(wf.tier) }}</span>: {{ formatNumber(wf.assigned, 0) }}/{{ formatNumber(wf.required, 0) }}
-        </div>
+          <span class="font-semibold">{{ tierLabel(wf.tier) }}</span>
+          <span>{{ formatNumber(wf.assigned, 0) }}/{{ formatNumber(wf.required, 0) }}</span>
+        </span>
       </div>
     </div>
 
@@ -277,44 +282,44 @@ function tierLabel(tier: number) {
         <tbody class="text-xs">
           <!-- Technology Level -->
           <tr class="border-b border-slate-700/50">
-            <td class="px-2 py-2 text-slate-400">
-              <span v-if="props.technologyName">{{ props.technologyName }}</span>
+            <td class="px-1 py-1 text-slate-400">
+              <span v-if="props.technologyName">{{ translate('technologyLevel') }}: {{ props.technologyName }}</span>
               <span v-else>{{ translate('technologyLevel') }}</span>
             </td>
-            <td class="px-2 py-2 text-center" :class="currentHasTechnology ? 'text-slate-300' : 'text-amber-300'">
+            <td class="px-1 py-1 text-center" :class="currentHasTechnology ? 'text-slate-300' : 'text-amber-300'">
               {{ currentTechnologyLevel }} / {{ requiredTech }}
             </td>
-            <td class="px-2 py-2 text-center" :class="hasTechnology ? 'text-slate-300' : 'text-amber-300'">
+            <td class="px-1 py-1 text-center" :class="hasTechnology ? 'text-slate-300' : 'text-amber-300'">
               {{ technologyLevel }} / {{ requiredTech }}
             </td>
           </tr>
 
           <!-- Queue Share -->
           <tr class="border-b border-slate-700/50">
-            <td class="px-2 py-2 text-slate-400">{{ translate('queueTimeShare') }}</td>
-            <td class="px-2 py-2 text-center text-slate-300">
+            <td class="px-1 py-1 text-slate-400">{{ translate('queueTimeShare') }}</td>
+            <td class="px-1 py-1 text-center text-slate-300">
               {{ formatShare((props.reportRowCurrent?.queueShare ?? 1) * 100) }}
             </td>
-            <td class="px-2 py-2 text-center text-slate-300">
+            <td class="px-1 py-1 text-center text-slate-300">
               {{ formatShare(queueShare * 100) }}
             </td>
           </tr>
 
           <!-- Runs per Period -->
           <tr class="border-b border-slate-700/50">
-            <td class="px-2 py-2 text-slate-400">{{ translate('dailyRunsPerModule') }}</td>
-            <td class="px-2 py-2 text-center text-slate-300">
+            <td class="px-1 py-1 text-slate-400">{{ translate('dailyRunsPerModule') }}</td>
+            <td class="px-1 py-1 text-center text-slate-300">
               {{ formatNumber(currentRunsPerModulePerDay * periodFactor) }}
             </td>
-            <td class="px-2 py-2 text-center text-slate-300">
+            <td class="px-1 py-1 text-center text-slate-300">
               {{ formatNumber(runsPerModulePerPeriod) }}
             </td>
           </tr>
 
           <!-- Output per Period -->
           <tr class="border-b border-slate-700/50">
-            <td class="px-2 py-2 text-slate-400">{{ translate('outputPerDay') }}</td>
-            <td class="px-2 py-2 text-center">
+            <td class="px-1 py-1 text-slate-400">{{ translate('outputPerDay') }}</td>
+            <td class="px-1 py-1 text-left">
               <div class="inline-flex items-center gap-1">
                 <span class="text-slate-300">{{ formatNumber(currentOutputPerPeriod) }}</span>
                 <span>×</span>
@@ -322,7 +327,7 @@ function tierLabel(tier: number) {
                 <span class="text-slate-300">{{ recipe.output.name }}</span>
               </div>
             </td>
-            <td class="px-2 py-2 text-center">
+            <td class="px-1 py-1 text-left">
               <div class="inline-flex items-center gap-1">
                 <span class="text-emerald-300">{{ formatNumber(outputPerPeriod) }}</span>
                 <span>×</span>
@@ -334,25 +339,25 @@ function tierLabel(tier: number) {
 
           <!-- Inputs per Period -->
           <tr>
-            <td class="px-2 py-2 text-slate-400 align-top">{{ translate('inputsPerDay') }}</td>
-            <td class="px-2 py-2 align-top">
+            <td class="px-1 py-1 text-slate-400 align-top">{{ translate('inputsPerDay') }}</td>
+            <td class="px-1 py-1 align-top">
               <ul class="space-y-1">
-                <li v-for="input in currentInputsPerPeriod" :key="input.materialId" class="flex items-center justify-center gap-1">
+                <li v-for="input in currentInputsPerPeriod" :key="input.materialId" class="flex items-center gap-1">
                   <span class="text-slate-400">{{ formatNumber(input.amount) }} ×</span>
                   <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
-                  <span class="text-slate-400 truncate">{{ materialName(input.materialId) }}</span>
+                  <span class="text-slate-400">{{ materialName(input.materialId) }}</span>
                 </li>
-                <li v-if="!currentInputsPerPeriod.length" class="text-slate-600 text-center">—</li>
+                <li v-if="!currentInputsPerPeriod.length" class="text-slate-600">—</li>
               </ul>
             </td>
-            <td class="px-2 py-2 align-top">
+            <td class="px-1 py-1 align-top">
               <ul class="space-y-1">
-                <li v-for="input in inputsPerPeriod" :key="input.materialId" class="flex items-center justify-center gap-1">
+                <li v-for="input in inputsPerPeriod" :key="input.materialId" class="flex items-center gap-1">
                   <span class="text-slate-300">{{ formatNumber(input.amount) }} ×</span>
                   <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
-                  <span class="text-slate-300 truncate">{{ materialName(input.materialId) }}</span>
+                  <span class="text-slate-300">{{ materialName(input.materialId) }}</span>
                 </li>
-                <li v-if="!inputsPerPeriod.length" class="text-slate-500 text-center">—</li>
+                <li v-if="!inputsPerPeriod.length" class="text-slate-500">—</li>
               </ul>
             </td>
           </tr>

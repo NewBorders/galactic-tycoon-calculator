@@ -1,6 +1,21 @@
 // Handoff Document
 
-## Current Session: Planning Mode - Recipe Table Layout & Complete Separation ✅
+## Current Session: Planning Mode – RecipeTile polish (alignment + grid)
+
+**Branch**: `71-planning-mode`  
+**Status**: UI polish done for RecipeTile + Production grid.
+
+**Most Recent Changes**
+- Workforce demand now shares the inline separator line with productivity/abundance for a compact header.
+- Current and planned counts in RecipeTile aligned vertically with consistent spacing.
+- ProductionSection grid shows four tiles per row on xl screens (1/2/3/4 cols responsive).
+
+**Quality**
+- Type-check: ✅ `docker compose exec web npm run type-check`
+- Lint: ✅ `docker compose exec web npm run lint`
+- Tests: ✅ `docker compose exec web npm run test` (initial `--runInBand` flag rejected by vitest; reran without flag)
+
+## Previous Session: Planning Mode - Recipe Table Layout & Complete Separation ✅
 
 **Branch**: `71-planning-mode`  
 **Status**: All Current/Planned separations complete. Recipe display refactored to table layout.
