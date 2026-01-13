@@ -235,6 +235,20 @@ const stockByMaterialId = computed(() => {
   return map
 })
 
+// Current assignment (uses currentBuildings from API)
+const currentAssignment = computed(() => ({
+  planetId: props.base.planetId,
+  buildings: (props.base.currentBuildings ?? props.base.buildings).map((b) => ({
+    buildingId: b.buildingId,
+    level: b.level,
+  })),
+  recipes: props.base.recipes.map((r) => ({
+    recipeId: r.recipeId,
+    count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 1,
+  })),
+}))
+
+// Planned assignment (uses user-editable buildings)
 const assignment = computed(() => ({
   planetId: props.base.planetId,
   buildings: props.base.buildings.map((b) => ({
@@ -247,7 +261,7 @@ const assignment = computed(() => ({
   })),
 }))
 
-// Planned production report (uses planned technology levels)
+// Planned production report (uses planned technology levels and buildings)
 const report = computed(() =>
   computeBaseReport(props.gameData, {
     assignment: assignment.value,
@@ -262,10 +276,10 @@ const report = computed(() =>
   }),
 )
 
-// Current production report (uses current technology levels from API)
+// Current production report (uses current technology levels and buildings from API)
 const reportCurrent = computed(() =>
   computeBaseReport(props.gameData, {
-    assignment: assignment.value,
+    assignment: currentAssignment.value,
     horizonDays: 1,
     options: {
       activeOptionalConsumables: optionalActive.value,
