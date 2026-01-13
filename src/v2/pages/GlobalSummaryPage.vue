@@ -118,7 +118,7 @@ watch(
   { immediate: false },
 )
 
-const summary = useGlobalSummary(
+const globalSummaryData = useGlobalSummary(
   bases,
   computed(() => props.gameData),
   computed(() => props.index),
@@ -134,7 +134,7 @@ const summary = useGlobalSummary(
 // Use baseReports from useGlobalSummary instead of recalculating
 const baseReports = computed(() => {
   const map = new Map()
-  summary.baseReports.value.forEach(({ base, report }) => {
+  globalSummaryData.baseReports.value.forEach(({ base, report }) => {
     map.set(base.id, report)
   })
   return map
@@ -186,9 +186,9 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__content">
             <div class="stat-card__label">Total Net Profit</div>
             <div class="stat-card__value">
-              <div>{{ formatCurrency(summary.totalNetProfit.value.planned, 0) }}</div>
-              <div v-if="summary.totalNetProfit.value.current !== summary.totalNetProfit.value.planned" class="stat-card__secondary">
-                Current: {{ formatCurrency(summary.totalNetProfit.value.current, 0) }}
+              <div>{{ formatCurrency(globalSummaryData.totalNetProfit.value.planned, 0) }}</div>
+              <div v-if="globalSummaryData.totalNetProfit.value.current !== globalSummaryData.totalNetProfit.value.planned" class="stat-card__secondary">
+                Current: {{ formatCurrency(globalSummaryData.totalNetProfit.value.current, 0) }}
               </div>
             </div>
           </div>
@@ -198,40 +198,31 @@ const isBaseExpanded = (baseId: string): boolean => {
           <div class="stat-card__content">
             <div class="stat-card__label">Export Net Profit</div>
             <div class="stat-card__value">
-              <div>{{ formatCurrency(summary.totalExportNetProfit.value.planned, 0) }}</div>
-              <div v-if="summary.totalExportNetProfit.value.current !== summary.totalExportNetProfit.value.planned" class="stat-card__secondary">
-                Current: {{ formatCurrency(summary.totalExportNetProfit.value.current, 0) }}
+              <div>{{ formatCurrency(globalSummaryData.totalExportNetProfit.value.planned, 0) }}</div>
+              <div v-if="globalSummaryData.totalExportNetProfit.value.current !== globalSummaryData.totalExportNetProfit.value.planned" class="stat-card__secondary">
+                Current: {{ formatCurrency(globalSummaryData.totalExportNetProfit.value.current, 0) }}
               </div>
             </div>
           </div>
         </div>
 
-        <div class="stat-card" v-if="summary.totalWorkforceDeficitCost.value.planned > 0">
+        <div class="stat-card" v-if="globalSummaryData.totalWorkforceDeficitCost.value.planned > 0">
           <div class="stat-card__content">
             <div class="stat-card__label">Workforce Deficit Cost</div>
             <div class="stat-card__value stat-card__value--warning">
-              <div>{{ formatCurrency(summary.totalWorkforceDeficitCost.value.planned, 0) }}</div>
-              <div v-if="summary.totalWorkforceDeficitCost.value.current !== summary.totalWorkforceDeficitCost.value.planned" class="stat-card__secondary">
-                Current: {{ formatCurrency(summary.totalWorkforceDeficitCost.value.current, 0) }}
+              <div>{{ formatCurrency(globalSummaryData.totalWorkforceDeficitCost.value.planned, 0) }}</div>
+              <div v-if="globalSummaryData.totalWorkforceDeficitCost.value.current !== globalSummaryData.totalWorkforceDeficitCost.value.planned" class="stat-card__secondary">
+                Current: {{ formatCurrency(globalSummaryData.totalWorkforceDeficitCost.value.current, 0) }}
               </div>
             </div>
           </div>
         </div>
 
-        <div class="stat-card" v-if="summary.totalConsumptionOverheadCost.value > 0">
+        <div class="stat-card" v-if="globalSummaryData.totalConsumptionOverheadCost.value > 0">
           <div class="stat-card__content">
             <div class="stat-card__label">Consumption Overhead</div>
             <div class="stat-card__value stat-card__value--info">
-              {{ formatCurrency(summary.totalConsumptionOverheadCost.value, 0) }}
-            </div>
-          </div>
-        </div>
-
-        <div class="stat-card" v-if="summary.totalConsumptionOverheadCost.value > 0">
-          <div class="stat-card__content">
-            <div class="stat-card__label">Expansion Overhead Cost</div>
-            <div class="stat-card__value stat-card__value--warning">
-              {{ formatCurrency(summary.totalConsumptionOverheadCost.value, 0) }}
+              {{ formatCurrency(globalSummaryData.totalConsumptionOverheadCost.value, 0) }}
             </div>
           </div>
         </div>
@@ -243,7 +234,7 @@ const isBaseExpanded = (baseId: string): boolean => {
       <h2 class="section-title">🏭 {{ translate('yourBases') }} ({{ bases.length }})</h2>
       <div class="bases-grid">
         <BaseCard
-          v-for="baseSummary in summary.baseSummaries.value"
+          v-for="baseSummary in globalSummaryData.baseSummaries.value"
           :key="baseSummary.baseId"
           :summary="baseSummary"
           :is-expanded="isBaseExpanded(baseSummary.baseId)"
