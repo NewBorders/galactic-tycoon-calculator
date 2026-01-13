@@ -133,7 +133,7 @@ const showNetProfitTrend = computed(() => {
       <div>
         {{ translate('netProfit') }}:
         <span :class="summaryForPeriod.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-          {{ formatPrice(summaryForPeriod.net, 2) }}
+          {{ formatPrice(summaryForPeriod.net, 0) }}
         </span>
         <span v-if="showNetProfitTrend" class="text-sm ml-1" :class="priceTrendColor(netProfitPriceTrend7d)">
           {{ priceTrendIcon(netProfitPriceTrend7d) }} {{ formatNumber(Math.abs(netProfitPriceTrend7d), 1) }}%
@@ -142,20 +142,20 @@ const showNetProfitTrend = computed(() => {
       <div>
         {{ translate('exportNetProfit') }}:
         <span :class="exportMetrics.exportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-          {{ formatPrice(exportMetrics.exportNetProfit, 2) }}
+          {{ formatPrice(exportMetrics.exportNetProfit, 0) }}
         </span>
       </div>
       <div>
         {{ translate('workerPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.workerPurchaseCosts, 2) }}</span>
+        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.workerPurchaseCosts, 0) }}</span>
       </div>
       <div>
         {{ translate('materialPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.materialPurchaseCosts, 2) }}</span>
+        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.materialPurchaseCosts, 0) }}</span>
       </div>
       <div>
         {{ translate('productionRevenue') }}:
-        <span class="text-emerald-300">{{ formatPrice(summaryForPeriod.productionRevenue, 2) }}</span>
+        <span class="text-emerald-300">{{ formatPrice(summaryForPeriod.productionRevenue, 0) }}</span>
       </div>
     </div>
   </div>

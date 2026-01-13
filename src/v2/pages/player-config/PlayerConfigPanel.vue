@@ -15,7 +15,6 @@ import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
 import ImportConfirmDialog from './components/ImportConfirmDialog.vue'
-import GlobalSummary from './components/GlobalSummary.vue'
 import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
@@ -569,20 +568,6 @@ async function refreshGameData() {
       :suggestions="suggestions"
       :hasBase="planetHasBase"
       @select="selectPlanet"
-    />
-
-    <!-- Global Summary -->
-    <GlobalSummary
-      v-if="state.bases.length > 0"
-      :bases="state.bases"
-      :game-data="props.gameData"
-      :index="props.index"
-      :price-resolver="priceResolver"
-      :technology-levels="technologyLevels"
-      :starting-bonus="startingBonus"
-      :timeframe-hours="timeframeHours"
-      :global-workforce-burden="globalWorkforceBurden"
-      :export-threshold="exportThreshold"
     />
 
     <!-- Bases -->
