@@ -100,6 +100,22 @@ const currentTechnologyLevelsOption = computed(() => {
 })
 
 const planet = computed(() => props.index.planetById.get(props.base.planetId))
+
+// Current building units (from API currentBuildings)
+const currentBuildingUnits = computed(() => {
+  const acc = new Map<number, number>()
+  const currentBuildings = props.base.currentBuildings ?? props.base.buildings
+  currentBuildings.forEach((b) => {
+    const level = Math.max(0, Math.floor(b.level ?? 1))
+    // Skip buildings with level 0
+    if (level === 0) return
+    const units = productionUnitsFromLevel(level)
+    acc.set(b.buildingId, (acc.get(b.buildingId) ?? 0) + units)
+  })
+  return acc
+})
+
+// Planned building units (from user-editable buildings)
 const buildingUnits = computed(() => {
   const acc = new Map<number, number>()
   props.base.buildings.forEach((b) => {
@@ -112,6 +128,20 @@ const buildingUnits = computed(() => {
   return acc
 })
 
+// Current assignment (uses currentBuildings from API)
+const currentAssignment = computed(() => ({
+  planetId: props.base.planetId,
+  buildings: (props.base.currentBuildings ?? props.base.buildings).map((b) => ({
+    buildingId: b.buildingId,
+    level: b.level,
+  })),
+  recipes: props.base.recipes.map((r) => ({
+    recipeId: r.recipeId,
+    count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 1,
+  })),
+}))
+
+// Planned assignment (uses user-editable buildings)
 const assignment = computed(() => ({
   planetId: props.base.planetId,
   buildings: props.base.buildings.map((b) => ({
@@ -141,7 +171,7 @@ const runsPerHoursLabel = computed(() =>
 // Current production report (based on API data)
 const reportCurrent = computed(() =>
   computeBaseReport(props.gameData, {
-    assignment: assignment.value,
+    assignment: currentAssignment.value,
     horizonDays: 1,
     options: {
       activeOptionalConsumables: optionalActive.value,
@@ -211,7 +241,7 @@ const cardsByIdCurrent = computed(() => {
       recipe,
       reportRow: reportCurrentByRecipeId.value.get(recipe.id),
       buildingName: building?.name ?? `#${recipe.producedInId}`,
-      units: buildingUnits.value.get(recipe.producedInId) ?? 0,
+      units: currentBuildingUnits.value.get(recipe.producedInId) ?? 0,
       technologyLevel,
       requiredTech,
       technologyName: getSpecializationName(specialization),
