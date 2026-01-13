@@ -329,11 +329,11 @@ function tierLabel(tier: number) {
                   <MaterialIcon :name="recipe.output.name" variant="sm" />
                   <span class="text-slate-300">{{ recipe.output.name }}</span>
                 </div>
-                <span class="text-slate-300">× {{ formatNumber(currentOutputPerPeriod) }}</span>
+                <span class="text-slate-300">{{ formatNumber(currentOutputPerPeriod, 0) }}</span>
               </div>
             </td>
             <td class="px-1 py-1 text-right">
-              <span class="text-emerald-300">× {{ formatNumber(outputPerPeriod) }}</span>
+              <span class="text-emerald-300">{{ formatNumber(outputPerPeriod, 0) }}</span>
             </td>
           </tr>
 
@@ -342,12 +342,12 @@ function tierLabel(tier: number) {
             <td class="px-1 py-1 text-slate-400 align-top">{{ translate('inputsPerDay') }}</td>
             <td class="px-1 py-1 align-top">
               <ul class="space-y-0.5">
-                <li v-for="input in currentInputsPerPeriod" :key="input.materialId" class="flex items-center justify-between">
+                <li v-for="input in currentInputsPerPeriod" :key="input.materialId" class="flex items-start justify-between">
                   <div class="flex items-center gap-0.5">
                     <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
                     <span class="text-slate-400">{{ materialName(input.materialId) }}</span>
                   </div>
-                  <span class="text-slate-400">× {{ formatNumber(input.amount) }}</span>
+                  <span class="text-slate-400">{{ formatNumber(input.amount, 0) }}</span>
                 </li>
                 <li v-if="!currentInputsPerPeriod.length" class="text-slate-600">—</li>
               </ul>
@@ -355,7 +355,7 @@ function tierLabel(tier: number) {
             <td class="px-1 py-1 align-top text-right">
               <ul class="space-y-0.5">
                 <li v-for="input in inputsPerPeriod" :key="input.materialId">
-                  <span class="text-slate-300">× {{ formatNumber(input.amount) }}</span>
+                  <span class="text-slate-300">{{ formatNumber(input.amount, 0) }}</span>
                 </li>
                 <li v-if="!inputsPerPeriod.length" class="text-slate-500">—</li>
               </ul>
