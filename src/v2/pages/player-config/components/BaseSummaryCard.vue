@@ -45,6 +45,25 @@ const technologyLevelsOption = computed(() => {
   return obj
 })
 
+const currentTechnologyLevelMap = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.currentTechnologyLevels ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    map.set(spec, Math.max(0, Math.floor(level)))
+  })
+  return map
+})
+
+const currentTechnologyLevelsOption = computed(() => {
+  const obj: Record<number, number> = {}
+  currentTechnologyLevelMap.value.forEach((level, spec) => {
+    obj[spec] = level
+  })
+  return obj
+})
+
 const assignment = computed(() => ({
   planetId: props.base.planetId,
   buildings: props.base.buildings.map((b) => ({
@@ -61,8 +80,23 @@ const activeOptionalConsumables = computed(() => {
   return new Set((props.base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'))
 })
 
+// Current production report (using current technology levels from API)
+const currentReport = computed(() =>
+  computeBaseReport(props.gameData, {
+    assignment: assignment.value,
+    horizonDays: 1,
+    options: {
+      activeOptionalConsumables: activeOptionalConsumables.value,
+      priceResolver: props.priceResolver,
+      technologyLevels: currentTechnologyLevelsOption.value,
+      startingBonus: props.currentStartingBonus,
+      globalWorkforceBurden: props.globalWorkforceBurden,
+    },
+  }),
+)
+
 // Planned production report (using planned technology levels)
-const report = computed(() =>
+const plannedReport = computed(() =>
   computeBaseReport(props.gameData, {
     assignment: assignment.value,
     horizonDays: 1,
@@ -76,7 +110,8 @@ const report = computed(() =>
   }),
 )
 
-const summary = computed(() => report.value.summary)
+const currentSummary = computed(() => currentReport.value.summary)
+const plannedSummary = computed(() => plannedReport.value.summary)
 
 const periodFactor = computed(() => {
   const hours = Number(props.timeframeHours)
@@ -85,22 +120,34 @@ const periodFactor = computed(() => {
   return clamped / 24
 })
 
-const summaryForPeriod = computed(() => ({
-  productionRevenue: summary.value.productionRevenue * periodFactor.value,
-  materialPurchaseCosts: summary.value.materialPurchaseCosts * periodFactor.value,
-  workerPurchaseCosts: summary.value.workerPurchaseCosts * periodFactor.value,
-  net: summary.value.net * periodFactor.value,
+const currentSummaryForPeriod = computed(() => ({
+  productionRevenue: currentSummary.value.productionRevenue * periodFactor.value,
+  materialPurchaseCosts: currentSummary.value.materialPurchaseCosts * periodFactor.value,
+  workerPurchaseCosts: currentSummary.value.workerPurchaseCosts * periodFactor.value,
+  net: currentSummary.value.net * periodFactor.value,
+}))
+
+const plannedSummaryForPeriod = computed(() => ({
+  productionRevenue: plannedSummary.value.productionRevenue * periodFactor.value,
+  materialPurchaseCosts: plannedSummary.value.materialPurchaseCosts * periodFactor.value,
+  workerPurchaseCosts: plannedSummary.value.workerPurchaseCosts * periodFactor.value,
+  net: plannedSummary.value.net * periodFactor.value,
 }))
 
 // Calculate export materials and metrics
-const exportMetrics = computed(() => {
-  const exportIds = calculateExportMaterials(report.value)
-  return calculateExportMetrics(report.value, exportIds, periodFactor.value)
+const currentExportMetrics = computed(() => {
+  const exportIds = calculateExportMaterials(currentReport.value)
+  return calculateExportMetrics(currentReport.value, exportIds, periodFactor.value)
 })
 
-// Calculate price trend for net profit
+const plannedExportMetrics = computed(() => {
+  const exportIds = calculateExportMaterials(plannedReport.value)
+  return calculateExportMetrics(plannedReport.value, exportIds, periodFactor.value)
+})
+
+// Calculate price trend for net profit (using planned report)
 const netProfitPriceTrend7d = computed(() =>
-  calculateNetProfitPriceTrend(report.value, props.marketOpportunities),
+  calculateNetProfitPriceTrend(plannedReport.value, props.marketOpportunities),
 )
 
 const priceTrendColor = (trend: number) => {
@@ -128,34 +175,102 @@ const showNetProfitTrend = computed(() => {
 </script>
 
 <template>
-  <div class="rounded p-2 space-y-2">
-    <div class="text-lg text-slate-300 flex flex-wrap gap-4">
-      <div>
-        {{ translate('netProfit') }}:
-        <span :class="summaryForPeriod.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-          {{ formatPrice(summaryForPeriod.net, 0) }}
-        </span>
-        <span v-if="showNetProfitTrend" class="text-sm ml-1" :class="priceTrendColor(netProfitPriceTrend7d)">
-          {{ priceTrendIcon(netProfitPriceTrend7d) }} {{ formatNumber(Math.abs(netProfitPriceTrend7d), 1) }}%
-        </span>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 p-3">
+    <!-- Net Profit -->
+    <div class="bg-slate-700/50 rounded p-2">
+      <div class="text-xs text-slate-400 mb-1">{{ translate('netProfit') }}</div>
+      <div class="space-y-0.5">
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-sm font-semibold" :class="currentSummaryForPeriod.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+            {{ formatPrice(currentSummaryForPeriod.net, 0) }}
+          </span>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-sm font-semibold" :class="plannedSummaryForPeriod.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+            {{ formatPrice(plannedSummaryForPeriod.net, 0) }}
+          </span>
+        </div>
       </div>
-      <div>
-        {{ translate('exportNetProfit') }}:
-        <span :class="exportMetrics.exportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-          {{ formatPrice(exportMetrics.exportNetProfit, 0) }}
-        </span>
+      <div v-if="showNetProfitTrend" class="text-xs mt-1" :class="priceTrendColor(netProfitPriceTrend7d)">
+        {{ priceTrendIcon(netProfitPriceTrend7d) }} {{ formatNumber(Math.abs(netProfitPriceTrend7d), 1) }}%
       </div>
-      <div>
-        {{ translate('workerPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.workerPurchaseCosts, 0) }}</span>
+    </div>
+
+    <!-- Export Net Profit -->
+    <div class="bg-slate-700/50 rounded p-2">
+      <div class="text-xs text-slate-400 mb-1">{{ translate('exportNetProfit') }}</div>
+      <div class="space-y-0.5">
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-sm font-semibold" :class="currentExportMetrics.exportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+            {{ formatPrice(currentExportMetrics.exportNetProfit, 0) }}
+          </span>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-sm font-semibold" :class="plannedExportMetrics.exportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+            {{ formatPrice(plannedExportMetrics.exportNetProfit, 0) }}
+          </span>
+        </div>
       </div>
-      <div>
-        {{ translate('materialPurchaseCosts') }}:
-        <span class="text-rose-300">{{ formatPrice(summaryForPeriod.materialPurchaseCosts, 0) }}</span>
+    </div>
+
+    <!-- Worker Consumables -->
+    <div class="bg-slate-700/50 rounded p-2">
+      <div class="text-xs text-slate-400 mb-1">{{ translate('workerPurchaseCosts') }}</div>
+      <div class="space-y-0.5">
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-sm font-semibold text-rose-300">
+            {{ formatPrice(currentSummaryForPeriod.workerPurchaseCosts, 0) }}
+          </span>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-sm font-semibold text-rose-300">
+            {{ formatPrice(plannedSummaryForPeriod.workerPurchaseCosts, 0) }}
+          </span>
+        </div>
       </div>
-      <div>
-        {{ translate('productionRevenue') }}:
-        <span class="text-emerald-300">{{ formatPrice(summaryForPeriod.productionRevenue, 0) }}</span>
+    </div>
+
+    <!-- Material Purchases -->
+    <div class="bg-slate-700/50 rounded p-2">
+      <div class="text-xs text-slate-400 mb-1">{{ translate('materialPurchaseCosts') }}</div>
+      <div class="space-y-0.5">
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-sm font-semibold text-rose-300">
+            {{ formatPrice(currentSummaryForPeriod.materialPurchaseCosts, 0) }}
+          </span>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-sm font-semibold text-rose-300">
+            {{ formatPrice(plannedSummaryForPeriod.materialPurchaseCosts, 0) }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Production Revenue -->
+    <div class="bg-slate-700/50 rounded p-2">
+      <div class="text-xs text-slate-400 mb-1">{{ translate('productionRevenue') }}</div>
+      <div class="space-y-0.5">
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-sm font-semibold text-emerald-300">
+            {{ formatPrice(currentSummaryForPeriod.productionRevenue, 0) }}
+          </span>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-sm font-semibold text-emerald-300">
+            {{ formatPrice(plannedSummaryForPeriod.productionRevenue, 0) }}
+          </span>
+        </div>
       </div>
     </div>
   </div>

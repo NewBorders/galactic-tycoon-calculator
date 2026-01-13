@@ -48,26 +48,48 @@ const { totalNetProfit, totalExportNetProfit, totalConsumptionOverheadCost } =
       <!-- Key Metrics -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-slate-700/50 rounded p-3">
-          <div class="text-sm text-slate-400">{{ translate('totalNetProfit') }}</div>
-          <div class="text-xl font-bold" :class="totalNetProfit.planned >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-            {{ formatPrice(totalNetProfit.planned, 0) }}
+          <div class="text-sm text-slate-400 mb-2">{{ translate('totalNetProfit') }}</div>
+          <div class="space-y-1">
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs text-slate-500">Current:</span>
+              <span class="text-lg font-semibold" :class="totalNetProfit.current >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+                {{ formatPrice(totalNetProfit.current, 0) }}
+              </span>
+            </div>
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs text-slate-500">Planned:</span>
+              <span class="text-lg font-semibold" :class="totalNetProfit.planned >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+                {{ formatPrice(totalNetProfit.planned, 0) }}
+              </span>
+            </div>
           </div>
         </div>
 
         <div class="bg-slate-700/50 rounded p-3">
-          <div class="text-sm text-slate-400">{{ translate('exportNetProfit') }}</div>
-          <div class="text-xl font-bold" :class="totalExportNetProfit.planned >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-            {{ formatPrice(totalExportNetProfit.planned, 0) }}
+          <div class="text-sm text-slate-400 mb-2">{{ translate('exportNetProfit') }}</div>
+          <div class="space-y-1">
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs text-slate-500">Current:</span>
+              <span class="text-lg font-semibold" :class="totalExportNetProfit.current >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+                {{ formatPrice(totalExportNetProfit.current, 0) }}
+              </span>
+            </div>
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs text-slate-500">Planned:</span>
+              <span class="text-lg font-semibold" :class="totalExportNetProfit.planned >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+                {{ formatPrice(totalExportNetProfit.planned, 0) }}
+              </span>
+            </div>
           </div>
-          <div class="text-xs text-slate-500 mt-1">{{ translate('exportNetProfitHint') }}</div>
+          <div class="text-xs text-slate-500 mt-2">{{ translate('exportNetProfitHint') }}</div>
         </div>
 
         <div class="bg-slate-700/50 rounded p-3">
-          <div class="text-sm text-slate-400">{{ translate('consumptionOverheadCost') }}</div>
-          <div class="text-xl font-bold text-amber-300">
+          <div class="text-sm text-slate-400 mb-2">{{ translate('consumptionOverheadCost') }}</div>
+          <div class="text-lg font-semibold text-amber-300">
             {{ formatPrice(totalConsumptionOverheadCost, 0) }}
           </div>
-          <div class="text-xs text-slate-500 mt-1">{{ translate('consumptionOverheadHint') }}</div>
+          <div class="text-xs text-slate-500 mt-2">{{ translate('consumptionOverheadHint') }}</div>
         </div>
       </div>
     </div>
