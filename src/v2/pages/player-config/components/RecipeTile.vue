@@ -321,19 +321,14 @@ function tierLabel(tier: number) {
             <td class="px-1 py-1 text-slate-400">{{ translate('outputPerDay') }}</td>
             <td class="px-1 py-1 text-left">
               <div class="inline-flex items-center gap-1">
-                <span class="text-slate-300">{{ formatNumber(currentOutputPerPeriod) }}</span>
-                <span>×</span>
                 <MaterialIcon :name="recipe.output.name" variant="sm" />
                 <span class="text-slate-300">{{ recipe.output.name }}</span>
+                <span class="text-slate-400">×</span>
+                <span class="text-slate-300">{{ formatNumber(currentOutputPerPeriod) }}</span>
               </div>
             </td>
-            <td class="px-1 py-1 text-left">
-              <div class="inline-flex items-center gap-1">
-                <span class="text-emerald-300">{{ formatNumber(outputPerPeriod) }}</span>
-                <span>×</span>
-                <MaterialIcon :name="recipe.output.name" variant="sm" />
-                <span class="text-emerald-300">{{ recipe.output.name }}</span>
-              </div>
+            <td class="px-1 py-1 text-center">
+              <span class="text-emerald-300">× {{ formatNumber(outputPerPeriod) }}</span>
             </td>
           </tr>
 
@@ -343,19 +338,18 @@ function tierLabel(tier: number) {
             <td class="px-1 py-1 align-top">
               <ul class="space-y-1">
                 <li v-for="input in currentInputsPerPeriod" :key="input.materialId" class="flex items-center gap-1">
-                  <span class="text-slate-400">{{ formatNumber(input.amount) }} ×</span>
                   <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
                   <span class="text-slate-400">{{ materialName(input.materialId) }}</span>
+                  <span class="text-slate-500">×</span>
+                  <span class="text-slate-400">{{ formatNumber(input.amount) }}</span>
                 </li>
                 <li v-if="!currentInputsPerPeriod.length" class="text-slate-600">—</li>
               </ul>
             </td>
-            <td class="px-1 py-1 align-top">
+            <td class="px-1 py-1 align-top text-center">
               <ul class="space-y-1">
-                <li v-for="input in inputsPerPeriod" :key="input.materialId" class="flex items-center gap-1">
-                  <span class="text-slate-300">{{ formatNumber(input.amount) }} ×</span>
-                  <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
-                  <span class="text-slate-300">{{ materialName(input.materialId) }}</span>
+                <li v-for="input in inputsPerPeriod" :key="input.materialId">
+                  <span class="text-slate-300">× {{ formatNumber(input.amount) }}</span>
                 </li>
                 <li v-if="!inputsPerPeriod.length" class="text-slate-500">—</li>
               </ul>
