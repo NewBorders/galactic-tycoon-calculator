@@ -2,6 +2,7 @@ import { computed, toValue, type MaybeRef } from 'vue'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
+import type { BaseReport } from '@/v2/services/production/types'
 import {
   calculateWorkforceProductivity,
   type WorkforceProductivitySummary
@@ -21,9 +22,27 @@ export type BaseSummaryData = {
   baseId: string
   baseName: string
   planetId: number
-  netProfit: number // daily net profit
-  exportNetProfit: number // profit from export materials only
-  exportPriceTrend7d: number // weighted average 7d price change % for export materials
+  // Current values (from API)
+  current: {
+    netProfit: number
+    exportNetProfit: number
+    exportPriceTrend7d: number
+    workerCosts: number
+    materialPurchases: number
+    revenue: number
+    workforceDeficitCost: number
+  }
+  // Planned values (user configuration)
+  planned: {
+    netProfit: number
+    exportNetProfit: number
+    exportPriceTrend7d: number
+    workerCosts: number
+    materialPurchases: number
+    revenue: number
+    workforceDeficitCost: number
+  }
+  // Shared data
   materialsRunningOut: Array<{
     materialId: number
     daysUntilEmpty: number
@@ -33,8 +52,12 @@ export type BaseSummaryData = {
   exportMaterials: ExportMaterial[]
   workforceCoverage: number // minimum coverage across all tiers
   workforceDeficit: number // total workers needed but not housed
-  workforceDeficitCost: number // cost of deficit in $/day
-  workforceProductivity: WorkforceProductivitySummary // NEW: workforce productivity with stock awareness
+  workforceProductivity: WorkforceProductivitySummary
+  // Legacy compatibility (planned values)
+  netProfit: number
+  exportNetProfit: number
+  exportPriceTrend7d: number
+  workforceDeficitCost: number
 }
 
 export type GlobalMaterialSummary = {
@@ -54,11 +77,22 @@ export type GlobalMaterialSummary = {
 }
 
 export type GlobalSummaryData = {
-  totalNetProfit: number
-  totalWorkforceDeficitCost: number
+  current: {
+    totalNetProfit: number
+    totalExportNetProfit: number
+    totalWorkforceDeficitCost: number
+  }
+  planned: {
+    totalNetProfit: number
+    totalExportNetProfit: number
+    totalWorkforceDeficitCost: number
+  }
   totalConsumptionOverheadCost: number
   bases: BaseSummaryData[]
   materials: GlobalMaterialSummary[]
+  // Legacy compatibility (planned values)
+  totalNetProfit: number
+  totalWorkforceDeficitCost: number
 }
 
 export function useGlobalSummary(
@@ -113,36 +147,61 @@ export function useGlobalSummary(
     return obj
   })
 
+  // Helper to compute report for a base with specific buildings/recipes configuration
+  const computeReport = (base: PlayerBase, useCurrent: boolean) => {
+    const assignment = {
+      planetId: base.planetId,
+      buildings: useCurrent
+        ? (base.currentBuildings ?? []).map((b) => ({
+            buildingId: b.buildingId,
+            level: b.level,
+          }))
+        : base.buildings.map((b) => ({
+            buildingId: b.buildingId,
+            level: b.level,
+          })),
+      recipes: useCurrent
+        ? base.recipes
+            .filter((r) => r.currentCount !== undefined)
+            .map((r) => ({
+              recipeId: r.recipeId,
+              count: typeof r.currentCount === 'number' && Number.isFinite(r.currentCount) ? Math.max(0, Math.floor(r.currentCount)) : 0,
+            }))
+        : base.recipes.map((r) => ({
+            recipeId: r.recipeId,
+            count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 1,
+          })),
+    }
+
+    const activeOptionalConsumables = new Set(
+      (base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'),
+    )
+
+    return computeBaseReport(toValue(gameData), {
+      assignment,
+      horizonDays: 1,
+      options: {
+        activeOptionalConsumables,
+        priceResolver: resolvedPriceResolver.value,
+        technologyLevels: technologyLevelsOption.value,
+        startingBonus: toValue(startingBonus),
+        globalWorkforceBurden: toValue(globalWorkforceBurden),
+      },
+    })
+  }
+
+  // Planned reports (user configuration)
   const baseReports = computed(() => {
     return toValue(bases).map((base) => {
-      const assignment = {
-        planetId: base.planetId,
-        buildings: base.buildings.map((b) => ({
-          buildingId: b.buildingId,
-          level: b.level,
-        })),
-        recipes: base.recipes.map((r) => ({
-          recipeId: r.recipeId,
-          count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 1,
-        })),
-      }
+      const report = computeReport(base, false)
+      return { base, report }
+    })
+  })
 
-      const activeOptionalConsumables = new Set(
-        (base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'),
-      )
-
-      const report = computeBaseReport(toValue(gameData), {
-        assignment,
-        horizonDays: 1,
-        options: {
-          activeOptionalConsumables,
-          priceResolver: resolvedPriceResolver.value,
-          technologyLevels: technologyLevelsOption.value,
-          startingBonus: toValue(startingBonus),
-          globalWorkforceBurden: toValue(globalWorkforceBurden),
-        },
-      })
-
+  // Current reports (API data)
+  const currentBaseReports = computed(() => {
+    return toValue(bases).map((base) => {
+      const report = computeReport(base, true)
       return { base, report }
     })
   })
@@ -187,34 +246,146 @@ export function useGlobalSummary(
     })
   })
 
-  const baseSummaries = computed((): BaseSummaryData[] => {
-    return baseReports.value.map(({ base, report }) => {
-      // Calculate workforce deficit
-      let totalDeficit = 0
-      let minCoverage = 100
-      report.workforceSummary.forEach((wf) => {
-        const deficit = Math.max(0, wf.required - wf.housing)
-        totalDeficit += deficit
-        minCoverage = Math.min(minCoverage, wf.coverage)
+  // Helper to calculate metrics from a report
+  const calculateMetrics = (base: PlayerBase, report: BaseReport) => {
+    // Calculate workforce deficit
+    let totalDeficit = 0
+    let minCoverage = 100
+    report.workforceSummary.forEach((wf: { tier: 1 | 2 | 3 | 4; required: number; housing: number; coverage: number }) => {
+      const deficit = Math.max(0, wf.required - wf.housing)
+      totalDeficit += deficit
+      minCoverage = Math.min(minCoverage, wf.coverage)
+    })
+
+    // Estimate deficit cost (assuming workers consume on average)
+    const workerDeficitCost = report.summary.workerPurchaseCosts * (totalDeficit / (totalDeficit + 1))
+
+    // Calculate export materials
+    const exportMaterials: ExportMaterial[] = []
+
+    // Build production and consumption maps from recipes and workers
+    const productionMap = new Map<number, number>()
+    const consumptionMap = new Map<number, number>()
+
+    // Get production from recipe outputs
+    report.recipes.forEach((recipe: { outputMaterialId: number; outputPerDay: number }) => {
+      const current = productionMap.get(recipe.outputMaterialId) || 0
+      productionMap.set(recipe.outputMaterialId, current + recipe.outputPerDay)
+    })
+
+    // Get consumption from recipe inputs
+    report.recipes.forEach((recipe: { inputsPerDay: Array<{ materialId: number; amount: number }> }) => {
+      recipe.inputsPerDay.forEach((input: { materialId: number; amount: number }) => {
+        const current = consumptionMap.get(input.materialId) || 0
+        consumptionMap.set(input.materialId, current + input.amount)
+      })
+    })
+
+    // Add worker consumption
+    report.workers.forEach((worker: { materialId: number; consumptionPerDay: number }) => {
+      const current = consumptionMap.get(worker.materialId) || 0
+      consumptionMap.set(worker.materialId, current + worker.consumptionPerDay)
+    })
+
+    // Calculate export materials
+    productionMap.forEach((production, materialId) => {
+      const consumption = consumptionMap.get(materialId) || 0
+
+      if (production > 0) {
+        const localConsumptionRatio = consumption / production
+        const exportRatio = 1 - localConsumptionRatio
+
+        if (localConsumptionRatio < (1 - exportThresholdDecimal.value)) {
+          const exportAmount = production - consumption
+          const resolver = resolvedPriceResolver.value
+          exportMaterials.push({
+            materialId,
+            productionPerDay: production * periodFactor.value,
+            consumptionPerDay: consumption * periodFactor.value,
+            exportPerDay: exportAmount * periodFactor.value,
+            exportRatio: exportRatio * 100,
+            valuePerDay: exportAmount * resolver(materialId) * periodFactor.value,
+          })
+        }
+      }
+    })
+    exportMaterials.sort((a, b) => b.valuePerDay - a.valuePerDay)
+
+    // Calculate export revenue and profit
+    const exportRevenue = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
+    const allCosts = (report.summary.materialPurchaseCosts + report.summary.workerPurchaseCosts) * periodFactor.value
+    const exportNetProfit = exportRevenue - allCosts
+
+    // Calculate weighted average 7d price trend for export materials
+    let exportPriceTrend7d = 0
+    if (exportMaterials.length > 0 && marketOpportunities) {
+      const opportunities = toValue(marketOpportunities) ?? []
+      const opportunityMap = new Map(opportunities.map(o => [o.materialId, o]))
+
+      let totalWeight = 0
+      let weightedTrendSum = 0
+
+      exportMaterials.forEach(exportMat => {
+        const opportunity = opportunityMap.get(exportMat.materialId)
+        if (opportunity) {
+          const weight = exportMat.valuePerDay
+          totalWeight += weight
+          weightedTrendSum += opportunity.priceTrend.changePercent7d * weight
+        }
       })
 
-      // Estimate deficit cost (assuming workers consume on average)
-      const workerDeficitCost = report.summary.workerPurchaseCosts * (totalDeficit / (totalDeficit + 1))
+      if (totalWeight > 0) {
+        exportPriceTrend7d = weightedTrendSum / totalWeight
+      }
+    }
+
+    return {
+      netProfit: report.summary.net * periodFactor.value,
+      exportNetProfit,
+      exportPriceTrend7d,
+      workerCosts: report.summary.workerPurchaseCosts * periodFactor.value,
+      materialPurchases: report.summary.materialPurchaseCosts * periodFactor.value,
+      revenue: exportRevenue,
+      workforceDeficitCost: workerDeficitCost * periodFactor.value,
+      exportMaterials,
+      minCoverage,
+      totalDeficit,
+    }
+  }
+
+  const baseSummaries = computed((): BaseSummaryData[] => {
+    return baseReports.value.map(({ base, report }, index) => {
+      const currentReport = currentBaseReports.value[index]?.report
+
+      // Calculate planned metrics
+      const planned = calculateMetrics(base, report)
+
+      // Calculate current metrics
+      const current = currentReport ? calculateMetrics(base, currentReport) : {
+        netProfit: 0,
+        exportNetProfit: 0,
+        exportPriceTrend7d: 0,
+        workerCosts: 0,
+        materialPurchases: 0,
+        revenue: 0,
+        workforceDeficitCost: 0,
+        exportMaterials: [],
+        minCoverage: 100,
+        totalDeficit: 0,
+      }
 
       // Find materials that will run out of stock within the configured timeframe
-      // Use base-specific stock from the base object (single source of truth)
       const materialsRunningOut: BaseSummaryData['materialsRunningOut'] = []
       const baseStock = base.stock ?? {}
       const timeframeDays = periodFactor.value
 
       report.materials.forEach((material) => {
-        if (material.balancePerDay >= 0) return // producing or balanced
+        if (material.balancePerDay >= 0) return
         const currentStock = baseStock[material.materialId] ?? 0
-        if (currentStock <= 0) return // already empty
+        if (currentStock <= 0) return
         const consumptionPerDay = Math.abs(material.balancePerDay)
         const daysUntilEmpty = currentStock / consumptionPerDay
 
-        // Warn if material will run out within the configured timeframe
         if (daysUntilEmpty <= timeframeDays) {
           materialsRunningOut.push({
             materialId: material.materialId,
@@ -226,148 +397,64 @@ export function useGlobalSummary(
       })
       materialsRunningOut.sort((a, b) => a.daysUntilEmpty - b.daysUntilEmpty)
 
-      // Find export materials: materials where less than threshold% is consumed locally
-      const exportMaterials: ExportMaterial[] = []
-
-      // Build production and consumption maps from recipes and workers
-      const productionMap = new Map<number, number>()
-      const consumptionMap = new Map<number, number>()
-
-      // Get production from recipe outputs
-      report.recipes.forEach((recipe) => {
-        const current = productionMap.get(recipe.outputMaterialId) || 0
-        productionMap.set(recipe.outputMaterialId, current + recipe.outputPerDay)
-      })
-
-      // Get consumption from recipe inputs
-      report.recipes.forEach((recipe) => {
-        recipe.inputsPerDay.forEach((input) => {
-          const current = consumptionMap.get(input.materialId) || 0
-          consumptionMap.set(input.materialId, current + input.amount)
-        })
-      })
-
-      // Add worker consumption
-      report.workers.forEach((worker) => {
-        const current = consumptionMap.get(worker.materialId) || 0
-        consumptionMap.set(worker.materialId, current + worker.consumptionPerDay)
-      })
-
-      // Calculate export materials
-      productionMap.forEach((production, materialId) => {
-        const consumption = consumptionMap.get(materialId) || 0
-
-        if (production > 0) {
-          const localConsumptionRatio = consumption / production
-          const exportRatio = 1 - localConsumptionRatio
-
-          // Material is exported if less than threshold is consumed locally
-          // exportRatio > threshold means: (1 - consumption/production) > threshold
-          // which means: consumption/production < (1 - threshold)
-          if (localConsumptionRatio < (1 - exportThresholdDecimal.value)) {
-            const exportAmount = production - consumption
-            const resolver = resolvedPriceResolver.value
-            exportMaterials.push({
-              materialId,
-              productionPerDay: production * periodFactor.value,
-              consumptionPerDay: consumption * periodFactor.value,
-              exportPerDay: exportAmount * periodFactor.value,
-              exportRatio: exportRatio * 100, // as percentage
-              valuePerDay: exportAmount * resolver(materialId) * periodFactor.value,
-            })
-          }
-        }
-      })
-      exportMaterials.sort((a, b) => b.valuePerDay - a.valuePerDay)
-
       // Calculate workforce productivity with stock awareness
-      // Always use 1 day horizon for productivity - it represents current worker capability,
-      // not long-term sustainability
-      // Use base-specific stock from the base object (single source of truth)
-      const workforceProductivity = calculateWorkforceProductivity(
-        report,
-        baseStock
-      )
-
-      // Calculate export net profit correctly:
-      // Revenue from export sales - ALL costs of this base
-      // This shows what net profit would be if we only consider export materials
-
-      const exportRevenue = exportMaterials.reduce((sum, m) => sum + m.valuePerDay, 0)
-
-      // ALL costs of this base: material purchases + worker consumption
-      const allCosts = (report.summary.materialPurchaseCosts + report.summary.workerPurchaseCosts) * periodFactor.value
-
-      const exportNetProfit = exportRevenue - allCosts
-
-      // Calculate weighted average 7d price trend for export materials
-      let exportPriceTrend7d = 0
-      if (exportMaterials.length > 0 && marketOpportunities) {
-        const opportunities = toValue(marketOpportunities) ?? []
-        const opportunityMap = new Map(opportunities.map(o => [o.materialId, o]))
-
-        let totalWeight = 0
-        let weightedTrendSum = 0
-
-        exportMaterials.forEach(exportMat => {
-          const opportunity = opportunityMap.get(exportMat.materialId)
-          if (opportunity) {
-            const weight = exportMat.valuePerDay // weight by export value
-            totalWeight += weight
-            weightedTrendSum += opportunity.priceTrend.changePercent7d * weight
-          }
-        })
-
-        if (totalWeight > 0) {
-          exportPriceTrend7d = weightedTrendSum / totalWeight
-        }
-      }
+      const workforceProductivity = calculateWorkforceProductivity(report, baseStock)
 
       return {
         baseId: base.id,
         baseName: base.name || `Base ${base.id}`,
         planetId: base.planetId,
-        netProfit: report.summary.net * periodFactor.value,
-        exportNetProfit,
-        exportPriceTrend7d,
+        current: {
+          netProfit: current.netProfit,
+          exportNetProfit: current.exportNetProfit,
+          exportPriceTrend7d: current.exportPriceTrend7d,
+          workerCosts: current.workerCosts,
+          materialPurchases: current.materialPurchases,
+          revenue: current.revenue,
+          workforceDeficitCost: current.workforceDeficitCost,
+        },
+        planned: {
+          netProfit: planned.netProfit,
+          exportNetProfit: planned.exportNetProfit,
+          exportPriceTrend7d: planned.exportPriceTrend7d,
+          workerCosts: planned.workerCosts,
+          materialPurchases: planned.materialPurchases,
+          revenue: planned.revenue,
+          workforceDeficitCost: planned.workforceDeficitCost,
+        },
         materialsRunningOut,
-        exportMaterials,
-        workforceCoverage: minCoverage,
-        workforceDeficit: totalDeficit,
-        workforceDeficitCost: workerDeficitCost * periodFactor.value,
+        exportMaterials: planned.exportMaterials,
+        workforceCoverage: planned.minCoverage,
+        workforceDeficit: planned.totalDeficit,
         workforceProductivity,
+        // Legacy compatibility (planned values)
+        netProfit: planned.netProfit,
+        exportNetProfit: planned.exportNetProfit,
+        exportPriceTrend7d: planned.exportPriceTrend7d,
+        workforceDeficitCost: planned.workforceDeficitCost,
       }
     })
   })
 
   const totalNetProfit = computed(() => {
-    return baseReports.value.reduce((sum, { report }) => sum + report.summary.net * periodFactor.value, 0)
+    return {
+      current: currentBaseReports.value.reduce((sum, { report }) => sum + report.summary.net * periodFactor.value, 0),
+      planned: baseReports.value.reduce((sum, { report }) => sum + report.summary.net * periodFactor.value, 0),
+    }
   })
 
   const totalWorkforceDeficitCost = computed(() => {
-    return baseSummaries.value.reduce((sum, base) => sum + base.workforceDeficitCost, 0)
+    return {
+      current: baseSummaries.value.reduce((sum, base) => sum + base.current.workforceDeficitCost, 0),
+      planned: baseSummaries.value.reduce((sum, base) => sum + base.planned.workforceDeficitCost, 0),
+    }
   })
 
   const totalExportNetProfit = computed(() => {
-    // Export Net Profit = Revenue from export materials only - ALL costs
-    // This shows the net profit if only export materials are sold
-    let totalExportRevenue = 0
-    let totalAllCosts = 0
-
-    baseReports.value.forEach(({ report }, baseIndex) => {
-      const baseSummary = baseSummaries.value[baseIndex]
-      if (!baseSummary) return
-
-      // Sum up export values for this base (only materials meeting export threshold)
-      const exportValue = baseSummary.exportMaterials.reduce((sum, material) => sum + material.valuePerDay, 0)
-      totalExportRevenue += exportValue
-
-      // Sum up ALL costs for this base
-      const baseCosts = (report.summary.materialPurchaseCosts + report.summary.workerPurchaseCosts) * periodFactor.value
-      totalAllCosts += baseCosts
-    })
-
-    return totalExportRevenue - totalAllCosts
+    return {
+      current: baseSummaries.value.reduce((sum, base) => sum + base.current.exportNetProfit, 0),
+      planned: baseSummaries.value.reduce((sum, base) => sum + base.planned.exportNetProfit, 0),
+    }
   })
 
   // Calculate consumption overhead cost: difference between actual net and net without overhead
@@ -469,8 +556,28 @@ export function useGlobalSummary(
     return result
   })
 
+  const summary = computed((): GlobalSummaryData => ({
+    current: {
+      totalNetProfit: totalNetProfit.value.current,
+      totalExportNetProfit: totalExportNetProfit.value.current,
+      totalWorkforceDeficitCost: totalWorkforceDeficitCost.value.current,
+    },
+    planned: {
+      totalNetProfit: totalNetProfit.value.planned,
+      totalExportNetProfit: totalExportNetProfit.value.planned,
+      totalWorkforceDeficitCost: totalWorkforceDeficitCost.value.planned,
+    },
+    totalConsumptionOverheadCost: totalConsumptionOverheadCost.value,
+    bases: baseSummaries.value,
+    materials: globalMaterials.value,
+    // Legacy compatibility
+    totalNetProfit: totalNetProfit.value.planned,
+    totalWorkforceDeficitCost: totalWorkforceDeficitCost.value.planned,
+  }))
+
   return {
-    baseReports, // Export baseReports so they can be reused
+    summary,
+    baseReports,
     baseSummaries,
     totalNetProfit,
     totalExportNetProfit,

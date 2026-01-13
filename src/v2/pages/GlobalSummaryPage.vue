@@ -185,22 +185,35 @@ const isBaseExpanded = (baseId: string): boolean => {
         <div class="stat-card stat-card--primary">
           <div class="stat-card__content">
             <div class="stat-card__label">Total Net Profit</div>
-            <div class="stat-card__value">{{ formatCurrency(summary.totalNetProfit.value, 0) }}</div>
+            <div class="stat-card__value">
+              <div>{{ formatCurrency(summary.totalNetProfit.value.planned, 0) }}</div>
+              <div v-if="summary.totalNetProfit.value.current !== summary.totalNetProfit.value.planned" class="stat-card__secondary">
+                Current: {{ formatCurrency(summary.totalNetProfit.value.current, 0) }}
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="stat-card stat-card--success">
           <div class="stat-card__content">
             <div class="stat-card__label">Export Net Profit</div>
-            <div class="stat-card__value">{{ formatCurrency(summary.totalExportNetProfit.value, 0) }}</div>
+            <div class="stat-card__value">
+              <div>{{ formatCurrency(summary.totalExportNetProfit.value.planned, 0) }}</div>
+              <div v-if="summary.totalExportNetProfit.value.current !== summary.totalExportNetProfit.value.planned" class="stat-card__secondary">
+                Current: {{ formatCurrency(summary.totalExportNetProfit.value.current, 0) }}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="stat-card" v-if="summary.totalWorkforceDeficitCost.value > 0">
+        <div class="stat-card" v-if="summary.totalWorkforceDeficitCost.value.planned > 0">
           <div class="stat-card__content">
             <div class="stat-card__label">Workforce Deficit Cost</div>
             <div class="stat-card__value stat-card__value--warning">
-              {{ formatCurrency(summary.totalWorkforceDeficitCost.value, 0) }}
+              <div>{{ formatCurrency(summary.totalWorkforceDeficitCost.value.planned, 0) }}</div>
+              <div v-if="summary.totalWorkforceDeficitCost.value.current !== summary.totalWorkforceDeficitCost.value.planned" class="stat-card__secondary">
+                Current: {{ formatCurrency(summary.totalWorkforceDeficitCost.value.current, 0) }}
+              </div>
             </div>
           </div>
         </div>
@@ -326,6 +339,13 @@ const isBaseExpanded = (baseId: string): boolean => {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--color-heading);
+}
+
+.stat-card__secondary {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
 }
 
 .stat-card__value--warning {

@@ -49,15 +49,15 @@ const { totalNetProfit, totalExportNetProfit, totalConsumptionOverheadCost } =
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-slate-700/50 rounded p-3">
           <div class="text-sm text-slate-400">{{ translate('totalNetProfit') }}</div>
-          <div class="text-xl font-bold" :class="totalNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-            {{ formatPrice(totalNetProfit, 2) }}
+          <div class="text-xl font-bold" :class="totalNetProfit.planned >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+            {{ formatPrice(totalNetProfit.planned, 2) }}
           </div>
         </div>
 
         <div class="bg-slate-700/50 rounded p-3">
           <div class="text-sm text-slate-400">{{ translate('exportNetProfit') }}</div>
-          <div class="text-xl font-bold" :class="totalExportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
-            {{ formatPrice(totalExportNetProfit, 2) }}
+          <div class="text-xl font-bold" :class="totalExportNetProfit.planned >= 0 ? 'text-emerald-300' : 'text-rose-300'">
+            {{ formatPrice(totalExportNetProfit.planned, 2) }}
           </div>
           <div class="text-xs text-slate-500 mt-1">{{ translate('exportNetProfitHint') }}</div>
         </div>
