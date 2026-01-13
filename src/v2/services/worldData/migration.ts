@@ -46,7 +46,9 @@ export function migrateToV2(): void {
       // Ignore errors reading old data
     }
     
-    // Step 2: (Backup of old data removed as it was unused)
+    // Step 2: Mark migration in progress BEFORE clearing data
+    // This prevents re-migration attempts if clearing fails
+    setStorageVersion('2')
     
     // Step 3: Clear all old data
     clearAllWorldData()
@@ -62,9 +64,6 @@ export function migrateToV2(): void {
       console.log('[Migration] No API key found, starting fresh')
       setActiveWorld('g2')
     }
-    
-    // Step 5: Mark migration complete
-    setStorageVersion('2')
     
     console.log('[Migration] Migration successful')
     
