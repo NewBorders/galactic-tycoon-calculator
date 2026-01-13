@@ -72,9 +72,28 @@ const technologyLevelMap = computed(() => {
   return map
 })
 
+const currentTechnologyLevelMap = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.currentTechnologyLevels ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    map.set(spec, Math.max(0, Math.floor(level)))
+  })
+  return map
+})
+
 const technologyLevelsOption = computed(() => {
   const obj: Record<number, number> = {}
   technologyLevelMap.value.forEach((level, spec) => {
+    obj[spec] = level
+  })
+  return obj
+})
+
+const currentTechnologyLevelsOption = computed(() => {
+  const obj: Record<number, number> = {}
+  currentTechnologyLevelMap.value.forEach((level, spec) => {
     obj[spec] = level
   })
   return obj
@@ -119,6 +138,22 @@ const runsPerHoursLabel = computed(() =>
   translate('runsPerHours', { hours: timeframeHours.value }),
 )
 
+// Current production report (based on API data)
+const reportCurrent = computed(() =>
+  computeBaseReport(props.gameData, {
+    assignment: assignment.value,
+    horizonDays: 1,
+    options: {
+      activeOptionalConsumables: optionalActive.value,
+      priceResolver: props.priceResolver,
+      technologyLevels: currentTechnologyLevelsOption.value,
+      startingBonus: props.currentStartingBonus,
+      globalWorkforceBurden: props.globalWorkforceBurden,
+    },
+  }),
+)
+
+// Planned production report (based on user input)
 const report = computed(() =>
   computeBaseReport(props.gameData, {
     assignment: assignment.value,
@@ -138,12 +173,52 @@ const reportByRecipeId = computed(
     new Map<number, RecipeProductionRow>(report.value.recipes.map((row) => [row.recipeId, row])),
 )
 
+const reportCurrentByRecipeId = computed(
+  () =>
+    new Map<number, RecipeProductionRow>(reportCurrent.value.recipes.map((row) => [row.recipeId, row])),
+)
+
 const list = computed({
   get: () => props.base.recipes,
   set: (val) => emit('reorderRecipes', { ids: val.map((v) => v.id) }),
 })
 
 const hasRecipes = computed(() => props.base.recipes.length > 0)
+
+const cardsByIdCurrent = computed(() => {
+  const map = new Map<
+    string,
+    {
+      recipe: Recipe
+      reportRow?: RecipeProductionRow
+      buildingName: string
+      units: number
+      technologyLevel: number
+      requiredTech: number
+      technologyName: string
+    }
+  >()
+  props.base.recipes.forEach((selection) => {
+    const recipe = props.index.recipeById.get(selection.recipeId)
+    if (!recipe) return
+    const building = props.index.buildingById.get(recipe.producedInId)
+    const specialization = building?.specialization ?? 0
+    const technologyLevel = building
+      ? (currentTechnologyLevelMap.value.get(specialization) ?? 0)
+      : 0
+    const requiredTech = recipe.reqTech ?? 0
+    map.set(selection.id, {
+      recipe,
+      reportRow: reportCurrentByRecipeId.value.get(recipe.id),
+      buildingName: building?.name ?? `#${recipe.producedInId}`,
+      units: buildingUnits.value.get(recipe.producedInId) ?? 0,
+      technologyLevel,
+      requiredTech,
+      technologyName: getSpecializationName(specialization),
+    })
+  })
+  return map
+})
 
 const cardsById = computed(() => {
   const map = new Map<
@@ -394,11 +469,13 @@ watch(
             <RecipeTile
               v-if="cardsById.get(element.id)"
               :recipe="cardsById.get(element.id)!.recipe"
+              :report-row-current="cardsByIdCurrent.get(element.id)!.reportRow"
               :report-row="cardsById.get(element.id)!.reportRow"
               :building-name="cardsById.get(element.id)!.buildingName"
               :units="cardsById.get(element.id)!.units"
               :count="typeof element.count === 'number' ? element.count : 1"
               :technology-level="cardsById.get(element.id)!.technologyLevel"
+              :current-technology-level="cardsByIdCurrent.get(element.id)!.technologyLevel"
               :required-tech="cardsById.get(element.id)!.requiredTech"
               :technology-name="cardsById.get(element.id)!.technologyName"
               :material-lookup="props.index.materialById"

@@ -8,12 +8,14 @@ import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
 const props = defineProps<{
   recipe: Recipe
+  reportRowCurrent?: RecipeProductionRow
   reportRow?: RecipeProductionRow
   buildingName: string
   units: number
   count?: number
   materialLookup: Map<number, { name: string }>
   technologyLevel: number
+  currentTechnologyLevel: number
   requiredTech: number
   technologyName?: string
   timeframeHours: number
@@ -38,19 +40,13 @@ const periodFactor = computed(() => displayHours.value / 24)
 const effectiveCount = computed(() => (typeof props.count === 'number' ? props.count : 1))
 const isDisabled = computed(() => effectiveCount.value === 0)
 
+// ===== PLANNED PRODUCTION (from props.reportRow) =====
 // When disabled (count=0), ignore reportRow and calculate from scratch
 const activeUnits = computed(() => {
   if (isDisabled.value) return 0
   return props.reportRow?.buildingUnits ?? props.units
 })
 const queueShare = computed(() => isDisabled.value ? 1 : (props.reportRow?.queueShare ?? 1))
-const baseCycleMinutes = computed(() => props.reportRow?.timeMinutes ?? props.recipe.timeMinutes)
-const adjustedCycleMinutes = computed(
-  () => props.reportRow?.adjustedTimeMinutes ?? baseCycleMinutes.value,
-)
-const actualCycleMinutes = computed(
-  () => props.reportRow?.actualTimeMinutes ?? adjustedCycleMinutes.value,
-)
 const runsPerModulePerDay = computed(() =>
   props.reportRow?.cyclesPerDayPerUnit ??
   (props.recipe.timeMinutes > 0 ? minutesPerDay / props.recipe.timeMinutes : 0),
@@ -96,12 +92,66 @@ const workforceFactor = computed(() => props.reportRow?.workforceFactor ?? 1)
 const abundanceFactor = computed(() => props.reportRow?.abundanceFactor ?? 1)
 const productivityFactor = computed(() => props.reportRow?.productivityFactor ?? 1)
 const blockedReason = computed(() => props.reportRow?.blockedReason ?? null)
-const blockedByAbundance = computed(() => blockedReason.value === 'abundance')
-const blockedByFertility = computed(() => blockedReason.value === 'fertility')
-const blockedByTechnology = computed(() => blockedReason.value === 'technology')
-const technologyLevel = computed(() => props.technologyLevel ?? 0)
-const requiredTech = computed(() => props.requiredTech ?? 0)
-const hasTechnology = computed(() => technologyLevel.value >= requiredTech.value)
+
+// ===== CURRENT PRODUCTION (from props.reportRowCurrent) =====
+const currentActiveUnits = computed(() => {
+  if (isDisabled.value) return 0
+  return props.reportRowCurrent?.buildingUnits ?? props.units
+})
+const currentRunsPerModulePerDay = computed(() =>
+  props.reportRowCurrent?.cyclesPerDayPerUnit ??
+  (props.recipe.timeMinutes > 0 ? minutesPerDay / props.recipe.timeMinutes : 0),
+)
+const currentRunsPerDay = computed(() => {
+  if (isDisabled.value) return 0
+  return props.reportRowCurrent?.runsPerDay ?? currentRunsPerModulePerDay.value * currentActiveUnits.value
+})
+
+const currentOutputPerDay = computed(() => {
+  if (isDisabled.value) return 0
+  if (props.reportRowCurrent) return props.reportRowCurrent.outputPerDay
+  return currentRunsPerDay.value * props.recipe.output.amount
+})
+
+const currentInputsPerDay = computed(() => {
+  if (isDisabled.value) {
+    return props.recipe.inputs.map((inp) => ({
+      materialId: inp.id,
+      amount: 0,
+    }))
+  }
+  if (props.reportRowCurrent) return props.reportRowCurrent.inputsPerDay
+  return props.recipe.inputs.map((inp) => ({
+    materialId: inp.id,
+    amount: inp.amount * currentRunsPerDay.value,
+  }))
+})
+
+const currentOutputPerPeriod = computed(() => currentOutputPerDay.value * periodFactor.value)
+
+const currentInputsPerPeriod = computed(() =>
+  currentInputsPerDay.value.map((inp) => ({
+    materialId: inp.materialId,
+    amount: inp.amount * periodFactor.value,
+  })),
+)
+
+const currentWorkforce = computed(() => props.reportRowCurrent?.workforce ?? [])
+const currentWorkforceFactor = computed(() => props.reportRowCurrent?.workforceFactor ?? 1)
+const currentAbundanceFactor = computed(() => props.reportRowCurrent?.abundanceFactor ?? 1)
+const currentProductivityFactor = computed(() => props.reportRowCurrent?.productivityFactor ?? 1)
+const currentBlockedReason = computed(() => props.reportRowCurrent?.blockedReason ?? null)
+
+const blockedByAbundance = computed(() => blockedReason.value?.includes('Abundance') ?? false)
+const blockedByFertility = computed(() => blockedReason.value?.includes('Fertility') ?? false)
+const blockedByTechnology = computed(() => blockedReason.value?.includes('Technology') ?? false)
+
+const currentBlockedByAbundance = computed(() => currentBlockedReason.value?.includes('Abundance') ?? false)
+const currentBlockedByFertility = computed(() => currentBlockedReason.value?.includes('Fertility') ?? false)
+const currentBlockedByTechnology = computed(() => currentBlockedReason.value?.includes('Technology') ?? false)
+
+const hasTechnology = computed(() => props.technologyLevel >= props.requiredTech)
+const currentHasTechnology = computed(() => props.currentTechnologyLevel >= props.requiredTech)
 
 function materialName(id: number) {
   return props.materialLookup.get(id)?.name ?? `#${id}`
@@ -109,11 +159,6 @@ function materialName(id: number) {
 
 function formatShare(value: number) {
   return `${formatNumber(value, 1)}%`
-}
-
-function formatMinutes(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return '—'
-  return `${formatNumber(value, 1)} ${translate('minutes')}`
 }
 
 function tierLabel(tier: number) {
@@ -137,10 +182,11 @@ function tierLabel(tier: number) {
     class="rounded border p-4 space-y-3 h-full transition-all"
     :class="(props.count ?? 1) === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
   >
+    <!-- Header: Recipe name, building, technology level -->
     <div class="flex items-start gap-3">
       <span class="recipe-dnd-handle cursor-move px-2 py-1 border border-slate-700 rounded select-none">↕</span>
       <div class="flex-1 min-w-0">
-        <div class="flex items-start gap-2">
+        <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
             <div class="font-semibold truncate inline-flex items-center gap-1">
               <MaterialIcon :name="recipe.output.name" variant="md" />
@@ -148,23 +194,8 @@ function tierLabel(tier: number) {
               <span v-if="(props.count ?? 1) === 0" class="text-xs text-amber-400 font-normal">({{ translate('disabled') }})</span>
             </div>
             <div class="text-xs text-slate-400">{{ buildingName }}</div>
-            <div class="text-xs" :class="hasTechnology ? 'text-slate-500' : 'text-amber-300'">
-              <template v-if="props.technologyName">
-                {{ props.technologyName }} {{ translate('technologyLevel') }}: {{ technologyLevel }} / {{ requiredTech }}
-              </template>
-              <template v-else>
-                {{ translate('technologyLevel') }}: {{ technologyLevel }} / Req. {{ requiredTech }}
-              </template>
-            </div>
-            <div class="text-xs text-slate-500">
-              {{ translate('productivityFactor') }}: {{ formatShare(productivityFactor * 100) }} ·
-              {{ translate(props.reportRow?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}: {{ formatShare(abundanceFactor * 100) }}
-            </div>
-            <div class="text-xs text-slate-500">
-              {{ translate('baseCycleTime') }}: {{ formatMinutes(baseCycleMinutes) }} •
-              {{ translate('actualCycleTime') }}: {{ formatMinutes(actualCycleMinutes) }}
-            </div>
           </div>
+          <!-- Controls for recipe count -->
           <div class="flex items-center gap-2">
             <div class="flex items-center border border-slate-700 rounded px-2 py-1 text-sm bg-slate-800 gap-1">
               <button
@@ -202,67 +233,177 @@ function tierLabel(tier: number) {
           </div>
         </div>
 
-        <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-400">
-          <div>
-            {{ translate('queueTimeShare') }}: {{ formatShare(queueShare * 100) }}
-          </div>
-          <div>
-            {{ translate('runsPerHours', { hours: displayHours }) }}:
-            {{ formatNumber(runsPerModulePerPeriod) }}
-          </div>
-        </div>
+        <!-- Current vs Planned sections -->
+        <div class="mt-3 grid grid-cols-2 gap-4">
+          <!-- CURRENT PRODUCTION (readonly) -->
+          <div class="border-l border-slate-700 pl-3">
+            <div class="text-xs font-semibold text-slate-400 mb-2">{{ translate('current') }}</div>
+            
+            <!-- Current Tech Level -->
+            <div class="text-xs mb-2" :class="currentHasTechnology ? 'text-slate-500' : 'text-amber-300'">
+              <template v-if="props.technologyName">
+                {{ props.technologyName }} {{ translate('technologyLevel') }}: {{ currentTechnologyLevel }} / {{ requiredTech }}
+              </template>
+              <template v-else>
+                {{ translate('technologyLevel') }}: {{ currentTechnologyLevel }} / Req. {{ requiredTech }}
+              </template>
+            </div>
 
-        <div class="mt-3 space-y-2 text-sm">
-          <div>
-            {{ translate('outputPerHours', { hours: displayHours }) }}:
-            <span class="text-emerald-300">{{ formatNumber(outputPerPeriod) }}</span>
-            ×
-            <span class="inline-flex items-center gap-1">
-              <MaterialIcon :name="recipe.output.name" variant="md" />
-              {{ recipe.output.name }}
-            </span>
+            <!-- Current Factors -->
+            <div class="text-xs text-slate-500 mb-2">
+              {{ translate('productivityFactor') }}: {{ formatShare(currentProductivityFactor * 100) }} ·
+              {{ translate(props.reportRowCurrent?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}: {{ formatShare(currentAbundanceFactor * 100) }}
+            </div>
+
+            <!-- Current Queue Share and Runs -->
+            <div class="text-xs text-slate-400 mb-2">
+              {{ translate('queueTimeShare') }}: {{ formatShare((props.reportRowCurrent?.queueShare ?? 1) * 100) }}
+              <br />
+              {{ translate('runsPerHours', { hours: displayHours }) }}: {{ formatNumber(currentRunsPerModulePerDay * periodFactor) }}
+            </div>
+
+            <!-- Current Output -->
+            <div class="text-sm mb-2">
+              {{ translate('outputPerHours', { hours: displayHours }) }}:
+              <span class="text-slate-300">{{ formatNumber(currentOutputPerPeriod) }}</span>
+              ×
+              <span class="inline-flex items-center gap-1">
+                <MaterialIcon :name="recipe.output.name" variant="sm" />
+                {{ recipe.output.name }}
+              </span>
+            </div>
+
+            <!-- Current Inputs -->
+            <div class="text-sm">
+              {{ translate('inputsPerHours', { hours: displayHours }) }}:
+              <ul class="ml-0 pl-0 text-slate-400 text-xs">
+                <li v-for="input in currentInputsPerPeriod" :key="input.materialId" class="flex items-center gap-1">
+                  <span class="min-w-[56px] text-right">{{ formatNumber(input.amount) }} ×</span>
+                  <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
+                  <span class="truncate">{{ materialName(input.materialId) }}</span>
+                </li>
+                <li v-if="!currentInputsPerPeriod.length" class="text-slate-600 list-none">—</li>
+              </ul>
+            </div>
+
+            <!-- Current Workforce -->
+            <div v-if="currentWorkforce.length" class="text-xs mt-2">
+              {{ translate('workforceDemand') }}:
+              <ul class="ml-3 list-disc text-slate-400 text-xs">
+                <li
+                  v-for="wf in currentWorkforce"
+                  :key="wf.tier"
+                  :class="wf.assigned + 1e-3 < wf.required ? 'text-amber-300' : ''"
+                >
+                  {{ tierLabel(wf.tier) }}: {{ formatNumber(wf.assigned, 0) }} / {{ formatNumber(wf.required, 0) }}
+                </li>
+              </ul>
+            </div>
+
+            <!-- Current Blocked Status -->
+            <div v-if="currentBlockedReason" class="mt-2 text-xs text-amber-300">
+              <template v-if="currentBlockedByAbundance">
+                {{ translate('abundanceZeroWarning') }}
+              </template>
+              <template v-else-if="currentBlockedByFertility">
+                {{ translate('fertilityZeroWarning') }}
+              </template>
+              <template v-else-if="currentBlockedByTechnology">
+                {{ translate('technologyBlockedWarning') }}
+              </template>
+            </div>
+            <div v-else-if="!currentHasTechnology" class="mt-2 text-xs text-amber-300">
+              {{ translate('technologyRequirement') }} {{ requiredTech }}
+            </div>
+            <div v-else-if="currentWorkforceFactor < 0.999" class="mt-2 text-xs text-amber-300">
+              {{ translate('workforcePenalty') }}
+            </div>
           </div>
-          <div>
-            {{ translate('inputsPerHours', { hours: displayHours }) }}:
-            <ul class="ml-0 pl-0 text-slate-300">
-              <li v-for="input in inputsPerPeriod" :key="input.materialId" class="flex items-center gap-1">
-                <span class="min-w-[64px] text-right">{{ formatNumber(input.amount) }} ×</span>
-                <MaterialIcon :name="materialName(input.materialId)" variant="md" />
-                <span>{{ materialName(input.materialId) }}</span>
-              </li>
-              <li v-if="!inputsPerPeriod.length" class="text-slate-500 list-none">—</li>
-            </ul>
+
+          <!-- PLANNED PRODUCTION (editable) -->
+          <div class="border-l border-slate-700 pl-3">
+            <div class="text-xs font-semibold text-slate-400 mb-2">{{ translate('planned') }}</div>
+            
+            <!-- Planned Tech Level -->
+            <div class="text-xs mb-2" :class="hasTechnology ? 'text-slate-500' : 'text-amber-300'">
+              <template v-if="props.technologyName">
+                {{ props.technologyName }} {{ translate('technologyLevel') }}: {{ technologyLevel }} / {{ requiredTech }}
+              </template>
+              <template v-else>
+                {{ translate('technologyLevel') }}: {{ technologyLevel }} / Req. {{ requiredTech }}
+              </template>
+            </div>
+
+            <!-- Planned Factors -->
+            <div class="text-xs text-slate-500 mb-2">
+              {{ translate('productivityFactor') }}: {{ formatShare(productivityFactor * 100) }} ·
+              {{ translate(props.reportRow?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}: {{ formatShare(abundanceFactor * 100) }}
+            </div>
+
+            <!-- Planned Queue Share and Runs -->
+            <div class="text-xs text-slate-400 mb-2">
+              {{ translate('queueTimeShare') }}: {{ formatShare(queueShare * 100) }}
+              <br />
+              {{ translate('runsPerHours', { hours: displayHours }) }}: {{ formatNumber(runsPerModulePerPeriod) }}
+            </div>
+
+            <!-- Planned Output -->
+            <div class="text-sm mb-2">
+              {{ translate('outputPerHours', { hours: displayHours }) }}:
+              <span class="text-emerald-300">{{ formatNumber(outputPerPeriod) }}</span>
+              ×
+              <span class="inline-flex items-center gap-1">
+                <MaterialIcon :name="recipe.output.name" variant="sm" />
+                {{ recipe.output.name }}
+              </span>
+            </div>
+
+            <!-- Planned Inputs -->
+            <div class="text-sm">
+              {{ translate('inputsPerHours', { hours: displayHours }) }}:
+              <ul class="ml-0 pl-0 text-slate-300 text-xs">
+                <li v-for="input in inputsPerPeriod" :key="input.materialId" class="flex items-center gap-1">
+                  <span class="min-w-[56px] text-right">{{ formatNumber(input.amount) }} ×</span>
+                  <MaterialIcon :name="materialName(input.materialId)" variant="sm" />
+                  <span class="truncate">{{ materialName(input.materialId) }}</span>
+                </li>
+                <li v-if="!inputsPerPeriod.length" class="text-slate-500 list-none">—</li>
+              </ul>
+            </div>
+
+            <!-- Planned Workforce -->
+            <div v-if="workforce.length" class="text-xs mt-2">
+              {{ translate('workforceDemand') }}:
+              <ul class="ml-3 list-disc text-slate-300 text-xs">
+                <li
+                  v-for="wf in workforce"
+                  :key="wf.tier"
+                  :class="wf.assigned + 1e-3 < wf.required ? 'text-amber-300' : ''"
+                >
+                  {{ tierLabel(wf.tier) }}: {{ formatNumber(wf.assigned, 0) }} / {{ formatNumber(wf.required, 0) }}
+                </li>
+              </ul>
+            </div>
+
+            <!-- Planned Blocked Status -->
+            <div v-if="blockedReason" class="mt-2 text-xs text-amber-300">
+              <template v-if="blockedByAbundance">
+                {{ translate('abundanceZeroWarning') }}
+              </template>
+              <template v-else-if="blockedByFertility">
+                {{ translate('fertilityZeroWarning') }}
+              </template>
+              <template v-else-if="blockedByTechnology">
+                {{ translate('technologyBlockedWarning') }}
+              </template>
+            </div>
+            <div v-else-if="!hasTechnology" class="mt-2 text-xs text-amber-300">
+              {{ translate('technologyRequirement') }} {{ requiredTech }}
+            </div>
+            <div v-else-if="workforceFactor < 0.999" class="mt-2 text-xs text-amber-300">
+              {{ translate('workforcePenalty') }}
+            </div>
           </div>
-          <div v-if="workforce.length">
-            {{ translate('workforceDemand') }}:
-            <ul class="ml-4 list-disc text-slate-300">
-              <li
-                v-for="wf in workforce"
-                :key="wf.tier"
-                :class="wf.assigned + 1e-3 < wf.required ? 'text-amber-300' : ''"
-              >
-                {{ tierLabel(wf.tier) }}:
-                {{ formatNumber(wf.assigned, 0) }} / {{ formatNumber(wf.required, 0) }}
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div v-if="blockedReason" class="mt-2 text-xs text-amber-300">
-          <template v-if="blockedByAbundance">
-            {{ translate('abundanceZeroWarning') }}
-          </template>
-          <template v-else-if="blockedByFertility">
-            {{ translate('fertilityZeroWarning') }}
-          </template>
-          <template v-else-if="blockedByTechnology">
-            {{ translate('technologyBlockedWarning') }}
-          </template>
-        </div>
-        <div v-else-if="!hasTechnology" class="mt-2 text-xs text-amber-300">
-          {{ translate('technologyRequirement') }} {{ requiredTech }}
-        </div>
-        <div v-else-if="workforceFactor < 0.999" class="mt-2 text-xs text-amber-300">
-          {{ translate('workforcePenalty') }}
         </div>
       </div>
     </div>
