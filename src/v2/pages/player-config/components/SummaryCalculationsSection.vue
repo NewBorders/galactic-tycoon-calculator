@@ -1164,7 +1164,7 @@ onBeforeUnmount(() => {
             {{ translate('workforceProductivity') }}
             {{ formatNumber(workforceProductivity.overallProductivityPercent, 0) }}%
           </span>
-          <span v-if="workforceProductivity.overallProductivityPercent < 100 && workforceProductivity.hasStockData && lostProfitData" class="text-sm gap-1 px-2 bg-orange-900/30 border border-orange-600 rounded text-orange-300">
+          <span v-if="workforceProductivity.overallProductivityPercent < 100 && lostProfitData" class="text-sm gap-1 px-2 bg-orange-900/30 border border-orange-600 rounded text-orange-300">
             Lost Profit {{ formatPrice(lostProfitData.lostProfitPerPeriod, 0) }}
             <template v-if="Math.floor(lostProfitResult.minHousingCoverage) < 100 || Math.floor(lostProfitResult.minSatisfaction) < 100">
               (<template v-if="Math.floor(lostProfitResult.minHousingCoverage) < 100">{{ Math.floor(lostProfitResult.minHousingCoverage) }}% housing coverage<template v-if="Math.floor(lostProfitResult.minSatisfaction) < 100">, </template></template><template v-if="Math.floor(lostProfitResult.minSatisfaction) < 100">{{ Math.floor(lostProfitResult.minSatisfaction) }}% satisfaction</template>)

@@ -142,7 +142,7 @@ const workforceProductivity = computed(() => {
 })
 
 const showProductivityWarning = computed(() => {
-  return workforceProductivity.value.overallProductivityPercent < 100 && workforceProductivity.value.hasStockData
+  return workforceProductivity.value.overallProductivityPercent < 100
 })
 
 // Calculate lost profit using service
