@@ -1,14 +1,18 @@
 // Handoff Document
 
-## Current Session: Planning Mode - Complete Production & Buildings Separation ✅
+## Current Session: Planning Mode - Recipe Table Layout & Complete Separation ✅
 
 **Branch**: `71-planning-mode`  
-**Status**: All Current/Planned separations complete. Ready for deployment.
+**Status**: All Current/Planned separations complete. Recipe display refactored to table layout.
 
-**Most Recent Changes**:
-- ✅ Separated Current vs Planned production in RecipeTile (readonly vs editable)
-- ✅ Separated Current vs Planned buildings in BaseBuildingsSection (readonly vs editable)
-- ✅ Updated state management to track API-sourced buildings separately
+**Most Recent Changes** (commit 6e4da21):
+- ✅ Added `currentCount` field to PlayerRecipe type for API-sourced recipe quantities
+- ✅ Modified `importBaseFromApiPayload` to store recipe quantities in currentCount
+- ✅ Updated ProductionSection and SummaryCalculationsSection to use currentCount for current reports
+- ✅ Refactored RecipeTile to **table layout** instead of side-by-side columns
+  - Labels in first column, Current in second, Planned in third
+  - Moved shared info (Productivity, Abundance, Workforce) above table
+  - Recipe count row shows current (readonly) vs planned (editable)
 - ✅ All tests passing (240/240), type-check and lint clean
 
 ---
@@ -19,16 +23,26 @@ This session implemented the full architectural separation for Planning Mode: **
 
 ### Features Implemented
 
-#### 1. ✅ Production Display Separation (RecipeTile)
-- Dual report generation: `reportCurrent` (API data) vs `report` (user data)
-- Side-by-side UI: Current (left, readonly) and Planned (right, editable)
-- Each section displays: tech level, factors, queue share, runs/hour, output, inputs, workforce
+#### 1. ✅ Recipe Display with Table Layout (RecipeTile)
+- Added `currentCount` field to track API recipe quantities separately
+- Dual report generation: `reportCurrent` (uses currentCount) vs `report` (uses count)
+- **Table UI format**: Labels | Current | Planned
+- Shared information (Productivity, Abundance, Workforce) shown once above table
+- Recipe count row: current (readonly from API) and planned (editable input)
+- Production metrics properly separated: changing planned only affects planned column
 
-#### 2. ✅ Building Configuration Separation (BaseBuildingsSection)
+#### 2. ✅ Building Configuration Separation (BaseBuildingsSection)  
 - Extended PlayerBase type with `currentBuildings` field for API-sourced buildings
 - Modified `importBaseFromApiPayload` to preserve API building levels
-- Dual-column layout: Current (readonly) vs Planned (editable)
+- Compact inline layout: "Current: Lvl X | Planned: [input]"
+- Responsive auto-fill grid for building tiles
 - Current shows API-imported building levels, Planned shows user modifications
+
+#### 3. ✅ Materials Balance Separation
+- Fixed ProductionSection to use separate `currentAssignment` for current reports
+- Fixed SummaryCalculationsSection to use separate `currentAssignment` for current reports
+- Materials Balance Current column based on API buildings + currentCount
+- Materials Balance Planned column based on user buildings + count
 
 ---
 
@@ -36,18 +50,29 @@ This session implemented the full architectural separation for Planning Mode: **
 
 ### Services (playerBases.ts)
 - Added `currentBuildings?: PlayerBuilding[]` to PlayerBase type
-- Updated `importBaseFromApiPayload` to store API buildings before user edits
+- Added `currentCount?: number` to PlayerRecipe type
+- Updated `importBaseFromApiPayload` to store API buildings and recipe counts
+- Modified `addRecipe` to return recipe instance ID
 
 ### Components  
-- **RecipeTile.vue**: Dual production display (recipes)
-- **BaseBuildingsSection.vue**: Dual building levels (buildings)
-- **ProductionSection.vue**: Dual reports generation
+- **RecipeTile.vue**: Refactored to table layout with Current/Planned columns
+- **BaseBuildingsSection.vue**: Compact inline building display with current/planned
+- **ProductionSection.vue**: Dual reports + pass currentCount to RecipeTile
+- **SummaryCalculationsSection.vue**: Use currentCount for current report
 - **ConfiguredBase.vue**: Pass currentBuildings to BaseBuildingsSection
+
+### Localisation
+- Added `recipeCount` translation key (EN: "Recipe count", DE: "Rezeptanzahl")
 
 ### Commits
 ```
 e304b11: feat: Implement Current vs Planned production display in Planning Mode
 869d574: feat: Implement Current vs Planned building display in Planning Mode
+43a6f45: refactor: Make building tiles compact with inline Current/Planned
+7486cc2: refactor: Use responsive auto-fill grid for building tiles
+104e1f1: fix: Use separate building assignments in ProductionSection
+1124abe: fix: Use separate building assignments in SummaryCalculationsSection
+6e4da21: feat: Recipe Current/Planned separation with table layout
 ```
 
 ---

@@ -191,6 +191,7 @@ export function usePlayerBases(gd: GameData) {
       return existing.id
     } else {
       // Add new recipe at the top of the list
+      // For manually added recipes, currentCount is undefined (not from API)
       const newId = uid()
       b.recipes.unshift({ id: newId, recipeId, count: 1 })
       syncRecipesWithBuildings(b)

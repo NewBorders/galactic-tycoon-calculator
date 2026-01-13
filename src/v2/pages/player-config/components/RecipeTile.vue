@@ -180,10 +180,11 @@ function tierLabel(tier: number) {
     class="rounded border p-4 space-y-3 h-full transition-all"
     :class="(props.count ?? 1) === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
   >
-    <!-- Header: Recipe name, building, technology level -->
+    <!-- Header: Recipe name, building, recipe count controls -->
     <div class="flex items-start gap-3">
       <span class="recipe-dnd-handle cursor-move px-2 py-1 border border-slate-700 rounded select-none">↕</span>
       <div class="flex-1 min-w-0">
+        <!-- Title row with recipe name and controls -->
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
             <div class="font-semibold truncate inline-flex items-center gap-1">
@@ -194,38 +195,70 @@ function tierLabel(tier: number) {
             <div class="text-xs text-slate-400">{{ buildingName }}</div>
           </div>
           <!-- Remove button -->
-          <button class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700 transition" @click.prevent="emit('remove')">
+          <button class="px-2 py-1 border border-slate-700 rounded hover:bg-slate-700 transition text-sm" @click.prevent="emit('remove')">
             {{ translate('delete') }}
           </button>
         </div>
 
-        <!-- Shared information (same for Current and Planned) -->
-        <div class="mt-3 space-y-2 text-xs text-slate-500">
-          <!-- Productivity bonus -->
-          <div>
-            {{ translate('productivityFactor') }}: 
-            <span class="text-slate-300">{{ formatShare(productivityFactor * 100) }}</span>
+        <!-- Second header row: Current count | Planned count controls -->
+        <div class="mt-2 flex items-center justify-between gap-2 text-xs">
+          <div class="text-slate-400">
+            {{ translate('current') }}: 
+            <span class="text-slate-300 font-semibold">
+              <template v-if="typeof props.currentCount === 'number'">{{ props.currentCount }}×</template>
+              <template v-else>—</template>
+            </span>
           </div>
-          
-          <!-- Abundance/Fertility factor -->
-          <div>
-            {{ translate(props.reportRow?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}: 
-            <span class="text-slate-300">{{ formatShare(abundanceFactor * 100) }}</span>
-          </div>
-          
-          <!-- Workforce demand (if applicable) -->
-          <div v-if="workforce.length">
-            {{ translate('workforceDemand') }}:
-            <ul class="ml-3 list-disc text-slate-400">
-              <li
-                v-for="wf in workforce"
-                :key="wf.tier"
-                :class="wf.assigned + 1e-3 < wf.required ? 'text-amber-300' : ''"
+          <div class="flex items-center gap-1">
+            <span class="text-slate-400">{{ translate('planned') }}:</span>
+            <div class="flex items-center border border-slate-700 rounded px-1.5 py-0.5 bg-slate-800">
+              <button
+                :class="(props.count ?? 1) <= 0 ? 'px-1 text-slate-400 opacity-50 cursor-not-allowed' : 'px-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition'"
+                title="Decrease quantity"
+                :disabled="(props.count ?? 1) <= 0"
+                @click.prevent="emit('updateCount', Math.max(0, (props.count ?? 1) - 1))"
               >
-                {{ tierLabel(wf.tier) }}: {{ formatNumber(wf.assigned, 0) }} / {{ formatNumber(wf.required, 0) }}
-              </li>
-            </ul>
+                −
+              </button>
+              <input
+                type="number"
+                class="w-8 bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300"
+                :value="props.count ?? 1"
+                min="0"
+                @input="(e) => emit('updateCount', Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value) || 0)))"
+              />
+              <button
+                class="px-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition"
+                title="Increase quantity"
+                @click.prevent="emit('updateCount', (props.count ?? 1) + 1)"
+              >
+                +
+              </button>
+            </div>
           </div>
+        </div>
+
+        <!-- Shared information (productivity and abundance in one line) -->
+        <div class="mt-2 text-xs text-slate-500">
+          {{ translate('productivityFactor') }}: 
+          <span class="text-slate-300">{{ formatShare(productivityFactor * 100) }}</span>
+          <span class="mx-1">·</span>
+          {{ translate(props.reportRow?.requiresFertility ? 'fertilityFactor' : 'abundanceFactor') }}: 
+          <span class="text-slate-300">{{ formatShare(abundanceFactor * 100) }}</span>
+        </div>
+
+        <!-- Workforce demand (if applicable) -->
+        <div v-if="workforce.length" class="mt-1 text-xs text-slate-500">
+          {{ translate('workforceDemand') }}:
+          <ul class="ml-3 list-disc text-slate-400">
+            <li
+              v-for="wf in workforce"
+              :key="wf.tier"
+              :class="wf.assigned + 1e-3 < wf.required ? 'text-amber-300' : ''"
+            >
+              {{ tierLabel(wf.tier) }}: {{ formatNumber(wf.assigned, 0) }} / {{ formatNumber(wf.required, 0) }}
+            </li>
+          </ul>
         </div>
 
         <!-- Current vs Planned Table -->
@@ -239,42 +272,6 @@ function tierLabel(tier: number) {
               </tr>
             </thead>
             <tbody class="text-xs">
-              <!-- Recipe Count -->
-              <tr class="border-b border-slate-700/50">
-                <td class="px-2 py-2 text-slate-400">{{ translate('recipeCount') }}</td>
-                <td class="px-2 py-2 text-center text-slate-300">
-                  {{ props.currentCount ?? props.count ?? 1 }}×
-                </td>
-                <td class="px-2 py-2">
-                  <div class="flex items-center justify-center gap-1">
-                    <div class="flex items-center border border-slate-700 rounded px-2 py-1 bg-slate-800">
-                      <button
-                        :class="(props.count ?? 1) <= 0 ? 'px-1 py-0.5 text-slate-400 opacity-50 cursor-not-allowed rounded transition' : 'px-1 py-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition'"
-                        title="Decrease quantity"
-                        :disabled="(props.count ?? 1) <= 0"
-                        @click.prevent="emit('updateCount', Math.max(0, (props.count ?? 1) - 1))"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        class="w-10 bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300"
-                        :value="props.count ?? 1"
-                        min="0"
-                        @input="(e) => emit('updateCount', Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value) || 0)))"
-                      />
-                      <button
-                        class="px-1 py-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition"
-                        title="Increase quantity"
-                        @click.prevent="emit('updateCount', (props.count ?? 1) + 1)"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-
               <!-- Technology Level -->
               <tr class="border-b border-slate-700/50">
                 <td class="px-2 py-2 text-slate-400">

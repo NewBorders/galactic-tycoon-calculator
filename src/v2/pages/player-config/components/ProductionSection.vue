@@ -507,7 +507,7 @@ watch(
               :building-name="cardsById.get(element.id)!.buildingName"
               :units="cardsById.get(element.id)!.units"
               :count="typeof element.count === 'number' ? element.count : 1"
-              :current-count="typeof element.currentCount === 'number' ? element.currentCount : element.count"
+              :current-count="element.currentCount"
               :technology-level="cardsById.get(element.id)!.technologyLevel"
               :current-technology-level="cardsByIdCurrent.get(element.id)!.technologyLevel"
               :required-tech="cardsById.get(element.id)!.requiredTech"
