@@ -67,10 +67,9 @@ export function calculateWorkforceProductivity(
 
     for (const consumption of tierConsumption) {
       // Optional materials: penalize only if deactivated (not active)
-      if (consumption.optional) {
-        if (consumption.consumptionPerDay > 0 && !consumption.active) {
-          missingOptionals++
-        }
+      // Note: consumptionPerDay is 0 when inactive, but we still count it as missing
+      if (consumption.optional && !consumption.active) {
+        missingOptionals++
       }
       // Essentials: never penalize (assume stock is available)
       // Stock shortages are visible in "Materials Running Out" section
