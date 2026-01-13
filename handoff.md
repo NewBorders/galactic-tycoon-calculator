@@ -1,222 +1,71 @@
 // Handoff Document
 
-## Current Session: Planning Mode - Production Display Separation ✅
+## Current Session: Planning Mode - Complete Production & Buildings Separation ✅
 
 **Branch**: `71-planning-mode`  
-**Status**: RecipeTile Current/Planned separation complete. Ready for further work.
+**Status**: All Current/Planned separations complete. Ready for deployment.
 
 **Most Recent Changes**:
-- ✅ Separated Current Production (readonly, API-based) from Planned Production (editable, user-modified) in RecipeTile
-- ✅ Updated ProductionSection to create dual reports (reportCurrent vs report)
-- ✅ Implemented side-by-side UI display showing Current (left) and Planned (right) columns
+- ✅ Separated Current vs Planned production in RecipeTile (readonly vs editable)
+- ✅ Separated Current vs Planned buildings in BaseBuildingsSection (readonly vs editable)
+- ✅ Updated state management to track API-sourced buildings separately
 - ✅ All tests passing (240/240), type-check and lint clean
 
 ---
 
-## Completed Features This Session
+## Complete Session Summary
 
-### 1. ✅ Implemented Current vs Planned Production Display (RecipeTile)
+This session implemented the full architectural separation for Planning Mode: **strict separation between API-sourced current state (readonly) and user-modifiable planned state (editable)** for both recipes and buildings.
 
-**Objective**: Enforce Planning Mode philosophy - show API data (Current) as readonly, allow user to modify Planned values
+### Features Implemented
 
-**Architecture Changes**:
-- **ProductionSection.vue**:
-  - Added `currentTechnologyLevelMap` computed (from props.currentTechnologyLevels)
-  - Added `currentTechnologyLevelsOption` computed (converts map to object)
-  - Created `reportCurrent` computed (uses currentTechnologyLevelsOption + currentStartingBonus for API-based calculations)
-  - Kept `report` computed (uses technologyLevelsOption + startingBonus for user-modified calculations)
-  - Added dual CardData structures: `cardsByIdCurrent` (API data) and `cardsById` (planned/editable)
-  - Updated RecipeTile props to pass `reportRowCurrent` and `currentTechnologyLevel`
+#### 1. ✅ Production Display Separation (RecipeTile)
+- Dual report generation: `reportCurrent` (API data) vs `report` (user data)
+- Side-by-side UI: Current (left, readonly) and Planned (right, editable)
+- Each section displays: tech level, factors, queue share, runs/hour, output, inputs, workforce
 
-- **RecipeTile.vue**:
-  - Added comprehensive Current production computed properties:
-    - `currentActiveUnits`, `currentRunsPerModulePerDay`, `currentRunsPerDay`
-    - `currentOutputPerDay`, `currentInputsPerDay`
-    - `currentOutputPerPeriod`, `currentInputsPerPeriod`
-    - `currentWorkforce`, `currentWorkforceFactor`, `currentAbundanceFactor`, `currentProductivityFactor`
-    - `currentBlockedReason` and related status helpers
-  - Updated template to show side-by-side comparison:
-    - Left column: Current Production (readonly, uses currentXxx computeds)
-    - Right column: Planned Production (editable, uses existing xxx computeds)
-    - Both sections show: Tech level, factors, queue share, runs/hour, output, inputs, workforce demands
-  - Applied consistent styling: Current uses slate-400/500 (dimmed), Planned uses emerald-300 (bright)
-
-**Code Quality**:
-- Type-check: ✅ 0 errors
-- Lint: ✅ 0 errors (all unused vars removed)
-- Tests: ✅ 240/240 passing
-
----
-
-## Architecture Overview
-
-### Planning Mode Philosophy
-1. **Current State** (readonly, from API):
-   - Shows what the user's base actually produces right now
-   - Based on API-sourced technology levels and starting bonus
-   - Display only - cannot be modified
-   
-2. **Planned State** (editable, user input):
-   - Shows what the user plans to configure
-   - Based on user-modified technology levels and starting bonus
-   - User can modify through UI
-
-### Dual Report Pattern
-```
-ProductionSection:
-├── reportCurrent (computed from props.currentTechnologyLevels + props.currentStartingBonus)
-│   └── used for readonly Current display
-├── report (computed from props.technologyLevels + props.startingBonus)  
-│   └── used for editable Planned display
-├── cardsByIdCurrent (from reportCurrent)
-│   └── passed to RecipeTile as reportRowCurrent
-└── cardsById (from report)
-    └── passed to RecipeTile as reportRow
-```
-
-### RecipeTile Two-Column Layout
-```
-┌─ Header: Recipe Name, Building, Controls ─┐
-├─ [CURRENT] │ [PLANNED] (two-column grid) │
-│ (readonly) │ (editable)                  │
-├─ Tech Level │ Tech Level (user-modified) │
-├─ Factors   │ Factors (updated on input)  │
-├─ Queue/Runs│ Queue/Runs (computed)       │
-├─ Output    │ Output (based on plan)      │
-├─ Inputs    │ Inputs (based on plan)      │
-└─ Workforce │ Workforce (from report)     ─┘
-```
-
----
-
-## Test Results
-
-```
-Type Check:    ✅ 0 errors
-Lint:          ✅ 0 errors
-Tests:         ✅ 240/240 passing
-Commit:        fac0ba4 + e304b11
-```
+#### 2. ✅ Building Configuration Separation (BaseBuildingsSection)
+- Extended PlayerBase type with `currentBuildings` field for API-sourced buildings
+- Modified `importBaseFromApiPayload` to preserve API building levels
+- Dual-column layout: Current (readonly) vs Planned (editable)
+- Current shows API-imported building levels, Planned shows user modifications
 
 ---
 
 ## Files Modified This Session
 
-1. **ProductionSection.vue**
-   - Lines 58-88: Added currentTechnologyLevelMap and currentTechnologyLevelsOption
-   - Lines 92-108: Added reportCurrent and dual report logic
-   - Lines 135-145: Added cardsByIdCurrent and cardsById separation
-   - Template: Updated RecipeTile props for current/planned data
+### Services (playerBases.ts)
+- Added `currentBuildings?: PlayerBuilding[]` to PlayerBase type
+- Updated `importBaseFromApiPayload` to store API buildings before user edits
 
-2. **RecipeTile.vue**
-   - Lines 7-26: Updated props to include reportRowCurrent and currentTechnologyLevel
-   - Lines 50-169: Added comprehensive Current production computed properties
-   - Lines 160-165: Added blocked status helpers (blockedByAbundance, etc.)
-   - Lines 167-169: Added hasTechnology and currentHasTechnology comparisons
-   - Lines 184-438: Updated template to show Current (left) and Planned (right) columns
-   - Styling: Current uses dimmed colors (slate-400), Planned uses bright (emerald-300)
+### Components  
+- **RecipeTile.vue**: Dual production display (recipes)
+- **BaseBuildingsSection.vue**: Dual building levels (buildings)
+- **ProductionSection.vue**: Dual reports generation
+- **ConfiguredBase.vue**: Pass currentBuildings to BaseBuildingsSection
 
----
-
-## Known Limitations & Future Work
-
-### Pending: BaseBuildingsSection.vue Current/Planned Separation
-**Status**: ⚠️ Not yet implemented
-**Reason**: Requires architectural change to state management
-- Current implementation: PlayerBase stores single `buildings` array (planned/user-editable)
-- Needed for Current/Planned: Store current buildings separately when imported from API
-- Would require tracking API-sourced buildings in CurrentState, then passing to ConfiguredBase
-- Complexity: Affects playerBases service, worldData types, and ConfiguredBase component hierarchy
-
-**Approach for future work**:
-1. Modify PlayerBase type to optionally store currentBuildings
-2. Update syncBaseFromApi to preserve current building levels
-3. Add currentBuildings prop to ConfiguredBase
-4. Update BaseBuildingsSection to show dual Current/Planned like RecipeTile
-5. Consider extracting to reusable "DualDisplay" component pattern
+### Commits
+```
+e304b11: feat: Implement Current vs Planned production display in Planning Mode
+869d574: feat: Implement Current vs Planned building display in Planning Mode
+```
 
 ---
 
-## How to Continue This Work
+## Quality Metrics
 
-If implementing BaseBuildingsSection.vue Current/Planned:
-1. Read this document section on state architecture
-2. Review ProductionSection + RecipeTile changes as the pattern reference
-3. Assess if PlayerBase type needs currentBuildings field
-4. Update synchronization logic in playerBases.ts
-5. Apply dual-column layout from RecipeTile to BaseBuildingsSection
-6. Run full test suite and lint checks
+- Type-check: ✅ 0 errors
+- Lint: ✅ 0 errors  
+- Tests: ✅ 240/240 passing
 
 ---
 
-## Key Technical Patterns Established
+## Next Steps for Deployment
 
-1. **Dual Report Generation**:
-   - Create separate `reportCurrent` and `report` computed properties
-   - Both use same calculation engine, just different input sources
-
-2. **Side-by-Side UI Display**:
-   - Use CSS Grid `grid-cols-2` for two equal columns
-   - Left column: Current (readonly, dimmed styling)
-   - Right column: Planned (editable, bright styling)
-   - Border separator between columns for clarity
-
-3. **Computed Property Naming Convention**:
-   - Planned: `activeUnits`, `outputPerDay`, `blockedReason`
-   - Current: `currentActiveUnits`, `currentOutputPerDay`, `currentBlockedReason`
-   - Makes it clear which source (API vs user) each computes from
-
-4. **Props Passing Pattern**:
-   - For Current: pass `reportRowCurrent` and `currentTechnologyLevel`
-   - For Planned: pass `reportRow` (contains all needed data) and `technologyLevel`
-   - Child component mirrors parent's dual structure
-
----
-
-## Code Review Checklist
-
-- [x] Type-check passes (0 errors)
-- [x] Linter passes (0 errors)
-- [x] All tests passing (240/240)
-- [x] Current production shows readonly (no inputs, dimmed colors)
-- [x] Planned production shows editable (user can modify)
-- [x] Both sections show same metrics for easy comparison
-- [x] Styling clearly distinguishes Current (slate-400) vs Planned (emerald-300)
-- [x] Git history clean (meaningful commit messages)
-
----
-
-## Next Steps (Recommended Order)
-
-1. **Optional**: Implement BaseBuildingsSection.vue Current/Planned display
-   - Requires state management changes
-   - Use RecipeTile pattern as reference
-   
-2. **QA Testing**: Manual testing of Planning Mode workflows
-   - Import base from API
-   - Verify Current Production shows API data
-   - Modify technology levels
-   - Verify Planned Production updates while Current stays fixed
-   - Test with multiple recipes and buildings
-
-3. **Polish**: UI refinements based on user feedback
-   - Column widths and spacing
-   - Color contrast for accessibility
-   - Mobile responsiveness of two-column layout
-
-4. **Performance**: Monitor re-render cycles if needed
-   - Current dual-structure should be efficient
-   - No extra API calls or calculations
-
----
-
-## Session End Notes
-
-Production display separation is the largest piece of Planning Mode UI refactoring. The Current vs Planned separation now works for Recipes (ProductionSection).
-
-Building configuration (BaseBuildingsSection) would benefit from the same treatment but requires more architectural work to track API-sourced building levels separately.
-
-All quality gates passed - code is ready for review and deployment.
+1. Code review of dual-column patterns (RecipeTile + BaseBuildingsSection)
+2. QA: Import from API and verify Current/Planned separation works
+3. Test modifying technology levels and building levels separately
+4. Gather user feedback on UI (column widths, colors, responsiveness)
 
 - Applied consistently to all Revenue and Stock cells showing differences
 
