@@ -14,6 +14,7 @@ import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
 import { getExportThresholdRatio, getExportThresholdRef, setExportThreshold } from '@/v2/services/config/exportThreshold'
 import { getApiKey } from '@/v2/services/api/apiKeyManager'
 import { refreshEntry } from '@/v2/services/syncService'
+import { formatWeight } from '@/v2/utils/materialHelpers'
 
 const props = defineProps<{
   base: PlayerBase
@@ -35,7 +36,21 @@ const emit = defineEmits<{
   updateMaterialSortOrder: [sortOrder: 'name' | 'recipe']
 }>()
 
-const optionalActive = ref<Set<number>>(new Set(props.base.optionalConsumables ?? []))
+// Get all optional consumables from game data
+function getAllOptionalConsumables(): Set<number> {
+  const optionals = new Set<number>()
+  ;[1, 2, 3, 4].forEach((tier) => {
+    const worker = props.index.workerByType.get(tier as Worker['type'])
+    if (!worker) return
+    worker.consumables
+      .filter((c) => !c.essential)
+      .forEach((c) => optionals.add(c.matId))
+  })
+  return optionals
+}
+
+// Initialize with ALL optional consumables active by default
+const optionalActive = ref<Set<number>>(getAllOptionalConsumables())
 
 // Materials balance sort order: 'name' (default) or 'recipe'
 type MaterialSortOrder = 'name' | 'recipe'
@@ -68,6 +83,11 @@ onMounted(() => {
     }
   } catch {
     // Silently fail on storage read
+  }
+
+  // Ensure optionalConsumables are saved if not already set
+  if (!props.base.optionalConsumables || props.base.optionalConsumables.length === 0) {
+    emit('updateOptional', Array.from(optionalActive.value).sort((a, b) => a - b))
   }
 })
 
@@ -336,7 +356,7 @@ const materialRows = computed(() => {
     const balancePerPeriod = row.balancePerDay * periodFactor.value
     const valuePerPeriod = row.valuePerDay * periodFactor.value
     const toBuy = row.balancePerDay < 0 ? Math.max(0, -balancePerPeriod - stock) : 0
-    
+
     combinedMap.set(row.materialId, {
       materialId: row.materialId,
       current: {
@@ -369,7 +389,7 @@ const materialRows = computed(() => {
     const balancePerPeriod = row.balancePerDay * periodFactor.value
     const valuePerPeriod = row.valuePerDay * periodFactor.value
     const toBuy = row.balancePerDay < 0 ? Math.max(0, -balancePerPeriod - stock) : 0
-    
+
     const existing = combinedMap.get(row.materialId)
     if (existing) {
       existing.current = {
@@ -427,9 +447,83 @@ const nonExportMaterials = computed(() => {
   return materialRows.value.filter(row => !exportMaterialIds.value.has(row.materialId))
 })
 
+const exportMaterials = computed(() => {
+  return materialRows.value.filter(row => exportMaterialIds.value.has(row.materialId))
+})
+
+// Totals for non-export materials
+const nonExportTotals = computed(() => {
+  return nonExportMaterials.value.reduce(
+    (acc, row) => ({
+      currentWeight: acc.currentWeight + getWeightValue(row.current.balancePerPeriod, row.materialId),
+      plannedWeight: acc.plannedWeight + getWeightValue(row.planned.balancePerPeriod, row.materialId),
+      currentRevenue: acc.currentRevenue + row.current.valuePerPeriod,
+      plannedRevenue: acc.plannedRevenue + row.planned.valuePerPeriod,
+    }),
+    { currentWeight: 0, plannedWeight: 0, currentRevenue: 0, plannedRevenue: 0 }
+  )
+})
+
+// Negative materials totals (consumption/import)
+const nonExportNegativeTotals = computed(() => {
+  return nonExportMaterials.value
+    .filter(row => row.current.balancePerDay < 0)
+    .reduce(
+      (acc, row) => ({
+        currentWeight: acc.currentWeight + getWeightValue(row.current.balancePerPeriod, row.materialId),
+        plannedWeight: acc.plannedWeight + getWeightValue(row.planned.balancePerPeriod, row.materialId),
+        currentRevenue: acc.currentRevenue + row.current.valuePerPeriod,
+        plannedRevenue: acc.plannedRevenue + row.planned.valuePerPeriod,
+      }),
+      { currentWeight: 0, plannedWeight: 0, currentRevenue: 0, plannedRevenue: 0 }
+    )
+})
+
+// Positive materials totals (production/export)
+const nonExportPositiveTotals = computed(() => {
+  return nonExportMaterials.value
+    .filter(row => row.current.balancePerDay >= 0)
+    .reduce(
+      (acc, row) => ({
+        currentWeight: acc.currentWeight + getWeightValue(row.current.balancePerPeriod, row.materialId),
+        plannedWeight: acc.plannedWeight + getWeightValue(row.planned.balancePerPeriod, row.materialId),
+        currentRevenue: acc.currentRevenue + row.current.valuePerPeriod,
+        plannedRevenue: acc.plannedRevenue + row.planned.valuePerPeriod,
+      }),
+      { currentWeight: 0, plannedWeight: 0, currentRevenue: 0, plannedRevenue: 0 }
+    )
+})
+
+// Check if we have both negative and positive materials
+const nonExportHasBothTypes = computed(() => {
+  const hasNegative = nonExportMaterials.value.some(row => row.current.balancePerDay < 0)
+  const hasPositive = nonExportMaterials.value.some(row => row.current.balancePerDay >= 0)
+  return hasNegative && hasPositive
+})
+
+// Totals for export materials
+const exportTotals = computed(() => {
+  return exportMaterials.value.reduce(
+    (acc, row) => ({
+      currentWeight: acc.currentWeight + getWeightValue(row.current.balancePerPeriod, row.materialId),
+      plannedWeight: acc.plannedWeight + getWeightValue(row.planned.balancePerPeriod, row.materialId),
+      currentRevenue: acc.currentRevenue + row.current.valuePerPeriod,
+      plannedRevenue: acc.plannedRevenue + row.planned.valuePerPeriod,
+    }),
+    { currentWeight: 0, plannedWeight: 0, currentRevenue: 0, plannedRevenue: 0 }
+  )
+})
+
 function materialName(id: number) {
   return props.index.materialById.get(id)?.name ?? `#${id}`
 }
+
+// Helper to calculate weight value for comparisons
+function getWeightValue(amount: number, materialId: number): number {
+  const weightInTonnes = props.index.materialById.get(materialId)?.weightInTonnes ?? 0
+  return amount * weightInTonnes
+}
+
 
 // Auto-unmute buy alerts for low-stock materials (don't create new ones)
 watch([materialRows, timeframeHours], () => {
@@ -630,7 +724,14 @@ function isOptionalActive(materialId: number) {
 watch(
   () => props.base.optionalConsumables,
   (list) => {
-    optionalActive.value = new Set((list ?? []).filter((id): id is number => typeof id === 'number'))
+    // If user has explicitly set optionals, use those
+    // Otherwise, default to all optional consumables active
+    if (list && list.length > 0) {
+      optionalActive.value = new Set((list ?? []).filter((id): id is number => typeof id === 'number'))
+    } else if (list === undefined || list.length === 0) {
+      // Default: all optionals active
+      optionalActive.value = getAllOptionalConsumables()
+    }
   },
   { immediate: true },
 )
@@ -711,15 +812,19 @@ onBeforeUnmount(() => {
             <thead class="text-slate-400 text-xs uppercase">
               <tr>
                 <th class="text-left pb-1" rowspan="2">{{ translate('material') }}</th>
-                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Current</th>
-                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Planned</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="4">Current</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="4">Planned</th>
                 <th class="text-right pb-1 border-l border-slate-700" rowspan="2">{{ translate('unitPrice') }}</th>
               </tr>
               <tr>
                 <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
-                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('stockCoverage') }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Weight</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Revenue</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Stock</th>
                 <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
-                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('stockCoverage') }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Weight</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Revenue</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Stock</th>
               </tr>
             </thead>
             <tbody>
@@ -735,9 +840,15 @@ onBeforeUnmount(() => {
                   class="py-1 text-right px-1 border-l border-slate-700/50 text-xs"
                   :class="row.current.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300'"
                 >
-                  {{ formatNumber(row.current.balancePerPeriod) }}
+                  {{ formatNumber(row.current.balancePerPeriod, 1) }}
                 </td>
                 <td class="py-1 text-right px-1 text-xs text-slate-400">
+                  {{ formatWeight(props.gameData, row.current.balancePerPeriod, row.materialId) }}
+                </td>
+                <td class="py-1 text-right px-1 text-xs" :class="row.current.valuePerPeriod < 0 ? 'text-rose-300' : 'text-emerald-400'">
+                  {{ formatPrice(row.current.valuePerPeriod, 0) }}
+                </td>
+                <td class="py-1 text-right px-1 text-xs" :class="(row.current.daysCoverage ?? 0) < periodFactor ? 'text-rose-300' : 'text-emerald-400'">
                   <span v-if="row.current.daysCoverage !== null">
                     {{ formatNumber(row.current.daysCoverage, 1) }}d
                   </span>
@@ -751,12 +862,27 @@ onBeforeUnmount(() => {
                     Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''
                   ]"
                 >
-                  {{ formatNumber(row.planned.balancePerPeriod) }}
+                  {{ formatNumber(row.planned.balancePerPeriod, 1) }}
                 </td>
-                <td 
+                <td
+                  class="py-1 text-right px-1 text-xs text-slate-400"
+                  :class="Math.abs(getWeightValue(row.planned.balancePerPeriod, row.materialId) - getWeightValue(row.current.balancePerPeriod, row.materialId)) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatWeight(props.gameData, row.planned.balancePerPeriod, row.materialId) }}
+                </td>
+                <td
                   class="py-1 text-right px-1 text-xs"
                   :class="[
-                    'text-slate-400',
+                    row.planned.valuePerPeriod < 0 ? 'text-rose-300' : 'text-emerald-400',
+                    Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''
+                  ]"
+                >
+                  {{ formatPrice(row.planned.valuePerPeriod, 0) }}
+                </td>
+                <td
+                  class="py-1 text-right px-1 text-xs"
+                  :class="[
+                    (row.planned.daysCoverage ?? 0) < periodFactor ? 'text-rose-300' : 'text-emerald-400',
                     Math.abs((row.planned.daysCoverage ?? 0) - (row.current.daysCoverage ?? 0)) > 0.01 ? 'bg-blue-900/20' : ''
                   ]"
                 >
@@ -784,15 +910,194 @@ onBeforeUnmount(() => {
                 </td>
               </tr>
             </tbody>
+            <tfoot class="border-t-2 border-slate-700">
+              <!-- Negative materials summary (if exists) -->
+              <tr v-if="nonExportNegativeTotals.currentRevenue !== 0 || nonExportNegativeTotals.plannedRevenue !== 0" class="font-semibold text-rose-300">
+                <td class="py-2">Consumption</td>
+                <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
+                <td class="py-2 text-right px-1 text-xs">
+                  {{ formatNumber(nonExportNegativeTotals.currentWeight, 1) }}t
+                </td>
+                <td class="py-2 text-right px-1 text-xs text-rose-300">
+                  {{ formatPrice(nonExportNegativeTotals.currentRevenue, 0) }}
+                </td>
+                <td class="py-2 text-right px-1"></td>
+                <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
+                <td class="py-2 text-right px-1 text-xs"
+                  :class="Math.abs(nonExportNegativeTotals.plannedWeight - nonExportNegativeTotals.currentWeight) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatNumber(nonExportNegativeTotals.plannedWeight, 1) }}t
+                </td>
+                <td class="py-2 text-right px-1 text-xs text-rose-300"
+                  :class="Math.abs(nonExportNegativeTotals.plannedRevenue - nonExportNegativeTotals.currentRevenue) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatPrice(nonExportNegativeTotals.plannedRevenue, 0) }}
+                </td>
+                <td class="py-2 text-right px-1"></td>
+                <td class="py-2 text-right border-l border-slate-700/50"></td>
+              </tr>
+
+              <!-- Positive materials summary (if exists) -->
+              <tr v-if="nonExportPositiveTotals.currentRevenue !== 0 || nonExportPositiveTotals.plannedRevenue !== 0" class="font-semibold text-emerald-300">
+                <td class="py-2">Production</td>
+                <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
+                <td class="py-2 text-right px-1 text-xs">
+                  {{ formatNumber(nonExportPositiveTotals.currentWeight, 1) }}t
+                </td>
+                <td class="py-2 text-right px-1 text-xs text-emerald-400">
+                  {{ formatPrice(nonExportPositiveTotals.currentRevenue, 0) }}
+                </td>
+                <td class="py-2 text-right px-1"></td>
+                <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
+                <td class="py-2 text-right px-1 text-xs"
+                  :class="Math.abs(nonExportPositiveTotals.plannedWeight - nonExportPositiveTotals.currentWeight) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatNumber(nonExportPositiveTotals.plannedWeight, 1) }}t
+                </td>
+                <td class="py-2 text-right px-1 text-xs text-emerald-400"
+                  :class="Math.abs(nonExportPositiveTotals.plannedRevenue - nonExportPositiveTotals.currentRevenue) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatPrice(nonExportPositiveTotals.plannedRevenue, 0) }}
+                </td>
+                <td class="py-2 text-right px-1"></td>
+                <td class="py-2 text-right border-l border-slate-700/50"></td>
+              </tr>
+
+              <!-- Combined total (if both types exist) -->
+              <tr v-if="nonExportHasBothTypes" class="font-semibold text-slate-300">
+                <td class="py-2">Total</td>
+                <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
+                <td class="py-2 text-right px-1 text-xs">
+                  {{ formatNumber(nonExportTotals.currentWeight, 1) }}t
+                </td>
+                <td class="py-2 text-right px-1 text-xs">
+                  {{ formatPrice(nonExportTotals.currentRevenue, 0) }}
+                </td>
+                <td class="py-2 text-right px-1"></td>
+                <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
+                <td class="py-2 text-right px-1 text-xs"
+                  :class="Math.abs(nonExportTotals.plannedWeight - nonExportTotals.currentWeight) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatNumber(nonExportTotals.plannedWeight, 1) }}t
+                </td>
+                <td class="py-2 text-right px-1 text-xs"
+                  :class="Math.abs(nonExportTotals.plannedRevenue - nonExportTotals.currentRevenue) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatPrice(nonExportTotals.plannedRevenue, 0) }}
+                </td>
+                <td class="py-2 text-right px-1"></td>
+                <td class="py-2 text-right border-l border-slate-700/50"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
 
-      <div v-if="!materialRows.length" class="text-sm text-slate-400">—</div>
-    </div>
+      <!-- Export Materials Table (moved below Other Materials) -->
+      <div v-if="exportMaterials.length" class="space-y-2 mt-4">
+        <div class="text-sm font-semibold text-emerald-300">{{ translate('exportMaterials') }}</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400 text-xs uppercase">
+              <tr>
+                <th class="text-left pb-1" rowspan="2">{{ translate('material') }}</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="3">Current</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="3">Planned</th>
+                <th class="text-right pb-1 border-l border-slate-700" rowspan="2">{{ translate('unitPrice') }}</th>
+              </tr>
+              <tr>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Weight</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Revenue</th>
+                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Weight</th>
+                <th class="text-right pb-1 px-1 text-[10px]">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in exportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
+                <td class="py-1">
+                  <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
+                    <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
+                    <span>{{ materialName(row.materialId) }}</span>
+                  </a>
+                </td>
+                <!-- Current Production -->
+                <td class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300 font-medium">
+                  {{ formatNumber(row.current.balancePerPeriod, 1) }}
+                </td>
+                <td class="py-1 text-right px-1 text-xs text-slate-400">
+                  {{ formatWeight(props.gameData, row.current.balancePerPeriod, row.materialId) }}
+                </td>
+                <td class="py-1 text-right px-1 text-xs text-emerald-400">
+                  {{ formatPrice(row.current.valuePerPeriod, 0) }}
+                </td>
+                <!-- Planned Production -->
+                <td
+                  class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300 font-medium"
+                  :class="Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatNumber(row.planned.balancePerPeriod, 1) }}
+                </td>
+                <td
+                  class="py-1 text-right px-1 text-xs text-slate-400"
+                  :class="Math.abs(getWeightValue(row.planned.balancePerPeriod, row.materialId) - getWeightValue(row.current.balancePerPeriod, row.materialId)) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatWeight(props.gameData, row.planned.balancePerPeriod, row.materialId) }}
+                </td>
+                <td
+                  class="py-1 text-right px-1 text-xs text-emerald-400"
+                  :class="Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatPrice(row.planned.valuePerPeriod, 0) }}
+                </td>
+                <td class="py-1 text-right border-l border-slate-700/50">
+                  <div class="flex items-center justify-end gap-1">
+                    <span>{{ formatPrice(row.planned.unitPrice, 2) }}</span>
+                    <button
+                      @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
+                      :class="[
+                        'transition-colors',
+                        hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
+                        hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
+                        'text-slate-500 hover:text-yellow-400'
+                      ]"
+                      :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                    >
+                      {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot class="border-t-2 border-slate-700">
+              <tr class="font-semibold">
+                <td class="py-2 text-slate-300">Total</td>
+                <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
+                <td class="py-2 text-right px-1 text-xs text-slate-300">
+                  {{ formatNumber(exportTotals.currentWeight, 1) }}t
+                </td>
+                <td class="py-2 text-right px-1 text-xs text-slate-300">
+                  {{ formatPrice(exportTotals.currentRevenue, 0) }}
+                </td>
+                <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
+                <td class="py-2 text-right px-1 text-xs text-slate-300"
+                  :class="Math.abs(exportTotals.plannedWeight - exportTotals.currentWeight) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatNumber(exportTotals.plannedWeight, 1) }}t
+                </td>
+                <td class="py-2 text-right px-1 text-xs text-slate-300"
+                  :class="Math.abs(exportTotals.plannedRevenue - exportTotals.currentRevenue) > 0.01 ? 'bg-blue-900/20' : ''"
+                >
+                  {{ formatPrice(exportTotals.plannedRevenue, 0) }}
+                </td>
+                <td class="py-2 text-right border-l border-slate-700/50"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
 
-    <!-- Export Materials Summary (right column, top) -->
-    <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-4">
       <div v-if="!materialRows.length" class="text-sm text-slate-400">—</div>
     </div>
 
@@ -858,12 +1163,13 @@ onBeforeUnmount(() => {
                 <th class="text-left pb-1" rowspan="2">{{ translate('material') }}</th>
                 <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Current</th>
                 <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Planned</th>
+                <th class="text-center pb-1 px-2 border-l border-slate-700" rowspan="2">Unit Price</th>
               </tr>
               <tr>
                 <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
-                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('totalCosts') }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('costs') }}</th>
                 <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
-                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('totalCosts') }}</th>
+                <th class="text-right pb-1 px-1 text-[10px]">{{ translate('costs') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -882,23 +1188,40 @@ onBeforeUnmount(() => {
                 </td>
                 <!-- Current Consumption -->
                 <td class="py-1 text-right px-1 border-l border-slate-700/50 text-xs">
-                  {{ formatNumber(row.current.consumptionPerPeriod) }}
+                  {{ formatNumber(row.current.consumptionPerPeriod, 1) }}
                 </td>
                 <td class="py-1 text-right px-1 text-xs text-rose-300">
-                  {{ formatPrice(row.current.costPerPeriod, 2) }}
+                  {{ formatPrice(row.current.costPerPeriod, 0) }}
                 </td>
                 <!-- Planned Consumption -->
-                <td 
+                <td
                   class="py-1 text-right px-1 border-l border-slate-700/50 text-xs"
                   :class="Math.abs(row.planned.consumptionPerPeriod - row.current.consumptionPerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
                 >
-                  {{ formatNumber(row.planned.consumptionPerPeriod) }}
+                  {{ formatNumber(row.planned.consumptionPerPeriod, 1) }}
                 </td>
-                <td 
+                <td
                   class="py-1 text-right px-1 text-xs text-rose-300"
                   :class="Math.abs(row.planned.costPerPeriod - row.current.costPerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
                 >
-                  {{ formatPrice(row.planned.costPerPeriod, 2) }}
+                  {{ formatPrice(row.planned.costPerPeriod, 0) }}
+                </td>
+                <td class="py-1 text-right border-l border-slate-700/50">
+                  <div class="flex items-center justify-end gap-1">
+                    <span>{{ formatPrice(row.planned.unitPrice, 2) }}</span>
+                    <button
+                      @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
+                      :class="[
+                        'transition-colors',
+                        hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
+                        hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
+                        'text-slate-500 hover:text-yellow-400'
+                      ]"
+                      :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
+                    >
+                      {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>

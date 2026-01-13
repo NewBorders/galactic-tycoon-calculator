@@ -95,18 +95,20 @@ export function calculateWorkforceProductivity(
           }
         }
       } else {
-        // Optional materials: missing if:
-        // 1. Not active, OR
-        // 2. Active but not in stock, OR  
-        // 3. Active but consumption is 0 (no need)
-        if (consumptionPerDay <= 0 || !consumption.active) {
-          // Not needed or not active - don't count as missing
+        // Optional materials: now penalize even when deactivated
+        if (!consumption.active) {
+          missingOptionals++
           continue
         }
-        
-        // Active and consumption > 0
+
+        // Active optional
+        if (consumptionPerDay <= 0) continue // no need when amount is zero
+
         if (currentStock <= 0) {
           missingOptionals++
+          // Missing active optional is the limiting factor (0 days remaining)
+          limitingMaterialId = consumption.materialId
+          daysRemaining = 0
         } else {
           // Optional is active and in stock, track days
           const daysOfStock = currentStock / consumptionPerDay
@@ -121,14 +123,14 @@ export function calculateWorkforceProductivity(
     // Calculate satisfaction per Wiki formula
     let satisfaction = 100
 
-    // Count total consumables (only active ones with consumption > 0)
+    // Count total consumables (optionals counted even if inactive per requirements)
     // For essentials: all with consumptionPerDay > 0
-    // For optionals: all active with consumptionPerDay > 0
+    // For optionals: all with consumptionPerDay > 0 OR inactive
     const essentialCount = tierConsumption
       .filter(c => !c.optional && c.consumptionPerDay > 0)
       .length
     const optionalCount = tierConsumption
-      .filter(c => c.optional && c.active && c.consumptionPerDay > 0)
+      .filter(c => c.optional && (c.consumptionPerDay > 0 || !c.active))
       .length
     const totalNeeded = essentialCount + optionalCount
     const totalMissing = missingEssentials + missingOptionals

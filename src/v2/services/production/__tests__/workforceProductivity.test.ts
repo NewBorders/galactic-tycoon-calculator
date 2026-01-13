@@ -51,7 +51,7 @@ describe('Workforce Productivity - Satisfaction Calculation', () => {
   /**
    * Debug test to check actual scenario from user
    */
-  it('DEBUG: should handle real-world scenario with all consumables available', () => {
+  it('DEBUG: inactive optionals now penalize satisfaction per requirements', () => {
     const report: BaseReport = {
       summary: { productionRevenue: 1000, materialPurchaseCosts: 100, workerPurchaseCosts: 200, net: 700 },
       materials: [],
@@ -88,11 +88,11 @@ describe('Workforce Productivity - Satisfaction Calculation', () => {
       tierConsumption: report.workers.filter(w => w.tier === 1 && w.active),
     })
 
-    // Should be 100% because inactive consumables should not be counted
-    expect(result.tiers[0].satisfaction).toBe(100)
+    // Inactive optionals now count as missing: 3 optionals -> -30%
+    expect(result.tiers[0].satisfaction).toBe(70)
     expect(result.tiers[0].missingEssentials).toBe(0)
-    expect(result.tiers[0].missingOptionals).toBe(0)
-    expect(result.tiers[0].productivityPercent).toBe(100)
+    expect(result.tiers[0].missingOptionals).toBe(3)
+    expect(result.tiers[0].productivityPercent).toBe(70)
   })
 
   /**
