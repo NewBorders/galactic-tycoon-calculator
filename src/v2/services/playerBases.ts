@@ -11,6 +11,7 @@ export type PlayerBase = {
   planetId: number
   name?: string
   buildings: PlayerBuilding[]
+  currentBuildings?: PlayerBuilding[] // API-sourced buildings (readonly reference)
   recipes: PlayerRecipe[]
   optionalConsumables?: number[]
   stock?: Record<number, number>
@@ -332,12 +333,19 @@ export function usePlayerBases(gd: GameData) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return false
 
-    // Clear existing buildings and recipes
+    // Store current (API) buildings as read-only reference
+    const slots = payload.buildingSlots ?? []
+    b.currentBuildings = slots.map((slot, index) => ({
+      id: `current_${slot.buildingId}_${index}`,
+      buildingId: slot.buildingId,
+      level: slot.level != null ? Math.max(1, Math.floor(Number(slot.level))) : 1,
+    }))
+
+    // Clear existing buildings and recipes (user's planned state)
     b.buildings = []
     b.recipes = []
 
-    // Import buildingSlots using addBuilding (preserves sort order)
-    const slots = payload.buildingSlots ?? []
+    // Import buildingSlots using addBuilding (creates user-editable copy)
     slots.forEach((slot) => {
       const buildingId = Number(slot.buildingId)
       if (!isFinite(buildingId)) return

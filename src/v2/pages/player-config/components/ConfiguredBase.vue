@@ -473,6 +473,7 @@ const productivitySummary = computed(() => {
         <BaseBuildingsSection
           :base-id="base.id"
           :building-refs="base.buildings"
+          :current-buildings="base.currentBuildings"
           :lookup="buildings"
           @update="
             (p) => {
