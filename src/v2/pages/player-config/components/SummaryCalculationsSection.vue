@@ -236,19 +236,19 @@ const stockByMaterialId = computed(() => {
 })
 
 // Current assignment (uses currentBuildings from API and currentCount for recipes)
+// For new bases without API import, current values are empty (not falling back to planned)
 const currentAssignment = computed(() => ({
   planetId: props.base.planetId,
-  buildings: (props.base.currentBuildings ?? props.base.buildings).map((b) => ({
+  buildings: (props.base.currentBuildings ?? []).map((b) => ({
     buildingId: b.buildingId,
     level: b.level,
   })),
-  recipes: props.base.recipes.map((r) => {
-    const currentCount = r.currentCount ?? r.count
-    return {
+  recipes: props.base.recipes
+    .filter((r) => r.currentCount !== undefined)
+    .map((r) => ({
       recipeId: r.recipeId,
-      count: typeof currentCount === 'number' && Number.isFinite(currentCount) ? Math.max(0, Math.floor(currentCount)) : 1,
-    }
-  }),
+      count: typeof r.currentCount === 'number' && Number.isFinite(r.currentCount) ? Math.max(0, Math.floor(r.currentCount)) : 0,
+    })),
 }))
 
 // Planned assignment (uses user-editable buildings)
