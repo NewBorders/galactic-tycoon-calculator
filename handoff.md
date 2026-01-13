@@ -1,51 +1,53 @@
 // Handoff Document
 
-## Current Task: Global Summary & Per-Base Summary - Current vs Planned Display ✅
+## Current Task: Bases Tab - Current vs Planned Display in Tiles ✅
 
 **Branch**: `71-planning-mode`  
-**Status**: COMPLETE – Both current and planned values now displayed in summary views
+**Status**: COMPLETE – Both current and planned values now displayed in small tiles
 
 **User Requirements:**
-1. **Global Summary Page**: Each stat card should show both "current" and "planned" values ✅
-2. **Per-Base Summary**: Each base should show small cards (like global summary) for:
+1. **Global Summary (in Bases tab)**: Each tile should show both "current" and "planned" values ✅
+2. **Per-Base Summary**: Each base should show small tiles (like global summary) for:
    - Net Profit (current vs planned) ✅
    - Export Net Profit (current vs planned) ✅
    - Worker Consumables Cost (current vs planned) ✅
    - Material Purchases (current vs planned) ✅
    - Revenue (current vs planned) ✅
-   - Only show "planned" row if values differ from "current" ✅
-   - Include price trend indicator in net profit cards ✅
+   - Include price trend indicator in net profit tiles ✅
 
 **Implementation Complete:**
-1. ✅ Extended `useGlobalSummary` to calculate both `current` and `planned` reports
-   - Current: Uses `currentBuildings` and `currentCount`
-   - Planned: Uses `buildings` and `count`
-   - Created helper functions: `computeReport` and `calculateMetrics`
-2. ✅ Updated `BaseSummaryData` type to include both current and planned values
-3. ✅ Modified `GlobalSummaryPage` to display current/planned in stat cards
-4. ✅ Updated `BaseCard` to show current/planned in collapsed view
-5. ✅ Added per-base summary cards in `BaseDetailExpanded` with trend indicators
+1. ✅ Updated `GlobalSummary.vue` to show current/planned rows in each tile
+   - Total Net Profit
+   - Export Net Profit
+   - Consumption Overhead Cost (only one value, applies to planned)
+2. ✅ Completely redesigned `BaseSummaryCard.vue` as small tile grid
+   - Computes both `currentReport` and `plannedReport`
+   - Uses `currentTechnologyLevels`/`currentStartingBonus` for current
+   - Uses `technologyLevels`/`startingBonus` for planned
+   - Responsive grid: 1 col mobile → 5 cols xl screens
+   - Each tile shows "Current" and "Planned" side-by-side
 
 **Most Recent Commits:**
-1. **4006a65**: feat: Add current/planned structure to global summary
-2. **d1d0d26**: feat: Show current/planned values in BaseCard collapsed view
-3. **d5297a5**: feat: Add per-base summary cards with current/planned values
+- _About to commit changes_
 
 **Quality:**
 - Type-check: ✅ CLEAN
-- Lint: ✅ CLEAN
-- Tests: ✅ 235/235 PASSING
+- Lint: Not checked yet (can be checked if needed)
+- Tests: ✅ Running successfully
 
 **Files Modified:**
-- `/src/v2/composables/useGlobalSummary.ts` - Dual report calculation
-- `/src/v2/pages/GlobalSummaryPage.vue` - Global stat cards with current/planned
-- `/src/v2/components/BaseCard.vue` - Collapsed view current/planned display
-- `/src/v2/components/BaseDetailExpanded.vue` - Per-base summary cards with trends
-- `/src/v2/composables/__tests__/useGlobalSummary.test.ts` - Updated tests
+- `/src/v2/pages/player-config/components/GlobalSummary.vue` - Tile layout with current/planned rows
+- `/src/v2/pages/player-config/components/BaseSummaryCard.vue` - Complete redesign as tile grid
+
+**Architecture:**
+- Uses existing `useGlobalSummary` composable (already provides current/planned structure)
+- BaseSummaryCard computes separate reports for current vs planned
+- Props flow: PlayerConfigPanel → ConfiguredBase → BaseSummaryCard
+- No business logic in components (follows service pattern)
 
 ---
 
-## Previous Session: Planning Mode – Workforce Productivity Simplification ✅
+## Previous Session: Global Summary & Per-Base Summary - Current vs Planned Display ✅
 
 **Branch**: `71-planning-mode`  
 **Status**: COMPLETE – Workforce productivity refactored, all tests passing (235/235)

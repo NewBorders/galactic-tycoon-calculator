@@ -64,7 +64,21 @@ const currentTechnologyLevelsOption = computed(() => {
   return obj
 })
 
-const assignment = computed(() => ({
+const currentAssignment = computed(() => ({
+  planetId: props.base.planetId,
+  buildings: (props.base.currentBuildings ?? []).map((b) => ({
+    buildingId: b.buildingId,
+    level: b.level,
+  })),
+  recipes: props.base.recipes
+    .filter((r) => r.currentCount !== undefined)
+    .map((r) => ({
+      recipeId: r.recipeId,
+      count: typeof r.currentCount === 'number' && Number.isFinite(r.currentCount) ? Math.max(0, Math.floor(r.currentCount)) : 0,
+    })),
+}))
+
+const plannedAssignment = computed(() => ({
   planetId: props.base.planetId,
   buildings: props.base.buildings.map((b) => ({
     buildingId: b.buildingId,
@@ -83,7 +97,7 @@ const activeOptionalConsumables = computed(() => {
 // Current production report (using current technology levels from API)
 const currentReport = computed(() =>
   computeBaseReport(props.gameData, {
-    assignment: assignment.value,
+    assignment: currentAssignment.value,
     horizonDays: 1,
     options: {
       activeOptionalConsumables: activeOptionalConsumables.value,
@@ -98,7 +112,7 @@ const currentReport = computed(() =>
 // Planned production report (using planned technology levels)
 const plannedReport = computed(() =>
   computeBaseReport(props.gameData, {
-    assignment: assignment.value,
+    assignment: plannedAssignment.value,
     horizonDays: 1,
     options: {
       activeOptionalConsumables: activeOptionalConsumables.value,
