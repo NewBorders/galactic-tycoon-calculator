@@ -483,39 +483,52 @@ const nonExportTotals = computed(() => {
 
 // Negative materials totals (consumption/import)
 const nonExportNegativeTotals = computed(() => {
-  return nonExportMaterials.value
-    .filter(row => row.current.balancePerDay < 0)
-    .reduce(
-      (acc, row) => ({
-        currentWeight: acc.currentWeight + getWeightValue(row.current.balancePerPeriod, row.materialId),
-        plannedWeight: acc.plannedWeight + getWeightValue(row.planned.balancePerPeriod, row.materialId),
-        currentRevenue: acc.currentRevenue + row.current.valuePerPeriod,
-        plannedRevenue: acc.plannedRevenue + row.planned.valuePerPeriod,
-      }),
-      { currentWeight: 0, plannedWeight: 0, currentRevenue: 0, plannedRevenue: 0 }
-    )
+  return nonExportMaterials.value.reduce(
+    (acc, row) => {
+      if (row.current.balancePerDay < 0) {
+        acc.currentWeight += getWeightValue(row.current.balancePerPeriod, row.materialId)
+        acc.currentRevenue += row.current.valuePerPeriod
+      }
+
+      if (row.planned.balancePerDay < 0) {
+        acc.plannedWeight += getWeightValue(row.planned.balancePerPeriod, row.materialId)
+        acc.plannedRevenue += row.planned.valuePerPeriod
+      }
+
+      return acc
+    },
+    { currentWeight: 0, plannedWeight: 0, currentRevenue: 0, plannedRevenue: 0 },
+  )
 })
 
 // Positive materials totals (production/export)
 const nonExportPositiveTotals = computed(() => {
-  return nonExportMaterials.value
-    .filter(row => row.current.balancePerDay >= 0)
-    .reduce(
-      (acc, row) => ({
-        currentWeight: acc.currentWeight + getWeightValue(row.current.balancePerPeriod, row.materialId),
-        plannedWeight: acc.plannedWeight + getWeightValue(row.planned.balancePerPeriod, row.materialId),
-        currentRevenue: acc.currentRevenue + row.current.valuePerPeriod,
-        plannedRevenue: acc.plannedRevenue + row.planned.valuePerPeriod,
-      }),
-      { currentWeight: 0, plannedWeight: 0, currentRevenue: 0, plannedRevenue: 0 }
-    )
+  return nonExportMaterials.value.reduce(
+    (acc, row) => {
+      if (row.current.balancePerDay >= 0) {
+        acc.currentWeight += getWeightValue(row.current.balancePerPeriod, row.materialId)
+        acc.currentRevenue += row.current.valuePerPeriod
+      }
+
+      if (row.planned.balancePerDay >= 0) {
+        acc.plannedWeight += getWeightValue(row.planned.balancePerPeriod, row.materialId)
+        acc.plannedRevenue += row.planned.valuePerPeriod
+      }
+
+      return acc
+    },
+    { currentWeight: 0, plannedWeight: 0, currentRevenue: 0, plannedRevenue: 0 },
+  )
 })
 
 // Check if we have both negative and positive materials
 const nonExportHasBothTypes = computed(() => {
-  const hasNegative = nonExportMaterials.value.some(row => row.current.balancePerDay < 0)
-  const hasPositive = nonExportMaterials.value.some(row => row.current.balancePerDay >= 0)
-  return hasNegative && hasPositive
+  const hasCurrentNegative = nonExportMaterials.value.some(row => row.current.balancePerDay < 0)
+  const hasCurrentPositive = nonExportMaterials.value.some(row => row.current.balancePerDay >= 0)
+  const hasPlannedNegative = nonExportMaterials.value.some(row => row.planned.balancePerDay < 0)
+  const hasPlannedPositive = nonExportMaterials.value.some(row => row.planned.balancePerDay >= 0)
+
+  return (hasCurrentNegative && hasCurrentPositive) || (hasPlannedNegative && hasPlannedPositive)
 })
 
 // Totals for export materials

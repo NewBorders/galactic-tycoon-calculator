@@ -144,7 +144,8 @@ describe('useGlobalSummary', () => {
       24,
       1000 // Below 2000 threshold
     )
-    expect(noOverhead.value).toBe(0)
+    expect(noOverhead.value.current).toBe(0)
+    expect(noOverhead.value.planned).toBe(0)
 
     // Test with overhead (above threshold)
     const { totalConsumptionOverheadCost: withOverhead } = useGlobalSummary(
@@ -157,7 +158,8 @@ describe('useGlobalSummary', () => {
       24,
       3000 // Above 2000 threshold
     )
-    expect(withOverhead.value).toBeGreaterThanOrEqual(0)
+    expect(withOverhead.value.current).toBeGreaterThanOrEqual(0)
+    expect(withOverhead.value.planned).toBeGreaterThanOrEqual(0)
   })
 
   it('identifies materials running out of stock', () => {

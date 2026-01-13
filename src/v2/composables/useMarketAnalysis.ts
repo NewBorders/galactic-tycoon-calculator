@@ -13,11 +13,40 @@ import {
   type MarketAnalysisFilters,
 } from '../services/marketAnalysis'
 
+const MARKET_CACHE_KEY = 'gt:v2:market:opportunities'
+const MARKET_TS_KEY = 'gt:v2:market:ts'
+
+function loadCachedOpportunities(): { opportunities: MarketOpportunity[]; ts: number | null } {
+  try {
+    const raw = localStorage.getItem(MARKET_CACHE_KEY)
+    const rawTs = localStorage.getItem(MARKET_TS_KEY)
+    if (!raw || !rawTs) return { opportunities: [], ts: null }
+    const parsed = JSON.parse(raw) as MarketOpportunity[]
+    const ts = Number(rawTs)
+    if (!Array.isArray(parsed) || Number.isNaN(ts)) return { opportunities: [], ts: null }
+    return { opportunities: parsed, ts }
+  } catch {
+    return { opportunities: [], ts: null }
+  }
+}
+
+function saveCachedOpportunities(data: MarketOpportunity[], ts: number | null) {
+  try {
+    localStorage.setItem(MARKET_CACHE_KEY, JSON.stringify(data))
+    if (ts !== null && Number.isFinite(ts)) {
+      localStorage.setItem(MARKET_TS_KEY, String(ts))
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
-  const opportunities = ref<MarketOpportunity[]>([])
+  const cached = loadCachedOpportunities()
+  const opportunities = ref<MarketOpportunity[]>(cached.opportunities)
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const lastUpdated = ref<number | null>(null)
+  const lastUpdated = ref<number | null>(cached.ts)
 
   // Filter state
   const filters = ref<MarketAnalysisFilters>({
@@ -40,6 +69,7 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
       })
       opportunities.value = data
       lastUpdated.value = ts
+      saveCachedOpportunities(data, ts)
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to fetch market data'
 

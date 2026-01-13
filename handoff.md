@@ -1,5 +1,38 @@
 // Handoff Document
 
+## Latest Updates: Separate price trends for current and planned
+
+- Added separate net profit price trends for current and planned production in BaseSummaryCard.
+- Each trend is calculated from its respective report (currentReport / plannedReport) using market opportunities.
+- Both trends are displayed below the net profit values when available.
+- Quality: Type-check ✅, Lint ✅.
+- Files touched: /src/v2/pages/player-config/components/BaseSummaryCard.vue.
+
+## Earlier: Total workers display
+
+- Added total worker counts (current/planned) to GlobalSummary (integrated in Expansion Overhead tile).
+- Workers are the base of expansion overhead calculation; showing them alongside overhead helps understand scope.
+- useGlobalSummary now returns totalWorkers computed from workforceSummary.required across all bases.
+- Removed workers tile from BaseSummaryCard (only shown in GlobalSummary).
+- Quality: Type-check ✅, Lint ✅, Tests ✅ (vitest 28 files, 237 tests).
+- Files touched: /src/v2/composables/useGlobalSummary.ts, /src/v2/pages/player-config/components/GlobalSummary.vue, /src/v2/pages/player-config/components/BaseSummaryCard.vue.
+
+## Earlier: Net profit trend persistence
+
+- Added localStorage caching for market opportunities so net profit price trend persists across reload/market refresh.
+- Cache initializes market analysis from storage and saves after fetch; includes timestamp for reuse until next fetch.
+- Added tests validating cache preload and save; trend tile still rendered whenever numeric.
+- Quality: Type-check ✅, Lint ✅, Tests ✅ (vitest).
+- Files touched: /src/v2/composables/useMarketAnalysis.ts, /src/v2/composables/__tests__/useMarketAnalysis.cache.test.ts.
+
+## Earlier: Materials Balance (Other Materials) planned/current split
+
+- Fixed summary rows so planned and current classify production/consumption independently; negative current no longer pulls planned positives into consumption totals.
+- Adjusted positive/negative totals and total-row visibility logic to check planned and current separately.
+- Quality: Type-check ✅, Lint ✅.
+- Files touched: /src/v2/pages/player-config/components/SummaryCalculationsSection.vue.
+
+
 ## Current Task: Bases Tab - Current vs Planned Display in Tiles ✅
 
 **Branch**: `71-planning-mode`  

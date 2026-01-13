@@ -3,7 +3,7 @@ import { ref, toRef } from 'vue'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
-import { formatPrice } from '@/v2/utils/formatNumber'
+import { formatPrice, formatNumber } from '@/v2/utils/formatNumber'
 import { translate } from '@/v2/localisation'
 
 const props = defineProps<{
@@ -20,7 +20,7 @@ const props = defineProps<{
 
 const isOpen = ref(true)
 
-const { totalNetProfit, totalExportNetProfit, totalConsumptionOverheadCost } =
+const { totalNetProfit, totalExportNetProfit, totalConsumptionOverheadCost, totalWorkers } =
   useGlobalSummary(
     toRef(() => props.bases),
     toRef(() => props.gameData),
@@ -49,15 +49,15 @@ const { totalNetProfit, totalExportNetProfit, totalConsumptionOverheadCost } =
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-slate-700/50 rounded p-3">
           <div class="text-sm text-slate-400 mb-2">{{ translate('totalNetProfit') }}</div>
-          <div class="space-y-1">
+          <div>
             <div class="flex items-baseline justify-between">
-              <span class="text-xs text-slate-500">Current:</span>
+              <span class="text-xs text-slate-400">Current:</span>
               <span class="text-lg font-semibold" :class="totalNetProfit.current >= 0 ? 'text-emerald-300' : 'text-rose-300'">
                 {{ formatPrice(totalNetProfit.current, 0) }}
               </span>
             </div>
             <div class="flex items-baseline justify-between">
-              <span class="text-xs text-slate-500">Planned:</span>
+              <span class="text-xs text-slate-400">Planned:</span>
               <span class="text-lg font-semibold" :class="totalNetProfit.planned >= 0 ? 'text-emerald-300' : 'text-rose-300'">
                 {{ formatPrice(totalNetProfit.planned, 0) }}
               </span>
@@ -67,29 +67,44 @@ const { totalNetProfit, totalExportNetProfit, totalConsumptionOverheadCost } =
 
         <div class="bg-slate-700/50 rounded p-3">
           <div class="text-sm text-slate-400 mb-2">{{ translate('exportNetProfit') }}</div>
-          <div class="space-y-1">
+          <div>
             <div class="flex items-baseline justify-between">
-              <span class="text-xs text-slate-500">Current:</span>
+              <span class="text-xs text-slate-400">Current:</span>
               <span class="text-lg font-semibold" :class="totalExportNetProfit.current >= 0 ? 'text-emerald-300' : 'text-rose-300'">
                 {{ formatPrice(totalExportNetProfit.current, 0) }}
               </span>
             </div>
             <div class="flex items-baseline justify-between">
-              <span class="text-xs text-slate-500">Planned:</span>
+              <span class="text-xs text-slate-400">Planned:</span>
               <span class="text-lg font-semibold" :class="totalExportNetProfit.planned >= 0 ? 'text-emerald-300' : 'text-rose-300'">
                 {{ formatPrice(totalExportNetProfit.planned, 0) }}
               </span>
             </div>
           </div>
-          <div class="text-xs text-slate-500 mt-2">{{ translate('exportNetProfitHint') }}</div>
+          <div class="text-xs text-slate-400 mt-1">{{ translate('exportNetProfitHint') }}</div>
         </div>
 
         <div class="bg-slate-700/50 rounded p-3">
           <div class="text-sm text-slate-400 mb-2">{{ translate('consumptionOverheadCost') }}</div>
-          <div class="text-lg font-semibold text-amber-300">
-            {{ formatPrice(totalConsumptionOverheadCost, 0) }}
+          <div>
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs text-slate-400">
+                Current ({{ formatNumber(totalWorkers.current, 0) }} workers):
+              </span>
+              <span class="text-lg font-semibold text-amber-300">
+                {{ formatPrice(totalConsumptionOverheadCost.current, 0) }}
+              </span>
+            </div>
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs text-slate-400">
+                Planned ({{ formatNumber(totalWorkers.planned, 0) }} workers):
+              </span>
+              <span class="text-lg font-semibold text-amber-300">
+                {{ formatPrice(totalConsumptionOverheadCost.planned, 0) }}
+              </span>
+            </div>
           </div>
-          <div class="text-xs text-slate-500 mt-2">{{ translate('consumptionOverheadHint') }}</div>
+          <div class="text-xs text-slate-400 mt-2">{{ translate('consumptionOverheadHint') }}</div>
         </div>
       </div>
     </div>

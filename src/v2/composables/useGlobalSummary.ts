@@ -87,7 +87,10 @@ export type GlobalSummaryData = {
     totalExportNetProfit: number
     totalWorkforceDeficitCost: number
   }
-  totalConsumptionOverheadCost: number
+  totalConsumptionOverheadCost: {
+    current: number
+    planned: number
+  }
   bases: BaseSummaryData[]
   materials: GlobalMaterialSummary[]
   // Legacy compatibility (planned values)
@@ -230,6 +233,46 @@ export function useGlobalSummary(
       )
 
       // Calculate with globalWorkforceBurden set to 2000 (threshold, no overhead)
+      const report = computeBaseReport(toValue(gameData), {
+        assignment,
+        horizonDays: 1,
+        options: {
+          activeOptionalConsumables,
+          priceResolver: resolvedPriceResolver.value,
+          technologyLevels: technologyLevelsOption.value,
+          startingBonus: toValue(startingBonus),
+          globalWorkforceBurden: 2000,
+        },
+      })
+
+      return { base, report }
+    })
+  })
+
+  const currentBaseReportsWithoutOverhead = computed(() => {
+    if (toValue(globalWorkforceBurden) <= 2000) return []
+
+    return toValue(bases).map((base) => {
+      const assignment = {
+        planetId: base.planetId,
+        buildings: (base.currentBuildings ?? []).map((b) => ({
+          buildingId: b.buildingId,
+          level: b.level,
+        })),
+        recipes: base.recipes
+          .filter((r) => r.currentCount !== undefined)
+          .map((r) => ({
+            recipeId: r.recipeId,
+            count: typeof r.currentCount === 'number' && Number.isFinite(r.currentCount)
+              ? Math.max(0, Math.floor(r.currentCount))
+              : 0,
+          })),
+      }
+
+      const activeOptionalConsumables = new Set(
+        (base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'),
+      )
+
       const report = computeBaseReport(toValue(gameData), {
         assignment,
         horizonDays: 1,
@@ -457,17 +500,24 @@ export function useGlobalSummary(
     }
   })
 
-  // Calculate consumption overhead cost: difference between actual net and net without overhead
+  // Calculate consumption overhead cost: difference between actual net and net without overhead (current + planned)
   const totalConsumptionOverheadCost = computed(() => {
-    if (toValue(globalWorkforceBurden) <= 2000) return 0
+    if (toValue(globalWorkforceBurden) <= 2000) {
+      return { current: 0, planned: 0 }
+    }
 
-    const actualNet = baseReports.value.reduce((sum, { report }) => sum + report.summary.net, 0)
-    const netWithoutOverhead = baseReportsWithoutOverhead.value.reduce((sum, { report }) => sum + report.summary.net, 0)
+    const plannedActualNet = baseReports.value.reduce((sum, { report }) => sum + report.summary.net, 0)
+    const plannedNetWithoutOverhead = baseReportsWithoutOverhead.value.reduce((sum, { report }) => sum + report.summary.net, 0)
+    const plannedOverhead = (plannedNetWithoutOverhead - plannedActualNet) * periodFactor.value
 
-    // Overhead cost is the difference (should be negative, meaning we pay more)
-    const overheadCost = netWithoutOverhead - actualNet
+    const currentActualNet = currentBaseReports.value.reduce((sum, { report }) => sum + report.summary.net, 0)
+    const currentNetWithoutOverhead = currentBaseReportsWithoutOverhead.value.reduce((sum, { report }) => sum + report.summary.net, 0)
+    const currentOverhead = (currentNetWithoutOverhead - currentActualNet) * periodFactor.value
 
-    return overheadCost * periodFactor.value
+    return {
+      current: currentOverhead,
+      planned: plannedOverhead,
+    }
   })
 
   // Global material summary with per-base breakdown
@@ -575,6 +625,18 @@ export function useGlobalSummary(
     totalWorkforceDeficitCost: totalWorkforceDeficitCost.value.planned,
   }))
 
+  const totalWorkers = computed(() => {
+    const current = currentBaseReports.value.reduce((sum, { report }) => {
+      return sum + report.workforceSummary.reduce((s, wf) => s + wf.required, 0)
+    }, 0)
+
+    const planned = baseReports.value.reduce((sum, { report }) => {
+      return sum + report.workforceSummary.reduce((s, wf) => s + wf.required, 0)
+    }, 0)
+
+    return { current, planned }
+  })
+
   return {
     summary,
     baseReports,
@@ -583,6 +645,7 @@ export function useGlobalSummary(
     totalExportNetProfit,
     totalWorkforceDeficitCost,
     totalConsumptionOverheadCost,
+    totalWorkers,
     globalMaterials,
   }
 }

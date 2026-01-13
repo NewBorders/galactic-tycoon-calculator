@@ -9,6 +9,7 @@ import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { getMaterialNameById } from '@/v2/services/gamedata/gameDataRepository'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import { useTimeframe } from '@/v2/services/timeframe'
+import { translate } from '@/v2/localisation'
 import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import { getWorkerConsumableMaterialIds, getOptionalWorkerConsumableMaterialIds } from '@/v2/utils/workerConsumables'
@@ -434,12 +435,30 @@ const getMaterialRecipeDetails = (materialId: number, baseId: string) => {
                     <div class="text-xs text-slate-500">{{ formatPrice(material.totalConsumption * (priceResolver(material.materialId) ?? 0), 0) }}</div>
                   </td>
                   <td class="px-4 py-2 text-right">
-                    <div
-                      class="font-medium"
-                      :class="material.netBalance >= 0 ? 'text-emerald-300' : 'text-rose-300'"
-                    >
-                      {{ material.netBalance >= 0 ? '+' : '' }}{{ formatNumber(material.netBalance, 1) }} / {{ formatPrice(material.netBalance * (priceResolver(material.materialId) ?? 0), 0) }}
-                    </div>
+                    <!-- If both production and consumption exist, show separate lines -->
+                    <template v-if="material.totalProduction > 0 && material.totalConsumption > 0">
+                      <div class="text-rose-300 text-xs">
+                        {{ translate('consumption') }}: {{ formatPrice(material.totalConsumption * (priceResolver(material.materialId) ?? 0), 0) }}
+                      </div>
+                      <div class="text-emerald-300 text-xs">
+                        {{ translate('production') }}: {{ formatPrice(material.totalProduction * (priceResolver(material.materialId) ?? 0), 0) }}
+                      </div>
+                      <div
+                        class="font-medium text-xs border-t border-slate-700/50 pt-1 mt-1"
+                        :class="material.netBalance >= 0 ? 'text-emerald-300' : 'text-rose-300'"
+                      >
+                        {{ translate('total') }}: {{ material.netBalance >= 0 ? '+' : '' }}{{ formatPrice(material.netBalance * (priceResolver(material.materialId) ?? 0), 0) }}
+                      </div>
+                    </template>
+                    <!-- Otherwise just show the balance (either pure production or pure consumption) -->
+                    <template v-else>
+                      <div
+                        class="font-medium"
+                        :class="material.netBalance >= 0 ? 'text-emerald-300' : 'text-rose-300'"
+                      >
+                        {{ material.netBalance >= 0 ? '+' : '' }}{{ formatPrice(material.netBalance * (priceResolver(material.materialId) ?? 0), 0) }}
+                      </div>
+                    </template>
                   </td>
                 </tr>
 

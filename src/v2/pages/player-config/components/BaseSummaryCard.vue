@@ -159,8 +159,12 @@ const plannedExportMetrics = computed(() => {
   return calculateExportMetrics(plannedReport.value, exportIds, periodFactor.value)
 })
 
-// Calculate price trend for net profit (using planned report)
-const netProfitPriceTrend7d = computed(() =>
+// Calculate price trend for net profit (current and planned)
+const currentNetProfitPriceTrend7d = computed(() =>
+  calculateNetProfitPriceTrend(currentReport.value, props.marketOpportunities),
+)
+
+const plannedNetProfitPriceTrend7d = computed(() =>
   calculateNetProfitPriceTrend(plannedReport.value, props.marketOpportunities),
 )
 
@@ -182,8 +186,12 @@ const priceTrendIcon = (trend: number) => {
   return '→'
 }
 
-const showNetProfitTrend = computed(() => {
-  return props.marketOpportunities && props.marketOpportunities.length > 0
+const showCurrentNetProfitTrend = computed(() => {
+  return Number.isFinite(currentNetProfitPriceTrend7d.value)
+})
+
+const showPlannedNetProfitTrend = computed(() => {
+  return Number.isFinite(plannedNetProfitPriceTrend7d.value)
 })
 
 </script>
@@ -193,37 +201,40 @@ const showNetProfitTrend = computed(() => {
     <!-- Net Profit -->
     <div class="bg-slate-700/50 rounded p-2">
       <div class="text-xs text-slate-400 mb-1">{{ translate('netProfit') }}</div>
-      <div class="space-y-0.5">
+      <div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-xs text-slate-400">Current:</span>
+          <div v-if="showCurrentNetProfitTrend" class="text-xs ml-1" :class="priceTrendColor(currentNetProfitPriceTrend7d)">
+            {{ priceTrendIcon(currentNetProfitPriceTrend7d) }} {{ formatNumber(Math.abs(currentNetProfitPriceTrend7d), 1) }}%
+          </div>
           <span class="text-sm font-semibold" :class="currentSummaryForPeriod.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
             {{ formatPrice(currentSummaryForPeriod.net, 0) }}
           </span>
         </div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-xs text-slate-400">Planned:</span>
+          <div v-if="showPlannedNetProfitTrend" class="text-xs ml-1" :class="priceTrendColor(plannedNetProfitPriceTrend7d)">
+            {{ priceTrendIcon(plannedNetProfitPriceTrend7d) }} {{ formatNumber(Math.abs(plannedNetProfitPriceTrend7d), 1) }}%
+          </div>
           <span class="text-sm font-semibold" :class="plannedSummaryForPeriod.net >= 0 ? 'text-emerald-300' : 'text-rose-300'">
             {{ formatPrice(plannedSummaryForPeriod.net, 0) }}
           </span>
         </div>
-      </div>
-      <div v-if="showNetProfitTrend" class="text-xs mt-1" :class="priceTrendColor(netProfitPriceTrend7d)">
-        {{ priceTrendIcon(netProfitPriceTrend7d) }} {{ formatNumber(Math.abs(netProfitPriceTrend7d), 1) }}%
       </div>
     </div>
 
     <!-- Export Net Profit -->
     <div class="bg-slate-700/50 rounded p-2">
       <div class="text-xs text-slate-400 mb-1">{{ translate('exportNetProfit') }}</div>
-      <div class="space-y-0.5">
+      <div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-xs text-slate-400">Current:</span>
           <span class="text-sm font-semibold" :class="currentExportMetrics.exportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
             {{ formatPrice(currentExportMetrics.exportNetProfit, 0) }}
           </span>
         </div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-xs text-slate-400">Planned:</span>
           <span class="text-sm font-semibold" :class="plannedExportMetrics.exportNetProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'">
             {{ formatPrice(plannedExportMetrics.exportNetProfit, 0) }}
           </span>
@@ -234,15 +245,15 @@ const showNetProfitTrend = computed(() => {
     <!-- Worker Consumables -->
     <div class="bg-slate-700/50 rounded p-2">
       <div class="text-xs text-slate-400 mb-1">{{ translate('workerPurchaseCosts') }}</div>
-      <div class="space-y-0.5">
+      <div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-xs text-slate-400">Current:</span>
           <span class="text-sm font-semibold text-rose-300">
             {{ formatPrice(currentSummaryForPeriod.workerPurchaseCosts, 0) }}
           </span>
         </div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-xs text-slate-400">Planned:</span>
           <span class="text-sm font-semibold text-rose-300">
             {{ formatPrice(plannedSummaryForPeriod.workerPurchaseCosts, 0) }}
           </span>
@@ -253,15 +264,15 @@ const showNetProfitTrend = computed(() => {
     <!-- Material Purchases -->
     <div class="bg-slate-700/50 rounded p-2">
       <div class="text-xs text-slate-400 mb-1">{{ translate('materialPurchaseCosts') }}</div>
-      <div class="space-y-0.5">
+      <div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-xs text-slate-400">Current:</span>
           <span class="text-sm font-semibold text-rose-300">
             {{ formatPrice(currentSummaryForPeriod.materialPurchaseCosts, 0) }}
           </span>
         </div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-xs text-slate-400">Planned:</span>
           <span class="text-sm font-semibold text-rose-300">
             {{ formatPrice(plannedSummaryForPeriod.materialPurchaseCosts, 0) }}
           </span>
@@ -272,15 +283,15 @@ const showNetProfitTrend = computed(() => {
     <!-- Production Revenue -->
     <div class="bg-slate-700/50 rounded p-2">
       <div class="text-xs text-slate-400 mb-1">{{ translate('productionRevenue') }}</div>
-      <div class="space-y-0.5">
+      <div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Current:</span>
+          <span class="text-xs text-slate-400">Current:</span>
           <span class="text-sm font-semibold text-emerald-300">
             {{ formatPrice(currentSummaryForPeriod.productionRevenue, 0) }}
           </span>
         </div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-slate-500">Planned:</span>
+          <span class="text-xs text-slate-400">Planned:</span>
           <span class="text-sm font-semibold text-emerald-300">
             {{ formatPrice(plannedSummaryForPeriod.productionRevenue, 0) }}
           </span>
