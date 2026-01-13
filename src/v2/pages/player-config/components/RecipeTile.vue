@@ -41,6 +41,10 @@ const periodFactor = computed(() => displayHours.value / 24)
 const effectiveCount = computed(() => (typeof props.count === 'number' ? props.count : 1))
 const isDisabled = computed(() => effectiveCount.value === 0)
 
+// When currentCount is 0 or undefined, current production is disabled
+const effectiveCurrentCount = computed(() => (typeof props.currentCount === 'number' ? props.currentCount : 0))
+const isCurrentDisabled = computed(() => effectiveCurrentCount.value === 0)
+
 // ===== PLANNED PRODUCTION (from props.reportRow) =====
 // When disabled (count=0), ignore reportRow and calculate from scratch
 const activeUnits = computed(() => {
@@ -104,18 +108,18 @@ const currentRunsPerModulePerDay = computed(() =>
   (props.recipe.timeMinutes > 0 ? minutesPerDay / props.recipe.timeMinutes : 0),
 )
 const currentRunsPerDay = computed(() => {
-  if (isDisabled.value) return 0
+  if (isCurrentDisabled.value) return 0
   return props.reportRowCurrent?.runsPerDay ?? currentRunsPerModulePerDay.value * currentActiveUnits.value
 })
 
 const currentOutputPerDay = computed(() => {
-  if (isDisabled.value) return 0
+  if (isCurrentDisabled.value) return 0
   if (props.reportRowCurrent) return props.reportRowCurrent.outputPerDay
   return currentRunsPerDay.value * props.recipe.output.amount
 })
 
 const currentInputsPerDay = computed(() => {
-  if (isDisabled.value) {
+  if (isCurrentDisabled.value) {
     return props.recipe.inputs.map((inp) => ({
       materialId: inp.id,
       amount: 0,
