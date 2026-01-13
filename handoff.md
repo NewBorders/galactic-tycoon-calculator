@@ -1,19 +1,35 @@
 // Handoff Document
 
-## Current Session: Planning Mode – RecipeTile polish (alignment + grid)
+## Current Session: Planning Mode – Workforce Productivity Simplification ✅
 
 **Branch**: `71-planning-mode`  
-**Status**: UI polish done for RecipeTile + Production grid.
+**Status**: COMPLETE – Workforce productivity refactored, all tests passing (235/235)
 
-**Most Recent Changes**
-- Workforce demand now shares the inline separator line with productivity/abundance for a compact header.
-- Current and planned counts in RecipeTile aligned vertically with consistent spacing.
-- ProductionSection grid shows four tiles per row on xl screens (1/2/3/4 cols responsive).
+**Most Recent Commits**
+1. **f3cb8e0**: Simplify workforce productivity tests to match activation-only logic
+   - Updated workforceProductivityOptionals.test.ts (5 tests passing)
+   - Created workforceProductivity-simplified.test.ts (5 tests passing)
+   - Removed obsolete workforceProductivity.test.ts (had stock-based expectations)
+
+2. **7fb23c4**: Clean up unused translation keys and add missing ones
+   - Removed 7 unused price alert keys (priceAlertCreateNew, priceAlertSetTarget, etc.)
+   - Added missing keys: materialPurchases, loading
+
+3. **22df6dc**: Polish RecipeTile layout alignment and responsive grid
+   - RecipeTile header: current/planned counts vertically aligned (pt-1 padding)
+   - Workforce demand moved to separate line with grid layout
+   - ProductionSection grid: `repeat(auto-fill, minmax(360px, 1fr))` for unlimited columns
+
+**Workforce Productivity Logic (SIMPLIFIED)**
+- **Essentials**: Stock is IGNORED (always assumed in stock) → no penalty
+- **Optionals**: Only deactivation state matters → -10% per deactivated optional
+- **Stock visibility**: Moved to separate "Materials Running Out" section
+- Tests verify: deactivation penalizes, stock is ignored for active optionals
 
 **Quality**
-- Type-check: ✅ `docker compose exec web npm run type-check`
-- Lint: ✅ `docker compose exec web npm run lint`
-- Tests: ✅ `docker compose exec web npm run test` (initial `--runInBand` flag rejected by vitest; reran without flag)
+- Type-check: ✅ CLEAN
+- Lint: ✅ CLEAN
+- Tests: ✅ 235/235 PASSING (27 test files, all green)
 
 ## Previous Session: Planning Mode - Recipe Table Layout & Complete Separation ✅
 
