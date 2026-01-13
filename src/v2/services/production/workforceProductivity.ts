@@ -95,11 +95,19 @@ export function calculateWorkforceProductivity(
           }
         }
       } else {
-        // Optional materials: missing if not in stock OR deactivated
-        const isMissing = !consumption.active || currentStock <= 0
-        if (isMissing) {
+        // Optional materials: missing if:
+        // 1. Not active, OR
+        // 2. Active but not in stock, OR  
+        // 3. Active but consumption is 0 (no need)
+        if (consumptionPerDay <= 0 || !consumption.active) {
+          // Not needed or not active - don't count as missing
+          continue
+        }
+        
+        // Active and consumption > 0
+        if (currentStock <= 0) {
           missingOptionals++
-        } else if (consumption.active && currentStock > 0 && consumptionPerDay > 0) {
+        } else {
           // Optional is active and in stock, track days
           const daysOfStock = currentStock / consumptionPerDay
           if (daysRemaining === undefined || daysOfStock < daysRemaining) {
@@ -113,14 +121,21 @@ export function calculateWorkforceProductivity(
     // Calculate satisfaction per Wiki formula
     let satisfaction = 100
 
-    // Count total consumables for this tier (ALL, not just active ones)
-    // We need to count all available consumables to determine if none are provided
-    const totalConsumables = tierConsumption.length
+    // Count total consumables (only active ones with consumption > 0)
+    // For essentials: all with consumptionPerDay > 0
+    // For optionals: all active with consumptionPerDay > 0
+    const essentialCount = tierConsumption
+      .filter(c => !c.optional && c.consumptionPerDay > 0)
+      .length
+    const optionalCount = tierConsumption
+      .filter(c => c.optional && c.active && c.consumptionPerDay > 0)
+      .length
+    const totalNeeded = essentialCount + optionalCount
     const totalMissing = missingEssentials + missingOptionals
 
     // Per Wiki: "If no consumables are provided, satisfaction is set to 10%"
-    if (totalMissing === totalConsumables && totalConsumables > 0) {
-      // All consumables missing → floor at 10%
+    if (totalMissing === totalNeeded && totalNeeded > 0) {
+      // All needed consumables missing → floor at 10%
       satisfaction = 10
     } else {
       // Apply optional consumables penalty: -10% per missing

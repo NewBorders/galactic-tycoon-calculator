@@ -98,28 +98,9 @@ const technologyLevelMap = computed(() => {
   return map
 })
 
-const currentTechnologyLevelMap = computed(() => {
-  const map = new Map<number, number>()
-  Object.entries(props.currentTechnologyLevels ?? {}).forEach(([key, value]) => {
-    const spec = Number(key)
-    const level = typeof value === 'number' ? value : Number(value)
-    if (!Number.isFinite(spec) || Number.isNaN(level)) return
-    map.set(spec, Math.max(0, Math.floor(level)))
-  })
-  return map
-})
-
 const technologyLevelsOption = computed(() => {
   const obj: Record<number, number> = {}
   technologyLevelMap.value.forEach((level, spec) => {
-    obj[spec] = level
-  })
-  return obj
-})
-
-const currentTechnologyLevelsOption = computed(() => {
-  const obj: Record<number, number> = {}
-  currentTechnologyLevelMap.value.forEach((level, spec) => {
     obj[spec] = level
   })
   return obj
@@ -151,21 +132,6 @@ const report = computed(() =>
       priceResolver: props.priceResolver,
       technologyLevels: technologyLevelsOption.value,
       startingBonus: props.startingBonus,
-      globalWorkforceBurden: props.globalWorkforceBurden,
-    },
-  }),
-)
-
-// Current production report (uses current technology levels from API)
-const reportCurrent = computed(() =>
-  computeBaseReport(props.gameData, {
-    assignment: assignment.value,
-    horizonDays: 1,
-    options: {
-      activeOptionalConsumables: activeOptionalConsumables.value,
-      priceResolver: props.priceResolver,
-      technologyLevels: currentTechnologyLevelsOption.value,
-      startingBonus: props.currentStartingBonus,
       globalWorkforceBurden: props.globalWorkforceBurden,
     },
   }),

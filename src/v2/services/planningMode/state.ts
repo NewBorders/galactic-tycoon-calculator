@@ -96,8 +96,8 @@ export function usePlanningMode() {
     action: PlanningAction,
     baseId: string,
     description: string,
-    previousState: any,
-    newState: any
+    previousState: Record<string, unknown>,
+    newState: Record<string, unknown>
   ): void {
     if (!worldData.value.planning) return
     

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { migrateToV2, hasV1Data } from '../migration'
-import { getStorageVersion, getActiveWorld, loadWorldData, clearAllWorldData } from '../storage'
+import { getStorageVersion, getActiveWorld, loadWorldData } from '../storage'
 
 describe('WorldData Migration', () => {
   beforeEach(() => {

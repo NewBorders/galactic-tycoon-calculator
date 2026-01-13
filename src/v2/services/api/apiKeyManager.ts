@@ -9,21 +9,13 @@
 import type { World } from './types'
 import { useWorldData } from '../worldData'
 
-// Get world data composable
-let worldDataInstance: ReturnType<typeof useWorldData> | null = null
-
-function getWorldDataInstance() {
-  if (!worldDataInstance) {
-    worldDataInstance = useWorldData()
-  }
-  return worldDataInstance
-}
+// Direct composable calls (no singleton - allows proper testing and SSR)
 
 /**
  * Get stored API key for current world
  */
 export function getApiKey(): string | null {
-  const { apiKey } = getWorldDataInstance()
+  const { apiKey } = useWorldData()
   return apiKey.value || null
 }
 
@@ -31,7 +23,7 @@ export function getApiKey(): string | null {
  * Get reactive API key reference for current world
  */
 export function getApiKeyRef() {
-  const { apiKey } = getWorldDataInstance()
+  const { apiKey } = useWorldData()
   return apiKey
 }
 
@@ -40,7 +32,7 @@ export function getApiKeyRef() {
  */
 export function setApiKey(key: string): boolean {
   try {
-    const { setApiKey: setWorldApiKey } = getWorldDataInstance()
+    const { setApiKey: setWorldApiKey } = useWorldData()
     setWorldApiKey(key)
     return true
   } catch {
@@ -52,7 +44,7 @@ export function setApiKey(key: string): boolean {
  * Check if an API key is configured for current world
  */
 export function hasApiKey(): boolean {
-  const { hasApiKey } = getWorldDataInstance()
+  const { hasApiKey } = useWorldData()
   return hasApiKey.value
 }
 
@@ -60,7 +52,7 @@ export function hasApiKey(): boolean {
  * Get current active world
  */
 export function getWorld(): World {
-  const { activeWorld } = getWorldDataInstance()
+  const { activeWorld } = useWorldData()
   return activeWorld.value
 }
 
@@ -72,7 +64,7 @@ export function setWorld(world: World): boolean {
     if (world !== 'g1' && world !== 'g2') {
       return false
     }
-    const { switchWorld } = getWorldDataInstance()
+    const { switchWorld } = useWorldData()
     switchWorld(world)
     return true
   } catch {

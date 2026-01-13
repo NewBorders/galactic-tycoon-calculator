@@ -74,7 +74,7 @@ function setActiveTab(tab: Tab) {
 
 // Make setActiveTab available globally via window for ApiLandingPage
 if (typeof window !== 'undefined') {
-  (window as any).__setActiveTab = setActiveTab
+  (window as unknown as Record<string, unknown>).__setActiveTab = setActiveTab
 }
 
 onMounted(async () => {

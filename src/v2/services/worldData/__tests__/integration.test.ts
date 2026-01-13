@@ -103,9 +103,8 @@ describe('WorldData Integration', () => {
       const techSync = getLastSync('technology')
       expect(techSync).toBeGreaterThanOrEqual(before)
       
-      updateCurrent({ warehouseStocks: {} })
-      const warehouseSync = getLastSync('warehouse')
-      expect(warehouseSync).toBeGreaterThanOrEqual(before)
+      // NOTE: warehouseStocks removed - now stored in base.stock
+      // This test only verifies bases and technology tracking
     })
 
     it('should return null for non-existent sync', () => {
@@ -115,7 +114,7 @@ describe('WorldData Integration', () => {
     })
 
     it('should persist data automatically on changes', () => {
-      const { setApiKey, apiKey } = useWorldData()
+      const { setApiKey } = useWorldData()
       
       setApiKey('auto-save-key')
       

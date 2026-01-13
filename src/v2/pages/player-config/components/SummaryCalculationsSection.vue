@@ -8,7 +8,6 @@ import { calculateWorkforceProductivity } from '@/v2/services/production/workfor
 import { calculateLostProfit } from '@/v2/services/production/lostProfit'
 import { translate } from '@/v2/localisation'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
-import { formatWeight } from '@/v2/utils/materialHelpers'
 import AlertOverlay from '@/v2/components/AlertOverlay.vue'
 import { useMaterialPricing } from '@/v2/services/gamedata/prices'
 import { usePriceAlerts } from '@/v2/services/priceAlerts/alertManager'
@@ -424,11 +423,6 @@ const materialRows = computed(() => {
   return rows
 })
 
-// Split materials into export and non-export (based on planned production)
-const exportMaterials = computed(() => {
-  return materialRows.value.filter(row => exportMaterialIds.value.has(row.materialId))
-})
-
 const nonExportMaterials = computed(() => {
   return materialRows.value.filter(row => !exportMaterialIds.value.has(row.materialId))
 })
@@ -602,26 +596,6 @@ const optionalConsumables = computed(() => {
   })
   return groups
 })
-
-function formatCoverage(days: number | null) {
-  if (days == null || !Number.isFinite(days)) return '—'
-  if (days <= 0) return '0h'
-  const totalHours = days * 24
-  const dayPart = Math.floor(totalHours / 24)
-  const hourPart = Math.floor(totalHours - dayPart * 24)
-  const remainderMinutes = Math.round((totalHours - Math.floor(totalHours)) * 60)
-  const parts: string[] = []
-  if (dayPart > 0) parts.push(`${dayPart}d`)
-  if (hourPart > 0) parts.push(`${hourPart}h`)
-  if (!parts.length) {
-    if (remainderMinutes > 0) {
-      parts.push(translate('lessThanHour'))
-    } else {
-      parts.push('0h')
-    }
-  }
-  return parts.join(' ')
-}
 
 function tierLabel(tier: number) {
   switch (tier) {
@@ -814,150 +788,11 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Export Materials Table -->
-      <div v-if="exportMaterials.length" class="space-y-2">
-        <div class="text-sm font-semibold text-slate-300">{{ translate('exportMaterials') }}</div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="text-slate-400 text-xs uppercase">
-              <tr>
-                <th class="text-left pb-1" rowspan="2">{{ translate('material') }}</th>
-                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Current</th>
-                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Planned</th>
-                <th class="text-right pb-1 border-l border-slate-700" rowspan="2">{{ translate('unitPrice') }}</th>
-              </tr>
-              <tr>
-                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
-                <th class="text-right pb-1 px-1 text-[10px]">Value</th>
-                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
-                <th class="text-right pb-1 px-1 text-[10px]">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in exportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
-                <td class="py-1">
-                  <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
-                    <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
-                    <span>{{ materialName(row.materialId) }}</span>
-                  </a>
-                </td>
-                <!-- Current Production -->
-                <td class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300">
-                  {{ formatNumber(row.current.balancePerPeriod) }}
-                </td>
-                <td class="py-1 text-right px-1 text-xs text-emerald-300">
-                  {{ formatPrice(row.current.valuePerPeriod, 2) }}
-                </td>
-                <!-- Planned Production -->
-                <td 
-                  class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300"
-                  :class="Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
-                >
-                  {{ formatNumber(row.planned.balancePerPeriod) }}
-                </td>
-                <td 
-                  class="py-1 text-right px-1 text-xs text-emerald-300"
-                  :class="Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
-                >
-                  {{ formatPrice(row.planned.valuePerPeriod, 2) }}
-                </td>
-                <td class="py-1 text-right border-l border-slate-700/50">
-                  <div class="flex items-center justify-end gap-1">
-                    <span>{{ formatPrice(row.planned.unitPrice, 2) }}</span>
-                    <button
-                      @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
-                      :class="[
-                        'transition-colors',
-                        hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
-                        hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
-                        'text-slate-500 hover:text-yellow-400'
-                      ]"
-                      :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
-                    >
-                      {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <div v-if="!materialRows.length" class="text-sm text-slate-400">—</div>
     </div>
 
     <!-- Export Materials Summary (right column, top) -->
     <div class="rounded border border-slate-700 bg-slate-900 p-4 space-y-4">
-      <div v-if="exportMaterials.length" class="space-y-2">
-        <div class="text-sm font-semibold text-emerald-300">{{ translate('exportMaterials') }}</div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="text-slate-400 text-xs uppercase">
-              <tr>
-                <th class="text-left pb-1" rowspan="2">{{ translate('material') }}</th>
-                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Current</th>
-                <th class="text-center pb-1 px-2 border-l border-slate-700" colspan="2">Planned</th>
-                <th class="text-right pb-1 border-l border-slate-700" rowspan="2">{{ translate('unitPrice') }}</th>
-              </tr>
-              <tr>
-                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
-                <th class="text-right pb-1 px-1 text-[10px]">Value</th>
-                <th class="text-right pb-1 px-1 border-l border-slate-700 text-[10px]">{{ periodLabel }}</th>
-                <th class="text-right pb-1 px-1 text-[10px]">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in exportMaterials" :key="row.materialId" class="border-t border-slate-800/60">
-                <td class="py-1">
-                  <a :href="'https://g2.galactictycoons.com/exchange/'+ row.materialId" target="_blank" class="underline inline-flex items-center gap-1">
-                    <MaterialIcon :name="materialName(row.materialId)" variant="sm" />
-                    <span>{{ materialName(row.materialId) }}</span>
-                  </a>
-                </td>
-                <!-- Current Production -->
-                <td class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300">
-                  {{ formatNumber(row.current.balancePerPeriod) }}
-                </td>
-                <td class="py-1 text-right px-1 text-xs text-emerald-300">
-                  {{ formatPrice(row.current.valuePerPeriod, 2) }}
-                </td>
-                <!-- Planned Production -->
-                <td 
-                  class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300"
-                  :class="Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
-                >
-                  {{ formatNumber(row.planned.balancePerPeriod) }}
-                </td>
-                <td 
-                  class="py-1 text-right px-1 text-xs text-emerald-300"
-                  :class="Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
-                >
-                  {{ formatPrice(row.planned.valuePerPeriod, 2) }}
-                </td>
-                <td class="py-1 text-right border-l border-slate-700/50">
-                  <div class="flex items-center justify-end gap-1">
-                    <span>{{ formatPrice(row.planned.unitPrice, 2) }}</span>
-                    <button
-                      @click.stop="openAlertOverlay(row.materialId, materialName(row.materialId))"
-                      :class="[
-                        'transition-colors',
-                        hasAlert(row.materialId, 'buy') ? 'text-blue-400 hover:text-blue-300' :
-                        hasAlert(row.materialId, 'sell') ? 'text-orange-400 hover:text-orange-300' :
-                        'text-slate-500 hover:text-yellow-400'
-                      ]"
-                      :title="hasAlert(row.materialId, 'buy') ? 'Buy alert set' : hasAlert(row.materialId, 'sell') ? 'Sell alert set' : 'Set price alert'"
-                    >
-                      {{ hasAlert(row.materialId, 'buy') ? '💰' : hasAlert(row.materialId, 'sell') ? '📈' : '🔔' }}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <div v-if="!materialRows.length" class="text-sm text-slate-400">—</div>
     </div>
 

@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { getApiKey, getApiKeyRef, setApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
+import { getApiKey, getApiKeyRef, setApiKey } from '@/v2/services/api/apiKeyManager'
 import { getExportThreshold, setExportThreshold } from '@/v2/services/config/exportThreshold'
 import { translate } from '@/v2/localisation'
 import LanguageSwitcher from '@/v2/components/LanguageSwitcher.vue'
 import WorldSwitcher from '@/v2/components/WorldSwitcher.vue'
 import PriceManagement from './components/PriceManagement.vue'
 import SyncStatus from './components/SyncStatus.vue'
-import type { World } from '@/v2/services/api/types'
 
 const apiKey = ref(getApiKey() || '')
-const world = ref<World>(getWorld())
 const exportThreshold = ref(getExportThreshold())
 const saveSuccess = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null

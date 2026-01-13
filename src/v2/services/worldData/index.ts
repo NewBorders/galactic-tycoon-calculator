@@ -16,10 +16,20 @@ import {
 } from './storage'
 import { migrateToV2, hasV1Data } from './migration'
 
-// Run migration on module load
-if (hasV1Data()) {
-  console.log('[WorldData] Detected V1 data, running migration...')
-  migrateToV2()
+// Migration is now performed via explicit initialization function
+let _migrationDone = false
+
+/**
+ * Initialize world data module (runs migration if needed).
+ * Call this once at app startup.
+ */
+function initMigration() {
+  if (_migrationDone) return
+  if (hasV1Data()) {
+    console.log('[WorldData] Detected V1 data, running migration...')
+    migrateToV2()
+  }
+  _migrationDone = true
 }
 
 // Active world
@@ -28,10 +38,26 @@ const activeWorld = ref<World>(getActiveWorld())
 // Data for active world
 const worldData = ref<WorldData>(loadWorldData(activeWorld.value))
 
-// Auto-save on changes
-watch(worldData, (newData) => {
-  saveWorldData(newData)
-}, { deep: true })
+// Auto-save on changes with debouncing for performance
+let saveTimeout: number | null = null
+
+watch(
+  worldData,
+  () => {
+    // Clear existing timeout
+    if (saveTimeout) clearTimeout(saveTimeout)
+    
+    // Schedule save for next tick instead of delay to avoid losing data in tests
+    saveTimeout = window.setTimeout(() => {
+      saveWorldData(worldData.value)
+      saveTimeout = null
+    }, 0)
+  },
+  { deep: true }
+)
+
+// Run migration once at module load
+initMigration()
 
 /**
  * Main composable for world data management

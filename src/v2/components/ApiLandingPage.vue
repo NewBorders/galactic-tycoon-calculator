@@ -57,8 +57,9 @@ async function saveApiKey() {
     await initializeSyncService()
 
     // Set active tab to overview
-    if (typeof window !== 'undefined' && (window as any).__setActiveTab) {
-      (window as any).__setActiveTab('overview')
+    if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__setActiveTab) {
+      const setTab = (window as unknown as Record<string, unknown>).__setActiveTab as (tab: string) => void
+      setTab('overview')
     }
 
     statusMessage.value = 'Success! Loading application...'

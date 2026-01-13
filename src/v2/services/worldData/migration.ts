@@ -46,18 +46,7 @@ export function migrateToV2(): void {
       // Ignore errors reading old data
     }
     
-    // Step 2: Backup old data (optional, for debugging)
-    const oldData: Record<string, string> = {}
-    try {
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('gt:v2:')) {
-          oldData[key] = localStorage.getItem(key) || ''
-        }
-      })
-      console.log('[Migration] Backed up', Object.keys(oldData).length, 'old keys')
-    } catch {
-      // Continue even if backup fails
-    }
+    // Step 2: (Backup of old data removed as it was unused)
     
     // Step 3: Clear all old data
     clearAllWorldData()
@@ -85,9 +74,8 @@ export function migrateToV2(): void {
   } catch (error) {
     console.error('[Migration] Migration failed:', error)
     
-    // Don't try to restore backup - just let user start fresh
-    // Better to lose data than corrupt it
-    alert('Failed to migrate data. Please refresh the page and re-import your bases from the game.')
+    // Throw an error so the UI can handle user notification in a user-friendly way
+    throw new Error('Migration failed. Please refresh the page and use the "Import Bases" feature to restore your data from the game.')
   }
 }
 

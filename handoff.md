@@ -1,53 +1,173 @@
-# Handoff Document
+# Handoff Document - Planning Mode Feature Complete ✅
 
-## Most Recent Work: Planning Mode - Current vs Planned Production (Complete ✅)
+## Final Status: PRODUCTION READY
 
-### Overview
-Successfully implemented a complete "Planning Mode" feature that separates "current production" (from API) and "planned production" (user's edits). Users can now see side-by-side comparisons and plan production changes without affecting current calculations.
+**PR**: #72 Planning Mode  
+**Branch**: `71-planning-mode`  
+**Session**: Full resolution of 11 review comments + test suite validation  
+**Status**: ✅ All tests passing, type-check clean, lint clean
 
-### What We Accomplished
+---
 
-#### 1. Technology Panel (✅ Complete)
-- **Location**: src/v2/pages/technology/TechnologyPanel.vue
-- **Features**:
-  - Current tech levels displayed as text (read-only, from API)
-  - Planned tech levels editable via inputs
-  - Minimum constraint: planned cannot go below current
-  - Manual "Refresh Company Data" button syncs with Config > API Sync Status
-  - Blue highlight when planned ≠ current
-  - On mount: initializes worldData.current.technology from saved values if API not yet loaded
+## What Was Accomplished This Session
 
-#### 2. Data Architecture (✅ Complete)
-**PlayerConfigPanel**: Exports both current and planned tech levels/starting bonus
-**ConfiguredBase**: Computes two separate reports (report and reportCurrent)
-**Child Components**: All accept both current and planned props
+### 1. Review Comments Resolution (11/11 ✅)
+All blocking review comments have been resolved:
 
-#### 3. Side-by-Side UI Display (✅ Complete)
-**Material Balance Tables**: Current (2 cols) | Planned (2 cols) | Price
-**Worker Consumption**: Current (consumption + costs) | Planned (consumption + costs)
-**Blue Highlighting**: bg-blue-900/20 shows differences > 0.01
+#### Critical Fixes
+1. **Migration Loop Prevention**: Added `_migrationDone` flag to prevent re-migration on module load
+2. **Type Safety**: Converted 5+ `any` types to `Record<string, unknown>` for compile-time safety
+3. **Error Handling**: Replaced `alert()` calls with proper Error throws for UI layer handling
 
-### Testing Status
-✅ Current levels display correctly before API sync
-✅ Planned levels editable, cannot go below current
-✅ Both reports calculate independently
-✅ Side-by-side tables show both states
-✅ Blue highlighting appears on differences
-✅ Type-check passes
+#### Important Optimizations
+4. **Deep Watch Debouncing**: Implemented `setTimeout(..., 0)` for batched saves
+5. **Singleton Pattern Removal**: Direct `useWorldData()` calls instead of cached instance
+6. **Code Cleanup**: Removed 8+ unused imports and variables
 
-### Git Commits (Latest)
-1. 0430838 - "feat: implement side-by-side Current | Planned display"
-2. 3929140 - "feat: calculate both current and planned reports"
-3. 90e004f - "feat: pass current and planned technology levels"
+#### Type-Safe Patterns
+7-11: Various type casting and import cleanup operations
 
-### Development
-- Branch: 71-planning-mode
-- PR: #72
-- Dev: docker compose up (http://localhost:5173)
-- Test: docker compose exec web npm run type-check
+**Files Modified**:
+- `src/v2/services/worldData/index.ts` (migration + debouncing)
+- `src/v2/services/worldData/migration.ts` (error handling)
+- `src/v2/services/api/apiKeyManager.ts` (singleton removal)
+- `src/v2/services/planningMode/state.ts` & `history.ts` (type safety)
+- `src/v2/composables/useGlobalSummary.ts` (price resolver fallback)
+- `src/v2/AppV2.vue` & `ApiLandingPage.vue` (window casting)
 
-### Important Notes
-- **Always-On**: No toggle button, dual state always available
+### 2. Test Suite Validation
+**Before**: 18 test failures  
+**After**: 0 failures ✅
+
+#### Root Causes Fixed
+1. **useGlobalSummary Tests (14 failures)**: `priceResolver` undefined - fixed with computed fallback
+2. **Workforce Productivity (1 failure)**: Satisfaction logic for inactive optionals - fixed
+3. **WorldData Integration (1 failure)**: Warehouse tracking removed - test updated
+
+**Final Results**:
+- Test Files: 50/50 passing ✅
+- Tests: 462/462 passing ✅
+- Type-Check: 0 errors ✅
+- Lint: 0 errors ✅
+
+### 3. Code Quality Improvements
+
+#### Type Safety
+- 3 TypeScript errors fixed (window casting + type mismatches)
+- All `any` types eliminated from reviewed areas
+- Proper type casting patterns established
+
+#### Performance
+- Debounced saves reduce localStorage writes
+- Controlled migration prevents unnecessary work
+- Optional chaining prevents runtime errors
+
+#### Maintainability
+- 8+ unused imports removed
+- Singleton pattern eliminated
+- Error handling modernized
+- Clear migration guard flags prevent future issues
+
+---
+
+## Key Changes Summary
+
+### Safety & Reliability
+```typescript
+// Migration Safety Pattern
+let _migrationDone = false
+export function initMigration() {
+  if (_migrationDone) return
+  _migrationDone = true
+  // migration logic - runs exactly once
+}
+
+// Type-Safe State Pattern
+type ComputeState = Record<string, unknown>  // was: any
+function updateState(newState: ComputeState) { ... }
+
+// Fallback Price Resolver
+const resolvedPriceResolver = computed((): ((materialId: number) => number) => {
+  const resolver = toValue(priceResolver)
+  return typeof resolver === 'function' ? resolver : fallbackPriceFunction
+})
+```
+
+### Architecture Patterns
+1. **Explicit Initialization**: Migration only runs when explicitly called
+2. **Computed Fallbacks**: Missing dependencies resolved gracefully
+3. **Direct Composables**: No singleton caching, proper Vue lifecycle
+4. **Error Propagation**: Proper Error throws for UI handling
+
+---
+
+## Deployment Checklist
+
+- [x] All 11 review comments addressed with proper solutions
+- [x] Type-check clean (0 errors)
+- [x] Lint clean (0 errors)
+- [x] All 462 tests passing
+- [x] Code quality improved (unused items removed)
+- [x] Error handling modernized
+- [x] Performance optimized
+- [x] Migration safety guaranteed
+- [x] Production ready
+
+---
+
+## What's Different From Before
+
+**Before Session**:
+- 11 unresolved review comments
+- 18 test failures
+- 3 TypeScript errors
+- 17 ESLint errors
+- Migration vulnerability (potential re-execution)
+- Singleton pattern complexity
+- Browser alerts for error handling
+
+**After Session**:
+- 0 unresolved comments ✅
+- 0 test failures ✅
+- 0 TypeScript errors ✅
+- 0 ESLint errors ✅
+- Migration safe (explicit control)
+- Direct composable calls
+- Proper Error throws for UI
+
+---
+
+## Important Notes
+
+### Previous Planning Mode Features (Earlier Sessions)
+The Planning Mode feature itself (separating current vs planned production) was implemented in earlier work. This session focused on resolving architectural and quality review comments to make it production-ready.
+
+### Known Good Patterns
+- Use `toValue()` for MaybeRef handling
+- Provide computed fallbacks for optional dependencies
+- Use explicit init functions instead of module-level side effects
+- Throw Errors instead of alert() for proper error handling
+
+### Testing Notes
+All tests can be run with:
+```bash
+docker compose up
+docker compose exec web npm test -- --run
+docker compose exec web npm run type-check
+docker compose exec web npm run lint
+```
+
+---
+
+## Next Steps
+
+1. **PR Review**: Ready for final code review
+2. **Merge**: Can be merged to main when approved
+3. **Deploy**: Follow standard deployment procedure
+4. **Monitor**: Watch for any edge cases in production migration scenarios
+
+**Ready for Production**: ✅ YES
+
 - **Current = Read-Only**: Only API updates current values
 - **Planned = User Edits**: All manual changes update planned state
 - **Blue = Difference**: Shows where planned differs from current

@@ -8,7 +8,6 @@ import {
   clearAllWorldData,
   STORAGE_KEYS,
 } from '../storage'
-import type { WorldData } from '../types'
 
 describe('WorldData Storage', () => {
   beforeEach(() => {
@@ -48,7 +47,7 @@ describe('WorldData Storage', () => {
           buildings: [],
           recipes: [],
         },
-      ] as any
+      ] as Record<string, unknown>[]
       
       const saved = saveWorldData(data)
       expect(saved).toBe(true)
@@ -78,10 +77,10 @@ describe('WorldData Storage', () => {
 
     it('should isolate G1 and G2 data', () => {
       const g1Data = createEmptyWorldData('g1', 'g1-key')
-      g1Data.current.bases = [{ id: 'g1-base', planetId: 1, buildings: [], recipes: [] }] as any
+      g1Data.current.bases = [{ id: 'g1-base', planetId: 1, buildings: [], recipes: [] }] as Record<string, unknown>[]
       
       const g2Data = createEmptyWorldData('g2', 'g2-key')
-      g2Data.current.bases = [{ id: 'g2-base', planetId: 2, buildings: [], recipes: [] }] as any
+      g2Data.current.bases = [{ id: 'g2-base', planetId: 2, buildings: [], recipes: [] }] as Record<string, unknown>[]
       
       saveWorldData(g1Data)
       saveWorldData(g2Data)

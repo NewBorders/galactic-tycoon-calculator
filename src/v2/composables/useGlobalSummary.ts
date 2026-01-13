@@ -65,7 +65,7 @@ export function useGlobalSummary(
   bases: MaybeRef<PlayerBase[]>,
   gameData: MaybeRef<GameData>,
   index: MaybeRef<GdIndex>,
-  priceResolver: MaybeRef<(materialId: number) => number>,
+  priceResolver: MaybeRef<((materialId: number) => number) | undefined>,
   technologyLevels: MaybeRef<Partial<Record<number, number>>>,
   startingBonus: MaybeRef<number>,
   timeframeHours: MaybeRef<number>,
@@ -73,6 +73,22 @@ export function useGlobalSummary(
   exportThreshold: MaybeRef<number>, // percentage threshold (0-100) to consider material as export
   marketOpportunities?: MaybeRef<MarketOpportunity[] | undefined>, // optional market analysis data
 ) {
+  const resolvedPriceResolver = computed((): ((materialId: number) => number) => {
+    const resolver = toValue(priceResolver)
+    if (typeof resolver === 'function') {
+      return resolver
+    }
+    // Fallback: Use game data prices
+    const gd = toValue(gameData)
+    const materialMap = new Map(gd.materials.map(m => [m.id, m]))
+    return (materialId: number): number => {
+      const material = materialMap.get(materialId)
+      if (!material) return 0
+      const cents = material.calculatedPriceInCents ?? 0
+      return cents / 100
+    }
+  })
+
   const periodFactor = computed(() => {
     const hours = Number(toValue(timeframeHours))
     if (!Number.isFinite(hours)) return 1
@@ -120,7 +136,7 @@ export function useGlobalSummary(
         horizonDays: 1,
         options: {
           activeOptionalConsumables,
-          priceResolver: toValue(priceResolver),
+          priceResolver: resolvedPriceResolver.value,
           technologyLevels: technologyLevelsOption.value,
           startingBonus: toValue(startingBonus),
           globalWorkforceBurden: toValue(globalWorkforceBurden),
@@ -160,7 +176,7 @@ export function useGlobalSummary(
         horizonDays: 1,
         options: {
           activeOptionalConsumables,
-          priceResolver: toValue(priceResolver),
+          priceResolver: resolvedPriceResolver.value,
           technologyLevels: technologyLevelsOption.value,
           startingBonus: toValue(startingBonus),
           globalWorkforceBurden: 2000,
@@ -250,7 +266,7 @@ export function useGlobalSummary(
           // which means: consumption/production < (1 - threshold)
           if (localConsumptionRatio < (1 - exportThresholdDecimal.value)) {
             const exportAmount = production - consumption
-            const resolver = toValue(priceResolver)
+            const resolver = resolvedPriceResolver.value
             exportMaterials.push({
               materialId,
               productionPerDay: production * periodFactor.value,
@@ -419,7 +435,7 @@ export function useGlobalSummary(
           materialMap.set(materialId, summary)
         }
 
-        const resolver = toValue(priceResolver)
+        const resolver = resolvedPriceResolver.value
         const price = resolver(materialId)
         const netBalance = production - consumption
 

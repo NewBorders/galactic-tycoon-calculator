@@ -71,7 +71,7 @@ export function usePlanningHistory() {
   /**
    * Apply state from history entry
    */
-  function applyHistoryState(state: any, baseId: string): void {
+  function applyHistoryState(state: Record<string, unknown>, baseId: string): void {
     if (!worldData.value.planning) return
     
     const planning = worldData.value.planning
