@@ -131,6 +131,71 @@ const lostProfitData = computed(() => {
 
 <template>
   <div class="base-details">
+    <!-- Summary Cards (Current vs Planned) -->
+    <div class="summary-cards">
+      <!-- Net Profit Card -->
+      <div class="summary-card">
+        <div class="summary-card__label">{{ translate('netProfit') }}</div>
+        <div class="summary-card__value" :class="summary.planned.netProfit > 0 ? 'text-emerald-400' : 'text-red-400'">
+          {{ formatCurrency(summary.planned.netProfit) }}
+          <span v-if="summary.planned.exportPriceTrend7d && Math.abs(summary.planned.exportPriceTrend7d) > 0.01" class="trend-indicator" :class="{
+            'trend-up': summary.planned.exportPriceTrend7d > 0,
+            'trend-down': summary.planned.exportPriceTrend7d < 0
+          }">
+            {{ summary.planned.exportPriceTrend7d > 0 ? '↗' : '↘' }}
+            {{ formatNumber(Math.abs(summary.planned.exportPriceTrend7d), 1) }}%
+          </span>
+        </div>
+        <div v-if="Math.abs(summary.current.netProfit - summary.planned.netProfit) > 0.01" class="summary-card__secondary">
+          Current: {{ formatCurrency(summary.current.netProfit) }}
+        </div>
+      </div>
+
+      <!-- Export Net Profit Card -->
+      <div class="summary-card">
+        <div class="summary-card__label">{{ translate('exportNetProfit') }}</div>
+        <div class="summary-card__value text-emerald-400">
+          {{ formatCurrency(summary.planned.exportNetProfit) }}
+        </div>
+        <div v-if="Math.abs(summary.current.exportNetProfit - summary.planned.exportNetProfit) > 0.01" class="summary-card__secondary">
+          Current: {{ formatCurrency(summary.current.exportNetProfit) }}
+        </div>
+      </div>
+
+      <!-- Worker Costs Card -->
+      <div class="summary-card">
+        <div class="summary-card__label">{{ translate('workerConsumption') }}</div>
+        <div class="summary-card__value text-amber-400">
+          {{ formatCurrency(summary.planned.workerCosts) }}
+        </div>
+        <div v-if="Math.abs(summary.current.workerCosts - summary.planned.workerCosts) > 0.01" class="summary-card__secondary">
+          Current: {{ formatCurrency(summary.current.workerCosts) }}
+        </div>
+      </div>
+
+      <!-- Material Purchases Card -->
+      <div class="summary-card">
+        <div class="summary-card__label">{{ translate('materialPurchaseCosts') }}</div>
+        <div class="summary-card__value text-red-400">
+          {{ formatCurrency(summary.planned.materialPurchases) }}
+        </div>
+        <div v-if="Math.abs(summary.current.materialPurchases - summary.planned.materialPurchases) > 0.01" class="summary-card__secondary">
+          Current: {{ formatCurrency(summary.current.materialPurchases) }}
+        </div>
+      </div>
+
+      <!-- Revenue Card -->
+      <div class="summary-card">
+        <div class="summary-card__label">{{ translate('productionRevenue') }}</div>
+        <div class="summary-card__value text-emerald-400">
+          {{ formatCurrency(summary.planned.revenue) }}
+        </div>
+        <div v-if="Math.abs(summary.current.revenue - summary.planned.revenue) > 0.01" class="summary-card__secondary">
+          Current: {{ formatCurrency(summary.current.revenue) }}
+        </div>
+      </div>
+    </div>
+
     <div class="accordion">
       <!-- Net Result Accordion -->
       <details class="accordion-item" :open="openSections.net" @toggle="syncSection('net', $event)">
@@ -332,6 +397,69 @@ const lostProfitData = computed(() => {
 .base-details {
   padding: 0.5rem 0;
 }
+
+/* Summary Cards */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+}
+
+.summary-card {
+  background: rgb(15 23 42);
+  border: 1px solid rgb(51 65 85);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  transition: all 0.2s;
+}
+
+.summary-card:hover {
+  border-color: rgb(71 85 105);
+  background: rgb(20 28 46);
+}
+
+.summary-card__label {
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  margin-bottom: 0.375rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-card__value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-heading);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.summary-card__secondary {
+  font-size: 0.6875rem;
+  color: var(--color-text-soft);
+  margin-top: 0.25rem;
+}
+
+.trend-indicator {
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.2);
+  font-weight: 500;
+}
+
+.trend-up {
+  color: rgb(52, 211, 153);
+}
+
+.trend-down {
+  color: rgb(248, 113, 113);
+}
+
 
 /* Accordion Container */
 .accordion {
