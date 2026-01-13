@@ -128,17 +128,20 @@ const buildingUnits = computed(() => {
   return acc
 })
 
-// Current assignment (uses currentBuildings from API)
+// Current assignment (uses currentBuildings from API and currentCount for recipes)
 const currentAssignment = computed(() => ({
   planetId: props.base.planetId,
   buildings: (props.base.currentBuildings ?? props.base.buildings).map((b) => ({
     buildingId: b.buildingId,
     level: b.level,
   })),
-  recipes: props.base.recipes.map((r) => ({
-    recipeId: r.recipeId,
-    count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 1,
-  })),
+  recipes: props.base.recipes.map((r) => {
+    const currentCount = r.currentCount ?? r.count
+    return {
+      recipeId: r.recipeId,
+      count: typeof currentCount === 'number' && Number.isFinite(currentCount) ? Math.max(0, Math.floor(currentCount)) : 1,
+    }
+  }),
 }))
 
 // Planned assignment (uses user-editable buildings)
@@ -504,6 +507,7 @@ watch(
               :building-name="cardsById.get(element.id)!.buildingName"
               :units="cardsById.get(element.id)!.units"
               :count="typeof element.count === 'number' ? element.count : 1"
+              :current-count="typeof element.currentCount === 'number' ? element.currentCount : element.count"
               :technology-level="cardsById.get(element.id)!.technologyLevel"
               :current-technology-level="cardsByIdCurrent.get(element.id)!.technologyLevel"
               :required-tech="cardsById.get(element.id)!.requiredTech"

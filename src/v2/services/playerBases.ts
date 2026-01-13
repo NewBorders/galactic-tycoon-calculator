@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import type { Building, GameData, Recipe } from './gamedata/service'
 import type { GameBaseTransformed } from './api/types'
 
-export type PlayerRecipe = { id: string; recipeId: number; count?: number }
+export type PlayerRecipe = { id: string; recipeId: number; count?: number; currentCount?: number }
 
 export type PlayerBuilding = { id: string; buildingId: number; level: number }
 export type PlayerBase = {
@@ -175,23 +175,28 @@ export function usePlayerBases(gd: GameData) {
     saveState(state.value)
   }
 
-  function addRecipe(baseId: string, recipeId: number) {
+  function addRecipe(baseId: string, recipeId: number): string | undefined {
     const b = state.value.bases.find((x) => x.id === baseId)
-    if (!b) return
+    if (!b) return undefined
     const recipe = recipesById.value.get(recipeId)
-    if (!recipe) return
+    if (!recipe) return undefined
     const hasBuilding = b.buildings.some((instance) => instance.buildingId === recipe.producedInId)
-    if (!hasBuilding) return
-    // If recipe already exists, increment its count
+    if (!hasBuilding) return undefined
+    // If recipe already exists, increment its count and return its ID
     const existing = b.recipes.find((r) => r.recipeId === recipeId)
     if (existing) {
       existing.count = (existing.count ?? 1) + 1
+      syncRecipesWithBuildings(b)
+      saveState(state.value)
+      return existing.id
     } else {
       // Add new recipe at the top of the list
-      b.recipes.unshift({ id: uid(), recipeId, count: 1 })
+      const newId = uid()
+      b.recipes.unshift({ id: newId, recipeId, count: 1 })
+      syncRecipesWithBuildings(b)
+      saveState(state.value)
+      return newId
     }
-    syncRecipesWithBuildings(b)
-    saveState(state.value)
   }
 
   function setRecipeCount(baseId: string, recipeInstanceId: string, count: number) {
@@ -353,14 +358,25 @@ export function usePlayerBases(gd: GameData) {
       addBuilding(baseId, buildingId, level)
     })
 
-    // Import productionOrders: call addRecipe for each order (addRecipe handles duplicates and count internally)
+    // Import productionOrders: Count occurrences per recipeId to store in currentCount
     const orders = payload.productionOrders ?? []
+    const recipeCountMap = new Map<number, number>()
     orders.forEach((o) => {
       const recipeId = Number(o.recipeId)
       if (!isFinite(recipeId)) return
-      // addRecipe validates recipe existence and building availability
-      // If recipe already exists, it increments count automatically
-      addRecipe(baseId, recipeId)
+      recipeCountMap.set(recipeId, (recipeCountMap.get(recipeId) ?? 0) + 1)
+    })
+
+    // Add recipes with currentCount from API
+    recipeCountMap.forEach((apiCount, recipeId) => {
+      const recipeInstanceId = addRecipe(baseId, recipeId)
+      if (recipeInstanceId) {
+        const recipe = b.recipes.find((r) => r.id === recipeInstanceId)
+        if (recipe) {
+          recipe.currentCount = apiCount
+          recipe.count = apiCount // Also set planned count to match API initially
+        }
+      }
     })
 
     saveState(state.value)
