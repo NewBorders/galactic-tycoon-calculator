@@ -1,6 +1,38 @@
 // Handoff Document
 
-## Current Session: Planning Mode – Workforce Productivity Simplification ✅
+## Current Task: Global Summary & Per-Base Summary - Current vs Planned Display
+
+**Branch**: `71-planning-mode`  
+**Status**: IN PROGRESS – Extending summary views to show both current and planned values
+
+**User Requirements:**
+1. **Global Summary Page**: Each stat card should show both "current" and "planned" values
+2. **Per-Base Summary**: Each base should show small cards (like global summary) for:
+   - Net Profit (current vs planned)
+   - Export Net Profit (current vs planned)
+   - Worker Consumables Cost (current vs planned)
+   - Material Purchases (current vs planned)
+   - Revenue (current vs planned)
+   - Only show "planned" row if values differ from "current"
+
+**Implementation Plan:**
+1. ✅ Extend `useGlobalSummary` to calculate both `current` and `planned` reports
+   - Current: Uses `currentBuildings` and `currentCount`
+   - Planned: Uses `buildings` and `count`
+2. ✅ Update `BaseSummaryData` type to include both current and planned values
+3. ✅ Modify `GlobalSummaryPage` to display current/planned in stat cards
+4. ✅ Create per-base summary cards component (similar to global stat cards)
+5. ✅ Add conditional "planned" row when values differ from current
+
+**Files to Modify:**
+- `/src/v2/composables/useGlobalSummary.ts` - Add current report calculation
+- `/src/v2/pages/GlobalSummaryPage.vue` - Update stat cards to show current/planned
+- `/src/v2/components/BaseCard.vue` - Add per-base stat cards
+- `/src/v2/components/BaseDetailExpanded.vue` - Show detailed current/planned breakdown
+
+---
+
+## Previous Session: Planning Mode – Workforce Productivity Simplification ✅
 
 **Branch**: `71-planning-mode`  
 **Status**: COMPLETE – Workforce productivity refactored, all tests passing (235/235)
