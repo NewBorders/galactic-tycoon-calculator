@@ -9,6 +9,7 @@ import {
 } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
 import { refreshEntry, getSyncEntries } from '@/v2/services/syncService'
+import { getChangeTracker } from '@/v2/services/changeTracker'
 
 const { state, setLevel, setStartingBonus } = usePlayerTechnology()
 const { current } = useWorldData()
@@ -55,6 +56,12 @@ const startingBonus = computed({
   set: (value) => {
     const numeric = typeof value === 'number' ? value : Number(value)
     if (Number.isFinite(numeric)) {
+      // Track starting bonus change
+      const oldBonus = state.value.startingBonus
+      if (oldBonus !== numeric) {
+        const changeTracker = getChangeTracker()
+        changeTracker.trackStartingBonusChange(oldBonus, numeric)
+      }
       setStartingBonus(numeric)
     }
   },
@@ -77,7 +84,24 @@ function onLevelInput(id: TechnologySpecialisation, event: Event) {
   const value = target.valueAsNumber
   const level = Number.isNaN(value) ? 0 : value
   const minLevel = currentLevel(id) // Kann nicht unter current level gesetzt werden
-  setLevel(id, Math.max(minLevel, level))
+  const newLevel = Math.max(minLevel, level)
+  
+  // Track technology level change
+  const oldLevel = plannedLevel(id)
+  if (oldLevel !== newLevel) {
+    const tech = TECHNOLOGIES.find(t => t.id === id)
+    if (tech) {
+      const changeTracker = getChangeTracker()
+      changeTracker.trackTechnologyChange(
+        id,
+        translate(tech.nameKey),
+        oldLevel,
+        newLevel
+      )
+    }
+  }
+  
+  setLevel(id, newLevel)
 }
 
 // Manual refresh of company data
