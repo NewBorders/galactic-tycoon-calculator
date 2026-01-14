@@ -138,12 +138,10 @@ function createTodoList() {
 
   // Add a change to the todo list (organized by scope)
   function addChange(change: Change): void {
-    console.log('[TodoListService] addChange called:', change)
     // Initialize if empty
     if (todoHistory.value.length === 0) {
       todoHistory.value.push([])
       currentTodoIndex.value = 0
-      console.log('[TodoListService] Initialized empty history')
     }
 
     // Remove redo stack when new change is made
@@ -178,7 +176,6 @@ function createTodoList() {
     if (lastStep && lastStep.changes.length === 1) {
       const lastChange = lastStep.changes[0]
       if (lastChange && doCancelsOut(lastChange, changeWithTime)) {
-        console.log('[TodoListService] Changes cancel out, removing step:', lastChange.description, changeWithTime.description)
         // Remove the last step (it cancels out)
         targetGroup.steps.pop()
         // Add the modified copy as new history state
@@ -250,13 +247,6 @@ function createTodoList() {
     // Add the modified copy as new history state
     todoHistory.value.push(currentGroups)
     currentTodoIndex.value++
-
-    console.log('[TodoListService] After add:', {
-      historyLength: todoHistory.value.length,
-      currentIndex: currentTodoIndex.value,
-      currentGroups: JSON.stringify(currentGroups, null, 2),
-      allSteps: allSteps.value.length
-    })
 
     save()
   }
