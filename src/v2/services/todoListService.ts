@@ -6,6 +6,7 @@
 import { ref, computed } from 'vue'
 import type { PlayerBasesService } from './stateReversion'
 import { applyStateReversions } from './stateReversion'
+import { getChange, registerChange, unregisterChange } from './changeStorage'
 
 export type ChangeType = 'technology' | 'building' | 'recipe' | 'stock' | 'base' | 'starting-bonus'
 export type ScopeType = 'global' | 'base'
@@ -138,16 +139,9 @@ function createTodoList() {
     // Must be same type and same scope
     if (lastChange.baseName !== newChange.baseName) return false
 
-    // Building changes - only merge if both are LEVEL changes (not add/remove)
+    // Building level changes: do not merge to allow stepwise undo/redo
     if (lastChange.type === 'building' && newChange.type === 'building') {
-      // Don't merge add/remove with level changes
-      const lastIsAction = !!lastChange.details?.action
-      const newIsAction = !!newChange.details?.action
-      
-      // Only merge if both are level changes (no action field) and same slot
-      if (lastIsAction || newIsAction) return false
-      
-      return lastChange.details?.slotId === newChange.details?.slotId
+      return false
     }
 
     // Technology level changes - merge if same technology
@@ -259,6 +253,10 @@ function createTodoList() {
           if (from === to) {
             console.log('[TodoListService] Changes cancel out (from == to), removing step')
             // Remove the last step (they cancel out)
+            const changeId = lastChangeInStep.details?.changeId as string | undefined
+            if (changeId) {
+              unregisterChange(changeId)
+            }
             targetGroup.steps.pop()
             // Add the modified copy as new history state
             todoHistory.value.push(currentGroups)
@@ -285,6 +283,19 @@ function createTodoList() {
               ...lastChangeInStep.details,
               to: to,
             },
+          }
+
+          // Keep stored change metadata in sync so undo/redo uses the merged "to" value
+          const changeId = lastChangeInStep.details?.changeId as string | undefined
+          if (changeId) {
+            const stored = getChange(changeId)
+            if (stored) {
+              registerChange(changeId, {
+                ...stored,
+                newValue: typeof to === 'number' ? to : stored.newValue,
+                // Keep originalValue as the earliest "from"
+              })
+            }
           }
         }
       }

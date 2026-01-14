@@ -53,6 +53,12 @@
 **Build Status**: ✅ Successful (516.21 kB bundle)
 **Tests**: ✅ All passing (240/240 including 11 change storage tests)
 
+## Session 6 Notes (Commits efb7424, d7ad6f1, <latest>)
+
+- Added safety flag `isReverting` to block change tracking during undo/redo; guards now wrapped in try/finally.
+- Fixed merge handling: when merging successive numeric changes, update stored change metadata (`registerChange`) so undo/redo uses latest `to` value; when merged changes cancel out, unregister the stored change to avoid stale IDs.
+- Type-check and lint: passing.
+
 ---
 
 ## Current State
