@@ -1,446 +1,189 @@
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import { usePlanningMode } from '@/v2/services/planningMode'
-import { usePlanningHistory } from '@/v2/services/planningMode/history'
-
-const { 
-  isPlanningActive, 
-  history, 
-  changeCount,
-  plannedBases
-} = usePlanningMode()
-
-const { 
-  undo, 
-  redo, 
-  canUndo, 
-  canRedo,
-  historyIndex 
-} = usePlanningHistory()
-
-const isCollapsed = ref(false)
-const isClosed = ref(!isPlanningActive.value)
-
-// Group history entries by base
-const groupedHistory = computed(() => {
-  const groups: Record<string, { baseName: string; entries: Array<{ index: number; description: string; isActive: boolean }> }> = {}
-  
-  history.value.forEach((entry, index) => {
-    const baseId = entry.baseId
-    const base = plannedBases.value.find(b => b.id === baseId)
-    const baseName = base?.name || 'Unknown Base'
-    
-    if (!groups[baseId]) {
-      groups[baseId] = {
-        baseName,
-        entries: []
-      }
-    }
-    
-    groups[baseId].entries.push({
-      index,
-      description: entry.description,
-      isActive: index <= historyIndex.value
-    })
-  })
-  
-  return groups
-})
-
-function handleUndo() {
-  if (canUndo.value) {
-    undo()
-  }
-}
-
-function handleRedo() {
-  if (canRedo.value) {
-    redo()
-  }
-}
-
-function toggleCollapse() {
-  isCollapsed.value = !isCollapsed.value
-}
-
-function closeTodoList() {
-  isClosed.value = true
-}
-
-function openTodoList() {
-  isClosed.value = false
-  isCollapsed.value = false
-}
-
-// Watch planning mode and auto-open
-import { watch } from 'vue'
-watch(isPlanningActive, (isActive) => {
-  if (isActive && isClosed.value) {
-    isClosed.value = false
-  }
-})
-</script>
-
 <template>
-  <!-- Reopen button when closed -->
-  <button 
-    v-if="isClosed && isPlanningActive" 
-    @click="openTodoList"
-    class="todo-reopen-button"
-    title="Open TODO List"
-  >
-    <span class="todo-reopen-icon">📋</span>
-    <span v-if="changeCount > 0" class="todo-reopen-badge">{{ changeCount }}</span>
-  </button>
+  <div class="fixed right-0 top-0 h-screen z-40 flex flex-col items-end pointer-events-none">
+    <!-- Toggle Button (always visible) -->
+    <button
+      @click="togglePanel"
+      class="mt-4 mr-4 p-2 bg-gray-800 border border-gray-700 rounded hover:bg-gray-700 transition pointer-events-auto flex items-center gap-2"
+      :title="isOpen ? 'Close todo list' : 'Open todo list'"
+    >
+      <span class="text-xl">{{ isOpen ? '→' : '←' }}</span>
+      <span class="text-sm font-semibold text-gray-300">{{ todoSteps.length }}</span>
+    </button>
 
-  <!-- Main TODO List -->
-  <div 
-    v-if="!isClosed && isPlanningActive" 
-    class="todo-list"
-    :class="{ 'todo-list--collapsed': isCollapsed }"
-  >
-    <!-- Header -->
-    <div class="todo-list__header">
-      <div class="todo-list__title">
-        <span class="todo-list__icon">📋</span>
-        <span>TODO List</span>
-        <span class="todo-list__count">{{ changeCount }}</span>
-      </div>
-      <div class="todo-list__actions">
-        <button 
-          @click="toggleCollapse" 
-          class="todo-list__action-btn"
-          :title="isCollapsed ? 'Expand' : 'Collapse'"
-        >
-          {{ isCollapsed ? '▲' : '▼' }}
-        </button>
-        <button 
-          @click="closeTodoList" 
-          class="todo-list__action-btn"
-          title="Close"
-        >
-          ✕
-        </button>
-      </div>
-    </div>
+    <!-- Todo Panel (semi-transparent overlay) -->
+    <div
+      class="mt-4 mr-4 w-96 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg flex flex-col transition-all duration-300 pointer-events-auto overflow-hidden"
+      :class="isOpen ? 'opacity-100 translate-x-0 shadow-2xl' : 'opacity-0 translate-x-full pointer-events-none'"
+      style="height: calc(100vh - 80px); max-height: calc(100vh - 80px);"
+    >
+      <!-- Header -->
+      <div class="border-b border-gray-700 p-4 flex items-center justify-between flex-shrink-0">
+        <h2 class="text-lg font-semibold text-white">
+          📋 Production Steps
+        </h2>
+        <div class="flex items-center gap-1">
+          <!-- Undo Button -->
+          <button
+            @click="undo"
+            :disabled="!canUndo"
+            class="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            title="Undo last step (Ctrl+Z)"
+          >
+            <span class="text-lg">↶</span>
+          </button>
 
-    <!-- Content (only visible when not collapsed) -->
-    <div v-if="!isCollapsed" class="todo-list__content">
-      <!-- Undo/Redo Controls -->
-      <div class="todo-list__controls">
-        <button 
-          @click="handleUndo" 
-          :disabled="!canUndo"
-          class="todo-list__control-btn"
-          title="Undo (Ctrl+Z)"
-        >
-          ↶ Undo
-        </button>
-        <button 
-          @click="handleRedo" 
-          :disabled="!canRedo"
-          class="todo-list__control-btn"
-          title="Redo (Ctrl+Shift+Z)"
-        >
-          ↷ Redo
-        </button>
-      </div>
+          <!-- Redo Button -->
+          <button
+            @click="redo"
+            :disabled="!canRedo"
+            class="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            title="Redo last step (Ctrl+Shift+Z)"
+          >
+            <span class="text-lg">↷</span>
+          </button>
 
-      <!-- History grouped by base -->
-      <div v-if="changeCount > 0" class="todo-list__groups">
-        <div 
-          v-for="(group, baseId) in groupedHistory" 
-          :key="baseId"
-          class="todo-group"
-        >
-          <div class="todo-group__header">
-            {{ group.baseName }}
-          </div>
-          <ul class="todo-group__items">
-            <li 
-              v-for="entry in group.entries" 
-              :key="entry.index"
-              class="todo-item"
-              :class="{ 
-                'todo-item--inactive': !entry.isActive,
-                'todo-item--current': entry.index === historyIndex 
-              }"
-            >
-              <span class="todo-item__bullet">
-                {{ entry.isActive ? '✓' : '○' }}
-              </span>
-              <span class="todo-item__text">
-                {{ entry.description }}
-              </span>
-            </li>
-          </ul>
+          <!-- Clear Button -->
+          <button
+            @click="handleClear"
+            :disabled="todoSteps.length === 0"
+            class="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            title="Clear all steps"
+          >
+            <span class="text-lg">🗑️</span>
+          </button>
         </div>
       </div>
 
-      <!-- Empty state -->
-      <div v-else class="todo-list__empty">
-        <p>No changes yet.</p>
-        <p class="todo-list__empty-hint">
-          Make changes to your bases to see them here.
-        </p>
+      <!-- Steps List (scrollable) -->
+      <div class="flex-1 overflow-y-auto">
+        <div v-if="todoSteps.length === 0" class="p-4 text-center text-gray-400 text-sm">
+          <p class="text-lg">📭</p>
+          <p>No production steps yet</p>
+          <p class="text-xs mt-2 text-gray-500">Your changes will appear here</p>
+        </div>
+
+        <div v-else class="space-y-2 p-4">
+          <div
+            v-for="(step, index) in todoSteps"
+            :key="step.id"
+            class="bg-gray-800 rounded p-3 border border-gray-700 hover:border-gray-600 transition cursor-default"
+          >
+            <!-- Step Header -->
+            <div class="flex items-start gap-3">
+              <div class="text-xs font-semibold text-purple-400 bg-gray-700 rounded px-2 py-1 mt-0.5 flex-shrink-0 min-w-max">
+                Step {{ index + 1 }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-gray-300 font-medium break-words">
+                  {{ step.description }}
+                </p>
+                <p class="text-xs text-gray-500 mt-1">
+                  {{ formatTime(step.createdAt) }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Changes Detail (collapsible) -->
+            <div v-if="step.changes.length > 0" class="mt-2 ml-10">
+              <button
+                @click="toggleStepDetail(step.id)"
+                class="text-xs text-purple-400 hover:text-purple-300 transition font-medium"
+              >
+                {{ expandedSteps.has(step.id) ? '▼' : '▶' }} Details ({{ step.changes.length }})
+              </button>
+
+              <div v-if="expandedSteps.has(step.id)" class="mt-2 space-y-1 text-xs text-gray-400">
+                <div v-for="(change, idx) in step.changes" :key="idx" class="pl-3 border-l border-gray-600 pb-1">
+                  <p class="font-mono text-gray-500">{{ change.description }}</p>
+                  <p v-if="change.details?.from !== undefined && change.details?.to !== undefined" class="text-gray-600 text-xs">
+                    <span class="text-yellow-600">{{ change.details.from }}</span> →
+                    <span class="text-green-600">{{ change.details.to }}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Footer -->
+      <div v-if="todoSteps.length > 0" class="border-t border-gray-700 p-3 text-xs text-gray-400 flex-shrink-0">
+        <div class="flex justify-between">
+          <span>{{ todoSteps.length }} step(s)</span>
+          <span v-if="totalChanges > 0">{{ totalChanges }} change(s)</span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useTodoList } from '@/v2/composables/useTodoList'
+
+const { todoSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()
+
+const expandedSteps = ref<Set<string>>(new Set())
+
+// Total number of changes
+const totalChanges = computed(() => {
+  return todoSteps.value.reduce((sum, step) => sum + step.changes.length, 0)
+})
+
+// Toggle step detail
+function toggleStepDetail(stepId: string): void {
+  if (expandedSteps.value.has(stepId)) {
+    expandedSteps.value.delete(stepId)
+  } else {
+    expandedSteps.value.add(stepId)
+  }
+  expandedSteps.value = new Set(expandedSteps.value)
+}
+
+// Handle clear
+function handleClear(): void {
+  if (confirm('Are you sure you want to clear all production steps?')) {
+    clear()
+    expandedSteps.value.clear()
+  }
+}
+
+// Format time
+function formatTime(timestamp: number): string {
+  const now = Date.now()
+  const diffMs = now - timestamp
+  const diffSecs = Math.floor(diffMs / 1000)
+  const diffMins = Math.floor(diffSecs / 60)
+  const diffHours = Math.floor(diffMins / 60)
+
+  if (diffSecs < 60) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+
+  const date = new Date(timestamp)
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const day = date.getDate().toString().padStart(2, '0')
+  const hours = date.getHours().toString().padStart(2, '0')
+  const mins = date.getMinutes().toString().padStart(2, '0')
+  return `${month}/${day} ${hours}:${mins}`
+}
+</script>
+
 <style scoped>
-.todo-reopen-button {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 40;
-  width: 3.5rem;
-  height: 3.5rem;
-  border: none;
-  border-radius: 50%;
-  background-color: var(--color-primary);
-  color: white;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
+::-webkit-scrollbar {
+  width: 6px;
 }
 
-.todo-reopen-button:hover {
-  transform: scale(1.1);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-.todo-reopen-icon {
-  font-size: 1.5rem;
-}
-
-.todo-reopen-badge {
-  position: absolute;
-  top: -0.25rem;
-  right: -0.25rem;
-  min-width: 1.25rem;
-  height: 1.25rem;
-  padding: 0 0.375rem;
-  background-color: var(--color-danger, #ef4444);
-  color: white;
-  border-radius: 9999px;
-  font-size: 0.625rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.todo-list {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 50;
-  width: 24rem;
-  max-height: calc(100vh - 8rem);
-  display: flex;
-  flex-direction: column;
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-}
-
-.todo-list--collapsed {
-  max-height: auto;
-}
-
-.todo-list__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  background-color: var(--color-background-soft);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.todo-list__title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  color: var(--color-heading);
-}
-
-.todo-list__icon {
-  font-size: 1.125rem;
-}
-
-.todo-list__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 0.375rem;
-  background-color: var(--color-primary);
-  color: white;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.todo-list__actions {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.todo-list__action-btn {
-  width: 2rem;
-  height: 2rem;
-  border: none;
+::-webkit-scrollbar-track {
   background: transparent;
-  color: var(--color-text-soft);
-  cursor: pointer;
-  border-radius: 0.25rem;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.875rem;
 }
 
-.todo-list__action-btn:hover {
-  background-color: var(--color-background-mute);
-  color: var(--color-text);
+::-webkit-scrollbar-thumb {
+  background: rgb(55, 65, 81);
+  border-radius: 3px;
 }
 
-.todo-list__content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem;
-}
-
-.todo-list__controls {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.todo-list__control-btn {
-  flex: 1;
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  background-color: var(--color-background-soft);
-  color: var(--color-text);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.todo-list__control-btn:hover:not(:disabled) {
-  background-color: var(--color-background-mute);
-  border-color: var(--color-border-hover);
-}
-
-.todo-list__control-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.todo-list__groups {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.todo-group {
-  background-color: var(--color-background-soft);
-  border-radius: 0.375rem;
-  overflow: hidden;
-}
-
-.todo-group__header {
-  padding: 0.625rem 0.75rem;
-  background-color: var(--color-background-mute);
-  border-bottom: 1px solid var(--color-border);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-heading);
-}
-
-.todo-group__items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.todo-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid var(--color-border);
-  transition: background-color 0.2s;
-}
-
-.todo-item:last-child {
-  border-bottom: none;
-}
-
-.todo-item--inactive {
-  opacity: 0.5;
-}
-
-.todo-item--current {
-  background-color: var(--color-primary-soft, #e0f2fe);
-}
-
-.todo-item__bullet {
-  flex-shrink: 0;
-  color: var(--color-success, #10b981);
-  font-size: 0.875rem;
-}
-
-.todo-item--inactive .todo-item__bullet {
-  color: var(--color-text-soft);
-}
-
-.todo-item__text {
-  flex: 1;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--color-text);
-}
-
-.todo-list__empty {
-  text-align: center;
-  padding: 2rem 1rem;
-  color: var(--color-text-soft);
-}
-
-.todo-list__empty p {
-  margin: 0 0 0.5rem;
-}
-
-.todo-list__empty-hint {
-  font-size: 0.875rem;
-  opacity: 0.75;
-}
-
-@media (max-width: 640px) {
-  .todo-list {
-    width: calc(100vw - 2rem);
-    right: 1rem;
-    bottom: 1rem;
-    max-height: calc(100vh - 6rem);
-  }
-
-  .todo-reopen-button {
-    right: 1rem;
-    bottom: 1rem;
-  }
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(75, 85, 99);
 }
 </style>
