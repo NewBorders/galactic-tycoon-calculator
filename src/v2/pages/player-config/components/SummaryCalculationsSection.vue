@@ -868,14 +868,14 @@ onBeforeUnmount(() => {
                 <!-- Current Production -->
                 <td
                   class="py-1 text-right px-1 border-l border-slate-700/50 text-xs"
-                  :class="row.current.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300'"
+                  :class="Math.abs(row.current.balancePerDay) < 0.01 ? 'text-slate-400' : row.current.balancePerDay > 0 ? 'text-emerald-300' : 'text-rose-300'"
                 >
                   {{ formatNumber(row.current.balancePerPeriod, 1) }}
                 </td>
                 <td class="py-1 text-right px-1 text-xs text-slate-400">
                   {{ formatWeight(props.gameData, row.current.balancePerPeriod, row.materialId) }}
                 </td>
-                <td class="py-1 text-right px-1 text-xs" :class="row.current.valuePerPeriod < 0 ? 'text-rose-300' : 'text-emerald-400'">
+                <td class="py-1 text-right px-1 text-xs" :class="Math.abs(row.current.valuePerPeriod) < 0.01 ? 'text-slate-400' : row.current.valuePerPeriod < 0 ? 'text-rose-300' : 'text-emerald-400'">
                   {{ formatPrice(row.current.valuePerPeriod, 0) }}
                 </td>
                 <td class="py-1 text-right px-1 text-xs" :class="(row.current.daysCoverage ?? 0) < periodFactor ? 'text-rose-300' : 'text-emerald-400'">
@@ -888,7 +888,7 @@ onBeforeUnmount(() => {
                 <td
                   class="py-1 text-right px-1 border-l border-slate-700/50 text-xs"
                   :class="[
-                    row.planned.balancePerDay >= 0 ? 'text-emerald-300' : 'text-rose-300',
+                    Math.abs(row.planned.balancePerDay) < 0.01 ? 'text-slate-400' : row.planned.balancePerDay > 0 ? 'text-emerald-300' : 'text-rose-300',
                     Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''
                   ]"
                 >
@@ -903,7 +903,7 @@ onBeforeUnmount(() => {
                 <td
                   class="py-1 text-right px-1 text-xs"
                   :class="[
-                    row.planned.valuePerPeriod < 0 ? 'text-rose-300' : 'text-emerald-400',
+                    Math.abs(row.planned.valuePerPeriod) < 0.01 ? 'text-slate-400' : row.planned.valuePerPeriod < 0 ? 'text-rose-300' : 'text-emerald-400',
                     Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''
                   ]"
                 >
