@@ -267,7 +267,13 @@ onBeforeUnmount(() => {
 })
 
 function selectPlanet(planet: Planet) {
-  if (!planetHasBase(planet.id)) addBase(planet.id)
+  if (!planetHasBase(planet.id)) {
+    // Track new base creation
+    const changeTracker = getChangeTracker()
+    changeTracker.trackNewBase(planet.name || `Planet ${planet.id}`)
+    
+    addBase(planet.id)
+  }
   query.value = ''
   persist()
 }
