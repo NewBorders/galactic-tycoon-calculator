@@ -103,18 +103,27 @@ export function usePlayerTechnology() {
   }
 
   function setFromApi(technologies: Array<{ id: number; level: number }>, startingBonus?: number) {
-    const levels: Partial<Record<TechnologySpecialisation, number>> = {}
+    const apiLevels: Partial<Record<TechnologySpecialisation, number>> = {}
     
     technologies.forEach((tech) => {
       const id = tech.id as TechnologySpecialisation
       if (TECHNOLOGIES.some((t) => t.id === id)) {
-        levels[id] = clampLevel(tech.level)
+        apiLevels[id] = clampLevel(tech.level)
       }
+    })
+
+    // Update planned levels: keep user's planned values if they're higher than API values
+    const updatedLevels: Partial<Record<TechnologySpecialisation, number>> = {}
+    TECHNOLOGIES.forEach((tech) => {
+      const apiLevel = apiLevels[tech.id] ?? 0
+      const currentPlannedLevel = state.value.levels[tech.id] ?? 0
+      // Keep the higher value (user's planned level or API level)
+      updatedLevels[tech.id] = Math.max(apiLevel, currentPlannedLevel)
     })
 
     const next: PlayerTechnologyState = {
       startingBonus: startingBonus !== undefined ? clampStartingBonus(startingBonus) : state.value.startingBonus,
-      levels,
+      levels: updatedLevels,
     }
     
     state.value = next

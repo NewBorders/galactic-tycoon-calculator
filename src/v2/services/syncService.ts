@@ -12,6 +12,7 @@ import { resetPriceCache } from './gamedata/prices'
 import { fetchCompanyBases, fetchGameBaseDetails, fetchWarehouseStockForBase } from './api/warehouseService'
 import { extractMarketDetails } from './marketAnalysis/extractor'
 import { usePlayerTechnology } from './playerTechnology'
+import { useWorldData } from './worldData'
 
 export interface SyncEntry {
   id: string
@@ -105,7 +106,19 @@ export async function initializeSyncService(
       // Extract and set technology levels from Company Data
       if (result.data.technologies && result.data.technologies.length > 0) {
         const { setFromApi } = usePlayerTechnology()
+        const { worldData } = useWorldData()
+        
+        // Update planned levels (keeping user's higher planned values)
         setFromApi(result.data.technologies, result.data.startingBonus)
+        
+        // Update current state with API data
+        const apiTechnology: Record<number, number> = {}
+        result.data.technologies.forEach((tech) => {
+          apiTechnology[tech.id] = tech.level
+        })
+        worldData.value.current.technology = apiTechnology
+        worldData.value.current.startingBonus = result.data.startingBonus ?? 1
+        worldData.value.current.fetchedAt = Date.now()
       }
       
       // Format bases data
@@ -264,7 +277,19 @@ export async function refreshEntry(entryId: string): Promise<void> {
       // Extract and set technology levels from Company Data
       if (result.data.technologies && result.data.technologies.length > 0) {
         const { setFromApi } = usePlayerTechnology()
+        const { worldData } = useWorldData()
+        
+        // Update planned levels (keeping user's higher planned values)
         setFromApi(result.data.technologies, result.data.startingBonus)
+        
+        // Update current state with API data
+        const apiTechnology: Record<number, number> = {}
+        result.data.technologies.forEach((tech) => {
+          apiTechnology[tech.id] = tech.level
+        })
+        worldData.value.current.technology = apiTechnology
+        worldData.value.current.startingBonus = result.data.startingBonus ?? 1
+        worldData.value.current.fetchedAt = Date.now()
       }
       
       const bases = result.data.bases.map((b) => ({
