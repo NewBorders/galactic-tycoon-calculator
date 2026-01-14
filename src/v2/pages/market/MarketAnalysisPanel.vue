@@ -6,6 +6,7 @@ import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
 import { translate, formatDateTime as formatDateTimeLocale } from '../../localisation'
 import { formatInteger, formatDecimal, formatPercent as formatPercentLocale } from '../../localisation/numbers'
+import { getSyncEntries } from '../../services/syncService'
 
 // Format price helper: cents → dollars with $ prefix
 const formatPrice = (cents: number): string => '$' + formatDecimal(cents / 100, 2)
@@ -26,6 +27,22 @@ const {
   fetch,
 
 } = useMarketAnalysis({ world: world.value })
+
+// Get sync entries to check for API errors
+const syncEntries = getSyncEntries()
+
+// Get exchange sync entry to check for errors
+const exchangeEntry = computed(() => {
+  return syncEntries.value.find(e => e.id === 'exchange')
+})
+
+const hasApiError = computed(() => {
+  return exchangeEntry.value?.error != null
+})
+
+const apiErrorMessage = computed(() => {
+  return exchangeEntry.value?.error || null
+})
 
 // Auto-refresh interval (5 minutes)
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000
@@ -250,21 +267,27 @@ const lastUpdatedLabel = computed(() => {
 <template>
   <div class="space-y-4">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-purple-400">📊 {{ translate('marketAnalysisTitle') }}</h1>
-        <p class="text-sm text-gray-400 mt-1">
-          {{ translate('marketAnalysisDescription') }}
-        </p>
-      </div>
-      <div class="flex gap-2 items-center">
-        <span class="text-xs text-gray-500">
-          {{ translate('marketAnalysisUpdated') }}: {{ lastUpdatedLabel }}
-        </span>
+    <div class="rounded bg-gray-800 p-4" :class="hasApiError ? 'border border-red-700' : 'border border-gray-700'">
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex-1">
+          <h1 class="text-2xl font-bold text-purple-400">📊 {{ translate('marketAnalysisTitle') }}</h1>
+          <p class="text-sm text-gray-400 mt-1">
+            {{ translate('marketAnalysisDescription') }}
+          </p>
+          <div class="mt-2">
+            <span class="text-xs text-gray-500">
+              {{ translate('marketAnalysisUpdated') }}: {{ lastUpdatedLabel }}
+            </span>
+            <div v-if="hasApiError && apiErrorMessage" class="text-red-400 mt-1 text-xs">
+              ❌ {{ apiErrorMessage }}
+            </div>
+          </div>
+        </div>
         <button
           @click="refresh"
           :disabled="loading"
-          class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded transition"
+          class="px-4 py-2 text-white rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+          :class="hasApiError ? 'bg-red-700 hover:bg-red-600' : 'bg-purple-600 hover:bg-purple-700'"
         >
           {{ loading ? `⏳ ${translate('marketAnalysisLoading')}` : `🔄 ${translate('marketAnalysisRefresh')}` }}
         </button>
