@@ -18,6 +18,7 @@ import GlobalSummary from './components/GlobalSummary.vue'
 import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
+import { getChangeTracker } from '@/v2/services/changeTracker'
 
 import { computeBaseReport } from '@/v2/services/production/engine'
 
@@ -631,6 +632,21 @@ async function refreshGameData() {
           "
           @updateBuilding="
             ({ id, patch }) => {
+              // Track building level change
+              if (patch.level != null) {
+                const building = base.buildings.find((b: typeof base.buildings[0]) => b.id === id)
+                const buildingData = props.gameData.buildings.find(b => b.id === building?.buildingId)
+                if (building && buildingData) {
+                  const changeTracker = getChangeTracker()
+                  changeTracker.trackBuildingChange(
+                    base.name || 'Base',
+                    building.buildingId,
+                    buildingData.name,
+                    building.level,
+                    patch.level
+                  )
+                }
+              }
               setBuilding(base.id, id, patch)
               persist()
             }
@@ -649,18 +665,49 @@ async function refreshGameData() {
           "
           @addRecipe="
             ({ recipeId }) => {
+              // Track recipe add
+              const recipe = props.gameData.recipes.find(r => r.id === recipeId)
+              if (recipe) {
+                const changeTracker = getChangeTracker()
+                changeTracker.trackAddRecipe(base.name || 'Base', recipe.output?.name ?? `Recipe ${recipeId}`)
+              }
               addRecipe(base.id, recipeId)
               persist()
             }
           "
           @removeRecipe="
             ({ id }) => {
+              // Track recipe remove
+              const recipe = base.recipes.find((r: typeof base.recipes[0]) => r.id === id)
+              if (recipe) {
+                const recipeData = props.gameData.recipes.find(r => r.id === recipe.recipeId)
+                if (recipeData) {
+                  const changeTracker = getChangeTracker()
+                  changeTracker.trackRemoveRecipe(base.name || 'Base', recipeData.output?.name ?? `Recipe ${recipe.recipeId}`)
+                }
+              }
               removeRecipe(base.id, id)
               persist()
             }
           "
           @updateRecipe="
             ({ id, patch }) => {
+              // Track recipe count change
+              if (patch.count != null) {
+                const recipe = base.recipes.find((r: typeof base.recipes[0]) => r.id === id)
+                if (recipe) {
+                  const recipeData = props.gameData.recipes.find(r => r.id === recipe.recipeId)
+                  if (recipeData) {
+                    const changeTracker = getChangeTracker()
+                    changeTracker.trackRecipeCountChange(
+                      base.name || 'Base',
+                      recipeData.output?.name ?? `Recipe ${recipe.recipeId}`,
+                      recipe.count ?? 1,
+                      patch.count
+                    )
+                  }
+                }
+              }
               // patch.count may be undefined; ensure numeric
               setRecipeCount(base.id, id, patch.count ?? 0)
               persist()
@@ -681,6 +728,24 @@ async function refreshGameData() {
           "
           @updateStock="
             (stock) => {
+              // Track stock changes
+              const changeTracker = getChangeTracker()
+              const oldStock = base.stock ?? {}
+              Object.entries(stock).forEach(([materialIdStr, newQty]) => {
+                const materialId = Number(materialIdStr)
+                const oldQty = oldStock[materialId] ?? 0
+                if (oldQty !== newQty) {
+                  const material = props.gameData.materials.find(m => m.id === materialId)
+                  if (material) {
+                    changeTracker.trackStockChange(
+                      base.name || 'Base',
+                      material.name,
+                      oldQty,
+                      newQty
+                    )
+                  }
+                }
+              })
               setStock(base.id, stock)
               persist()
             }
