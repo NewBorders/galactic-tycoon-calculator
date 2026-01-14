@@ -676,6 +676,7 @@ async function refreshGameData() {
                   changeTracker.trackBuildingChange(
                     base.id,
                     getBaseName(base),
+                    building.id,
                     slotNum.toString(),
                     building.buildingId,
                     buildingData.name,

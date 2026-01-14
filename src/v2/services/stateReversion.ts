@@ -5,7 +5,7 @@
 
 import type { Change, TodoGroup } from './todoListService'
 import { usePlayerTechnology, type TechnologySpecialisation } from './playerTechnology'
-import type { GameData } from './gamedata/service'
+import { getChange, type StoredChange } from './changeStorage'
 
 // Helper type for playerBases service
 export interface PlayerBasesService {
@@ -22,6 +22,7 @@ export interface PlayerBasesService {
 /**
  * Find base by ID
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function findBaseById(playerBases: PlayerBasesService, baseId: string): string | null {
   const base = playerBases.state.value.bases.find(b => b.id === baseId)
   console.log('[StateReversion] findBaseById:', baseId, '→', base?.id || 'NOT FOUND')
@@ -36,6 +37,7 @@ function findRecipeInstance(playerBases: PlayerBasesService, baseId: string, rec
   const base = playerBases.state.value.bases.find(b => b.id === baseId)
   if (!base) return null
   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recipeInstance = (base as any).recipes?.find((r: any) => r.recipeId === recipeId)
   return recipeInstance?.id || null
 }
@@ -69,14 +71,91 @@ export function calculateStateDiff(
 }
 
 /**
+ * Revert a stored change using precise metadata
+ */
+function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerBases: PlayerBasesService): void {
+  const baseId = storedChange.targetId?.split('::')[0] // For base-level changes, targetId might be baseId::something
+  const targetValue = isUndo ? storedChange.originalValue : storedChange.newValue
+
+  console.log('[StateReversion] Reverting stored change:', {
+    type: storedChange.type,
+    targetId: storedChange.targetId,
+    isUndo,
+    targetValue
+  })
+
+  switch (storedChange.type) {
+    case 'buildingLevel':
+      if (baseId && storedChange.targetId) {
+        playerBases.setBuilding(baseId, storedChange.targetId, { level: targetValue })
+        console.log('[StateReversion] Set building level to:', targetValue)
+      }
+      break
+
+    case 'recipeCount':
+      if (baseId && storedChange.targetId) {
+        playerBases.setRecipeCount(baseId, storedChange.targetId, targetValue)
+        console.log('[StateReversion] Set recipe count to:', targetValue)
+      }
+      break
+
+    case 'technologyLevel':
+      if (storedChange.targetId && typeof storedChange.targetId === 'string') {
+        const { setLevel } = usePlayerTechnology()
+        setLevel(storedChange.targetId as unknown as TechnologySpecialisation, targetValue)
+        console.log('[StateReversion] Set technology level to:', targetValue)
+      }
+      break
+
+    case 'startingBonus':
+      const { setStartingBonus } = usePlayerTechnology()
+      setStartingBonus(targetValue)
+      console.log('[StateReversion] Set starting bonus to:', targetValue)
+      break
+
+    case 'stock':
+      if (baseId && storedChange.targetId) {
+        const base = playerBases.state.value.bases.find(b => b.id === baseId)
+        if (base) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const currentStock = (base as any).stock || {}
+          const materialId = parseInt(storedChange.targetId)
+          playerBases.setStock(baseId, { ...currentStock, [materialId]: targetValue })
+          console.log('[StateReversion] Set stock to:', targetValue)
+        }
+      }
+      break
+  }
+}
+
+/**
  * Revert a single change to the game state
+ * First tries to use stored change metadata, falls back to parsing details
  */
 export function revertChange(change: Change, direction: 'forward' | 'backward', playerBases: PlayerBasesService): void {
-  const isRevert = direction === 'backward'
+  const isUndo = direction === 'backward'
+
+  // Try to use stored change metadata if available
+  const changeId = change.details?.changeId as string | undefined
+  if (changeId) {
+    const storedChange = getChange(changeId)
+    if (storedChange) {
+      console.log('[StateReversion] Using stored change for reversion')
+      revertStoredChange(storedChange, isUndo, playerBases)
+      return
+    } else {
+      console.warn('[StateReversion] Change ID found but no stored change:', changeId)
+    }
+  }
+
+  // Fallback to parsing details (for older changes or manual changes)
+  console.log('[StateReversion] Falling back to detail parsing for change:', change.type)
+
+  const isRevert = isUndo
 
   // Technology changes
   if (change.type === 'technology') {
-    const techId = change.details?.technologyId as TechnologySpecialisation | undefined
+    const techId = change.details?.technologyId as unknown
     if (!techId) return
 
     const { setLevel } = usePlayerTechnology()
@@ -84,8 +163,8 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
       ? (change.details?.from as number) 
       : (change.details?.to as number)
 
-    if (targetValue !== undefined) {
-      setLevel(techId, targetValue)
+    if (targetValue !== undefined && typeof techId === 'string') {
+      setLevel(techId as unknown as TechnologySpecialisation, targetValue)
     }
     return
   }
@@ -216,6 +295,7 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
     if (targetAmount !== undefined) {
       const base = playerBases.state.value.bases.find(b => b.id === baseId)
       if (base) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const currentStock = (base as any).stock || {}
         playerBases.setStock(baseId, { ...currentStock, [materialId]: targetAmount })
       }

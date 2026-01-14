@@ -8,6 +8,11 @@
  */
 
 import { useTodoList, type Change } from './todoListService'
+import { registerChange } from './changeStorage'
+
+function generateChangeId(): string {
+  return crypto.randomUUID?.() ?? `change_${Date.now()}_${Math.random()}`
+}
 
 /**
  * Tracker helper functions for common change types
@@ -20,10 +25,13 @@ export function createChangeTracker() {
      * Track technology level change (GLOBAL)
      */
     trackTechnologyChange(techId: number, techName: string, fromLevel: number, toLevel: number): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'technology',
         description: `🔬 ${techName}: Level ${fromLevel} → ${toLevel}`,
         details: {
+          changeId,
           technologyId: techId.toString(),
           from: fromLevel,
           to: toLevel,
@@ -36,10 +44,13 @@ export function createChangeTracker() {
      * Track starting bonus change (GLOBAL)
      */
     trackStartingBonusChange(fromBonus: number, toBonus: number): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'starting-bonus',
         description: `⭐ Starting Bonus: ${fromBonus.toFixed(2)}× → ${toBonus.toFixed(2)}×`,
         details: {
+          changeId,
           from: fromBonus.toFixed(2),
           to: toBonus.toFixed(2),
         },
@@ -52,10 +63,13 @@ export function createChangeTracker() {
      * @param baseName The name of the new base being planned
      */
     trackNewBase(baseName: string): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'base',
         description: `➕ New Base: ${baseName}`,
         details: {
+          changeId,
           action: 'add',
         },
         timestamp: Date.now(),
@@ -66,10 +80,13 @@ export function createChangeTracker() {
      * Track base removal (GLOBAL)
      */
     trackRemoveBase(baseName: string): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'base',
         description: `❌ Remove Base: ${baseName}`,
         details: {
+          changeId,
           action: 'remove',
         },
         timestamp: Date.now(),
@@ -80,22 +97,39 @@ export function createChangeTracker() {
      * Track building level change (PER-BASE)
      * @param baseId Unique base identifier (from playerBases)
      * @param baseName Display name for the base
+     * @param buildingInstanceId The instance ID of the building (from playerBases)
      */
     trackBuildingChange(
       baseId: string,
       baseName: string,
+      buildingInstanceId: string,
       slotNum: string,
       buildingId: number,
       buildingName: string,
       fromLevel: number,
       toLevel: number
     ): void {
+      const changeId = generateChangeId()
+      
+      // Register the change for state reversion
+      registerChange(changeId, {
+        changeId,
+        type: 'buildingLevel',
+        targetId: buildingInstanceId,
+        targetField: 'level',
+        originalValue: fromLevel,
+        newValue: toLevel,
+      })
+      
       addChange({
+        id: changeId,
         type: 'building',
         baseName: baseName,
         description: `🏢 ${buildingName} #${slotNum}: Level ${fromLevel} → ${toLevel}`,
         details: {
+          changeId,
           baseId: baseId,
+          buildingInstanceId,
           slotId: slotNum,
           buildingId: buildingId.toString(),
           from: fromLevel,
@@ -109,11 +143,14 @@ export function createChangeTracker() {
      * Track building add (PER-BASE)
      */
     trackAddBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'building',
         baseName,
         description: `🏢 Building added: ${buildingName} #${slotNum}`,
         details: {
+          changeId,
           baseId: baseId,
           action: 'add',
           slotId: slotNum,
@@ -127,11 +164,14 @@ export function createChangeTracker() {
      * Track building remove (PER-BASE)
      */
     trackRemoveBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'building',
         baseName,
         description: `🏢 Building removed: ${buildingName} #${slotNum}`,
         details: {
+          changeId,
           baseId: baseId,
           action: 'remove',
           slotId: slotNum,
@@ -145,11 +185,14 @@ export function createChangeTracker() {
      * Track recipe add (PER-BASE)
      */
     trackAddRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'recipe',
         baseName,
         description: `➕ Recipe added: ${recipeName}`,
         details: {
+          changeId,
           baseId: baseId,
           action: 'add',
           recipeId: recipeId.toString(),
@@ -163,11 +206,14 @@ export function createChangeTracker() {
      * Track recipe remove (PER-BASE)
      */
     trackRemoveRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'recipe',
         baseName,
         description: `❌ Recipe removed: ${recipeName}`,
         details: {
+          changeId,
           baseId: baseId,
           action: 'remove',
           recipeId: recipeId.toString(),
@@ -188,11 +234,14 @@ export function createChangeTracker() {
       fromCount: number,
       toCount: number
     ): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'recipe',
         baseName,
         description: `🔄 ${recipeName}: Count ${fromCount} → ${toCount}`,
         details: {
+          changeId,
           baseId: baseId,
           recipeId: recipeId.toString(),
           recipeName,
@@ -214,11 +263,14 @@ export function createChangeTracker() {
       fromQty: number,
       toQty: number
     ): void {
+      const changeId = generateChangeId()
       addChange({
+        id: changeId,
         type: 'stock',
         baseName,
         description: `📦 ${materialName}: Stock ${fromQty} → ${toQty}`,
         details: {
+          changeId,
           baseId: baseId,
           materialId: materialId.toString(),
           material: materialName,

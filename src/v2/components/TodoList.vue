@@ -104,7 +104,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useTodoList, type TodoGroup, type TodoStep } from '@/v2/services/todoListService'
 
 const { todoGroups, allSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()

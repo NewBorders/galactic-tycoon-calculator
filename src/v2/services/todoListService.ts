@@ -4,7 +4,6 @@
  */
 
 import { ref, computed } from 'vue'
-import { useWorldData } from './worldData'
 import type { PlayerBasesService } from './stateReversion'
 import { applyStateReversions } from './stateReversion'
 
@@ -12,6 +11,7 @@ export type ChangeType = 'technology' | 'building' | 'recipe' | 'stock' | 'base'
 export type ScopeType = 'global' | 'base'
 
 export interface Change {
+  id: string  // Unique ID for this change, used for state reversion
   type: ChangeType
   timestamp: number
   description: string
