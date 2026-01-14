@@ -75,6 +75,19 @@ function createTodoList() {
       return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add') 
              && recipeName1 === recipeName2
     }
+
+    // Building added then removed
+    if (change1.type === 'building' && change2.type === 'building') {
+      const action1 = change1.details?.action as string
+      const action2 = change2.details?.action as string
+      const buildingName1 = change1.details?.buildingName as string
+      const buildingName2 = change1.details?.buildingName as string
+      
+      // Check if one is add and one is remove, with same building name
+      return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add')
+             && buildingName1 === buildingName2
+    }
+
     return false
   }
 
@@ -187,6 +200,18 @@ function createTodoList() {
         const to = changeWithTime.details?.to
 
         if (from !== undefined && to !== undefined) {
+          // Check if changes cancel out (from == to)
+          if (from === to) {
+            console.log('[TodoListService] Changes cancel out (from == to), removing step')
+            // Remove the last step (they cancel out)
+            targetGroup.steps.pop()
+            // Add the modified copy as new history state
+            todoHistory.value.push(currentGroups)
+            currentTodoIndex.value++
+            save()
+            return
+          }
+
           // Generate new description showing from → to
           let newDescription = lastChangeInStep.description
           

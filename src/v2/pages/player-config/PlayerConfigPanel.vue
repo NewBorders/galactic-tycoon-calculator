@@ -632,6 +632,12 @@ async function refreshGameData() {
           "
           @addBuilding="
             ({ buildingId, level }) => {
+              // Track building add
+              const buildingData = props.gameData.buildings.find(b => b.id === buildingId)
+              if (buildingData) {
+                const changeTracker = getChangeTracker()
+                changeTracker.trackAddBuilding(base.name || 'Base', buildingData.name)
+              }
               addBuilding(base.id, buildingId, level)
               persist()
             }
@@ -659,6 +665,15 @@ async function refreshGameData() {
           "
           @removeBuilding="
             ({ id }) => {
+              // Track building remove
+              const building = base.buildings.find((b: typeof base.buildings[0]) => b.id === id)
+              if (building) {
+                const buildingData = props.gameData.buildings.find(b => b.id === building.buildingId)
+                if (buildingData) {
+                  const changeTracker = getChangeTracker()
+                  changeTracker.trackRemoveBuilding(base.name || 'Base', buildingData.name)
+                }
+              }
               removeBuilding(base.id, id)
               persist()
             }

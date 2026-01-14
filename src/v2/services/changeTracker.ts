@@ -100,6 +100,38 @@ export function createChangeTracker() {
     },
 
     /**
+     * Track building add (PER-BASE)
+     */
+    trackAddBuilding(baseName: string, buildingName: string): void {
+      addChange({
+        type: 'building',
+        baseName,
+        description: `🏢 Building added: ${buildingName}`,
+        details: {
+          action: 'add',
+          buildingName,
+        },
+        timestamp: Date.now(),
+      })
+    },
+
+    /**
+     * Track building remove (PER-BASE)
+     */
+    trackRemoveBuilding(baseName: string, buildingName: string): void {
+      addChange({
+        type: 'building',
+        baseName,
+        description: `🏢 Building removed: ${buildingName}`,
+        details: {
+          action: 'remove',
+          buildingName,
+        },
+        timestamp: Date.now(),
+      })
+    },
+
+    /**
      * Track recipe add (PER-BASE)
      */
     trackAddRecipe(baseName: string, recipeName: string): void {
