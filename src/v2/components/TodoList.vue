@@ -124,10 +124,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useTodoList, type TodoGroup, type TodoStep } from '@/v2/composables/useTodoList'
 
 const { todoGroups, allSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()
+
+console.log('[TodoList.vue] Initial state:', {
+  todoGroups: todoGroups.value,
+  allSteps: allSteps.value.length
+})
+
+watch([todoGroups, allSteps], ([groups, steps]) => {
+  console.log('[TodoList.vue] State changed:', {
+    groupCount: groups.length,
+    stepCount: steps.length,
+    groups: JSON.stringify(groups, null, 2)
+  })
+}, { deep: true })
 
 const expandedSteps = ref<Set<string>>(new Set())
 

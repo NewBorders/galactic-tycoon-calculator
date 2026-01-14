@@ -87,10 +87,12 @@ export function useTodoList() {
 
   // Add a change to the todo list (organized by scope)
   function addChange(change: Change): void {
+    console.log('[TodoList] addChange called:', change)
     // Initialize if empty
     if (todoHistory.value.length === 0) {
       todoHistory.value.push([])
       currentTodoIndex.value = 0
+      console.log('[TodoList] Initialized empty history')
     }
 
     // Remove redo stack when new change is made
@@ -151,6 +153,13 @@ export function useTodoList() {
     // Add the modified copy as new history state
     todoHistory.value.push(currentGroups)
     currentTodoIndex.value++
+    
+    console.log('[TodoList] After add:', {
+      historyLength: todoHistory.value.length,
+      currentIndex: currentTodoIndex.value,
+      currentGroups: JSON.stringify(currentGroups, null, 2),
+      allSteps: allSteps.value.length
+    })
 
     save()
   }
