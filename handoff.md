@@ -1,8 +1,199 @@
-// Handoff Document
+# Handoff Document - Planning Mode Development
 
-## Latest Updates: Production Steps TodoList with Undo/Redo
+## Session 2 Summary (Commit 33376fa)
 
-**Status**: ✅ CORE IMPLEMENTATION COMPLETE (Integration Pending)
+**Primary Accomplishment**: Restructured TodoList system to organize changes by scope (global vs per-base), adding comprehensive emoji indicators and improving code clarity.
+
+---
+
+## Current State
+
+### ✅ Completed Features
+
+1. **Scope-Based Todo Organization**
+   - Changes grouped by scope: Global (technologies, bonuses, bases) vs Per-Base (buildings, recipes, stock)
+   - Global changes rendered under "🌍 Global Changes" header
+   - Per-base changes grouped under "🏗️ BaseName" headers
+   - Global step numbering across all groups
+
+2. **Enhanced Change Tracker** 
+   - All change descriptions include emoji indicators:
+     - 🔬 Technology changes
+     - ⭐ Starting bonus changes
+     - ➕ New base creation / ❌ Base removal
+     - 🏢 Building level changes
+     - 🔄 Recipe count changes
+     - 📦 Stock changes
+   - Singleton pattern: `getChangeTracker()` for consistent usage
+   - Seven specialized tracking functions for all change types
+
+3. **Production Planning TodoList**
+   - Full undo/redo history with smart auto-merge
+   - Auto-merges consecutive similar changes within 2 seconds
+   - Expandable change details showing from→to values
+   - Semi-transparent collapsible overlay (right edge)
+   - Persistent state via localStorage
+   - Count display: "X change(s) in Y scope(s)"
+
+4. **UI/UX Optimizations**
+   - Market Analysis: Compact right-aligned refresh tile, inline filters
+   - Technology Tab: Standardized refresh tile matching Market Analysis
+   - Both tabs: Integrated error messages, consistent button styling
+
+### Data Structures
+
+**useTodoList Composable**:
+```typescript
+type ScopeType = 'global' | 'base'
+
+interface TodoStep {
+  id: string
+  type: 'technology' | 'building' | 'recipe' | 'stock' | 'starting-bonus' | 'base'
+  baseName?: string
+  description: string  // includes emoji
+  details: Record<string, any>
+  timestamp: number
+}
+
+interface TodoGroup {
+  scope: ScopeType
+  baseName?: string  // undefined if global scope
+  steps: TodoStep[]
+}
+```
+
+**Change Tracker Functions** (all in `changeTracker.ts`):
+- `trackTechnologyChange(techId, techName, fromLevel, toLevel)` → Global scope
+- `trackStartingBonusChange(fromBonus, toBonus)` → Global scope
+- `trackNewBase(baseName)` → Global scope
+- `trackRemoveBase(baseName)` → Global scope
+- `trackBuildingChange(baseName, buildingId, buildingName, fromLevel, toLevel)` → Per-base scope
+- `trackAddRecipe(baseName, recipeName)` → Per-base scope
+- `trackRemoveRecipe(baseName, recipeName)` → Per-base scope
+- `trackRecipeCountChange(baseName, recipeName, fromCount, toCount)` → Per-base scope
+- `trackStockChange(baseName, materialName, fromQty, toQty)` → Per-base scope
+
+### How It Renders (Example)
+```
+🌍 Global Changes
+  1. 🔬 Mathematics: Level 2 → 5
+  2. 🔬 Physics: Level 1 → 3
+  3. ➕ New Base: Mining Colony
+  4. ⭐ Starting Bonus: 1.50× → 1.75×
+
+🏗️ Main Base
+  5. 🏢 Farm: Level 1 → 3
+  6. ➕ Recipe added: Ore Processing
+  7. 🔄 Ore Processing: Count 1 → 2
+
+🏗️ Secondary Base
+  8. 🏢 Factory: Level 2 → 4
+```
+
+---
+
+## Files Modified (Session 2)
+
+1. **src/v2/composables/useTodoList.ts** - Restructured for scope-based organization
+   - Changed from flat `todoSteps` array to `todoGroups` array
+   - Added `TodoGroup` interface with scope and baseName fields
+   - Implemented `getOrCreateGroup()` helper
+   - Modified `addChange()` to route by scope
+
+2. **src/v2/components/TodoList.vue** - Updated rendering for grouped display
+   - Changed from flat steps to grouped groups
+   - Added group headers with emoji indicators
+   - Implemented `getStepNumber()` for global step numbering
+   - Fixed TypeScript errors, all lint rules pass
+
+3. **src/v2/services/changeTracker.ts** - Enhanced with better documentation and emoji
+   - Updated all helper functions with emoji indicators
+   - Improved JSDoc comments explaining scope assignment
+   - Clarified function naming (trackNewBase vs trackAddRecipe pattern)
+   - Maintains singleton pattern with `getChangeTracker()`
+
+---
+
+## Branch Status
+- **Branch**: `71-planning-mode`
+- **Total Commits**: 12
+- **Latest**: 33376fa (Scope-based todo organization)
+- **Validation**: ✅ type-check PASS, ✅ lint PASS
+
+---
+
+## Next Steps (High Priority)
+
+### 1. Integration with PlayerConfigPanel
+Import and use the change tracker when user modifies buildings/recipes/stock:
+```typescript
+import { getChangeTracker } from '@/v2/services/changeTracker'
+const tracker = getChangeTracker()
+
+// When building level changes:
+tracker.trackBuildingChange(baseName, buildingId, buildingName, fromLevel, toLevel)
+
+// When recipe added:
+tracker.trackAddRecipe(baseName, recipeName)
+
+// When stock changes:
+tracker.trackStockChange(baseName, materialName, fromQty, toQty)
+
+// When new base created:
+tracker.trackNewBase(baseName)
+```
+
+### 2. Integration with TechnologyPanel
+Track technology level changes:
+```typescript
+tracker.trackTechnologyChange(techId, techName, fromLevel, toLevel)
+```
+
+### 3. Undo/Redo State Reversal
+Currently undo/redo only affects the TodoList UI. Need to:
+- Connect undo button to actual state reversal
+- Connect redo button to actual state re-application
+- Implement rollback logic in parent components
+
+### 4. Integration Tests
+```typescript
+// Test suite should cover:
+- Scope assignment for all change types
+- Group creation and ordering
+- Auto-merge logic within groups
+- Undo/redo with grouped changes
+- localStorage persistence
+```
+
+---
+
+## Technical Notes
+
+- **Scope Assignment Logic**: Change type determines scope (technology→global, building→per-base)
+- **Auto-Merge Window**: 2 seconds; consecutive similar changes merge into one step
+- **History Model**: Full immutability; each change creates new history entry
+- **State Persistence**: Via `useWorldData().save()` using localStorage
+- **Type Safety**: All changes properly typed with TypeScript interfaces
+- **Component Architecture**: Follows Vue 3 Composition API with proper composable patterns
+
+---
+
+## Known Limitations
+
+- Undo/Redo is currently UI-only (doesn't revert actual game state yet)
+- "New Base" tracking exists but not yet tested in full workflow
+- Integration tests for grouped changes not yet written
+
+---
+
+## Session 1 Summary (Previous Work)
+
+Market Analysis layout optimization and Production TodoList core implementation. See commits f133442 through f9aa3d9 for details on:
+- Compact refresh tiles with inline filters
+- Technology tab standardization
+- TodoList composable with undo/redo
+- Change Tracker service foundation
+
 
 ### What Was Built
 
