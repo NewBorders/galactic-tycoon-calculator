@@ -1,6 +1,21 @@
 // Handoff Document
 
-## Latest Updates: PR #72 Review - Critical Race Condition Fixed
+## Latest Updates: Materials Shortage Tab - Summary Window Refactoring
+
+**Status**: ✅ COMPLETE
+
+- Integrated timeframe ("Summary window") control into StockWarnings header
+- Moved from separate box below title to inline in section header (right-aligned)
+- Matches layout pattern from MaterialsBalancePage for consistency
+- Timeframe control now emits update event to parent (MaterialsShortagePage)
+- Updated media queries for responsive layout on mobile
+- Quality: Type-check ✅, Lint ✅
+- Files: StockWarnings.vue, MaterialsShortagePage.vue
+- Commit: 63c5975
+
+---
+
+## Previous Updates: PR #72 Review - Critical Race Condition Fixed
 
 - Reviewed all 11 Copilot review comments for PR #72
 - **CRITICAL FIX**: Migration race condition in worldData/migration.ts
