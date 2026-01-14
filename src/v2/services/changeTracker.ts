@@ -109,6 +109,7 @@ export function createChangeTracker() {
         description: `➕ Recipe added: ${recipeName}`,
         details: {
           action: 'add',
+          recipeName,
         },
         timestamp: Date.now(),
       })
@@ -124,6 +125,7 @@ export function createChangeTracker() {
         description: `❌ Recipe removed: ${recipeName}`,
         details: {
           action: 'remove',
+          recipeName,
         },
         timestamp: Date.now(),
       })

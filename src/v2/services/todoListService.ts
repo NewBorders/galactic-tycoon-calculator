@@ -62,23 +62,39 @@ function createTodoList() {
   // Can redo?
   const canRedo = computed(() => currentTodoIndex.value < todoHistory.value.length - 1)
 
+  // Check if two changes cancel each other out (add then remove)
+  function doCancelsOut(change1: Change, change2: Change): boolean {
+    // Recipe added then removed
+    if (change1.type === 'recipe' && change2.type === 'recipe') {
+      const action1 = change1.details?.action as string
+      const action2 = change2.details?.action as string
+      const recipeName1 = change1.details?.recipeName as string
+      const recipeName2 = change2.details?.recipeName as string
+      
+      // Check if one is add and one is remove, with same recipe name
+      return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add') 
+             && recipeName1 === recipeName2
+    }
+    return false
+  }
+
   // Merge similar changes into existing step
   function shouldMergeWithLastStep(lastStep: TodoStep | undefined, newChange: Change): boolean {
     if (!lastStep || lastStep.changes.length === 0) return false
 
     const timeDiff = newChange.timestamp - lastStep.createdAt
-    if (timeDiff > 2000) return false
+    // Allow up to 10 seconds for same building changes
+    if (timeDiff > 10000) return false
 
     const lastChange = lastStep.changes[lastStep.changes.length - 1]
     if (!lastChange) return false
-    if (lastChange.type !== newChange.type) return false
     if (lastChange.baseName !== newChange.baseName) return false
 
-    if (newChange.type === 'building') {
+    if (newChange.type === 'building' && lastChange.type === 'building') {
       return lastChange.details?.buildingId === newChange.details?.buildingId
     }
 
-    if (newChange.type === 'technology') {
+    if (newChange.type === 'technology' && lastChange.type === 'technology') {
       return lastChange.details?.technologyId === newChange.details?.technologyId
     }
 
@@ -123,14 +139,35 @@ function createTodoList() {
     const now = Date.now()
     const changeWithTime: Change = { ...change, timestamp: now }
 
+    // Check if this change cancels out the last step
+    if (lastStep && lastStep.changes.length === 1) {
+      const lastChange = lastStep.changes[0]
+      if (lastChange && doCancelsOut(lastChange, changeWithTime)) {
+        console.log('[TodoListService] Changes cancel out, removing step:', lastChange.description, changeWithTime.description)
+        // Remove the last step (it cancels out)
+        targetGroup.steps.pop()
+        // Add the modified copy as new history state
+        todoHistory.value.push(currentGroups)
+        currentTodoIndex.value++
+        save()
+        return
+      }
+    }
+
+    // Try to merge with last step
     if (shouldMergeWithLastStep(lastStep, changeWithTime)) {
       if (!lastStep) return
       const newChanges = [...lastStep.changes]
       const lastChangeInStep = newChanges[newChanges.length - 1]
 
       if (lastChangeInStep && (changeWithTime.type === 'building' || changeWithTime.type === 'technology')) {
+        // Update the "to" value while keeping the "from" value
         newChanges[newChanges.length - 1] = {
           ...lastChangeInStep,
+          description: lastChangeInStep.description.replace(
+            /: Level (\d+) → \d+/,
+            `: Level ${lastChangeInStep.details?.from} → ${changeWithTime.details?.to}`
+          ),
           details: {
             ...lastChangeInStep.details,
             to: changeWithTime.details?.to,
