@@ -22,6 +22,16 @@
           📋 Production Plan
         </h2>
         <div class="flex items-center gap-1">
+          <!-- Merge Mode Toggle -->
+          <button
+            @click="toggleMergeMode"
+            class="p-1.5 rounded hover:bg-gray-700 transition"
+            :class="mergeMode ? 'bg-gray-700' : ''"
+            :title="mergeMode ? 'Showing merged changes - click to show individual steps' : 'Showing individual steps - click to merge similar changes'"
+          >
+            <span class="text-lg">{{ mergeMode ? '📊' : '📝' }}</span>
+          </button>
+
           <!-- Undo Button -->
           <button
             @click="undo"
@@ -64,7 +74,7 @@
 
         <div v-else class="space-y-3 p-4">
           <!-- Global Group -->
-          <div v-for="group in todoGroups" :key="group.baseName || 'global'" class="space-y-2">
+          <div v-for="group in displayGroups" :key="group.baseName || 'global'" class="space-y-2">
             <!-- Group Header -->
             <div v-if="group.steps.length > 0" class="text-xs font-semibold uppercase text-purple-400 px-1">
               <span v-if="group.scope === 'global'">🌍 Global Changes</span>
@@ -106,7 +116,7 @@
 <script setup lang="ts">
 import { useTodoList, type TodoGroup, type TodoStep } from '@/v2/services/todoListService'
 
-const { todoGroups, allSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()
+const { todoGroups, displayGroups, allSteps, isOpen, canUndo, canRedo, mergeMode, undo, redo, clear, togglePanel, toggleMergeMode } = useTodoList()
 
 // Get global step number
 function getStepNumber(group: TodoGroup, stepIndex: number): string {
