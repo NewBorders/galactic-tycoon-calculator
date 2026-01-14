@@ -1,6 +1,6 @@
 # Handoff Document - Planning Mode Development
 
-## Session 4 Summary (Commit 3fe39e3 - Latest)
+## Session 4 Summary (Commits 3fe39e3, 5272233 - Latest)
 
 **Primary Accomplishment**: Implemented Change ID Registry system for reliable undo/redo state reversion. Fixed the core issue where undo/redo wasn't actually reverting game state reliably.
 
@@ -18,7 +18,8 @@ Created a unique ID registry system that tracks every planned change with comple
 4. Much more reliable lookups using instance IDs instead of names
 
 **Key commits this session**:
-- 3fe39e3: Implement change ID registry for reliable undo/redo state reversion ✅ NEW
+- 3fe39e3: Implement change ID registry for reliable undo/redo state reversion ✅
+- 5272233: Add comprehensive tests for change storage and tracking ✅
 
 **What was built this session**:
 1. changeStorage.ts - New service maintaining Map<changeId, StoredChange>
@@ -27,6 +28,10 @@ Created a unique ID registry system that tracks every planned change with comple
 4. Refactored stateReversion.ts to use getChange() for metadata lookups
 5. New revertStoredChange() function using stored change metadata
 6. All tracking functions updated to include changeId in details
+7. Comprehensive test suite:
+   - changeStorage.test.ts: 6 tests for storage operations
+   - changeTracker.integration.test.ts: 5 integration tests
+   - All tests passing (11/11 ✅)
 
 **Type-Check & Lint Status**: ✅ All passing (0 errors)
 
