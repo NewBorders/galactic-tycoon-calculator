@@ -14,14 +14,14 @@ export type TechnologyDefinition = {
 }
 
 export const TECHNOLOGIES: TechnologyDefinition[] = [
-  { id: 1, nameKey: 'technologyConstruction', descriptionKey: 'technologyConstructionDesc' },
-  { id: 2, nameKey: 'technologyManufacturing', descriptionKey: 'technologyManufacturingDesc' },
   { id: 3, nameKey: 'technologyAgriculture', descriptionKey: 'technologyAgricultureDesc' },
-  { id: 4, nameKey: 'technologyResourceExtraction', descriptionKey: 'technologyResourceExtractionDesc' },
-  { id: 5, nameKey: 'technologyMetallurgy', descriptionKey: 'technologyMetallurgyDesc' },
   { id: 6, nameKey: 'technologyChemistry', descriptionKey: 'technologyChemistryDesc' },
+  { id: 1, nameKey: 'technologyConstruction', descriptionKey: 'technologyConstructionDesc' },
   { id: 7, nameKey: 'technologyElectronics', descriptionKey: 'technologyElectronicsDesc' },
   { id: 8, nameKey: 'technologyFoodProduction', descriptionKey: 'technologyFoodProductionDesc' },
+  { id: 2, nameKey: 'technologyManufacturing', descriptionKey: 'technologyManufacturingDesc' },
+  { id: 5, nameKey: 'technologyMetallurgy', descriptionKey: 'technologyMetallurgyDesc' },
+  { id: 4, nameKey: 'technologyResourceExtraction', descriptionKey: 'technologyResourceExtractionDesc' },
   { id: 10, nameKey: 'technologyScience', descriptionKey: 'technologyScienceDesc' },
 ]
 
