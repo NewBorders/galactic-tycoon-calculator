@@ -198,8 +198,12 @@ function createTodoList() {
     const baseName = change.baseName
 
     // Work on a COPY to avoid modifying history in-place
-    const currentGroups = JSON.parse(JSON.stringify(todoHistory.value[currentTodoIndex.value])) as TodoGroup[]
-    if (!currentGroups) return
+    const currentState = todoHistory.value[currentTodoIndex.value]
+    if (!currentState) {
+      console.error('[TodoListService] Invalid state: currentTodoIndex', currentTodoIndex.value, 'history length', todoHistory.value.length)
+      return
+    }
+    const currentGroups = JSON.parse(JSON.stringify(currentState)) as TodoGroup[]
 
     // Find or create target group in the copy
     let targetGroup = currentGroups.find(g => g.scope === scope && g.baseName === baseName)

@@ -1,39 +1,57 @@
 # Handoff Document - Planning Mode Development
 
-## Session 4 Summary (Commits 3fe39e3, 5272233 - Latest)
+## Session 5 Summary (Commits 2030e8c, dbdc921 - Latest)
 
-**Primary Accomplishment**: Implemented Change ID Registry system for reliable undo/redo state reversion. Fixed the core issue where undo/redo wasn't actually reverting game state reliably.
+**Primary Accomplishment**: Completed undo/redo implementation for all operations including building/recipe add/remove. Fixed DOM ID propagation issue in NumberInput component. Fully functional undo/redo for building levels, recipe counts, and add/remove operations.
 
-**Root Cause Analysis**:
-The previous state reversion relied on parsing change details and matching by building names/slot numbers. This was unreliable because:
-- Base naming was inconsistent ('Base' vs 'Base 1')
-- Building instance lookups by slot ID failed
-- State reversions executed but didn't update the UI/game state
+**Issues Resolved**:
+1. **DOM IDs Not Visible**: NumberInput component didn't accept/bind id prop
+   - Fixed: Added `id?: string` to defineProps
+   - Fixed: Added `:id="props.id"` binding to input element
+   - Result: ✅ DOM IDs now properly rendered (e.g., `building-input-{instanceId}`)
 
-**Solution Implemented**:
-Created a unique ID registry system that tracks every planned change with complete metadata:
-1. Each change gets a unique ID (UUID or timestamp-based)
-2. Every tracking function registers its change in changeStorage
-3. State reversion uses stored metadata instead of detail parsing
-4. Much more reliable lookups using instance IDs instead of names
+2. **Missing Add/Remove Undo/Redo**: Building/recipe add/remove operations couldn't be undone
+   - Fixed: Extended StoredChange type with buildingAdd, buildingRemove, recipeAdd, recipeRemove
+   - Fixed: Updated changeTracker to register add/remove changes with metadata
+   - Fixed: Implemented reversion logic in stateReversion.ts for all add/remove operations
+   - Fixed: Made addBuilding() return instanceId for tracking
+   - Result: ✅ Full undo/redo support for add/remove operations
 
 **Key commits this session**:
-- 3fe39e3: Implement change ID registry for reliable undo/redo state reversion ✅
-- 5272233: Add comprehensive tests for change storage and tracking ✅
+- 2030e8c: Fix NumberInput component to pass and bind id prop ✅
+- dbdc921: Implement undo/redo for building and recipe add/remove ✅
 
 **What was built this session**:
-1. changeStorage.ts - New service maintaining Map<changeId, StoredChange>
-2. Updated Change interface with unique 'id' field
-3. Enhanced changeTracker to generate IDs and register all changes
-4. Refactored stateReversion.ts to use getChange() for metadata lookups
-5. New revertStoredChange() function using stored change metadata
-6. All tracking functions updated to include changeId in details
-7. Comprehensive test suite:
-   - changeStorage.test.ts: 6 tests for storage operations
-   - changeTracker.integration.test.ts: 5 integration tests
-   - All tests passing (11/11 ✅)
+1. NumberInput component enhancement (commit 2030e8c)
+   - Added id prop to component interface
+   - Bound id to underlying input element
+   - DOM IDs now visible for direct DOM manipulation
+
+2. Add/Remove undo/redo implementation (commit dbdc921)
+   - Extended StoredChange interface:
+     - Added types: 'buildingAdd' | 'buildingRemove' | 'recipeAdd' | 'recipeRemove'
+     - Added fields: buildingId?, recipeId?, baseId?
+     - Made originalValue/newValue optional for add/remove
+   - Updated changeTracker functions:
+     - trackAddBuilding: accepts buildingId, instanceId
+     - trackRemoveBuilding: accepts buildingId, instanceId
+     - trackAddRecipe: accepts instanceId
+     - trackRemoveRecipe: accepts instanceId
+   - Implemented reversion cases in stateReversion.ts:
+     - buildingAdd: undo removes, redo adds
+     - buildingRemove: undo adds back, redo removes
+     - recipeAdd: undo removes, redo adds
+     - recipeRemove: undo adds back, redo removes
+   - Updated PlayerConfigPanel:
+     - addBuilding/addRecipe: execute first, then track with instanceId
+     - removeBuilding/removeRecipe: track with instanceId before removal
+   - Updated playerBases service:
+     - addBuilding() now returns string | undefined (instanceId)
+     - addRecipe() already returned instanceId
 
 **Type-Check & Lint Status**: ✅ All passing (0 errors)
+**Build Status**: ✅ Successful (516.21 kB bundle)
+**Tests**: ✅ All passing (240/240 including 11 change storage tests)
 
 ---
 
@@ -41,13 +59,34 @@ Created a unique ID registry system that tracks every planned change with comple
 
 ### ✅ Completed Features
 
-1. **Change ID Registry System** ✅ NEW
+1. **Full Undo/Redo Implementation** ✅ COMPLETE
+   - Change ID registry with UUID tracking
+   - State reversion using stored metadata
+   - DOM updates via direct manipulation (updateDOMValue)
+   - Support for all operation types:
+     - ✅ Building level changes
+     - ✅ Building add/remove
+     - ✅ Recipe count changes
+     - ✅ Recipe add/remove
+     - ✅ Technology level changes
+     - ✅ Starting bonus changes
+     - ✅ Stock changes
+
+2. **Change ID Registry System** ✅
    - Each change has unique internal ID for reliable tracking
    - changeStorage.ts maintains Map<changeId, StoredChange>
-   - StoredChange contains: type, targetId, targetField, originalValue, newValue
+   - StoredChange contains: type, targetId, targetField, originalValue, newValue, buildingId, recipeId, baseId
    - Enables precise state reversions without name matching
 
-2. **Undo/Redo State Reversion** ✅ (Now Reliable)
+3. **DOM-Based State Updates** ✅
+   - Building tiles: `building-tile-{instanceId}`
+   - Building inputs: `building-input-{instanceId}`
+   - Recipe tiles: `recipe-tile-{instanceId}`
+   - Recipe inputs: `recipe-input-{instanceId}`
+   - Direct DOM manipulation via document.getElementById()
+   - Event dispatching: input + change events with bubbling
+
+4. **Undo/Redo State Reversion** ✅ (Now Complete)
    - TodoList Undo/Redo buttons now reliably revert game state
    - Uses stored change metadata instead of detail parsing
    - Handles all change types: buildings, recipes, technologies, stock, starting bonus
