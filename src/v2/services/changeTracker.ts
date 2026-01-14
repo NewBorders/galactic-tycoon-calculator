@@ -26,6 +26,17 @@ export function createChangeTracker() {
      */
     trackTechnologyChange(techId: number, techName: string, fromLevel: number, toLevel: number): void {
       const changeId = generateChangeId()
+      
+      // Register the change for state reversion
+      registerChange(changeId, {
+        changeId,
+        type: 'technologyLevel',
+        targetId: techId.toString(),
+        targetField: 'level',
+        originalValue: fromLevel,
+        newValue: toLevel,
+      })
+      
       addChange({
         id: changeId,
         type: 'technology',
@@ -45,6 +56,16 @@ export function createChangeTracker() {
      */
     trackStartingBonusChange(fromBonus: number, toBonus: number): void {
       const changeId = generateChangeId()
+      
+      // Register the change for state reversion
+      registerChange(changeId, {
+        changeId,
+        type: 'startingBonus',
+        targetField: 'bonus',
+        originalValue: fromBonus,
+        newValue: toBonus,
+      })
+      
       addChange({
         id: changeId,
         type: 'starting-bonus',
@@ -235,6 +256,17 @@ export function createChangeTracker() {
       toCount: number
     ): void {
       const changeId = generateChangeId()
+      
+      // Register the change for state reversion
+      registerChange(changeId, {
+        changeId,
+        type: 'recipeCount',
+        targetId: `${baseId}::recipe-${recipeId}`,
+        targetField: 'count',
+        originalValue: fromCount,
+        newValue: toCount,
+      })
+      
       addChange({
         id: changeId,
         type: 'recipe',
@@ -264,6 +296,17 @@ export function createChangeTracker() {
       toQty: number
     ): void {
       const changeId = generateChangeId()
+      
+      // Register the change for state reversion
+      registerChange(changeId, {
+        changeId,
+        type: 'stock',
+        targetId: materialId.toString(),
+        targetField: 'amount',
+        originalValue: fromQty,
+        newValue: toQty,
+      })
+      
       addChange({
         id: changeId,
         type: 'stock',

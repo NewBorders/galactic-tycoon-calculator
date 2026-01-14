@@ -1,26 +1,34 @@
 # Handoff Document - Planning Mode Development
 
-## Session 3 Summary (Commit c91fafd - Latest)
+## Session 4 Summary (Commit 3fe39e3 - Latest)
 
-**Primary Accomplishment**: Implemented full undo/redo state reversion. TodoList Undo/Redo buttons now not only update the TODO list but also revert the actual game state (building levels, recipes, technologies, stock).
+**Primary Accomplishment**: Implemented Change ID Registry system for reliable undo/redo state reversion. Fixed the core issue where undo/redo wasn't actually reverting game state reliably.
 
-**What was built this session**:
-1. Created stateReversion.ts service for game state reversions
-2. Enhanced todoListService with state reversion integration
-3. Registered playerBases service with TodoList for state changes
-4. Support for reverting all change types (buildings, recipes, technologies, stock, starting bonus)
-5. Correct order application (reverse for undo, forward for redo)
+**Root Cause Analysis**:
+The previous state reversion relied on parsing change details and matching by building names/slot numbers. This was unreliable because:
+- Base naming was inconsistent ('Base' vs 'Base 1')
+- Building instance lookups by slot ID failed
+- State reversions executed but didn't update the UI/game state
+
+**Solution Implemented**:
+Created a unique ID registry system that tracks every planned change with complete metadata:
+1. Each change gets a unique ID (UUID or timestamp-based)
+2. Every tracking function registers its change in changeStorage
+3. State reversion uses stored metadata instead of detail parsing
+4. Much more reliable lookups using instance IDs instead of names
 
 **Key commits this session**:
-- c91fafd: Implement undo/redo state reversion ✅ NEW
-- 332a78e: Create reusable NumberInput component (previous session)
+- 3fe39e3: Implement change ID registry for reliable undo/redo state reversion ✅ NEW
 
-**Example Flow**:
-1. User increases Colony Barracks to Level 13 (from 11)
-2. TODO shows: Colony Barracks: Level 11 → 13
-3. User clicks Undo
-4. TODO shows: Colony Barracks: Level 11 → 12
-5. **Building level is actually set back to 12** ✅ NEW
+**What was built this session**:
+1. changeStorage.ts - New service maintaining Map<changeId, StoredChange>
+2. Updated Change interface with unique 'id' field
+3. Enhanced changeTracker to generate IDs and register all changes
+4. Refactored stateReversion.ts to use getChange() for metadata lookups
+5. New revertStoredChange() function using stored change metadata
+6. All tracking functions updated to include changeId in details
+
+**Type-Check & Lint Status**: ✅ All passing (0 errors)
 
 ---
 
@@ -28,26 +36,34 @@
 
 ### ✅ Completed Features
 
-1. **Undo/Redo State Reversion** ✅ NEW
-   - TodoList Undo/Redo buttons now revert game state
-   - State reversion service handles all change types
-   - Changes applied in correct order (reverse for undo, forward for redo)
-   - PlayerBases service registered with TodoList for state changes
+1. **Change ID Registry System** ✅ NEW
+   - Each change has unique internal ID for reliable tracking
+   - changeStorage.ts maintains Map<changeId, StoredChange>
+   - StoredChange contains: type, targetId, targetField, originalValue, newValue
+   - Enables precise state reversions without name matching
 
-2. **Scope-Based Todo Organization** ✅
+2. **Undo/Redo State Reversion** ✅ (Now Reliable)
+   - TodoList Undo/Redo buttons now reliably revert game state
+   - Uses stored change metadata instead of detail parsing
+   - Handles all change types: buildings, recipes, technologies, stock, starting bonus
+   - Applied in correct order (reverse for undo, forward for redo)
+
+3. **Scope-Based Todo Organization** ✅
    - Changes grouped by scope: Global (technologies, bonuses, bases) vs Per-Base (buildings, recipes, stock)
    - Global changes rendered under "🌍 Global Changes" header
    - Per-base changes grouped under "🏗️ BaseName" headers
    - Global step numbering across all groups
 
-3. **Enhanced Change Tracker** ✅ 
+4. **Enhanced Change Tracker** ✅ 
    - All change descriptions include emoji indicators
    - Singleton pattern: `getChangeTracker()` for consistent usage
    - Seven specialized tracking functions for all change types
+   - All functions now generate unique changeIds and register changes
 
-4. **Production Planning TodoList** ✅
+5. **Production Planning TodoList** ✅
    - Full undo/redo history with smart auto-merge
    - Auto-merges consecutive similar changes within 2 seconds
+
    - Expandable change details showing from→to values
    - Semi-transparent collapsible overlay (right edge)
    - Persistent state via localStorage
