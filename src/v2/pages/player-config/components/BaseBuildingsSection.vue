@@ -46,7 +46,7 @@ const list = computed<PlayerBuilding[]>({
     @end="$emit('persist')"
   >
     <template #item="{ element: inst, index }">
-      <div 
+      <div
         class="rounded border p-3 transition-all relative"
         :class="inst.level === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
       >
@@ -88,7 +88,7 @@ const list = computed<PlayerBuilding[]>({
             </label>
             <NumberInput
               :model-value="inst.level"
-              width="md"
+              width="sm"
               :min="0"
               :max="999"
               @update:model-value="(newLevel) => $emit('update', { id: inst.id, patch: { level: newLevel } })"

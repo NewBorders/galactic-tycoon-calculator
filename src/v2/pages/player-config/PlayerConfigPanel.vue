@@ -19,6 +19,7 @@ import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
 import { getChangeTracker } from '@/v2/services/changeTracker'
+import { registerPlayerBases } from '@/v2/services/todoListService'
 
 import { computeBaseReport } from '@/v2/services/production/engine'
 
@@ -57,6 +58,18 @@ const {
   getSections,
   setSection,
 } = usePlayerBases(props.gameData)
+
+// Register playerBases with TodoListService for state reversion
+registerPlayerBases({
+  state,
+  addBuilding,
+  setBuilding,
+  removeBuilding,
+  addRecipe,
+  removeRecipe,
+  setRecipeCount,
+  setStock,
+})
 
 // Market analysis for price trends
 const { opportunities: marketOpportunities, fetch: fetchMarketData } = useMarketAnalysis()

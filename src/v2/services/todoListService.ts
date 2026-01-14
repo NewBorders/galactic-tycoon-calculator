@@ -5,6 +5,8 @@
 
 import { ref, computed } from 'vue'
 import { useWorldData } from './worldData'
+import type { PlayerBasesService } from './stateReversion'
+import { applyStateReversions } from './stateReversion'
 
 export type ChangeType = 'technology' | 'building' | 'recipe' | 'stock' | 'base' | 'starting-bonus'
 export type ScopeType = 'global' | 'base'
@@ -31,6 +33,7 @@ export interface TodoGroup {
 }
 
 let todoListInstance: ReturnType<typeof createTodoList> | null = null
+let playerBasesInstance: PlayerBasesService | null = null
 
 const TODO_STORAGE_KEY = 'gt:v2:todoList:v1'
 
@@ -325,6 +328,16 @@ function createTodoList() {
   // Undo
   function undo(): void {
     if (!canUndo.value) return
+    
+    // Get the current and target states
+    const fromGroups = todoHistory.value[currentTodoIndex.value] || []
+    const toGroups = todoHistory.value[currentTodoIndex.value - 1] || []
+    
+    // Apply state reversions if playerBases is available
+    if (playerBasesInstance) {
+      applyStateReversions(fromGroups, toGroups, playerBasesInstance)
+    }
+    
     currentTodoIndex.value--
     saveToStorage()
   }
@@ -332,6 +345,16 @@ function createTodoList() {
   // Redo
   function redo(): void {
     if (!canRedo.value) return
+    
+    // Get the current and target states
+    const fromGroups = todoHistory.value[currentTodoIndex.value] || []
+    const toGroups = todoHistory.value[currentTodoIndex.value + 1] || []
+    
+    // Apply state reversions if playerBases is available
+    if (playerBasesInstance) {
+      applyStateReversions(fromGroups, toGroups, playerBasesInstance)
+    }
+    
     currentTodoIndex.value++
     saveToStorage()
   }
@@ -373,6 +396,14 @@ export function useTodoListService() {
     todoListInstance = createTodoList()
   }
   return todoListInstance
+}
+
+/**
+ * Register the playerBases service for state reversion
+ * This should be called from the main app setup
+ */
+export function registerPlayerBases(playerBases: PlayerBasesService) {
+  playerBasesInstance = playerBases
 }
 
 /**
