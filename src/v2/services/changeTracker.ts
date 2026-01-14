@@ -81,6 +81,7 @@ export function createChangeTracker() {
      */
     trackBuildingChange(
       baseName: string,
+      slotId: string,
       buildingId: number,
       buildingName: string,
       fromLevel: number,
@@ -89,8 +90,9 @@ export function createChangeTracker() {
       addChange({
         type: 'building',
         baseName,
-        description: `🏢 ${buildingName}: Level ${fromLevel} → ${toLevel}`,
+        description: `🏢 ${buildingName} [Slot ${slotId}]: Level ${fromLevel} → ${toLevel}`,
         details: {
+          slotId,
           buildingId: buildingId.toString(),
           from: fromLevel,
           to: toLevel,
@@ -102,13 +104,14 @@ export function createChangeTracker() {
     /**
      * Track building add (PER-BASE)
      */
-    trackAddBuilding(baseName: string, buildingName: string): void {
+    trackAddBuilding(baseName: string, slotId: string, buildingName: string): void {
       addChange({
         type: 'building',
         baseName,
-        description: `🏢 Building added: ${buildingName}`,
+        description: `🏢 Building added: ${buildingName} [Slot ${slotId}]`,
         details: {
           action: 'add',
+          slotId,
           buildingName,
         },
         timestamp: Date.now(),
@@ -118,13 +121,14 @@ export function createChangeTracker() {
     /**
      * Track building remove (PER-BASE)
      */
-    trackRemoveBuilding(baseName: string, buildingName: string): void {
+    trackRemoveBuilding(baseName: string, slotId: string, buildingName: string): void {
       addChange({
         type: 'building',
         baseName,
-        description: `🏢 Building removed: ${buildingName}`,
+        description: `🏢 Building removed: ${buildingName} [Slot ${slotId}]`,
         details: {
           action: 'remove',
+          slotId,
           buildingName,
         },
         timestamp: Date.now(),

@@ -76,30 +76,31 @@ function createTodoList() {
              && recipeName1 === recipeName2
     }
 
-    // Building added then removed
+    // Building added then removed (must be same slot)
     if (change1.type === 'building' && change2.type === 'building') {
       const action1 = change1.details?.action as string
       const action2 = change2.details?.action as string
-      const buildingName1 = change1.details?.buildingName as string
-      const buildingName2 = change1.details?.buildingName as string
+      const slotId1 = change1.details?.slotId as string
+      const slotId2 = change2.details?.slotId as string
       
-      // Check if one is add and one is remove, with same building name
+      // Check if one is add and one is remove, with same slot
       return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add')
-             && buildingName1 === buildingName2
+             && slotId1 === slotId2
     }
 
     return false
   }
 
   // Check if two changes are similar enough to merge
-  // Merge if they affect the same object (same building, same technology, etc)
+  // Merge if they affect the same object (same building SLOT, same technology, etc)
   function canMergeWithChange(lastChange: Change, newChange: Change): boolean {
     // Must be same type and same scope
     if (lastChange.baseName !== newChange.baseName) return false
 
-    // Building level changes - merge if same building
+    // Building level changes - merge if same building SLOT
     if (lastChange.type === 'building' && newChange.type === 'building') {
-      return lastChange.details?.buildingId === newChange.details?.buildingId
+      // Must have slotId, only merge if same slot
+      return lastChange.details?.slotId === newChange.details?.slotId
     }
 
     // Technology level changes - merge if same technology

@@ -636,7 +636,8 @@ async function refreshGameData() {
               const buildingData = props.gameData.buildings.find(b => b.id === buildingId)
               if (buildingData) {
                 const changeTracker = getChangeTracker()
-                changeTracker.trackAddBuilding(base.name || 'Base', buildingData.name)
+                const slotId = `${base.buildings.length + 1}` // Next slot ID
+                changeTracker.trackAddBuilding(base.name || 'Base', slotId, buildingData.name)
               }
               addBuilding(base.id, buildingId, level)
               persist()
@@ -652,6 +653,7 @@ async function refreshGameData() {
                   const changeTracker = getChangeTracker()
                   changeTracker.trackBuildingChange(
                     base.name || 'Base',
+                    building.id,
                     building.buildingId,
                     buildingData.name,
                     building.level,
@@ -671,7 +673,7 @@ async function refreshGameData() {
                 const buildingData = props.gameData.buildings.find(b => b.id === building.buildingId)
                 if (buildingData) {
                   const changeTracker = getChangeTracker()
-                  changeTracker.trackRemoveBuilding(base.name || 'Base', buildingData.name)
+                  changeTracker.trackRemoveBuilding(base.name || 'Base', building.id, buildingData.name)
                 }
               }
               removeBuilding(base.id, id)
