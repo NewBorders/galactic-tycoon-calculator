@@ -1,21 +1,24 @@
 # Handoff Document - Planning Mode Development
 
-## Session 2 Summary (Commit d75ff93 - Latest)
+## Session 2 Summary (Commit fe8c8e5 - Latest)
 
-**Primary Accomplishment**: Successfully integrated change tracker with UI components (PlayerConfigPanel and TechnologyPanel) so that building, recipe, technology, stock, and bonus changes automatically appear in the TodoList organized by scope.
+**Primary Accomplishment**: Complete TodoList integration with all UI components. Building, recipe, technology, stock, bonus, and **new base creation** changes automatically tracked.
 
 **What was built this session**:
 1. Scope-based TodoList organization (global vs per-base)
 2. Enhanced change tracker with emoji indicators
 3. UI integration for building/recipe/stock changes
 4. UI integration for technology/bonus changes
-5. Automatic routing to correct scope based on change type
+5. UI integration for new base creation ✅ NEW
+6. Automatic routing to correct scope based on change type
 
 **Key commits this session**:
 - 33376fa: Restructured todos by scope with emoji indicators
 - 306053b: Integrated change tracker with PlayerConfigPanel
 - d0d5f62: Integrated change tracker with TechnologyPanel
 - d75ff93: Updated documentation
+- 031786b: Final summary
+- fe8c8e5: Track new base creation ✅ NEW
 
 ---
 
@@ -42,12 +45,13 @@
    - Persistent state via localStorage
    - Count display: "X change(s) in Y scope(s)"
 
-4. **UI Integration** ✅ (JUST COMPLETED)
+5. **UI Integration** ✅ (COMPLETE)
    - **PlayerConfigPanel**: Integrated tracking for:
      - Building level changes: `trackBuildingChange()`
      - Recipe add/remove: `trackAddRecipe()` / `trackRemoveRecipe()`
      - Recipe count changes: `trackRecipeCountChange()`
      - Stock changes: `trackStockChange()`
+     - New base creation: `trackNewBase()` ✅ NEW
    - **TechnologyPanel**: Integrated tracking for:
      - Technology level changes: `trackTechnologyChange()`
      - Starting bonus changes: `trackStartingBonusChange()`
@@ -147,50 +151,48 @@ interface TodoGroup {
 
 ## Branch Status
 - **Branch**: `71-planning-mode`
-- **Total Commits**: 15
-- **Latest**: d0d5f62 (TechnologyPanel change tracker integration)
+- **Total Commits**: 17 (7 this session)
+- **Latest**: fe8c8e5 (New base creation tracking)
 - **Validation**: ✅ type-check PASS, ✅ lint PASS
+- **Status**: ✅ All features integrated and pushed
 
 ---
 
-## Next Steps (High Priority)
+## Next Steps (Priority Order)
 
-### 1. Test TodoList Integration ✅ (Ready)
-The TodoList should now receive changes from:
-- **Building level changes** from PlayerConfigPanel ✅
-- **Recipe changes** (add/remove/count) from PlayerConfigPanel ✅
-- **Stock changes** from PlayerConfigPanel ✅
-- **Technology level changes** from TechnologyPanel ✅
-- **Starting bonus changes** from TechnologyPanel ✅
+### 1. Manual Testing ✅ (Ready for User)
+**All tracking features are now integrated!** Test in browser:
+- ✅ Building level changes → TodoList
+- ✅ Recipe add/remove/count → TodoList
+- ✅ Stock changes → TodoList
+- ✅ Technology levels → TodoList (Global)
+- ✅ Starting bonus → TodoList (Global)
+- ✅ New base creation → TodoList (Global) ✅ NEW
 
-**Manual Verification Steps**:
-1. Open browser and navigate to app
-2. Modify a building level or recipe count
-3. Check that change appears in TodoList (collapsible overlay on right)
-4. Verify grouping:
-   - Building/recipe/stock changes appear under base name (e.g., "🏗️ Main Base")
-   - Technology/bonus changes appear under "🌍 Global Changes"
-5. Verify steps show from→to values when expanded
+**Verification Steps**:
+1. Open app in browser
+2. Add a new base → Check "🌍 Global Changes" section
+3. Modify building level → Check "🏗️ [BaseName]" section
+4. Change recipe count → Check if appears under correct base
+5. Verify from→to values show correctly
+6. Test undo/redo buttons (history navigation works, state reversal pending)
 
-### 2. Undo/Redo State Reversal
-Currently undo/redo only affects the TodoList UI. To implement full reversal:
-1. Create `revertToHistory(index)` function in useTodoList
-2. Export state snapshot at each history point (not just changes)
-3. Connect undo/redo buttons to state reversal functions
-4. Test reversals cascade correctly through all components
+### 2. Undo/Redo Full Implementation (Complex - Future Session)
+Current state: History navigation works ✅, but doesn't revert actual game state.
 
-### 3. New Base Planning
-Implement tracking for new base creation:
-1. Add "Add Base" button UI (if not already present)
-2. Call `trackNewBase(baseName)` when adding
-3. Verify appears in TodoList under "🌍 Global Changes"
+**What's needed**:
+- State snapshots at each change point
+- Revert functions for each state type (buildings, recipes, tech, etc.)
+- Deep integration with playerBases, playerTechnology composables
+- Estimated effort: 4-6 hours
 
-### 4. Polish & Polish
-- [ ] Test undo/redo UI responsiveness
-- [ ] Verify TodoList doesn't overlap important content
-- [ ] Test on mobile (responsive layout)
-- [ ] Add animations for group expansion (optional)
-- [ ] Consider "total cost" display for planned changes
+**Workaround**: Users can manually reverse changes using the history as reference.
+
+### 3. Polish & UX Improvements (Optional)
+- [ ] Add animations for group expansion
+- [ ] "Export plan" button (save todo list as text/JSON)
+- [ ] "Total cost estimate" for all planned changes
+- [ ] Mobile responsiveness testing
 
 ---
 
