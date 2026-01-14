@@ -1,8 +1,21 @@
 # Handoff Document - Planning Mode Development
 
-## Session 2 Summary (Commit d0d5f62)
+## Session 2 Summary (Commit d75ff93 - Latest)
 
-**Primary Accomplishment**: Integrated change tracker with UI components so that building, recipe, technology, and stock changes automatically appear in the TodoList.
+**Primary Accomplishment**: Successfully integrated change tracker with UI components (PlayerConfigPanel and TechnologyPanel) so that building, recipe, technology, stock, and bonus changes automatically appear in the TodoList organized by scope.
+
+**What was built this session**:
+1. Scope-based TodoList organization (global vs per-base)
+2. Enhanced change tracker with emoji indicators
+3. UI integration for building/recipe/stock changes
+4. UI integration for technology/bonus changes
+5. Automatic routing to correct scope based on change type
+
+**Key commits this session**:
+- 33376fa: Restructured todos by scope with emoji indicators
+- 306053b: Integrated change tracker with PlayerConfigPanel
+- d0d5f62: Integrated change tracker with TechnologyPanel
+- d75ff93: Updated documentation
 
 ---
 
@@ -144,54 +157,99 @@ interface TodoGroup {
 
 ### 1. Test TodoList Integration ✅ (Ready)
 The TodoList should now receive changes from:
-- **Building level changes** from PlayerConfigPanel
-- **Recipe changes** (add/remove/count) from PlayerConfigPanel
-- **Stock changes** from PlayerConfigPanel  
-- **Technology level changes** from TechnologyPanel
-- **Starting bonus changes** from TechnologyPanel
+- **Building level changes** from PlayerConfigPanel ✅
+- **Recipe changes** (add/remove/count) from PlayerConfigPanel ✅
+- **Stock changes** from PlayerConfigPanel ✅
+- **Technology level changes** from TechnologyPanel ✅
+- **Starting bonus changes** from TechnologyPanel ✅
 
-To verify, manually:
-1. Open a base in PlayerConfigPanel
+**Manual Verification Steps**:
+1. Open browser and navigate to app
 2. Modify a building level or recipe count
-3. Check if change appears in TodoList with correct from→to values
-4. Verify grouping (building changes under base name, tech changes under "Global")
+3. Check that change appears in TodoList (collapsible overlay on right)
+4. Verify grouping:
+   - Building/recipe/stock changes appear under base name (e.g., "🏗️ Main Base")
+   - Technology/bonus changes appear under "🌍 Global Changes"
+5. Verify steps show from→to values when expanded
 
 ### 2. Undo/Redo State Reversal
 Currently undo/redo only affects the TodoList UI. To implement full reversal:
-1. Add `undoToIndex()` and `redoToIndex()` to TodoList composable
-2. Export current state snapshot at each history point
+1. Create `revertToHistory(index)` function in useTodoList
+2. Export state snapshot at each history point (not just changes)
 3. Connect undo/redo buttons to state reversal functions
 4. Test reversals cascade correctly through all components
 
 ### 3. New Base Planning
 Implement tracking for new base creation:
-1. Add "Add Base" button to PlayerConfigPanel
+1. Add "Add Base" button UI (if not already present)
 2. Call `trackNewBase(baseName)` when adding
-3. Verify appears in TodoList under "Global Changes"
+3. Verify appears in TodoList under "🌍 Global Changes"
 
-### 4. Remaining Integrations (Optional)
-- [ ] Base renaming: `trackBaseRename(oldName, newName)` - might not be needed
-- [ ] Recipe reordering: Not worth tracking (reordering != change)
-- [ ] Building reordering: Not worth tracking (reordering != change)
-
----
-
-## Technical Notes
-
-- **Scope Assignment Logic**: Change type determines scope (technology→global, building→per-base)
-- **Auto-Merge Window**: 2 seconds; consecutive similar changes merge into one step
-- **History Model**: Full immutability; each change creates new history entry
-- **State Persistence**: Via `useWorldData().save()` using localStorage
-- **Type Safety**: All changes properly typed with TypeScript interfaces
-- **Component Architecture**: Follows Vue 3 Composition API with proper composable patterns
+### 4. Polish & Polish
+- [ ] Test undo/redo UI responsiveness
+- [ ] Verify TodoList doesn't overlap important content
+- [ ] Test on mobile (responsive layout)
+- [ ] Add animations for group expansion (optional)
+- [ ] Consider "total cost" display for planned changes
 
 ---
 
-## Known Limitations
+## Technical Summary
 
-- Undo/Redo is currently UI-only (doesn't revert actual game state yet)
-- "New Base" tracking exists but not yet tested in full workflow
-- Integration tests for grouped changes not yet written
+### Architecture
+```
+App User Changes
+    ↓
+PlayerConfigPanel / TechnologyPanel (event handlers)
+    ↓
+getChangeTracker().track*Change() calls
+    ↓
+useTodoList().addChange() routes by scope
+    ↓
+TodoGroup[scope='global' | scope='base'].steps[] 
+    ↓
+TodoList.vue renders groups with headers + global numbering
+    ↓
+User sees organized change history with from→to values
+```
+
+### Data Flow for Building Changes
+```
+User changes farm level 1→3
+    ↓
+@updateBuilding handler in PlayerConfigPanel
+    ↓
+changeTracker.trackBuildingChange('Main Base', 10, 'Farm', 1, 3)
+    ↓
+addChange({ type: 'building', baseName: 'Main Base', description: '🏢 Farm: 1 → 3' })
+    ↓
+TodoGroup with scope='base' and baseName='Main Base' gets new step
+    ↓
+TodoList.vue renders: "🏗️ Main Base" → "5. 🏢 Farm: 1 → 3"
+```
+
+### Storage & Persistence
+- TodoList history stored in localStorage via `useWorldData().save()`
+- Each history entry is full snapshot of changes at that moment
+- Maximum history preserved (no limit currently, but could implement)
+- Clearing all changes returns to initial state
+
+### Change Type to Scope Mapping
+| Change Type | Scope | Router Logic |
+|---|---|---|
+| technology | global | change.type === 'technology' |
+| starting-bonus | global | change.type === 'starting-bonus' |
+| base | global | change.type === 'base' |
+| building | per-base | change.type === 'building' + baseName |
+| recipe | per-base | change.type === 'recipe' + baseName |
+| stock | per-base | change.type === 'stock' + baseName |
+
+### Known Limitations
+1. **Undo/Redo UI-only**: Buttons work but don't revert actual game state yet
+2. **No state snapshots**: History stores only change descriptions, not full state
+3. **No merge across groups**: Changes merge within same group only
+4. **Limited to running app**: History lost on page reload (could save to localStorage)
+5. **No "new base" button**: Feature exists in tracker but not in UI yet
 
 ---
 
