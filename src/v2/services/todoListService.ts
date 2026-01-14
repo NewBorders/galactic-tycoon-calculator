@@ -32,13 +32,48 @@ export interface TodoGroup {
 
 let todoListInstance: ReturnType<typeof createTodoList> | null = null
 
-function createTodoList() {
-  const { save } = useWorldData()
+const TODO_STORAGE_KEY = 'gt:v2:todoList:v1'
 
+function createTodoList() {
+  // Load from localStorage
+  function loadFromStorage(): { history: TodoGroup[][]; currentIndex: number; isOpen: boolean } {
+    try {
+      const stored = localStorage.getItem(TODO_STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        return {
+          history: parsed.history || [],
+          currentIndex: parsed.currentIndex ?? -1,
+          isOpen: parsed.isOpen ?? true,
+        }
+      }
+    } catch (e) {
+      console.error('[TodoListService] Failed to load from storage:', e)
+    }
+    return { history: [], currentIndex: -1, isOpen: true }
+  }
+
+  // Save to localStorage
+  function saveToStorage() {
+    try {
+      const data = {
+        history: todoHistory.value,
+        currentIndex: currentTodoIndex.value,
+        isOpen: isOpen.value,
+      }
+      localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(data))
+    } catch (e) {
+      console.error('[TodoListService] Failed to save to storage:', e)
+    }
+  }
+
+  // Initialize from storage
+  const stored = loadFromStorage()
+  
   // Local state for todo list
-  const todoHistory = ref<TodoGroup[][]>([])
-  const currentTodoIndex = ref<number>(-1)
-  const isOpen = ref(true)
+  const todoHistory = ref<TodoGroup[][]>(stored.history)
+  const currentTodoIndex = ref<number>(stored.currentIndex)
+  const isOpen = ref(stored.isOpen)
 
   // Current visible groups
   const todoGroups = computed(() => {
@@ -187,7 +222,7 @@ function createTodoList() {
         // Add the modified copy as new history state
         todoHistory.value.push(currentGroups)
         currentTodoIndex.value++
-        save()
+        saveToStorage()
         return
       }
     }
@@ -212,7 +247,7 @@ function createTodoList() {
             // Add the modified copy as new history state
             todoHistory.value.push(currentGroups)
             currentTodoIndex.value++
-            save()
+            saveToStorage()
             return
           }
 
@@ -254,7 +289,7 @@ function createTodoList() {
     todoHistory.value.push(currentGroups)
     currentTodoIndex.value++
 
-    save()
+    saveToStorage()
   }
 
   // Generate description for a step
@@ -291,21 +326,21 @@ function createTodoList() {
   function undo(): void {
     if (!canUndo.value) return
     currentTodoIndex.value--
-    save()
+    saveToStorage()
   }
 
   // Redo
   function redo(): void {
     if (!canRedo.value) return
     currentTodoIndex.value++
-    save()
+    saveToStorage()
   }
 
   // Clear all
   function clear(): void {
     todoHistory.value = [[]]
     currentTodoIndex.value = 0
-    save()
+    saveToStorage()
   }
   // Toggle panel
   function togglePanel(): void {
