@@ -10,7 +10,7 @@ import { getChange, type StoredChange } from './changeStorage'
 // Helper type for playerBases service
 export interface PlayerBasesService {
   state: { value: { bases: Array<{ id: string; name?: string; buildings: Array<{ id: string }> }> } }
-  addBuilding: (baseId: string, buildingId: number, level?: number) => void
+  addBuilding: (baseId: string, buildingId: number, level?: number) => string | undefined
   setBuilding: (baseId: string, instanceId: string, patch: { level?: number }) => void
   removeBuilding: (baseId: string, instanceId: string) => void
   addRecipe: (baseId: string, recipeId: number) => string | undefined
@@ -94,19 +94,22 @@ function updateDOMValue(elementId: string, newValue: number): void {
  * Revert a stored change using precise metadata
  */
 function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerBases: PlayerBasesService): void {
-  const baseId = storedChange.targetId?.split('::')[0] // For base-level changes, targetId might be baseId::something
-  const targetValue = isUndo ? storedChange.originalValue : storedChange.newValue
+  const baseId = storedChange.baseId || storedChange.targetId?.split('::')[0] // For base-level changes, targetId might be baseId::something
+  const targetValue = storedChange.originalValue !== undefined && storedChange.newValue !== undefined 
+    ? (isUndo ? storedChange.originalValue : storedChange.newValue)
+    : undefined
 
   console.log('[StateReversion] Reverting stored change:', {
     type: storedChange.type,
     targetId: storedChange.targetId,
+    baseId,
     isUndo,
     targetValue
   })
 
   switch (storedChange.type) {
     case 'buildingLevel':
-      if (baseId && storedChange.targetId) {
+      if (baseId && storedChange.targetId && targetValue !== undefined) {
         playerBases.setBuilding(baseId, storedChange.targetId, { level: targetValue })
         console.log('[StateReversion] Set building level to:', targetValue)
         
@@ -115,8 +118,43 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
       }
       break
 
+    case 'buildingAdd':
+      // Undo add = remove, Redo add = add
+      if (baseId && storedChange.buildingId !== undefined) {
+        if (isUndo && storedChange.targetId) {
+          // Remove the building that was added
+          playerBases.removeBuilding(baseId, storedChange.targetId)
+          console.log('[StateReversion] Removed building:', storedChange.targetId)
+        } else {
+          // Re-add the building
+          const instanceId = playerBases.addBuilding(baseId, storedChange.buildingId)
+          console.log('[StateReversion] Added building:', storedChange.buildingId, '→', instanceId)
+          
+          // Update the stored change with the instance ID for future reversions
+          if (instanceId) {
+            storedChange.targetId = instanceId
+          }
+        }
+      }
+      break
+
+    case 'buildingRemove':
+      // Undo remove = add back, Redo remove = remove
+      if (baseId && storedChange.buildingId !== undefined) {
+        if (isUndo) {
+          // Re-add the building that was removed
+          const instanceId = playerBases.addBuilding(baseId, storedChange.buildingId)
+          console.log('[StateReversion] Re-added removed building:', storedChange.buildingId, '→', instanceId)
+        } else if (storedChange.targetId) {
+          // Remove the building again
+          playerBases.removeBuilding(baseId, storedChange.targetId)
+          console.log('[StateReversion] Removed building:', storedChange.targetId)
+        }
+      }
+      break
+
     case 'recipeCount':
-      if (baseId && storedChange.targetId) {
+      if (baseId && storedChange.targetId && targetValue !== undefined) {
         playerBases.setRecipeCount(baseId, storedChange.targetId, targetValue)
         console.log('[StateReversion] Set recipe count to:', targetValue)
         
@@ -125,8 +163,43 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
       }
       break
 
+    case 'recipeAdd':
+      // Undo add = remove, Redo add = add
+      if (baseId && storedChange.recipeId !== undefined) {
+        if (isUndo && storedChange.targetId) {
+          // Remove the recipe that was added
+          playerBases.removeRecipe(baseId, storedChange.targetId)
+          console.log('[StateReversion] Removed recipe:', storedChange.targetId)
+        } else {
+          // Re-add the recipe
+          const instanceId = playerBases.addRecipe(baseId, storedChange.recipeId)
+          console.log('[StateReversion] Added recipe:', storedChange.recipeId, '→', instanceId)
+          
+          // Update the stored change with the instance ID for future reversions
+          if (instanceId) {
+            storedChange.targetId = instanceId
+          }
+        }
+      }
+      break
+
+    case 'recipeRemove':
+      // Undo remove = add back, Redo remove = remove
+      if (baseId && storedChange.recipeId !== undefined) {
+        if (isUndo) {
+          // Re-add the recipe that was removed
+          const instanceId = playerBases.addRecipe(baseId, storedChange.recipeId)
+          console.log('[StateReversion] Re-added removed recipe:', storedChange.recipeId, '→', instanceId)
+        } else if (storedChange.targetId) {
+          // Remove the recipe again
+          playerBases.removeRecipe(baseId, storedChange.targetId)
+          console.log('[StateReversion] Removed recipe:', storedChange.targetId)
+        }
+      }
+      break
+
     case 'technologyLevel':
-      if (storedChange.targetId && typeof storedChange.targetId === 'string') {
+      if (storedChange.targetId && typeof storedChange.targetId === 'string' && targetValue !== undefined) {
         const { setLevel } = usePlayerTechnology()
         setLevel(storedChange.targetId as unknown as TechnologySpecialisation, targetValue)
         console.log('[StateReversion] Set technology level to:', targetValue)
@@ -134,13 +207,15 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
       break
 
     case 'startingBonus':
-      const { setStartingBonus } = usePlayerTechnology()
-      setStartingBonus(targetValue)
-      console.log('[StateReversion] Set starting bonus to:', targetValue)
+      if (targetValue !== undefined) {
+        const { setStartingBonus } = usePlayerTechnology()
+        setStartingBonus(targetValue)
+        console.log('[StateReversion] Set starting bonus to:', targetValue)
+      }
       break
 
     case 'stock':
-      if (baseId && storedChange.targetId) {
+      if (baseId && storedChange.targetId && targetValue !== undefined) {
         const base = playerBases.state.value.bases.find(b => b.id === baseId)
         if (base) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

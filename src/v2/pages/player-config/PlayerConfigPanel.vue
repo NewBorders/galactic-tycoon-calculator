@@ -653,14 +653,17 @@ async function refreshGameData() {
           "
           @addBuilding="
             ({ buildingId, level }) => {
-              // Track building add
+              // Add building first to get the instance ID
+              const instanceId = addBuilding(base.id, buildingId, level)
+              
+              // Track building add with building ID and instance ID
               const buildingData = props.gameData.buildings.find(b => b.id === buildingId)
-              if (buildingData) {
+              if (buildingData && instanceId) {
                 const changeTracker = getChangeTracker()
-                const slotNum = base.buildings.length + 1
-                changeTracker.trackAddBuilding(base.id, getBaseName(base), slotNum.toString(), buildingData.name)
+                const slotNum = base.buildings.length
+                changeTracker.trackAddBuilding(base.id, getBaseName(base), slotNum.toString(), buildingData.name, buildingId, instanceId)
               }
-              addBuilding(base.id, buildingId, level)
+              
               persist()
             }
           "
@@ -698,7 +701,7 @@ async function refreshGameData() {
                 if (buildingData) {
                   const slotNum = base.buildings.indexOf(building) + 1
                   const changeTracker = getChangeTracker()
-                  changeTracker.trackRemoveBuilding(base.id, getBaseName(base), slotNum.toString(), buildingData.name)
+                  changeTracker.trackRemoveBuilding(base.id, getBaseName(base), slotNum.toString(), buildingData.name, building.buildingId, building.id)
                 }
               }
               removeBuilding(base.id, id)
@@ -713,13 +716,16 @@ async function refreshGameData() {
           "
           @addRecipe="
             ({ recipeId }) => {
-              // Track recipe add
+              // Add recipe first to get the instance ID
+              const instanceId = addRecipe(base.id, recipeId)
+              
+              // Track recipe add with recipe ID and instance ID
               const recipe = props.gameData.recipes.find(r => r.id === recipeId)
-              if (recipe) {
+              if (recipe && instanceId) {
                 const changeTracker = getChangeTracker()
-                changeTracker.trackAddRecipe(base.id, getBaseName(base), recipeId, recipe.output?.name ?? `Recipe ${recipeId}`)
+                changeTracker.trackAddRecipe(base.id, getBaseName(base), recipeId, recipe.output?.name ?? `Recipe ${recipeId}`, instanceId)
               }
-              addRecipe(base.id, recipeId)
+              
               persist()
             }
           "
@@ -731,7 +737,7 @@ async function refreshGameData() {
                 const recipeData = props.gameData.recipes.find(r => r.id === recipe.recipeId)
                 if (recipeData) {
                   const changeTracker = getChangeTracker()
-                  changeTracker.trackRemoveRecipe(base.id, getBaseName(base), recipe.recipeId, recipeData.output?.name ?? `Recipe ${recipe.recipeId}`)
+                  changeTracker.trackRemoveRecipe(base.id, getBaseName(base), recipe.recipeId, recipeData.output?.name ?? `Recipe ${recipe.recipeId}`, recipe.id)
                 }
               }
               removeRecipe(base.id, id)

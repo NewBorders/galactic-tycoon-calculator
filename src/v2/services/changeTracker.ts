@@ -163,8 +163,20 @@ export function createChangeTracker() {
     /**
      * Track building add (PER-BASE)
      */
-    trackAddBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string): void {
+    trackAddBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string, buildingId?: number, instanceId?: string): void {
       const changeId = generateChangeId()
+      
+      // Register the change for state reversion
+      if (buildingId !== undefined) {
+        registerChange(changeId, {
+          changeId,
+          type: 'buildingAdd',
+          targetId: instanceId,  // Will be set after building is added
+          baseId: baseId,
+          buildingId: buildingId,
+        })
+      }
+      
       addChange({
         id: changeId,
         type: 'building',
@@ -176,6 +188,7 @@ export function createChangeTracker() {
           action: 'add',
           slotId: slotNum,
           buildingName,
+          buildingId: buildingId?.toString(),
         },
         timestamp: Date.now(),
       })
@@ -184,8 +197,20 @@ export function createChangeTracker() {
     /**
      * Track building remove (PER-BASE)
      */
-    trackRemoveBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string): void {
+    trackRemoveBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string, buildingId?: number, instanceId?: string): void {
       const changeId = generateChangeId()
+      
+      // Register the change for state reversion
+      if (buildingId !== undefined && instanceId !== undefined) {
+        registerChange(changeId, {
+          changeId,
+          type: 'buildingRemove',
+          targetId: instanceId,
+          baseId: baseId,
+          buildingId: buildingId,
+        })
+      }
+      
       addChange({
         id: changeId,
         type: 'building',
@@ -197,6 +222,8 @@ export function createChangeTracker() {
           action: 'remove',
           slotId: slotNum,
           buildingName,
+          buildingId: buildingId?.toString(),
+          instanceId,
         },
         timestamp: Date.now(),
       })
@@ -205,8 +232,18 @@ export function createChangeTracker() {
     /**
      * Track recipe add (PER-BASE)
      */
-    trackAddRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string): void {
+    trackAddRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string, instanceId?: string): void {
       const changeId = generateChangeId()
+      
+      // Register the change for state reversion
+      registerChange(changeId, {
+        changeId,
+        type: 'recipeAdd',
+        targetId: instanceId,  // Will be set after recipe is added
+        baseId: baseId,
+        recipeId: recipeId,
+      })
+      
       addChange({
         id: changeId,
         type: 'recipe',
@@ -226,8 +263,20 @@ export function createChangeTracker() {
     /**
      * Track recipe remove (PER-BASE)
      */
-    trackRemoveRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string): void {
+    trackRemoveRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string, instanceId?: string): void {
       const changeId = generateChangeId()
+      
+      // Register the change for state reversion
+      if (instanceId !== undefined) {
+        registerChange(changeId, {
+          changeId,
+          type: 'recipeRemove',
+          targetId: instanceId,
+          baseId: baseId,
+          recipeId: recipeId,
+        })
+      }
+      
       addChange({
         id: changeId,
         type: 'recipe',
@@ -239,6 +288,7 @@ export function createChangeTracker() {
           action: 'remove',
           recipeId: recipeId.toString(),
           recipeName,
+          instanceId,
         },
         timestamp: Date.now(),
       })

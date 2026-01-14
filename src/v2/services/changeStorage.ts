@@ -5,11 +5,14 @@
 
 export interface StoredChange {
   changeId: string
-  type: 'buildingLevel' | 'recipeCount' | 'technologyLevel' | 'startingBonus' | 'stock'
-  targetId?: string  // baseId for building/recipe/stock, techId for technology
+  type: 'buildingLevel' | 'recipeCount' | 'technologyLevel' | 'startingBonus' | 'stock' | 'buildingAdd' | 'buildingRemove' | 'recipeAdd' | 'recipeRemove'
+  targetId?: string  // baseId for building/recipe/stock, techId for technology, instanceId for add/remove
   targetField?: string  // 'level' for building, 'count' for recipe, etc.
-  originalValue: number
-  newValue: number
+  originalValue?: number  // Optional for add/remove operations
+  newValue?: number  // Optional for add/remove operations
+  buildingId?: number  // For building add/remove
+  recipeId?: number  // For recipe add/remove
+  baseId?: string  // For building/recipe add/remove
 }
 
 // Map: changeId -> StoredChange

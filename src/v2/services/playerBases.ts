@@ -151,10 +151,12 @@ export function usePlayerBases(gd: GameData) {
 
   function addBuilding(baseId: string, buildingId: number, level = 1) {
     const b = state.value.bases.find((x) => x.id === baseId)
-    if (!b) return
-    b.buildings.push({ id: uid(), buildingId, level: Math.max(1, level) })
+    if (!b) return undefined
+    const instanceId = uid()
+    b.buildings.push({ id: instanceId, buildingId, level: Math.max(1, level) })
     syncRecipesWithBuildings(b)
     saveState(state.value)
+    return instanceId
   }
 
   function setBuilding(baseId: string, instanceId: string, patch: { level?: number }) {
