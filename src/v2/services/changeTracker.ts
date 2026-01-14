@@ -1,6 +1,10 @@
 /**
  * Change Tracker Service
  * Tracks changes to planned production and integrates with TodoList
+ * 
+ * Automatically determines scope:
+ * - Global: Technology, Starting Bonus, New Bases (affects all bases)
+ * - Per-Base: Buildings, Recipes, Stock (specific to a base)
  */
 
 import { useTodoList, type Change } from '@/v2/composables/useTodoList'
@@ -13,14 +17,14 @@ export function createChangeTracker() {
 
   return {
     /**
-     * Track technology level change
+     * Track technology level change (GLOBAL)
      */
     trackTechnologyChange(techId: number, techName: string, fromLevel: number, toLevel: number): void {
       addChange({
         type: 'technology',
-        description: `${techName}: Level ${fromLevel} → ${toLevel}`,
+        description: `🔬 ${techName}: Level ${fromLevel} → ${toLevel}`,
         details: {
-          technologyId: techId,
+          technologyId: techId.toString(),
           from: fromLevel,
           to: toLevel,
         },
@@ -29,12 +33,12 @@ export function createChangeTracker() {
     },
 
     /**
-     * Track starting bonus change
+     * Track starting bonus change (GLOBAL)
      */
     trackStartingBonusChange(fromBonus: number, toBonus: number): void {
       addChange({
         type: 'starting-bonus',
-        description: `Starting Bonus: ${fromBonus.toFixed(2)}× → ${toBonus.toFixed(2)}×`,
+        description: `⭐ Starting Bonus: ${fromBonus.toFixed(2)}× → ${toBonus.toFixed(2)}×`,
         details: {
           from: fromBonus.toFixed(2),
           to: toBonus.toFixed(2),
@@ -44,7 +48,36 @@ export function createChangeTracker() {
     },
 
     /**
-     * Track building level change
+     * Track new base creation (GLOBAL)
+     * @param baseName The name of the new base being planned
+     */
+    trackNewBase(baseName: string): void {
+      addChange({
+        type: 'base',
+        description: `➕ New Base: ${baseName}`,
+        details: {
+          action: 'add',
+        },
+        timestamp: Date.now(),
+      })
+    },
+
+    /**
+     * Track base removal (GLOBAL)
+     */
+    trackRemoveBase(baseName: string): void {
+      addChange({
+        type: 'base',
+        description: `❌ Remove Base: ${baseName}`,
+        details: {
+          action: 'remove',
+        },
+        timestamp: Date.now(),
+      })
+    },
+
+    /**
+     * Track building level change (PER-BASE)
      */
     trackBuildingChange(
       baseName: string,
@@ -56,9 +89,9 @@ export function createChangeTracker() {
       addChange({
         type: 'building',
         baseName,
-        description: `${buildingName}: Level ${fromLevel} → ${toLevel}`,
+        description: `🏢 ${buildingName}: Level ${fromLevel} → ${toLevel}`,
         details: {
-          buildingId,
+          buildingId: buildingId.toString(),
           from: fromLevel,
           to: toLevel,
         },
@@ -67,28 +100,43 @@ export function createChangeTracker() {
     },
 
     /**
-     * Track recipe add/remove
+     * Track recipe add (PER-BASE)
      */
-    trackRecipeChange(baseName: string, recipeName: string, action: 'add' | 'remove'): void {
+    trackAddRecipe(baseName: string, recipeName: string): void {
       addChange({
         type: 'recipe',
         baseName,
-        description: `Recipe ${action === 'add' ? 'added' : 'removed'}: ${recipeName}`,
+        description: `➕ Recipe added: ${recipeName}`,
         details: {
-          action,
+          action: 'add',
         },
         timestamp: Date.now(),
       })
     },
 
     /**
-     * Track recipe count change
+     * Track recipe remove (PER-BASE)
+     */
+    trackRemoveRecipe(baseName: string, recipeName: string): void {
+      addChange({
+        type: 'recipe',
+        baseName,
+        description: `❌ Recipe removed: ${recipeName}`,
+        details: {
+          action: 'remove',
+        },
+        timestamp: Date.now(),
+      })
+    },
+
+    /**
+     * Track recipe count change (PER-BASE)
      */
     trackRecipeCountChange(baseName: string, recipeName: string, fromCount: number, toCount: number): void {
       addChange({
         type: 'recipe',
         baseName,
-        description: `${recipeName}: Count ${fromCount} → ${toCount}`,
+        description: `🔄 ${recipeName}: Count ${fromCount} → ${toCount}`,
         details: {
           from: fromCount,
           to: toCount,
@@ -98,30 +146,16 @@ export function createChangeTracker() {
     },
 
     /**
-     * Track stock change
+     * Track stock change (PER-BASE)
      */
     trackStockChange(baseName: string, materialName: string, fromQty: number, toQty: number): void {
       addChange({
         type: 'stock',
         baseName,
-        description: `${materialName}: Stock ${fromQty} → ${toQty}`,
+        description: `📦 ${materialName}: Stock ${fromQty} → ${toQty}`,
         details: {
           from: fromQty,
           to: toQty,
-        },
-        timestamp: Date.now(),
-      })
-    },
-
-    /**
-     * Track base add/remove
-     */
-    trackBaseChange(baseName: string, action: 'add' | 'remove'): void {
-      addChange({
-        type: 'base',
-        description: `Base ${action === 'add' ? 'added' : 'removed'}: ${baseName}`,
-        details: {
-          action,
         },
         timestamp: Date.now(),
       })

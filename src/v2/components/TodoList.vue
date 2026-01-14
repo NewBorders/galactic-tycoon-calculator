@@ -7,7 +7,7 @@
       :title="isOpen ? 'Close todo list' : 'Open todo list'"
     >
       <span class="text-xl">{{ isOpen ? '→' : '←' }}</span>
-      <span class="text-sm font-semibold text-gray-300">{{ todoSteps.length }}</span>
+      <span class="text-sm font-semibold text-gray-300">{{ allSteps.length }}</span>
     </button>
 
     <!-- Todo Panel (semi-transparent overlay) -->
@@ -19,7 +19,7 @@
       <!-- Header -->
       <div class="border-b border-gray-700 p-4 flex items-center justify-between flex-shrink-0">
         <h2 class="text-lg font-semibold text-white">
-          📋 Production Steps
+          📋 Production Plan
         </h2>
         <div class="flex items-center gap-1">
           <!-- Undo Button -->
@@ -27,7 +27,7 @@
             @click="undo"
             :disabled="!canUndo"
             class="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            title="Undo last step (Ctrl+Z)"
+            title="Undo last change (Ctrl+Z)"
           >
             <span class="text-lg">↶</span>
           </button>
@@ -37,7 +37,7 @@
             @click="redo"
             :disabled="!canRedo"
             class="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            title="Redo last step (Ctrl+Shift+Z)"
+            title="Redo last change (Ctrl+Shift+Z)"
           >
             <span class="text-lg">↷</span>
           </button>
@@ -45,7 +45,7 @@
           <!-- Clear Button -->
           <button
             @click="handleClear"
-            :disabled="todoSteps.length === 0"
+            :disabled="allSteps.length === 0"
             class="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
             title="Clear all steps"
           >
@@ -54,51 +54,57 @@
         </div>
       </div>
 
-      <!-- Steps List (scrollable) -->
+      <!-- Todo Groups (scrollable) -->
       <div class="flex-1 overflow-y-auto">
-        <div v-if="todoSteps.length === 0" class="p-4 text-center text-gray-400 text-sm">
+        <div v-if="allSteps.length === 0" class="p-4 text-center text-gray-400 text-sm">
           <p class="text-lg">📭</p>
-          <p>No production steps yet</p>
-          <p class="text-xs mt-2 text-gray-500">Your changes will appear here</p>
+          <p>No changes planned yet</p>
+          <p class="text-xs mt-2 text-gray-500">Start planning your production</p>
         </div>
 
-        <div v-else class="space-y-2 p-4">
-          <div
-            v-for="(step, index) in todoSteps"
-            :key="step.id"
-            class="bg-gray-800 rounded p-3 border border-gray-700 hover:border-gray-600 transition cursor-default"
-          >
-            <!-- Step Header -->
-            <div class="flex items-start gap-3">
-              <div class="text-xs font-semibold text-purple-400 bg-gray-700 rounded px-2 py-1 mt-0.5 flex-shrink-0 min-w-max">
-                Step {{ index + 1 }}
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm text-gray-300 font-medium break-words">
-                  {{ step.description }}
-                </p>
-                <p class="text-xs text-gray-500 mt-1">
-                  {{ formatTime(step.createdAt) }}
-                </p>
-              </div>
+        <div v-else class="space-y-3 p-4">
+          <!-- Global Group -->
+          <div v-for="group in todoGroups" :key="group.baseName || 'global'" class="space-y-2">
+            <!-- Group Header -->
+            <div v-if="group.steps.length > 0" class="text-xs font-semibold uppercase text-purple-400 px-1">
+              <span v-if="group.scope === 'global'">🌍 Global Changes</span>
+              <span v-else>🏗️ {{ group.baseName }}</span>
             </div>
 
-            <!-- Changes Detail (collapsible) -->
-            <div v-if="step.changes.length > 0" class="mt-2 ml-10">
-              <button
-                @click="toggleStepDetail(step.id)"
-                class="text-xs text-purple-400 hover:text-purple-300 transition font-medium"
-              >
-                {{ expandedSteps.has(step.id) ? '▼' : '▶' }} Details ({{ step.changes.length }})
-              </button>
-
-              <div v-if="expandedSteps.has(step.id)" class="mt-2 space-y-1 text-xs text-gray-400">
-                <div v-for="(change, idx) in step.changes" :key="idx" class="pl-3 border-l border-gray-600 pb-1">
-                  <p class="font-mono text-gray-500">{{ change.description }}</p>
-                  <p v-if="change.details?.from !== undefined && change.details?.to !== undefined" class="text-gray-600 text-xs">
-                    <span class="text-yellow-600">{{ change.details.from }}</span> →
-                    <span class="text-green-600">{{ change.details.to }}</span>
+            <!-- Steps in Group -->
+            <div v-for="(step, stepIndex) in group.steps" :key="step.id" class="bg-gray-800 rounded p-3 border border-gray-700 hover:border-gray-600 transition cursor-default">
+              <!-- Step Header -->
+              <div class="flex items-start gap-3">
+                <div class="text-xs font-semibold text-green-400 bg-gray-700 rounded px-2 py-1 mt-0.5 flex-shrink-0 min-w-max">
+                  {{ getStepNumber(group, stepIndex) }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm text-gray-300 font-medium break-words">
+                    {{ step.description }}
                   </p>
+                  <p class="text-xs text-gray-500 mt-1">
+                    {{ formatTime(step.createdAt) }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Changes Detail (collapsible) -->
+              <div v-if="step.changes.length > 0" class="mt-2 ml-10">
+                <button
+                  @click="toggleStepDetail(step.id)"
+                  class="text-xs text-purple-400 hover:text-purple-300 transition font-medium"
+                >
+                  {{ expandedSteps.has(step.id) ? '▼' : '▶' }} Details ({{ step.changes.length }})
+                </button>
+
+                <div v-if="expandedSteps.has(step.id)" class="mt-2 space-y-1 text-xs text-gray-400">
+                  <div v-for="(change, idx) in step.changes" :key="idx" class="pl-3 border-l border-gray-600 pb-1">
+                    <p class="font-mono text-gray-500">{{ change.description }}</p>
+                    <p v-if="change.details?.from !== undefined && change.details?.to !== undefined" class="text-gray-600 text-xs">
+                      <span class="text-yellow-600">{{ change.details.from }}</span> →
+                      <span class="text-green-600">{{ change.details.to }}</span>
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -107,10 +113,10 @@
       </div>
 
       <!-- Stats Footer -->
-      <div v-if="todoSteps.length > 0" class="border-t border-gray-700 p-3 text-xs text-gray-400 flex-shrink-0">
+      <div v-if="allSteps.length > 0" class="border-t border-gray-700 p-3 text-xs text-gray-400 flex-shrink-0">
         <div class="flex justify-between">
-          <span>{{ todoSteps.length }} step(s)</span>
-          <span v-if="totalChanges > 0">{{ totalChanges }} change(s)</span>
+          <span>{{ allSteps.length }} change(s)</span>
+          <span v-if="todoGroups.length > 0">{{ todoGroups.length }} scope(s)</span>
         </div>
       </div>
     </div>
@@ -118,17 +124,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useTodoList } from '@/v2/composables/useTodoList'
+import { ref } from 'vue'
+import { useTodoList, type TodoGroup, type TodoStep } from '@/v2/composables/useTodoList'
 
-const { todoSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()
+const { todoGroups, allSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()
 
 const expandedSteps = ref<Set<string>>(new Set())
 
-// Total number of changes
-const totalChanges = computed(() => {
-  return todoSteps.value.reduce((sum, step) => sum + step.changes.length, 0)
-})
+// Get global step number
+function getStepNumber(group: TodoGroup, stepIndex: number): string {
+  const globalIndex = allSteps.value.findIndex((step: TodoStep) => step === group.steps[stepIndex])
+  return `${globalIndex + 1}`
+}
 
 // Toggle step detail
 function toggleStepDetail(stepId: string): void {
@@ -142,7 +149,7 @@ function toggleStepDetail(stepId: string): void {
 
 // Handle clear
 function handleClear(): void {
-  if (confirm('Are you sure you want to clear all production steps?')) {
+  if (confirm('Are you sure you want to clear all planned changes?')) {
     clear()
     expandedSteps.value.clear()
   }

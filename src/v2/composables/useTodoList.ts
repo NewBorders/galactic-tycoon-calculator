@@ -2,12 +2,13 @@ import { ref, computed } from 'vue'
 import { useWorldData } from '@/v2/services/worldData'
 
 export type ChangeType = 'technology' | 'building' | 'recipe' | 'stock' | 'base' | 'starting-bonus'
+export type ScopeType = 'global' | 'base' // global = affects all bases, base = specific base
 
 export interface Change {
   type: ChangeType
   timestamp: number
   description: string
-  baseName?: string
+  baseName?: string // for base-specific changes
   details?: Record<string, string | number | undefined>
 }
 
@@ -19,21 +20,40 @@ export interface TodoStep {
 }
 
 /**
+ * TodoGroup represents a group of steps scoped to either global or a specific base
+ */
+export interface TodoGroup {
+  scope: ScopeType
+  baseName?: string // undefined if global
+  steps: TodoStep[]
+}
+
+/**
  * Todo List Composable with Undo/Redo support
- * Tracks planned production changes step by step
+ * Tracks planned production changes organized by scope (global or per-base)
  */
 export function useTodoList() {
   const { save } = useWorldData()
 
   // Local state for todo list
-  const todoHistory = ref<TodoStep[][]>([])
+  const todoHistory = ref<TodoGroup[][]>([])
   const currentTodoIndex = ref<number>(-1)
   const isOpen = ref(true)
 
-  // Current visible steps
-  const todoSteps = computed(() => {
+  // Current visible groups
+  const todoGroups = computed(() => {
     if (currentTodoIndex.value < 0) return []
     return todoHistory.value[currentTodoIndex.value] || []
+  })
+
+  // Flatten all steps from all groups for statistics
+  const allSteps = computed(() => {
+    return todoGroups.value.flatMap(group => group.steps)
+  })
+
+  // Get total change count
+  const totalChanges = computed(() => {
+    return allSteps.value.reduce((sum, step) => sum + step.changes.length, 0)
   })
 
   // Can undo?
@@ -41,6 +61,20 @@ export function useTodoList() {
 
   // Can redo?
   const canRedo = computed(() => currentTodoIndex.value < todoHistory.value.length - 1)
+
+  // Get or create group for a scope
+  function getOrCreateGroup(scope: ScopeType, baseName?: string): TodoGroup {
+    let group = todoGroups.value.find(g => g.scope === scope && g.baseName === baseName)
+    if (!group) {
+      group = {
+        scope,
+        baseName,
+        steps: [],
+      }
+      todoGroups.value.push(group)
+    }
+    return group
+  }
 
   // Merge similar changes into existing step
   function shouldMergeWithLastStep(lastStep: TodoStep | undefined, newChange: Change): boolean {
@@ -65,7 +99,7 @@ export function useTodoList() {
     return false
   }
 
-  // Add a change to the todo list
+  // Add a change to the todo list (organized by scope)
   function addChange(change: Change): void {
     // Initialize if empty
     if (todoHistory.value.length === 0) {
@@ -73,15 +107,20 @@ export function useTodoList() {
       currentTodoIndex.value = 0
     }
 
-    // Remove redo stack
+    // Remove redo stack when new change is made
     if (currentTodoIndex.value < todoHistory.value.length - 1) {
       todoHistory.value = todoHistory.value.slice(0, currentTodoIndex.value + 1)
     }
 
-    const currentSteps = todoHistory.value[currentTodoIndex.value]
-    if (!currentSteps) return
+    // Determine scope based on change type
+    const scope: ScopeType = change.type === 'technology' || change.type === 'starting-bonus' || change.type === 'base' ? 'global' : 'base'
+    const baseName = change.baseName
 
-    const lastStep = currentSteps[currentSteps.length - 1]
+    const currentGroups = todoHistory.value[currentTodoIndex.value]
+    if (!currentGroups) return
+
+    const targetGroup = getOrCreateGroup(scope, baseName)
+    const lastStep = targetGroup.steps[targetGroup.steps.length - 1]
     const now = Date.now()
     const changeWithTime: Change = { ...change, timestamp: now }
 
@@ -109,12 +148,12 @@ export function useTodoList() {
         description: generateStepDescription([changeWithTime]),
         createdAt: now,
       }
-      currentSteps.push(newStep)
-      
-      // Add new history state
-      todoHistory.value.push([...currentSteps])
-      currentTodoIndex.value++
+      targetGroup.steps.push(newStep)
     }
+
+    // Add new history state
+    todoHistory.value.push(JSON.parse(JSON.stringify(currentGroups)))
+    currentTodoIndex.value++
 
     save()
   }
@@ -176,7 +215,9 @@ export function useTodoList() {
   }
 
   return {
-    todoSteps,
+    todoGroups,
+    allSteps,
+    totalChanges,
     isOpen,
     canUndo,
     canRedo,
