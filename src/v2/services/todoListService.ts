@@ -352,6 +352,11 @@ function createTodoList() {
     }
     
     currentTodoIndex.value--
+    
+    console.log('[TodoListService] After undo - new currentIndex:', currentTodoIndex.value)
+    console.log('[TodoListService] New todoGroups:', todoGroups.value.length, 'groups')
+    console.log('[TodoListService] New todoGroups steps:', todoGroups.value.flatMap(g => g.steps).length, 'steps')
+    
     saveToStorage()
   }
 
