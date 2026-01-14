@@ -1,8 +1,8 @@
 # Handoff Document - Planning Mode Development
 
-## Session 2 Summary (Commit 33376fa)
+## Session 2 Summary (Commit d0d5f62)
 
-**Primary Accomplishment**: Restructured TodoList system to organize changes by scope (global vs per-base), adding comprehensive emoji indicators and improving code clarity.
+**Primary Accomplishment**: Integrated change tracker with UI components so that building, recipe, technology, and stock changes automatically appear in the TodoList.
 
 ---
 
@@ -10,24 +10,18 @@
 
 ### ✅ Completed Features
 
-1. **Scope-Based Todo Organization**
+1. **Scope-Based Todo Organization** ✅
    - Changes grouped by scope: Global (technologies, bonuses, bases) vs Per-Base (buildings, recipes, stock)
    - Global changes rendered under "🌍 Global Changes" header
    - Per-base changes grouped under "🏗️ BaseName" headers
    - Global step numbering across all groups
 
-2. **Enhanced Change Tracker** 
-   - All change descriptions include emoji indicators:
-     - 🔬 Technology changes
-     - ⭐ Starting bonus changes
-     - ➕ New base creation / ❌ Base removal
-     - 🏢 Building level changes
-     - 🔄 Recipe count changes
-     - 📦 Stock changes
+2. **Enhanced Change Tracker** ✅ 
+   - All change descriptions include emoji indicators
    - Singleton pattern: `getChangeTracker()` for consistent usage
    - Seven specialized tracking functions for all change types
 
-3. **Production Planning TodoList**
+3. **Production Planning TodoList** ✅
    - Full undo/redo history with smart auto-merge
    - Auto-merges consecutive similar changes within 2 seconds
    - Expandable change details showing from→to values
@@ -35,7 +29,18 @@
    - Persistent state via localStorage
    - Count display: "X change(s) in Y scope(s)"
 
-4. **UI/UX Optimizations**
+4. **UI Integration** ✅ (JUST COMPLETED)
+   - **PlayerConfigPanel**: Integrated tracking for:
+     - Building level changes: `trackBuildingChange()`
+     - Recipe add/remove: `trackAddRecipe()` / `trackRemoveRecipe()`
+     - Recipe count changes: `trackRecipeCountChange()`
+     - Stock changes: `trackStockChange()`
+   - **TechnologyPanel**: Integrated tracking for:
+     - Technology level changes: `trackTechnologyChange()`
+     - Starting bonus changes: `trackStartingBonusChange()`
+   - All changes automatically routed to correct scope
+
+5. **UI/UX Optimizations**
    - Market Analysis: Compact right-aligned refresh tile, inline filters
    - Technology Tab: Standardized refresh tile matching Market Analysis
    - Both tabs: Integrated error messages, consistent button styling
@@ -112,58 +117,62 @@ interface TodoGroup {
    - Clarified function naming (trackNewBase vs trackAddRecipe pattern)
    - Maintains singleton pattern with `getChangeTracker()`
 
+4. **src/v2/pages/player-config/PlayerConfigPanel.vue** - Integrated tracking (NEW)
+   - Building level changes: `trackBuildingChange()` in `@updateBuilding` handler
+   - Recipe add/remove: `trackAddRecipe()` / `trackRemoveRecipe()` in respective handlers
+   - Recipe count changes: `trackRecipeCountChange()` in `@updateRecipe` handler
+   - Stock changes: `trackStockChange()` in `@updateStock` handler
+   - Pulls from/to values automatically from current component state
+
+5. **src/v2/pages/technology/TechnologyPanel.vue** - Integrated tracking (NEW)
+   - Technology level changes: `trackTechnologyChange()` in `onLevelInput()`
+   - Starting bonus changes: `trackStartingBonusChange()` in computed setter
+   - Changes automatically routed to global scope
+   - Tracks both old and new values for automatic diff display
+
 ---
 
 ## Branch Status
 - **Branch**: `71-planning-mode`
-- **Total Commits**: 12
-- **Latest**: 33376fa (Scope-based todo organization)
+- **Total Commits**: 15
+- **Latest**: d0d5f62 (TechnologyPanel change tracker integration)
 - **Validation**: ✅ type-check PASS, ✅ lint PASS
 
 ---
 
 ## Next Steps (High Priority)
 
-### 1. Integration with PlayerConfigPanel
-Import and use the change tracker when user modifies buildings/recipes/stock:
-```typescript
-import { getChangeTracker } from '@/v2/services/changeTracker'
-const tracker = getChangeTracker()
+### 1. Test TodoList Integration ✅ (Ready)
+The TodoList should now receive changes from:
+- **Building level changes** from PlayerConfigPanel
+- **Recipe changes** (add/remove/count) from PlayerConfigPanel
+- **Stock changes** from PlayerConfigPanel  
+- **Technology level changes** from TechnologyPanel
+- **Starting bonus changes** from TechnologyPanel
 
-// When building level changes:
-tracker.trackBuildingChange(baseName, buildingId, buildingName, fromLevel, toLevel)
+To verify, manually:
+1. Open a base in PlayerConfigPanel
+2. Modify a building level or recipe count
+3. Check if change appears in TodoList with correct from→to values
+4. Verify grouping (building changes under base name, tech changes under "Global")
 
-// When recipe added:
-tracker.trackAddRecipe(baseName, recipeName)
+### 2. Undo/Redo State Reversal
+Currently undo/redo only affects the TodoList UI. To implement full reversal:
+1. Add `undoToIndex()` and `redoToIndex()` to TodoList composable
+2. Export current state snapshot at each history point
+3. Connect undo/redo buttons to state reversal functions
+4. Test reversals cascade correctly through all components
 
-// When stock changes:
-tracker.trackStockChange(baseName, materialName, fromQty, toQty)
+### 3. New Base Planning
+Implement tracking for new base creation:
+1. Add "Add Base" button to PlayerConfigPanel
+2. Call `trackNewBase(baseName)` when adding
+3. Verify appears in TodoList under "Global Changes"
 
-// When new base created:
-tracker.trackNewBase(baseName)
-```
-
-### 2. Integration with TechnologyPanel
-Track technology level changes:
-```typescript
-tracker.trackTechnologyChange(techId, techName, fromLevel, toLevel)
-```
-
-### 3. Undo/Redo State Reversal
-Currently undo/redo only affects the TodoList UI. Need to:
-- Connect undo button to actual state reversal
-- Connect redo button to actual state re-application
-- Implement rollback logic in parent components
-
-### 4. Integration Tests
-```typescript
-// Test suite should cover:
-- Scope assignment for all change types
-- Group creation and ordering
-- Auto-merge logic within groups
-- Undo/redo with grouped changes
-- localStorage persistence
-```
+### 4. Remaining Integrations (Optional)
+- [ ] Base renaming: `trackBaseRename(oldName, newName)` - might not be needed
+- [ ] Recipe reordering: Not worth tracking (reordering != change)
+- [ ] Building reordering: Not worth tracking (reordering != change)
 
 ---
 
