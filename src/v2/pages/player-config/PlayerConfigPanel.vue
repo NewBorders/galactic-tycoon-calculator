@@ -10,7 +10,6 @@ import { updateSyncTime, registerSyncCallbacks } from '@/v2/services/syncService
 import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/index.js'
-import { usePlanningGuards } from '@/v2/composables/usePlanningGuards'
 
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
@@ -33,8 +32,8 @@ const emit = defineEmits<{
 const {
   state,
   planetHasBase,
-  addBase: _addBase,
-  removeBase: _removeBase,
+  addBase,
+  removeBase,
   renameBase,
   persist,
   addBuilding,
@@ -58,22 +57,11 @@ const {
   setSection,
 } = usePlayerBases(props.gameData)
 
-const { guardEdit } = usePlanningGuards()
-
 // Market analysis for price trends
 const { opportunities: marketOpportunities, fetch: fetchMarketData } = useMarketAnalysis()
 
 // Fetch market data on mount
 fetchMarketData()
-
-// Guarded versions of edit operations
-function addBase(planetId: number) {
-  guardEdit(() => _addBase(planetId), 'add base')
-}
-
-function removeBase(baseId: string) {
-  guardEdit(() => _removeBase(baseId), 'remove base')
-}
 
 const { state: technologyState } = usePlayerTechnology()
 const { current: currentWorldState } = useWorldData()

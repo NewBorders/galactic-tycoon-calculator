@@ -19,7 +19,6 @@ import MarketAnalysisPanel from './pages/market/MarketAnalysisPanel.vue'
 import PriceAlertsPanel from './pages/price-alerts/PriceAlertsPanel.vue'
 import PlanningControls from './components/PlanningControls.vue'
 import TodoList from './components/TodoList.vue'
-import PlanningRequiredDialog from './components/PlanningRequiredDialog.vue'
 import ApiLandingPage from './components/ApiLandingPage.vue'
 
 type Tab = 'bases' | 'matsShortage' | 'matsBalance' | 'technology' | 'config' | 'market' | 'alerts'
@@ -234,8 +233,5 @@ async function handleGameDataRefreshed(payload: {
 
     <!-- Floating TODO List -->
     <TodoList />
-
-    <!-- Planning Required Dialog -->
-    <PlanningRequiredDialog />
   </div>
 </template>
