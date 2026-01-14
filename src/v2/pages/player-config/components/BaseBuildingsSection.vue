@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import type { Building } from '@/v2/services/gamedata/types'
 import type { PlayerBuilding } from '@/v2/services/playerBases'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
+import NumberInput from '@/v2/components/NumberInput.vue'
 import { translate } from '@/v2/localisation'
 
 const props = defineProps<{
@@ -82,16 +83,16 @@ const list = computed<PlayerBuilding[]>({
 
           <!-- PLANNED (editable, inline) -->
           <div class="flex items-center gap-2">
-            <label class="text-xs text-slate-400 flex items-center gap-2">
-              <span class="font-semibold">{{ translate('planned') }}:</span>
-              <input
-                type="number" 
-                min="0"
-                class="w-16 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-300"
-                :value="inst.level"
-                @input="e => $emit('update', { id: inst.id, patch:{ level: Math.max(0, Number((e.target as HTMLInputElement).value)) } })"
-              />
+            <label class="text-xs text-slate-400 font-semibold">
+              {{ translate('planned') }}:
             </label>
+            <NumberInput
+              :model-value="inst.level"
+              width="md"
+              :min="0"
+              :max="999"
+              @update:model-value="(newLevel) => $emit('update', { id: inst.id, patch: { level: newLevel } })"
+            />
             <button
               class="px-2 py-1 text-xs border border-slate-700 rounded hover:bg-slate-700"
               @click.stop="$emit('remove', { id: inst.id })"
