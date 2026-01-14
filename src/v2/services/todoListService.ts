@@ -77,6 +77,9 @@ function createTodoList() {
   const todoHistory = ref<TodoGroup[][]>(stored.history)
   const currentTodoIndex = ref<number>(stored.currentIndex)
   const isOpen = ref(stored.isOpen)
+  
+  // Flag to prevent tracking during undo/redo
+  let isReverting = false
 
   // Current visible groups
   const todoGroups = computed(() => {
@@ -182,6 +185,12 @@ function createTodoList() {
 
   // Add a change to the todo list (organized by scope)
   function addChange(change: Change): void {
+        // Don't track changes during undo/redo
+        if (isReverting) {
+          console.log('[TodoListService] Skipping change tracking during revert:', change.description)
+          return
+        }
+    
     // Initialize if empty
     if (todoHistory.value.length === 0) {
       todoHistory.value.push([])
@@ -332,6 +341,7 @@ function createTodoList() {
   // Undo
   function undo(): void {
     if (!canUndo.value) return
+      isReverting = true
     
     console.log('[TodoListService] Undo called - currentIndex:', currentTodoIndex.value)
     
@@ -356,6 +366,7 @@ function createTodoList() {
     console.log('[TodoListService] After undo - new currentIndex:', currentTodoIndex.value)
     console.log('[TodoListService] New todoGroups:', todoGroups.value.length, 'groups')
     console.log('[TodoListService] New todoGroups steps:', todoGroups.value.flatMap(g => g.steps).length, 'steps')
+      isReverting = false
     
     saveToStorage()
   }
@@ -363,6 +374,8 @@ function createTodoList() {
   // Redo
   function redo(): void {
     if (!canRedo.value) return
+      isReverting = true
+      isReverting = false
     
     // Get the current and target states
     const fromGroups = todoHistory.value[currentTodoIndex.value] || []
