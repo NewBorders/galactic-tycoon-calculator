@@ -212,7 +212,7 @@ function tierLabel(tier: number) {
         <div class="flex flex-col items-center justify-between text-xs text-slate-400 flex-shrink-0 min-h-[56px]">
           <div class="flex items-center border border-slate-700 rounded px-1 py-0.5 bg-slate-800 gap-0.5">
             <button
-              :class="(props.count ?? 1) <= 0 ? 'px-0.5 text-slate-400 opacity-50 cursor-not-allowed text-xs' : 'px-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition text-xs'"
+              :class="(props.count ?? 1) <= 0 ? 'px-2 text-slate-400 opacity-50 cursor-not-allowed text-xs' : 'px-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition text-xs'"
               title="Decrease quantity"
               :disabled="(props.count ?? 1) <= 0"
               @click.prevent="emit('updateCount', Math.max(0, (props.count ?? 1) - 1))"
@@ -221,13 +221,13 @@ function tierLabel(tier: number) {
             </button>
             <input
               type="number"
-              class="w-12 bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300 text-sm"
+              class="w-6 bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300 text-sm"
               :value="props.count ?? 1"
               min="0"
               @input="(e) => emit('updateCount', Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value) || 0)))"
             />
             <button
-              class="px-0.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition text-xs"
+              class="px-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition text-xs"
               title="Increase quantity"
               @click.prevent="emit('updateCount', (props.count ?? 1) + 1)"
             >
