@@ -130,6 +130,21 @@ const getUrgencyClass = (days: number): string => {
         <h2 class="section-title">
           ⚠️ {{ translate('materialsRunningOut') }}
         </h2>
+        <!-- Timeframe Control -->
+        <div class="timeframe-control">
+          <label class="text-slate-300 text-sm font-medium">
+            Summary window:
+          </label>
+          <input
+            :value="props.timeframeHours"
+            @input="emit('update:timeframeHours', Number(($event.target as HTMLInputElement).value))"
+            type="number"
+            min="1"
+            max="336"
+            class="bg-slate-700 text-slate-100 px-3 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
+          />
+          <span class="text-slate-400 text-sm">hours</span>
+        </div>
         <div class="view-toggle">
           <button
             class="view-toggle__btn"
@@ -145,22 +160,6 @@ const getUrgencyClass = (days: number): string => {
           >
             {{ translate('groupByBase') }}</button>
         </div>
-      </div>
-
-      <!-- Timeframe Control -->
-      <div class="timeframe-control">
-        <label class="text-slate-300 text-sm font-medium">
-          Summary window:
-        </label>
-        <input
-          :value="props.timeframeHours"
-          @input="emit('update:timeframeHours', Number(($event.target as HTMLInputElement).value))"
-          type="number"
-          min="1"
-          max="336"
-          class="bg-slate-700 text-slate-100 px-3 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
-        />
-        <span class="text-slate-400 text-sm">hours</span>
       </div>
     </div>
 
@@ -363,7 +362,7 @@ const getUrgencyClass = (days: number): string => {
 
 .stock-warnings__header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
