@@ -1,6 +1,102 @@
 // Handoff Document
 
-## Latest Updates: Materials Shortage Tab - Summary Window Refactoring
+## Latest Updates: Production Steps TodoList with Undo/Redo
+
+**Status**: ✅ CORE IMPLEMENTATION COMPLETE (Integration Pending)
+
+### What Was Built
+
+**Production Planning System** with step-by-step change tracking:
+
+1. **useTodoList Composable** (`src/v2/composables/useTodoList.ts`)
+   - Full undo/redo history management with parallel state arrays
+   - Smart auto-merging: Consecutive similar changes within 2 seconds merge into single step
+   - Example: Building level 2→3→4 automatically becomes single step "2→4"
+   - Persists to localStorage via `useWorldData().save()`
+
+2. **TodoList Component** (`src/v2/components/TodoList.vue`)
+   - Semi-transparent collapsible overlay on right edge
+   - Toggle button shows step count
+   - Undo/Redo buttons in header
+   - Expandable change details with from→to values
+   - Relative timestamps ("5m ago" format)
+   - Clear all with confirmation
+
+3. **Change Tracker Service** (`src/v2/services/changeTracker.ts`)
+   - Helper functions for tracking all change types:
+     - Technologies, Buildings, Recipes, Stock, Bases, Starting Bonus
+   - Wraps `addChange()` with formatted descriptions
+   - Includes baseName for base-specific changes
+
+### Change Types Supported
+
+- `technology`: Tech level changes
+- `building`: Building level changes (per base)
+- `recipe`: Recipe add/remove/count changes (per base)
+- `stock`: Material stock changes (per base)
+- `base`: Base add/remove
+- `starting-bonus`: Starting bonus multiplier changes
+
+### How to Integrate (NEXT STEPS)
+
+1. **In PlayerConfigPanel.vue**, import the tracker:
+   ```typescript
+   import { getChangeTracker } from '@/v2/services/changeTracker'
+   const changeTracker = getChangeTracker()
+   ```
+
+2. **Add tracking calls** when user modifies:
+   - **Buildings**: In `setBuilding()` calls
+     ```typescript
+     changeTracker.trackBuildingChange(baseName, buildingId, buildingName, fromLevel, toLevel)
+     ```
+   - **Recipes**: In `addRecipe()`, `removeRecipe()`, `setRecipeCount()` calls
+   - **Stock**: In `setStock()` calls
+   - **Bases**: In `addBase()`, `removeBase()` calls
+
+3. **Technology changes**: In TechnologyPanel.vue
+   ```typescript
+   changeTracker.trackTechnologyChange(techId, techName, fromLevel, toLevel)
+   ```
+
+4. **Test** the flow:
+   - Make changes → steps appear in TodoList
+   - Click undo → list goes back
+   - Click redo → list goes forward
+   - Expand steps → see from/to values
+
+### Key Features
+
+✅ Auto-merges similar consecutive changes
+✅ Full undo/redo with 2-second merge window
+✅ Doesn't interfere with content (overlay, collapsible)
+✅ Persists to localStorage
+✅ Type-safe with TypeScript interfaces
+✅ All validations pass: type-check ✅, lint ✅
+
+### Files Created/Modified
+
+**Created**:
+- `src/v2/composables/useTodoList.ts` (192 lines)
+- `src/v2/services/changeTracker.ts` (125 lines)
+
+**Modified**:
+- `src/v2/components/TodoList.vue` (complete rewrite, 150 lines)
+
+**Also fixed** (earlier commits):
+- Market Analysis layout: compact header, inline filters (f133442, 02e4156, c58c2d6, ea96ca7)
+- Technology Tab: matching refresh button styling
+
+### Quality Status
+
+- Type-check: ✅ PASS
+- Lint: ✅ PASS
+- Commits: 10 objects, all pushed to 71-planning-mode
+- Latest commit: f9aa3d9
+
+---
+
+## Previous Updates: Materials Shortage Tab - Summary Window Refactoring
 
 **Status**: ✅ COMPLETE
 
@@ -14,18 +110,6 @@
 - Commit: 63c5975
 
 ---
-
-## Previous Updates: PR #72 Review - Critical Race Condition Fixed
-
-- Reviewed all 11 Copilot review comments for PR #72
-- **CRITICAL FIX**: Migration race condition in worldData/migration.ts
-  - Moved `setStorageVersion('2')` BEFORE `clearAllWorldData()` to prevent re-migration on failure
-  - Prevents data loss scenario where V1 data cleared but version not set
-- **7 comments obsolete**: Already resolved in current code (type safety, unused imports, singleton pattern)
-- **3 comments acknowledged**: Non-critical design decisions (deep watch, side effects, error handling)
-- Quality: Type-check ✅, Lint ✅
-- Files: migration.ts, PR_REVIEW_ANALYSIS.md
-- Commit: 58a63ea
 
 ## Earlier: Separate price trends for current and planned
 
