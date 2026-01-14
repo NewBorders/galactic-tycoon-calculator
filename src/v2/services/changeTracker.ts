@@ -7,7 +7,7 @@
  * - Per-Base: Buildings, Recipes, Stock (specific to a base)
  */
 
-import { useTodoList, type Change } from '@/v2/composables/useTodoList'
+import { useTodoList, type Change } from './todoListService'
 
 /**
  * Tracker helper functions for common change types
