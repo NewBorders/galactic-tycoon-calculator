@@ -341,58 +341,63 @@ function createTodoList() {
   // Undo
   function undo(): void {
     if (!canUndo.value) return
-      isReverting = true
-    
+
     console.log('[TodoListService] Undo called - currentIndex:', currentTodoIndex.value)
-    
+
     // Get the current and target states
     const fromGroups = todoHistory.value[currentTodoIndex.value] || []
     const toGroups = todoHistory.value[currentTodoIndex.value - 1] || []
-    
+
     console.log('[TodoListService] Undo - currentIndex:', currentTodoIndex.value, 'history.length:', todoHistory.value.length)
     console.log('[TodoListService] fromGroups:', fromGroups.length, 'groups')
     console.log('[TodoListService] toGroups:', toGroups.length, 'groups')
     console.log('[TodoListService] playerBasesInstance available:', !!playerBasesInstance)
-    
-    // Apply state reversions if playerBases is available
-    if (playerBasesInstance) {
-      applyStateReversions(fromGroups, toGroups, playerBasesInstance)
-    } else {
-      console.warn('[TodoListService] Cannot revert state: playerBases not registered')
-    }
-    
-    currentTodoIndex.value--
-    
-    console.log('[TodoListService] After undo - new currentIndex:', currentTodoIndex.value)
-    console.log('[TodoListService] New todoGroups:', todoGroups.value.length, 'groups')
-    console.log('[TodoListService] New todoGroups steps:', todoGroups.value.flatMap(g => g.steps).length, 'steps')
+
+    isReverting = true
+    try {
+      // Apply state reversions if playerBases is available
+      if (playerBasesInstance) {
+        applyStateReversions(fromGroups, toGroups, playerBasesInstance)
+      } else {
+        console.warn('[TodoListService] Cannot revert state: playerBases not registered')
+      }
+
+      currentTodoIndex.value--
+
+      console.log('[TodoListService] After undo - new currentIndex:', currentTodoIndex.value)
+      console.log('[TodoListService] New todoGroups:', todoGroups.value.length, 'groups')
+      console.log('[TodoListService] New todoGroups steps:', todoGroups.value.flatMap(g => g.steps).length, 'steps')
+    } finally {
       isReverting = false
-    
-    saveToStorage()
+      saveToStorage()
+    }
   }
 
   // Redo
   function redo(): void {
     if (!canRedo.value) return
-      isReverting = true
-      isReverting = false
-    
+
     // Get the current and target states
     const fromGroups = todoHistory.value[currentTodoIndex.value] || []
     const toGroups = todoHistory.value[currentTodoIndex.value + 1] || []
-    
+
     console.log('[TodoListService] Redo - fromGroups:', fromGroups.length, 'toGroups:', toGroups.length)
     console.log('[TodoListService] playerBasesInstance available:', !!playerBasesInstance)
-    
-    // Apply state reversions if playerBases is available
-    if (playerBasesInstance) {
-      applyStateReversions(fromGroups, toGroups, playerBasesInstance)
-    } else {
-      console.warn('[TodoListService] Cannot revert state: playerBases not registered')
+
+    isReverting = true
+    try {
+      // Apply state reversions if playerBases is available
+      if (playerBasesInstance) {
+        applyStateReversions(fromGroups, toGroups, playerBasesInstance)
+      } else {
+        console.warn('[TodoListService] Cannot revert state: playerBases not registered')
+      }
+
+      currentTodoIndex.value++
+    } finally {
+      isReverting = false
+      saveToStorage()
     }
-    
-    currentTodoIndex.value++
-    saveToStorage()
   }
 
   // Clear all
