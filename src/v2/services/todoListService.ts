@@ -78,27 +78,48 @@ function createTodoList() {
     return false
   }
 
+  // Check if two changes are similar enough to merge
+  // Merge if they affect the same object (same building, same technology, etc)
+  function canMergeWithChange(lastChange: Change, newChange: Change): boolean {
+    // Must be same type and same scope
+    if (lastChange.baseName !== newChange.baseName) return false
+
+    // Building level changes - merge if same building
+    if (lastChange.type === 'building' && newChange.type === 'building') {
+      return lastChange.details?.buildingId === newChange.details?.buildingId
+    }
+
+    // Technology level changes - merge if same technology
+    if (lastChange.type === 'technology' && newChange.type === 'technology') {
+      return lastChange.details?.technologyId === newChange.details?.technologyId
+    }
+
+    // Stock changes - merge if same material
+    if (lastChange.type === 'stock' && newChange.type === 'stock') {
+      return lastChange.details?.material === newChange.details?.material
+    }
+
+    // Recipe count changes - merge if same recipe
+    if (lastChange.type === 'recipe' && newChange.type === 'recipe') {
+      // Only merge if both are count changes (not add/remove)
+      return (
+        !lastChange.details?.action &&
+        !newChange.details?.action &&
+        lastChange.details?.recipeName === newChange.details?.recipeName
+      )
+    }
+
+    return false
+  }
+
   // Merge similar changes into existing step
   function shouldMergeWithLastStep(lastStep: TodoStep | undefined, newChange: Change): boolean {
     if (!lastStep || lastStep.changes.length === 0) return false
 
-    const timeDiff = newChange.timestamp - lastStep.createdAt
-    // Allow up to 10 seconds for same building changes
-    if (timeDiff > 10000) return false
-
     const lastChange = lastStep.changes[lastStep.changes.length - 1]
     if (!lastChange) return false
-    if (lastChange.baseName !== newChange.baseName) return false
 
-    if (newChange.type === 'building' && lastChange.type === 'building') {
-      return lastChange.details?.buildingId === newChange.details?.buildingId
-    }
-
-    if (newChange.type === 'technology' && lastChange.type === 'technology') {
-      return lastChange.details?.technologyId === newChange.details?.technologyId
-    }
-
-    return false
+    return canMergeWithChange(lastChange, newChange)
   }
 
   // Add a change to the todo list (organized by scope)
@@ -160,18 +181,31 @@ function createTodoList() {
       const newChanges = [...lastStep.changes]
       const lastChangeInStep = newChanges[newChanges.length - 1]
 
-      if (lastChangeInStep && (changeWithTime.type === 'building' || changeWithTime.type === 'technology')) {
-        // Update the "to" value while keeping the "from" value
-        newChanges[newChanges.length - 1] = {
-          ...lastChangeInStep,
-          description: lastChangeInStep.description.replace(
-            /: Level (\d+) → \d+/,
-            `: Level ${lastChangeInStep.details?.from} → ${changeWithTime.details?.to}`
-          ),
-          details: {
-            ...lastChangeInStep.details,
-            to: changeWithTime.details?.to,
-          },
+      if (lastChangeInStep) {
+        // For any numeric change, update the "to" value while keeping the "from" value
+        const from = lastChangeInStep.details?.from ?? lastChangeInStep.details?.from
+        const to = changeWithTime.details?.to
+
+        if (from !== undefined && to !== undefined) {
+          // Generate new description showing from → to
+          let newDescription = lastChangeInStep.description
+          
+          // Pattern: "something: Value X → Y" or "something: Level X → Y"
+          if (changeWithTime.type === 'building' || changeWithTime.type === 'technology' || changeWithTime.type === 'stock') {
+            newDescription = lastChangeInStep.description.replace(
+              /(\d+) → \d+/,
+              `${from} → ${to}`
+            )
+          }
+
+          newChanges[newChanges.length - 1] = {
+            ...lastChangeInStep,
+            description: newDescription,
+            details: {
+              ...lastChangeInStep.details,
+              to: to,
+            },
+          }
         }
       }
 

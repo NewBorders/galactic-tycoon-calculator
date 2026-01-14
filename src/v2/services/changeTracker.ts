@@ -156,6 +156,7 @@ export function createChangeTracker() {
         baseName,
         description: `📦 ${materialName}: Stock ${fromQty} → ${toQty}`,
         details: {
+          material: materialName,
           from: fromQty,
           to: toQty,
         },
