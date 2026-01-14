@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 const props = withDefaults(
   defineProps<{
+    id?: string
     modelValue: number
     min?: number
     max?: number
@@ -63,6 +64,7 @@ function handleInput(e: Event) {
         −
       </button>
       <input
+        :id="props.id"
         type="number"
         :class="[inputWidthClass, 'bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none']"
         :value="modelValue"
