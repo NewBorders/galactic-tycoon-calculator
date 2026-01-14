@@ -266,32 +266,27 @@ const lastUpdatedLabel = computed(() => {
 
 <template>
   <div class="space-y-4">
-    <!-- Header with Refresh Button -->
-    <div class="rounded bg-gray-800 p-4" :class="hasApiError ? 'border border-red-700' : 'border border-gray-700'">
-      <div class="flex items-center justify-between gap-4">
-        <div class="flex-1">
-          <span class="text-xs text-gray-500">
+    <!-- Header with Refresh Button (compact, right-aligned) -->
+    <div class="flex justify-end">
+      <div class="rounded bg-gray-800 p-4 w-fit" :class="hasApiError ? 'border border-red-700' : 'border border-gray-700'">
+        <div class="flex flex-col items-end gap-2">
+          <button
+            @click="refresh"
+            :disabled="loading"
+            class="px-4 py-2 text-white rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+            :class="hasApiError ? 'bg-red-700 hover:bg-red-600' : 'bg-purple-600 hover:bg-purple-700'"
+          >
+            <span>{{ loading ? '⏳' : '🔄' }}</span>
+            <span>{{ translate('marketAnalysisRefresh') }}</span>
+          </button>
+          <div class="text-xs text-gray-500">
             {{ translate('marketAnalysisUpdated') }}: {{ lastUpdatedLabel }}
-          </span>
-          <div v-if="hasApiError && apiErrorMessage" class="text-red-400 mt-1 text-xs">
+          </div>
+          <div v-if="hasApiError && apiErrorMessage" class="text-red-400 text-xs">
             ❌ {{ apiErrorMessage }}
           </div>
         </div>
-        <button
-          @click="refresh"
-          :disabled="loading"
-          class="px-4 py-2 text-white rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
-          :class="hasApiError ? 'bg-red-700 hover:bg-red-600' : 'bg-purple-600 hover:bg-purple-700'"
-        >
-          <span>{{ loading ? '⏳' : '🔄' }}</span>
-          <span>{{ translate('marketAnalysisRefresh') }}</span>
-        </button>
       </div>
-    </div>
-
-    <!-- Description -->
-    <div class="text-sm text-gray-400">
-      <p>{{ translate('marketAnalysisDescription') }}</p>
     </div>
 
     <!-- Error/Warning Message -->
@@ -323,12 +318,15 @@ const lastUpdatedLabel = computed(() => {
       </div>
     </div>
 
-    <!-- Search and Filter Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <!-- Material Search (takes 2 cols on large screens) -->
-      <div class="lg:col-span-2 bg-gray-800 rounded p-4">
+    <!-- Search and Filter Column -->
+    <div class="space-y-4">
+      <!-- Material Search -->
+      <div class="bg-gray-800 rounded p-4">
+        <p class="text-sm text-gray-400 pb-2">
+          {{ translate('marketAnalysisDescription') }}
+        </p>
         <label class="block text-sm font-medium text-gray-300 mb-2">
-          🔍 {{ translate('materialSearch') || 'Search Material' }}
+          🔍 {{ translate('materialSearch') }}
         </label>
         <input
           v-model="materialSearch"
@@ -341,7 +339,7 @@ const lastUpdatedLabel = computed(() => {
         </div>
       </div>
 
-      <!-- Tier Filter (takes 1 col on large screens) -->
+      <!-- Tier Filter (directly below search) -->
       <div class="bg-gray-800 rounded p-4">
         <label class="block text-sm font-medium text-gray-300 mb-2">
           ⭐ {{ translate('tierFilter') }}
