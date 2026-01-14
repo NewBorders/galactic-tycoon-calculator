@@ -307,21 +307,9 @@ function createTodoList() {
     currentTodoIndex.value = 0
     save()
   }
-
   // Toggle panel
   function togglePanel(): void {
     isOpen.value = !isOpen.value
-  }
-
-  // Toggle step detail
-  const expandedSteps = ref<Set<string>>(new Set())
-
-  function toggleStepDetail(stepId: string): void {
-    if (expandedSteps.value.has(stepId)) {
-      expandedSteps.value.delete(stepId)
-    } else {
-      expandedSteps.value.add(stepId)
-    }
   }
 
   return {
@@ -332,7 +320,6 @@ function createTodoList() {
     canUndo,
     canRedo,
     isOpen,
-    expandedSteps,
 
     // Methods
     addChange,
@@ -340,7 +327,6 @@ function createTodoList() {
     redo,
     clear,
     togglePanel,
-    toggleStepDetail,
   }
 }
 

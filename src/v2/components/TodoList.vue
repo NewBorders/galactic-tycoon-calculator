@@ -87,26 +87,6 @@
                   </p>
                 </div>
               </div>
-
-              <!-- Changes Detail (collapsible) -->
-              <div v-if="step.changes.length > 0" class="mt-2 ml-10">
-                <button
-                  @click="toggleStepDetail(step.id)"
-                  class="text-xs text-purple-400 hover:text-purple-300 transition font-medium"
-                >
-                  {{ expandedSteps.has(step.id) ? '▼' : '▶' }} Details ({{ step.changes.length }})
-                </button>
-
-                <div v-if="expandedSteps.has(step.id)" class="mt-2 space-y-1 text-xs text-gray-400">
-                  <div v-for="(change, idx) in step.changes" :key="idx" class="pl-3 border-l border-gray-600 pb-1">
-                    <p class="font-mono text-gray-500">{{ change.description }}</p>
-                    <p v-if="change.details?.from !== undefined && change.details?.to !== undefined" class="text-gray-600 text-xs">
-                      <span class="text-yellow-600">{{ change.details.from }}</span> →
-                      <span class="text-green-600">{{ change.details.to }}</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -129,29 +109,16 @@ import { useTodoList, type TodoGroup, type TodoStep } from '@/v2/services/todoLi
 
 const { todoGroups, allSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()
 
-const expandedSteps = ref<Set<string>>(new Set())
-
 // Get global step number
 function getStepNumber(group: TodoGroup, stepIndex: number): string {
   const globalIndex = allSteps.value.findIndex((step: TodoStep) => step === group.steps[stepIndex])
   return `${globalIndex + 1}`
 }
 
-// Toggle step detail
-function toggleStepDetail(stepId: string): void {
-  if (expandedSteps.value.has(stepId)) {
-    expandedSteps.value.delete(stepId)
-  } else {
-    expandedSteps.value.add(stepId)
-  }
-  expandedSteps.value = new Set(expandedSteps.value)
-}
-
 // Handle clear
 function handleClear(): void {
   if (confirm('Are you sure you want to clear all planned changes?')) {
     clear()
-    expandedSteps.value.clear()
   }
 }
 
