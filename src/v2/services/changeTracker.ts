@@ -81,7 +81,7 @@ export function createChangeTracker() {
      */
     trackBuildingChange(
       baseName: string,
-      slotId: string,
+      slotNum: string,
       buildingId: number,
       buildingName: string,
       fromLevel: number,
@@ -90,9 +90,9 @@ export function createChangeTracker() {
       addChange({
         type: 'building',
         baseName,
-        description: `🏢 ${buildingName} [Slot ${slotId}]: Level ${fromLevel} → ${toLevel}`,
+        description: `🏢 ${buildingName} #${slotNum}: Level ${fromLevel} → ${toLevel}`,
         details: {
-          slotId,
+          slotId: slotNum,
           buildingId: buildingId.toString(),
           from: fromLevel,
           to: toLevel,
@@ -104,14 +104,14 @@ export function createChangeTracker() {
     /**
      * Track building add (PER-BASE)
      */
-    trackAddBuilding(baseName: string, slotId: string, buildingName: string): void {
+    trackAddBuilding(baseName: string, slotNum: string, buildingName: string): void {
       addChange({
         type: 'building',
         baseName,
-        description: `🏢 Building added: ${buildingName} [Slot ${slotId}]`,
+        description: `🏢 Building added: ${buildingName} #${slotNum}`,
         details: {
           action: 'add',
-          slotId,
+          slotId: slotNum,
           buildingName,
         },
         timestamp: Date.now(),
@@ -121,14 +121,14 @@ export function createChangeTracker() {
     /**
      * Track building remove (PER-BASE)
      */
-    trackRemoveBuilding(baseName: string, slotId: string, buildingName: string): void {
+    trackRemoveBuilding(baseName: string, slotNum: string, buildingName: string): void {
       addChange({
         type: 'building',
         baseName,
-        description: `🏢 Building removed: ${buildingName} [Slot ${slotId}]`,
+        description: `🏢 Building removed: ${buildingName} #${slotNum}`,
         details: {
           action: 'remove',
-          slotId,
+          slotId: slotNum,
           buildingName,
         },
         timestamp: Date.now(),

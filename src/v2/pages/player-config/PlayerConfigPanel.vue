@@ -636,8 +636,8 @@ async function refreshGameData() {
               const buildingData = props.gameData.buildings.find(b => b.id === buildingId)
               if (buildingData) {
                 const changeTracker = getChangeTracker()
-                const slotId = `${base.buildings.length + 1}` // Next slot ID
-                changeTracker.trackAddBuilding(base.name || 'Base', slotId, buildingData.name)
+                const slotNum = base.buildings.length + 1
+                changeTracker.trackAddBuilding(base.name || 'Base', slotNum.toString(), buildingData.name)
               }
               addBuilding(base.id, buildingId, level)
               persist()
@@ -650,10 +650,11 @@ async function refreshGameData() {
                 const building = base.buildings.find((b: typeof base.buildings[0]) => b.id === id)
                 const buildingData = props.gameData.buildings.find(b => b.id === building?.buildingId)
                 if (building && buildingData) {
+                  const slotNum = base.buildings.indexOf(building) + 1
                   const changeTracker = getChangeTracker()
                   changeTracker.trackBuildingChange(
                     base.name || 'Base',
-                    building.id,
+                    slotNum.toString(),
                     building.buildingId,
                     buildingData.name,
                     building.level,
@@ -672,8 +673,9 @@ async function refreshGameData() {
               if (building) {
                 const buildingData = props.gameData.buildings.find(b => b.id === building.buildingId)
                 if (buildingData) {
+                  const slotNum = base.buildings.indexOf(building) + 1
                   const changeTracker = getChangeTracker()
-                  changeTracker.trackRemoveBuilding(base.name || 'Base', building.id, buildingData.name)
+                  changeTracker.trackRemoveBuilding(base.name || 'Base', slotNum.toString(), buildingData.name)
                 }
               }
               removeBuilding(base.id, id)
