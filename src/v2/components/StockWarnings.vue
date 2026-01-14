@@ -14,6 +14,10 @@ const props = defineProps<{
   priceResolver: (materialId: number) => number
 }>()
 
+const emit = defineEmits<{
+  'update:timeframeHours': [value: number]
+}>()
+
 type ViewMode = 'combined' | 'by-material' | 'by-base'
 const STORAGE_KEY = 'gt:v2:matsShortage:viewMode'
 
@@ -120,25 +124,43 @@ const getUrgencyClass = (days: number): string => {
 
 <template>
   <div class="stock-warnings">
-    <!-- Header with Collapse Toggle -->
-    <div class="stock-warnings__header">
-      <h2 class="section-title">
-        ⚠️ {{ translate('materialsRunningOut') }}
-      </h2>
-      <div class="view-toggle">
-        <button
-          class="view-toggle__btn"
-          :class="{ 'view-toggle__btn--active': viewMode === 'combined' }"
-          @click="viewMode = 'combined'"
-        >
-          {{ translate('groupByMaterial') }}
-        </button>
-        <button
-          class="view-toggle__btn"
-          :class="{ 'view-toggle__btn--active': viewMode === 'by-base' }"
-          @click="viewMode = 'by-base'"
-        >
-          {{ translate('groupByBase') }}</button>
+    <!-- Header with Title, View Toggle and Timeframe Control -->
+    <div class="stock-warnings__header-row">
+      <div class="stock-warnings__header">
+        <h2 class="section-title">
+          ⚠️ {{ translate('materialsRunningOut') }}
+        </h2>
+        <div class="view-toggle">
+          <button
+            class="view-toggle__btn"
+            :class="{ 'view-toggle__btn--active': viewMode === 'combined' }"
+            @click="viewMode = 'combined'"
+          >
+            {{ translate('groupByMaterial') }}
+          </button>
+          <button
+            class="view-toggle__btn"
+            :class="{ 'view-toggle__btn--active': viewMode === 'by-base' }"
+            @click="viewMode = 'by-base'"
+          >
+            {{ translate('groupByBase') }}</button>
+        </div>
+      </div>
+
+      <!-- Timeframe Control -->
+      <div class="timeframe-control">
+        <label class="text-slate-300 text-sm font-medium">
+          Summary window:
+        </label>
+        <input
+          :value="props.timeframeHours"
+          @input="emit('update:timeframeHours', Number(($event.target as HTMLInputElement).value))"
+          type="number"
+          min="1"
+          max="336"
+          class="bg-slate-700 text-slate-100 px-3 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
+        />
+        <span class="text-slate-400 text-sm">hours</span>
       </div>
     </div>
 
@@ -331,12 +353,28 @@ const getUrgencyClass = (days: number): string => {
   gap: 1.5rem;
 }
 
+.stock-warnings__header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 .stock-warnings__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
+  flex: 1;
+}
+
+.timeframe-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
 }
 
 .section-title {
@@ -708,9 +746,20 @@ const getUrgencyClass = (days: number): string => {
 }
 
 @media (max-width: 768px) {
+  .stock-warnings__header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .stock-warnings__header {
     flex-direction: column;
     align-items: flex-start;
+    width: 100%;
+  }
+
+  .timeframe-control {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .section-title {

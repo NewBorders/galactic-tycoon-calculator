@@ -77,6 +77,10 @@ const globalWorkforceBurden = computed(() => {
 const technologyLevels = computed(() => technologyState.value.levels)
 const startingBonus = computed(() => technologyState.value.startingBonus)
 
+const updateTimeframe = (value: number) => {
+  timeframeHours.value = value
+}
+
 const summary = useGlobalSummary(
   bases,
   computed(() => props.gameData),
@@ -107,29 +111,13 @@ const stockAnalysis = computed(() => {
 
 <template>
   <div class="space-y-6 pb-16">
-    <!-- Timeframe Control -->
-    <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
-      <div class="flex items-center gap-4">
-        <label class="text-slate-300 text-sm font-medium">
-          Summary window:
-        </label>
-        <input
-          v-model.number="timeframeHours"
-          type="number"
-          min="1"
-          max="336"
-          class="bg-slate-700 text-slate-100 px-3 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 w-20"
-        />
-        <span class="text-slate-400 text-sm">hours</span>
-      </div>
-    </div>
-
-    <!-- Global Stock Warnings -->
+    <!-- Global Stock Warnings with Integrated Timeframe Control -->
     <StockWarnings
       :analysis="stockAnalysis"
       :index="props.index"
       :timeframe-hours="timeframeHours"
       :price-resolver="priceResolver"
+      @update:timeframe-hours="updateTimeframe"
     />
   </div>
 </template>
