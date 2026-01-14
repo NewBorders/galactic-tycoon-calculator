@@ -20,15 +20,11 @@ export interface PlayerBasesService {
 }
 
 /**
- * Find base by name or custom name
+ * Find base by ID
  */
-function findBaseByName(playerBases: PlayerBasesService, baseName: string): string | null {
-  const base = playerBases.state.value.bases.find(b => {
-    // Match the naming logic used when tracking changes
-    const name = b.name || 'Base'
-    return name === baseName
-  })
-  console.log('[StateReversion] findBaseByName:', baseName, '→', base?.id || 'NOT FOUND')
+function findBaseById(playerBases: PlayerBasesService, baseId: string): string | null {
+  const base = playerBases.state.value.bases.find(b => b.id === baseId)
+  console.log('[StateReversion] findBaseById:', baseId, '→', base?.id || 'NOT FOUND')
   console.log('[StateReversion] Available bases:', playerBases.state.value.bases.map(b => ({ id: b.id, name: b.name || 'Base' })))
   return base?.id || null
 }
@@ -106,8 +102,13 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
   const baseName = change.baseName
   if (!baseName) return
 
-  const baseId = findBaseByName(playerBases, baseName)
-  if (!baseId) return
+  const baseId = change.details?.baseId as string | undefined
+  if (!baseId) {
+    console.warn('[StateReversion] Change missing baseId:', change)
+    return
+  }
+  
+  console.log('[StateReversion] Processing change for baseId:', baseId)
 
   // Building changes
   if (change.type === 'building') {

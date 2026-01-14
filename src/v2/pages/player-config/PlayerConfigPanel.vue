@@ -658,7 +658,7 @@ async function refreshGameData() {
               if (buildingData) {
                 const changeTracker = getChangeTracker()
                 const slotNum = base.buildings.length + 1
-                changeTracker.trackAddBuilding(base.name || 'Base', slotNum.toString(), buildingData.name)
+                changeTracker.trackAddBuilding(base.id, getBaseName(base), slotNum.toString(), buildingData.name)
               }
               addBuilding(base.id, buildingId, level)
               persist()
@@ -674,6 +674,7 @@ async function refreshGameData() {
                   const slotNum = base.buildings.indexOf(building) + 1
                   const changeTracker = getChangeTracker()
                   changeTracker.trackBuildingChange(
+                    base.id,
                     getBaseName(base),
                     slotNum.toString(),
                     building.buildingId,
@@ -696,7 +697,7 @@ async function refreshGameData() {
                 if (buildingData) {
                   const slotNum = base.buildings.indexOf(building) + 1
                   const changeTracker = getChangeTracker()
-                  changeTracker.trackRemoveBuilding(getBaseName(base), slotNum.toString(), buildingData.name)
+                  changeTracker.trackRemoveBuilding(base.id, getBaseName(base), slotNum.toString(), buildingData.name)
                 }
               }
               removeBuilding(base.id, id)
@@ -715,7 +716,7 @@ async function refreshGameData() {
               const recipe = props.gameData.recipes.find(r => r.id === recipeId)
               if (recipe) {
                 const changeTracker = getChangeTracker()
-                changeTracker.trackAddRecipe(getBaseName(base), recipe.output?.name ?? `Recipe ${recipeId}`)
+                changeTracker.trackAddRecipe(base.id, getBaseName(base), recipeId, recipe.output?.name ?? `Recipe ${recipeId}`)
               }
               addRecipe(base.id, recipeId)
               persist()
@@ -729,7 +730,7 @@ async function refreshGameData() {
                 const recipeData = props.gameData.recipes.find(r => r.id === recipe.recipeId)
                 if (recipeData) {
                   const changeTracker = getChangeTracker()
-                  changeTracker.trackRemoveRecipe(getBaseName(base), recipeData.output?.name ?? `Recipe ${recipe.recipeId}`)
+                  changeTracker.trackRemoveRecipe(base.id, getBaseName(base), recipe.recipeId, recipeData.output?.name ?? `Recipe ${recipe.recipeId}`)
                 }
               }
               removeRecipe(base.id, id)
@@ -746,7 +747,9 @@ async function refreshGameData() {
                   if (recipeData) {
                     const changeTracker = getChangeTracker()
                     changeTracker.trackRecipeCountChange(
+                      base.id,
                       getBaseName(base),
+                      recipe.recipeId,
                       recipeData.output?.name ?? `Recipe ${recipe.recipeId}`,
                       recipe.count ?? 1,
                       patch.count
@@ -784,7 +787,9 @@ async function refreshGameData() {
                   const material = props.gameData.materials.find(m => m.id === materialId)
                   if (material) {
                     changeTracker.trackStockChange(
+                      base.id,
                       getBaseName(base),
+                      materialId,
                       material.name,
                       oldQty,
                       newQty

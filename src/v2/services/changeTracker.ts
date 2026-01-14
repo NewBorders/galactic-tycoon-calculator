@@ -78,8 +78,11 @@ export function createChangeTracker() {
 
     /**
      * Track building level change (PER-BASE)
+     * @param baseId Unique base identifier (from playerBases)
+     * @param baseName Display name for the base
      */
     trackBuildingChange(
+      baseId: string,
       baseName: string,
       slotNum: string,
       buildingId: number,
@@ -89,9 +92,10 @@ export function createChangeTracker() {
     ): void {
       addChange({
         type: 'building',
-        baseName,
+        baseName: baseName,
         description: `🏢 ${buildingName} #${slotNum}: Level ${fromLevel} → ${toLevel}`,
         details: {
+          baseId: baseId,
           slotId: slotNum,
           buildingId: buildingId.toString(),
           from: fromLevel,
@@ -104,12 +108,13 @@ export function createChangeTracker() {
     /**
      * Track building add (PER-BASE)
      */
-    trackAddBuilding(baseName: string, slotNum: string, buildingName: string): void {
+    trackAddBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string): void {
       addChange({
         type: 'building',
         baseName,
         description: `🏢 Building added: ${buildingName} #${slotNum}`,
         details: {
+          baseId: baseId,
           action: 'add',
           slotId: slotNum,
           buildingName,
@@ -121,12 +126,13 @@ export function createChangeTracker() {
     /**
      * Track building remove (PER-BASE)
      */
-    trackRemoveBuilding(baseName: string, slotNum: string, buildingName: string): void {
+    trackRemoveBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string): void {
       addChange({
         type: 'building',
         baseName,
         description: `🏢 Building removed: ${buildingName} #${slotNum}`,
         details: {
+          baseId: baseId,
           action: 'remove',
           slotId: slotNum,
           buildingName,
@@ -138,13 +144,15 @@ export function createChangeTracker() {
     /**
      * Track recipe add (PER-BASE)
      */
-    trackAddRecipe(baseName: string, recipeName: string): void {
+    trackAddRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string): void {
       addChange({
         type: 'recipe',
         baseName,
         description: `➕ Recipe added: ${recipeName}`,
         details: {
+          baseId: baseId,
           action: 'add',
+          recipeId: recipeId.toString(),
           recipeName,
         },
         timestamp: Date.now(),
@@ -154,13 +162,15 @@ export function createChangeTracker() {
     /**
      * Track recipe remove (PER-BASE)
      */
-    trackRemoveRecipe(baseName: string, recipeName: string): void {
+    trackRemoveRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string): void {
       addChange({
         type: 'recipe',
         baseName,
         description: `❌ Recipe removed: ${recipeName}`,
         details: {
+          baseId: baseId,
           action: 'remove',
+          recipeId: recipeId.toString(),
           recipeName,
         },
         timestamp: Date.now(),
@@ -170,12 +180,22 @@ export function createChangeTracker() {
     /**
      * Track recipe count change (PER-BASE)
      */
-    trackRecipeCountChange(baseName: string, recipeName: string, fromCount: number, toCount: number): void {
+    trackRecipeCountChange(
+      baseId: string,
+      baseName: string,
+      recipeId: number,
+      recipeName: string,
+      fromCount: number,
+      toCount: number
+    ): void {
       addChange({
         type: 'recipe',
         baseName,
         description: `🔄 ${recipeName}: Count ${fromCount} → ${toCount}`,
         details: {
+          baseId: baseId,
+          recipeId: recipeId.toString(),
+          recipeName,
           from: fromCount,
           to: toCount,
         },
@@ -186,12 +206,21 @@ export function createChangeTracker() {
     /**
      * Track stock change (PER-BASE)
      */
-    trackStockChange(baseName: string, materialName: string, fromQty: number, toQty: number): void {
+    trackStockChange(
+      baseId: string,
+      baseName: string,
+      materialId: number,
+      materialName: string,
+      fromQty: number,
+      toQty: number
+    ): void {
       addChange({
         type: 'stock',
         baseName,
         description: `📦 ${materialName}: Stock ${fromQty} → ${toQty}`,
         details: {
+          baseId: baseId,
+          materialId: materialId.toString(),
           material: materialName,
           from: fromQty,
           to: toQty,
