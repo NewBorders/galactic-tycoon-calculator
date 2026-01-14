@@ -62,20 +62,6 @@ export function useTodoList() {
   // Can redo?
   const canRedo = computed(() => currentTodoIndex.value < todoHistory.value.length - 1)
 
-  // Get or create group for a scope
-  function getOrCreateGroup(scope: ScopeType, baseName?: string): TodoGroup {
-    let group = todoGroups.value.find(g => g.scope === scope && g.baseName === baseName)
-    if (!group) {
-      group = {
-        scope,
-        baseName,
-        steps: [],
-      }
-      todoGroups.value.push(group)
-    }
-    return group
-  }
-
   // Merge similar changes into existing step
   function shouldMergeWithLastStep(lastStep: TodoStep | undefined, newChange: Change): boolean {
     if (!lastStep || lastStep.changes.length === 0) return false
@@ -116,10 +102,21 @@ export function useTodoList() {
     const scope: ScopeType = change.type === 'technology' || change.type === 'starting-bonus' || change.type === 'base' ? 'global' : 'base'
     const baseName = change.baseName
 
-    const currentGroups = todoHistory.value[currentTodoIndex.value]
+    // Work on a COPY to avoid modifying history in-place
+    const currentGroups = JSON.parse(JSON.stringify(todoHistory.value[currentTodoIndex.value])) as TodoGroup[]
     if (!currentGroups) return
 
-    const targetGroup = getOrCreateGroup(scope, baseName)
+    // Find or create target group in the copy
+    let targetGroup = currentGroups.find(g => g.scope === scope && g.baseName === baseName)
+    if (!targetGroup) {
+      targetGroup = {
+        scope,
+        baseName,
+        steps: [],
+      }
+      currentGroups.push(targetGroup)
+    }
+
     const lastStep = targetGroup.steps[targetGroup.steps.length - 1]
     const now = Date.now()
     const changeWithTime: Change = { ...change, timestamp: now }
@@ -151,8 +148,8 @@ export function useTodoList() {
       targetGroup.steps.push(newStep)
     }
 
-    // Add new history state
-    todoHistory.value.push(JSON.parse(JSON.stringify(currentGroups)))
+    // Add the modified copy as new history state
+    todoHistory.value.push(currentGroups)
     currentTodoIndex.value++
 
     save()
