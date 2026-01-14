@@ -71,6 +71,26 @@ export function calculateStateDiff(
 }
 
 /**
+ * Update DOM element value and trigger change event for Vue reactivity
+ */
+function updateDOMValue(elementId: string, newValue: number): void {
+  const inputElement = document.getElementById(elementId) as HTMLInputElement | null
+  if (!inputElement) {
+    console.warn('[StateReversion] DOM element not found:', elementId)
+    return
+  }
+
+  console.log('[StateReversion] Updating DOM element:', elementId, 'to value:', newValue)
+  
+  // Update the value
+  inputElement.value = String(newValue)
+  
+  // Trigger input and change events to notify Vue
+  inputElement.dispatchEvent(new Event('input', { bubbles: true }))
+  inputElement.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
+/**
  * Revert a stored change using precise metadata
  */
 function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerBases: PlayerBasesService): void {
@@ -89,6 +109,9 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
       if (baseId && storedChange.targetId) {
         playerBases.setBuilding(baseId, storedChange.targetId, { level: targetValue })
         console.log('[StateReversion] Set building level to:', targetValue)
+        
+        // Also update DOM
+        updateDOMValue(`building-input-${storedChange.targetId}`, targetValue)
       }
       break
 
@@ -96,6 +119,9 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
       if (baseId && storedChange.targetId) {
         playerBases.setRecipeCount(baseId, storedChange.targetId, targetValue)
         console.log('[StateReversion] Set recipe count to:', targetValue)
+        
+        // Also update DOM
+        updateDOMValue(`recipe-input-${storedChange.targetId}`, targetValue)
       }
       break
 

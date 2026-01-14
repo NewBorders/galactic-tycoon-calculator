@@ -502,6 +502,7 @@ watch(
           <div class="h-full">
             <RecipeTile
               v-if="cardsById.get(element.id)"
+              :id="element.id"
               :recipe="cardsById.get(element.id)!.recipe"
               :report-row-current="cardsByIdCurrent.get(element.id)!.reportRow"
               :report-row="cardsById.get(element.id)!.reportRow"

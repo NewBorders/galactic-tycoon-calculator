@@ -47,6 +47,7 @@ const list = computed<PlayerBuilding[]>({
   >
     <template #item="{ element: inst, index }">
       <div
+        :id="`building-tile-${inst.id}`"
         class="rounded border p-3 transition-all relative"
         :class="inst.level === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
       >
@@ -87,6 +88,7 @@ const list = computed<PlayerBuilding[]>({
               {{ translate('planned') }}:
             </label>
             <NumberInput
+              :id="`building-input-${inst.id}`"
               :model-value="inst.level"
               width="sm"
               :min="0"

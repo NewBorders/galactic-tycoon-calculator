@@ -8,6 +8,7 @@ import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 import NumberInput from '@/v2/components/NumberInput.vue'
 
 const props = defineProps<{
+  id?: string  // Recipe instance ID for DOM identification
   recipe: Recipe
   reportRowCurrent?: RecipeProductionRow
   reportRow?: RecipeProductionRow
@@ -182,6 +183,7 @@ function tierLabel(tier: number) {
 
 <template>
   <div
+    :id="`recipe-tile-${props.id}`"
     class="rounded border p-2 space-y-3 h-full transition-all"
     :class="(props.count ?? 1) === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
   >
@@ -212,6 +214,7 @@ function tierLabel(tier: number) {
 
         <div class="flex flex-col items-center justify-between text-xs text-slate-400 flex-shrink-0 min-h-[56px]">
           <NumberInput
+            :id="`recipe-input-${props.id}`"
             :model-value="props.count ?? 1"
             width="sm"
             :min="0"
