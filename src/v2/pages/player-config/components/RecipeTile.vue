@@ -221,7 +221,7 @@ function tierLabel(tier: number) {
             </button>
             <input
               type="number"
-              class="w-6 bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300 text-sm"
+              class="w-12 bg-transparent text-center border-0 focus:outline-none focus:ring-0 text-slate-300 text-sm"
               :value="props.count ?? 1"
               min="0"
               @input="(e) => emit('updateCount', Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value) || 0)))"
