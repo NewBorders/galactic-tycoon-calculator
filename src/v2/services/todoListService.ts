@@ -97,9 +97,15 @@ function createTodoList() {
     // Must be same type and same scope
     if (lastChange.baseName !== newChange.baseName) return false
 
-    // Building level changes - merge if same building SLOT
+    // Building changes - only merge if both are LEVEL changes (not add/remove)
     if (lastChange.type === 'building' && newChange.type === 'building') {
-      // Must have slotId, only merge if same slot
+      // Don't merge add/remove with level changes
+      const lastIsAction = !!lastChange.details?.action
+      const newIsAction = !!newChange.details?.action
+      
+      // Only merge if both are level changes (no action field) and same slot
+      if (lastIsAction || newIsAction) return false
+      
       return lastChange.details?.slotId === newChange.details?.slotId
     }
 
