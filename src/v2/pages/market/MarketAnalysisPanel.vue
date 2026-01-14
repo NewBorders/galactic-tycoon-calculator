@@ -273,8 +273,8 @@ const lastUpdatedLabel = computed(() => {
           <button
             @click="refresh"
             :disabled="loading"
-            class="px-4 py-2 text-white rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
-            :class="hasApiError ? 'bg-red-700 hover:bg-red-600' : 'bg-purple-600 hover:bg-purple-700'"
+            class="px-3 py-1 text-sm rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+            :class="hasApiError ? 'bg-red-700 hover:bg-red-600' : 'bg-blue-700 hover:bg-blue-600'"
           >
             <span>{{ loading ? '⏳' : '🔄' }}</span>
             <span>{{ translate('marketAnalysisRefresh') }}</span>
@@ -287,11 +287,6 @@ const lastUpdatedLabel = computed(() => {
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Error/Warning Message -->
-    <div v-if="error" :class="filteredOpportunities.length > 0 ? 'bg-yellow-900/50 border-yellow-700 text-yellow-200' : 'bg-red-900/50 border-red-700 text-red-200'" class="border rounded p-4">
-      {{ error }}
     </div>
 
     <!-- Recommendation Stats -->
