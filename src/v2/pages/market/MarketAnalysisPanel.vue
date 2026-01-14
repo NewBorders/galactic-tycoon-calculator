@@ -337,27 +337,27 @@ const lastUpdatedLabel = computed(() => {
         <div v-if="materialSearch" class="mt-2 text-xs text-gray-400">
           Showing {{ sortedOpportunities.length }} of {{ filteredOpportunities.length }} materials
         </div>
-      </div>
 
-      <!-- Tier Filter (directly below search) -->
-      <div class="bg-gray-800 rounded p-4">
-        <label class="block text-sm font-medium text-gray-300 mb-2">
-          ⭐ {{ translate('tierFilter') }}
-        </label>
-        <div class="flex flex-col gap-2">
-          <label
-            v-for="tier in [1, 2, 3, 4]"
-            :key="tier"
-            class="flex items-center gap-2 cursor-pointer"
-          >
-            <input
-              type="checkbox"
-              :checked="tierFilter.has(tier)"
-              @change="toggleTier(tier)"
-              class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
-            />
-            <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
+        <!-- Tier Filter (directly below search, inline) -->
+        <div class="mt-4 pt-4 border-t border-gray-700">
+          <label class="block text-sm font-medium text-gray-300 mb-3">
+            ⭐ {{ translate('tierFilter') }}
           </label>
+          <div class="flex flex-wrap gap-4">
+            <label
+              v-for="tier in [1, 2, 3, 4]"
+              :key="tier"
+              class="flex items-center gap-2 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                :checked="tierFilter.has(tier)"
+                @change="toggleTier(tier)"
+                class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+              />
+              <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
+            </label>
+          </div>
         </div>
       </div>
     </div>
