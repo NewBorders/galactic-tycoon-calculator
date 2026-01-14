@@ -649,6 +649,14 @@ async function refreshGameData() {
               if (patch.level != null) {
                 const building = base.buildings.find((b: typeof base.buildings[0]) => b.id === id)
                 const buildingData = props.gameData.buildings.find(b => b.id === building?.buildingId)
+                console.log('[PlayerConfigPanel] @updateBuilding:', {
+                  buildingId: id,
+                  patch,
+                  building: building ? { id: building.id, buildingId: building.buildingId, level: building.level } : null,
+                  buildingData: buildingData?.name,
+                  baseBuildingsCount: base.buildings.length,
+                  slotNum: building ? base.buildings.indexOf(building) + 1 : '?'
+                })
                 if (building && buildingData) {
                   const slotNum = base.buildings.indexOf(building) + 1
                   const changeTracker = getChangeTracker()
