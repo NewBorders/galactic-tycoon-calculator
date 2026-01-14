@@ -8,12 +8,26 @@ import {
   usePlayerTechnology,
 } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
-import { refreshEntry } from '@/v2/services/syncService'
+import { refreshEntry, getSyncEntries } from '@/v2/services/syncService'
 
 const { state, setLevel, setStartingBonus } = usePlayerTechnology()
 const { current } = useWorldData()
 
 const isRefreshing = ref(false)
+const syncEntries = getSyncEntries()
+
+// Get company sync entry to check for errors
+const companyEntry = computed(() => {
+  return syncEntries.value.find(e => e.id === 'company')
+})
+
+const hasError = computed(() => {
+  return companyEntry.value?.error != null
+})
+
+const errorMessage = computed(() => {
+  return companyEntry.value?.error || null
+})
 
 // Last fetched timestamp for company data (technology levels)
 const lastFetched = computed(() => {
@@ -97,15 +111,21 @@ const startingBonusDisplay = computed(() => {
 <template>
   <div class="space-y-6 text-slate-100">
     <!-- Company Data Last Updated -->
-    <div class="rounded border border-slate-700 bg-slate-900 p-4">
-      <div class="flex items-center justify-between">
-        <div class="text-sm text-slate-400">
-          {{ translate('companyDataLastUpdated') }}: <span class="text-slate-300">{{ formattedLastFetched }}</span>
+    <div class="rounded border bg-slate-900 p-4" :class="hasError ? 'border-red-700' : 'border-slate-700'">
+      <div class="flex items-center justify-between gap-4">
+        <div class="text-sm flex-1">
+          <div class="text-slate-400">
+            {{ translate('companyDataLastUpdated') }}: <span class="text-slate-300">{{ formattedLastFetched }}</span>
+          </div>
+          <div v-if="hasError && errorMessage" class="text-red-400 mt-1 text-xs">
+            ❌ {{ errorMessage }}
+          </div>
         </div>
         <button
           @click="handleRefreshCompanyData"
           :disabled="isRefreshing"
-          class="px-3 py-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm flex items-center gap-2"
+          class="px-3 py-1 rounded text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          :class="hasError ? 'bg-red-700 hover:bg-red-600' : 'bg-blue-700 hover:bg-blue-600'"
         >
           <span>{{ isRefreshing ? '⏳' : '🔄' }}</span>
           <span>{{ translate('refresh') }}</span>
