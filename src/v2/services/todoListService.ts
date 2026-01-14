@@ -333,9 +333,14 @@ function createTodoList() {
     const fromGroups = todoHistory.value[currentTodoIndex.value] || []
     const toGroups = todoHistory.value[currentTodoIndex.value - 1] || []
     
+    console.log('[TodoListService] Undo - fromGroups:', fromGroups.length, 'toGroups:', toGroups.length)
+    console.log('[TodoListService] playerBasesInstance available:', !!playerBasesInstance)
+    
     // Apply state reversions if playerBases is available
     if (playerBasesInstance) {
       applyStateReversions(fromGroups, toGroups, playerBasesInstance)
+    } else {
+      console.warn('[TodoListService] Cannot revert state: playerBases not registered')
     }
     
     currentTodoIndex.value--
@@ -350,9 +355,14 @@ function createTodoList() {
     const fromGroups = todoHistory.value[currentTodoIndex.value] || []
     const toGroups = todoHistory.value[currentTodoIndex.value + 1] || []
     
+    console.log('[TodoListService] Redo - fromGroups:', fromGroups.length, 'toGroups:', toGroups.length)
+    console.log('[TodoListService] playerBasesInstance available:', !!playerBasesInstance)
+    
     // Apply state reversions if playerBases is available
     if (playerBasesInstance) {
       applyStateReversions(fromGroups, toGroups, playerBasesInstance)
+    } else {
+      console.warn('[TodoListService] Cannot revert state: playerBases not registered')
     }
     
     currentTodoIndex.value++

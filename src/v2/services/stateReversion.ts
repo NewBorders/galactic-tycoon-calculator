@@ -24,9 +24,12 @@ export interface PlayerBasesService {
  */
 function findBaseByName(playerBases: PlayerBasesService, baseName: string): string | null {
   const base = playerBases.state.value.bases.find(b => {
-    const name = b.name || `Base ${playerBases.state.value.bases.indexOf(b) + 1}`
+    // Match the naming logic used when tracking changes
+    const name = b.name || 'Base'
     return name === baseName
   })
+  console.log('[StateReversion] findBaseByName:', baseName, '→', base?.id || 'NOT FOUND')
+  console.log('[StateReversion] Available bases:', playerBases.state.value.bases.map(b => ({ id: b.id, name: b.name || 'Base' })))
   return base?.id || null
 }
 
@@ -138,8 +141,11 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
         ? (change.details?.from as number) 
         : (change.details?.to as number)
 
+      console.log('[StateReversion] Building level change - slotId:', slotId, 'targetLevel:', targetLevel)
+      
       if (targetLevel !== undefined) {
         playerBases.setBuilding(baseId, slotId, { level: targetLevel })
+        console.log('[StateReversion] Building level set to:', targetLevel)
       }
     }
     return
@@ -222,10 +228,14 @@ export function applyStateReversions(
 ): void {
   const { changes, direction } = calculateStateDiff(fromGroups, toGroups)
 
+  console.log('[StateReversion] Direction:', direction, 'Changes to apply:', changes.length)
+  console.log('[StateReversion] Changes:', changes.map(c => ({ type: c.type, desc: c.description })))
+
   // Apply changes in reverse order for backward direction (undo)
   const orderedChanges = direction === 'backward' ? [...changes].reverse() : changes
 
   orderedChanges.forEach(change => {
+    console.log('[StateReversion] Reverting change:', change.type, change.description)
     revertChange(change, direction, playerBases)
   })
 }
