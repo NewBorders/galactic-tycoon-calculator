@@ -329,11 +329,15 @@ function createTodoList() {
   function undo(): void {
     if (!canUndo.value) return
     
+    console.log('[TodoListService] Undo called - currentIndex:', currentTodoIndex.value)
+    
     // Get the current and target states
     const fromGroups = todoHistory.value[currentTodoIndex.value] || []
     const toGroups = todoHistory.value[currentTodoIndex.value - 1] || []
     
-    console.log('[TodoListService] Undo - fromGroups:', fromGroups.length, 'toGroups:', toGroups.length)
+    console.log('[TodoListService] Undo - currentIndex:', currentTodoIndex.value, 'history.length:', todoHistory.value.length)
+    console.log('[TodoListService] fromGroups:', fromGroups.length, 'groups')
+    console.log('[TodoListService] toGroups:', toGroups.length, 'groups')
     console.log('[TodoListService] playerBasesInstance available:', !!playerBasesInstance)
     
     // Apply state reversions if playerBases is available

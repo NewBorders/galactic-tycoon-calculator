@@ -52,6 +52,9 @@ export function calculateStateDiff(
   const fromChanges = fromGroups.flatMap(g => g.steps.flatMap(s => s.changes))
   const toChanges = toGroups.flatMap(g => g.steps.flatMap(s => s.changes))
 
+  console.log('[StateReversion] fromChanges:', fromChanges.length, fromChanges.map(c => c.description))
+  console.log('[StateReversion] toChanges:', toChanges.length, toChanges.map(c => c.description))
+
   // Determine direction: are we undoing (backward) or redoing (forward)?
   const direction = toChanges.length < fromChanges.length ? 'backward' : 'forward'
 
@@ -59,6 +62,8 @@ export function calculateStateDiff(
   const changes = direction === 'backward' 
     ? fromChanges.slice(toChanges.length)  // Changes to revert
     : toChanges.slice(fromChanges.length)  // Changes to apply
+
+  console.log('[StateReversion] Direction:', direction, 'Changes to apply/revert:', changes.length)
 
   return { changes, direction }
 }
