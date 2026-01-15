@@ -1,6 +1,6 @@
 /**
- * TodoList Service - Singleton pattern with per-scope histories
- * Each base and global changes have separate undo/redo histories
+ * TodoList Service - Singleton pattern
+ * Ensures only one instance of the todo list exists across the entire app
  */
 
 import { ref, computed } from 'vue'
@@ -33,59 +33,36 @@ export interface TodoGroup {
   steps: TodoStep[]
 }
 
-// Scope key format: "global" or "base:{baseName}"
-type ScopeKey = string
-
-interface ScopeHistory {
-  history: TodoGroup[][]  // Array of states
-  currentIndex: number    // Current position in history
-}
-
 let todoListInstance: ReturnType<typeof createTodoList> | null = null
 let playerBasesInstance: PlayerBasesService | null = null
 
-const TODO_STORAGE_KEY = 'gt:v2:todoList:v2'  // New version for per-scope storage
-
-function getScopeKey(scope: ScopeType, baseName?: string): ScopeKey {
-  return scope === 'global' ? 'global' : `base:${baseName}`
-}
+const TODO_STORAGE_KEY = 'gt:v2:todoList:v1'
 
 function createTodoList() {
   // Load from localStorage
-  function loadFromStorage(): { histories: Map<ScopeKey, ScopeHistory>; isOpen: boolean } {
+  function loadFromStorage(): { history: TodoGroup[][]; currentIndex: number; isOpen: boolean } {
     try {
       const stored = localStorage.getItem(TODO_STORAGE_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
-        const historiesMap = new Map<ScopeKey, ScopeHistory>()
-        
-        if (parsed.histories && typeof parsed.histories === 'object') {
-          Object.entries(parsed.histories).forEach(([key, value]) => {
-            historiesMap.set(key, value as ScopeHistory)
-          })
-        }
-        
         return {
-          histories: historiesMap,
+          history: parsed.history || [],
+          currentIndex: parsed.currentIndex ?? -1,
           isOpen: parsed.isOpen ?? true,
         }
       }
     } catch (e) {
       console.error('[TodoListService] Failed to load from storage:', e)
     }
-    return { histories: new Map(), isOpen: true }
+    return { history: [], currentIndex: -1, isOpen: true }
   }
 
   // Save to localStorage
   function saveToStorage() {
     try {
-      const historiesObj: Record<string, ScopeHistory> = {}
-      scopeHistories.value.forEach((history, key) => {
-        historiesObj[key] = history
-      })
-      
       const data = {
-        histories: historiesObj,
+        history: todoHistory.value,
+        currentIndex: currentTodoIndex.value,
         isOpen: isOpen.value,
       }
       localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(data))
@@ -97,40 +74,18 @@ function createTodoList() {
   // Initialize from storage
   const stored = loadFromStorage()
   
-  // Per-scope histories
-  const scopeHistories = ref<Map<ScopeKey, ScopeHistory>>(stored.histories)
+  // Local state for todo list
+  const todoHistory = ref<TodoGroup[][]>(stored.history)
+  const currentTodoIndex = ref<number>(stored.currentIndex)
   const isOpen = ref(stored.isOpen)
   
   // Flag to prevent tracking during undo/redo
   let isReverting = false
 
-  // Get or create history for a scope
-  function getOrCreateScopeHistory(scopeKey: ScopeKey): ScopeHistory {
-    let history = scopeHistories.value.get(scopeKey)
-    if (!history) {
-      history = {
-        history: [[]],  // Start with one empty state
-        currentIndex: 0,
-      }
-      scopeHistories.value.set(scopeKey, history)
-    }
-    return history
-  }
-
-  // Get all current groups (from all scopes at their current indices)
+  // Current visible groups
   const todoGroups = computed(() => {
-    const allGroups: TodoGroup[] = []
-    
-    scopeHistories.value.forEach((scopeHistory) => {
-      if (scopeHistory.currentIndex >= 0 && scopeHistory.currentIndex < scopeHistory.history.length) {
-        const groupsAtIndex = scopeHistory.history[scopeHistory.currentIndex]
-        if (groupsAtIndex && Array.isArray(groupsAtIndex)) {
-          allGroups.push(...groupsAtIndex)
-        }
-      }
-    })
-    
-    return allGroups
+    if (currentTodoIndex.value < 0) return []
+    return todoHistory.value[currentTodoIndex.value] || []
   })
 
   // Flatten all steps from all groups for statistics
@@ -193,8 +148,7 @@ function createTodoList() {
       }
       
       merged.push({
-        scope: group.scope,
-        baseName: group.baseName,
+        ...group,
         steps: mergedSteps,
       })
     }
@@ -202,83 +156,18 @@ function createTodoList() {
     return merged
   })
 
-  // Get display groups for a specific scope
-  function getDisplayGroupsForScope(scope: ScopeType, baseName?: string): TodoGroup[] {
-    const scopeKey = getScopeKey(scope, baseName)
-    return displayGroups.value.filter(g => getScopeKey(g.scope, g.baseName) === scopeKey)
-  }
+  // Get total change count
+  const totalChanges = computed(() => {
+    return allSteps.value.reduce((sum, step) => sum + step.changes.length, 0)
+  })
 
-  // Check if undo is available for a scope
-  function canUndoForScope(scope: ScopeType, baseName?: string): boolean {
-    const scopeKey = getScopeKey(scope, baseName)
-    const history = scopeHistories.value.get(scopeKey)
-    return history ? history.currentIndex > 0 : false
-  }
+  // Can undo?
+  const canUndo = computed(() => currentTodoIndex.value > 0)
 
-  // Check if redo is available for a scope
-  function canRedoForScope(scope: ScopeType, baseName?: string): boolean {
-    const scopeKey = getScopeKey(scope, baseName)
-    const history = scopeHistories.value.get(scopeKey)
-    return history ? history.currentIndex < history.history.length - 1 : false
-  }
+  // Can redo?
+  const canRedo = computed(() => currentTodoIndex.value < todoHistory.value.length - 1)
 
-  // Total number of changes
-  const totalChanges = computed(() => allSteps.value.length)
-
-  // Check if two changes are similar enough to merge
-  function canMergeWithChange(lastChange: Change, newChange: Change): boolean {
-    // Must be same type and same scope
-    if (lastChange.baseName !== newChange.baseName) return false
-
-    // Building changes - only merge if both are LEVEL changes (not add/remove)
-    if (lastChange.type === 'building' && newChange.type === 'building') {
-      // Don't merge add/remove with level changes
-      const lastIsAction = !!lastChange.details?.action
-      const newIsAction = !!newChange.details?.action
-      
-      if (lastIsAction || newIsAction) return false
-
-      // Check if same building slot
-      const lastSlotId = lastChange.details?.slotId as string
-      const newSlotId = newChange.details?.slotId as string
-      return lastSlotId === newSlotId
-    }
-
-    // Recipe changes - only merge count changes, not add/remove
-    if (lastChange.type === 'recipe' && newChange.type === 'recipe') {
-      const lastIsAction = !!lastChange.details?.action
-      const newIsAction = !!newChange.details?.action
-      
-      if (lastIsAction || newIsAction) return false
-
-      // Check if same recipe instance
-      const lastRecipeId = lastChange.details?.recipeInstanceId as string
-      const newRecipeId = newChange.details?.recipeInstanceId as string
-      return lastRecipeId === newRecipeId
-    }
-
-    // Technology - merge changes to same tech
-    if (lastChange.type === 'technology' && newChange.type === 'technology') {
-      const lastTechId = lastChange.details?.techId as number
-      const newTechId = newChange.details?.techId as number
-      return lastTechId === newTechId
-    }
-
-    // Starting bonus - always merge
-    if (lastChange.type === 'starting-bonus' && newChange.type === 'starting-bonus') {
-      return true
-    }
-
-    // Stock - merge changes to same material
-    if (lastChange.type === 'stock' && newChange.type === 'stock') {
-      const lastMaterialId = lastChange.details?.materialId as number
-      const newMaterialId = newChange.details?.materialId as number
-      return lastMaterialId === newMaterialId
-    }
-
-    return false
-  }
-
+  // Check if two changes cancel each other out (add then remove)
   function doCancelsOut(change1: Change, change2: Change): boolean {
     // Check if both changes affect the same target
     if (change1.details?.targetId !== change2.details?.targetId) {
@@ -298,7 +187,7 @@ function createTodoList() {
              && recipeName1 === recipeName2
     }
 
-    // Building changes
+    // Building added then removed (must be same slot)
     if (change1.type === 'building' && change2.type === 'building') {
       const action1 = change1.details?.action as string
       const action2 = change2.details?.action as string
@@ -354,30 +243,74 @@ function createTodoList() {
     return false
   }
 
-  // Add a change to the appropriate scope's history
-  function addChange(change: Omit<Change, 'timestamp'>): void {
-    if (isReverting) {
-      console.log('[TodoListService] Skipping change during undo/redo reversion')
-      return
+  // Check if two changes are similar enough to merge
+  // Merge if they affect the same object (same building SLOT, same technology, etc)
+  function canMergeWithChange(lastChange: Change, newChange: Change): boolean {
+    // Must be same type and same scope
+    if (lastChange.baseName !== newChange.baseName) return false
+
+    // Building changes - only merge if both are LEVEL changes (not add/remove)
+    if (lastChange.type === 'building' && newChange.type === 'building') {
+      // Don't merge add/remove with level changes
+      const lastIsAction = !!lastChange.details?.action
+      const newIsAction = !!newChange.details?.action
+      
+      // Only merge if both are level changes (no action field) and same slot
+      if (lastIsAction || newIsAction) return false
+      
+      return lastChange.details?.slotId === newChange.details?.slotId
+    }
+
+    // Technology level changes - merge if same technology
+    if (lastChange.type === 'technology' && newChange.type === 'technology') {
+      return lastChange.details?.technologyId === newChange.details?.technologyId
+    }
+
+    // Stock changes - merge if same material
+    if (lastChange.type === 'stock' && newChange.type === 'stock') {
+      return lastChange.details?.material === newChange.details?.material
+    }
+
+    // Recipe count changes - merge if same recipe
+    if (lastChange.type === 'recipe' && newChange.type === 'recipe') {
+      // Only merge if both are count changes (not add/remove)
+      return (
+        !lastChange.details?.action &&
+        !newChange.details?.action &&
+        lastChange.details?.recipeName === newChange.details?.recipeName
+      )
+    }
+
+    return false
+  }
+
+  // Add a change to the todo list (organized by scope)
+  function addChange(change: Change): void {
+        // Don't track changes during undo/redo
+        if (isReverting) {
+          console.log('[TodoListService] Skipping change tracking during revert:', change.description)
+          return
+        }
+    
+    // Initialize if empty
+    if (todoHistory.value.length === 0) {
+      todoHistory.value.push([])
+      currentTodoIndex.value = 0
+    }
+
+    // Remove redo stack when new change is made
+    if (currentTodoIndex.value < todoHistory.value.length - 1) {
+      todoHistory.value = todoHistory.value.slice(0, currentTodoIndex.value + 1)
     }
 
     // Determine scope based on change type
     const scope: ScopeType = change.type === 'technology' || change.type === 'starting-bonus' || change.type === 'base' ? 'global' : 'base'
     const baseName = change.baseName
-    const scopeKey = getScopeKey(scope, baseName)
-
-    // Get or create scope history
-    const scopeHistory = getOrCreateScopeHistory(scopeKey)
-
-    // Remove redo stack when new change is made
-    if (scopeHistory.currentIndex < scopeHistory.history.length - 1) {
-      scopeHistory.history = scopeHistory.history.slice(0, scopeHistory.currentIndex + 1)
-    }
 
     // Work on a COPY to avoid modifying history in-place
-    const currentState = scopeHistory.history[scopeHistory.currentIndex]
+    const currentState = todoHistory.value[currentTodoIndex.value]
     if (!currentState) {
-      console.error('[TodoListService] Invalid state: currentIndex', scopeHistory.currentIndex, 'history length', scopeHistory.history.length)
+      console.error('[TodoListService] Invalid state: currentTodoIndex', currentTodoIndex.value, 'history length', todoHistory.value.length)
       return
     }
     const currentGroups = JSON.parse(JSON.stringify(currentState)) as TodoGroup[]
@@ -398,7 +331,7 @@ function createTodoList() {
 
     // Check if this change cancels out the last history entry
     // Look at the CURRENT state (already has the previous change)
-    const stateForCancelCheck = scopeHistory.history[scopeHistory.currentIndex]
+    const stateForCancelCheck = todoHistory.value[currentTodoIndex.value]
     if (stateForCancelCheck) {
       const groupForCancelCheck = stateForCancelCheck.find(g => g.scope === scope && g.baseName === baseName)
       
@@ -422,13 +355,13 @@ function createTodoList() {
             }
             
             // Remove the last history entry (go back one step)
-            if (scopeHistory.currentIndex > 0) {
-              scopeHistory.currentIndex--
-              scopeHistory.history = scopeHistory.history.slice(0, scopeHistory.currentIndex + 1)
+            if (currentTodoIndex.value > 0) {
+              currentTodoIndex.value--
+              todoHistory.value = todoHistory.value.slice(0, currentTodoIndex.value + 1)
             } else {
               // If we're at index 0, just clear the history
-              scopeHistory.history = [[]]
-              scopeHistory.currentIndex = 0
+              todoHistory.value = [[]]
+              currentTodoIndex.value = 0
             }
             saveToStorage()
             return
@@ -437,69 +370,66 @@ function createTodoList() {
       }
     }
 
-    // Try to merge with last step if possible
-    const lastStep = targetGroup.steps[targetGroup.steps.length - 1]
-    
-    if (lastStep && lastStep.changes.length === 1) {
-      const lastChange = lastStep.changes[0]
-      if (lastChange && canMergeWithChange(lastChange, changeWithTime)) {
-        // Update the existing step with new values
-        const from = lastChange.details?.from
-        const to = changeWithTime.details?.to
-        
-        if (from !== undefined && to !== undefined) {
-          // Update description
-          let newDescription = change.description
-          if (change.type === 'building' || change.type === 'technology' || change.type === 'stock') {
-            newDescription = change.description.replace(/\d+ → \d+/, `${from} → ${to}`)
-          }
-          
-          lastStep.changes = [{
-            ...changeWithTime,
-            description: newDescription,
-            details: {
-              ...changeWithTime.details,
-              from: from,  // Keep original from value
-            },
-          }]
-          lastStep.description = newDescription
-          
-          // Add the modified copy as new history state
-          scopeHistory.history.push(currentGroups)
-          scopeHistory.currentIndex++
-          saveToStorage()
-          return
-        }
-      }
-    }
-
-    // Create new step if not merged
+    // Always add as new step (no history merging)
+    // Merging happens only in displayGroups computed property
     const newStep: TodoStep = {
-      id: crypto?.randomUUID?.() ?? `step_${Date.now()}`,
+      id: `step-${now}-${Math.random()}`,
       changes: [changeWithTime],
-      description: change.description,
+      description: generateStepDescription([changeWithTime]),
       createdAt: now,
     }
     targetGroup.steps.push(newStep)
 
     // Add the modified copy as new history state
-    scopeHistory.history.push(currentGroups)
-    scopeHistory.currentIndex++
+    todoHistory.value.push(currentGroups)
+    currentTodoIndex.value++
+
     saveToStorage()
   }
 
-  // Undo for a specific scope
-  function undoForScope(scope: ScopeType, baseName?: string): void {
-    const scopeKey = getScopeKey(scope, baseName)
-    const scopeHistory = scopeHistories.value.get(scopeKey)
-    
-    if (!scopeHistory || scopeHistory.currentIndex <= 0) return
+  // Generate description for a step
+  function generateStepDescription(changes: Change[]): string {
+    if (changes.length === 0) return 'Changes'
+    if (changes.length === 1) {
+      const change = changes[0]
+      return change?.description || 'Change'
+    }
+
+    const grouped: Record<ChangeType, number> = {
+      technology: 0,
+      building: 0,
+      recipe: 0,
+      stock: 0,
+      base: 0,
+      'starting-bonus': 0,
+    }
+
+    changes.forEach(c => {
+      grouped[c.type]++
+    })
+
+    const parts: string[] = []
+    if (grouped.technology > 0) parts.push(`${grouped.technology} tech`)
+    if (grouped.building > 0) parts.push(`${grouped.building} building(s)`)
+    if (grouped.recipe > 0) parts.push(`${grouped.recipe} recipe(s)`)
+    if (grouped.stock > 0) parts.push(`${grouped.stock} stock`)
+
+    return parts.join(', ') || 'Changes'
+  }
+
+  // Undo
+  function undo(): void {
+    if (!canUndo.value) return
+
+    console.log('[TodoListService] Undo called - currentIndex:', currentTodoIndex.value)
 
     // Get the current and target states
-    const fromGroups = scopeHistory.history[scopeHistory.currentIndex] || []
-    const toGroups = scopeHistory.history[scopeHistory.currentIndex - 1] || []
+    const fromGroups = todoHistory.value[currentTodoIndex.value] || []
+    const toGroups = todoHistory.value[currentTodoIndex.value - 1] || []
 
-    console.log('[TodoListService] Undo - fromGroups:', fromGroups.length, 'toGroups:', toGroups.length)
+    console.log('[TodoListService] Undo - currentIndex:', currentTodoIndex.value, 'history.length:', todoHistory.value.length)
+    console.log('[TodoListService] fromGroups:', fromGroups.length, 'groups')
+    console.log('[TodoListService] toGroups:', toGroups.length, 'groups')
     console.log('[TodoListService] playerBasesInstance available:', !!playerBasesInstance)
 
     isReverting = true
@@ -511,23 +441,24 @@ function createTodoList() {
         console.warn('[TodoListService] Cannot revert state: playerBases not registered')
       }
 
-      scopeHistory.currentIndex--
+      currentTodoIndex.value--
+
+      console.log('[TodoListService] After undo - new currentIndex:', currentTodoIndex.value)
+      console.log('[TodoListService] New todoGroups:', todoGroups.value.length, 'groups')
+      console.log('[TodoListService] New todoGroups steps:', todoGroups.value.flatMap(g => g.steps).length, 'steps')
     } finally {
       isReverting = false
       saveToStorage()
     }
   }
 
-  // Redo for a specific scope
-  function redoForScope(scope: ScopeType, baseName?: string): void {
-    const scopeKey = getScopeKey(scope, baseName)
-    const scopeHistory = scopeHistories.value.get(scopeKey)
-    
-    if (!scopeHistory || scopeHistory.currentIndex >= scopeHistory.history.length - 1) return
+  // Redo
+  function redo(): void {
+    if (!canRedo.value) return
 
     // Get the current and target states
-    const fromGroups = scopeHistory.history[scopeHistory.currentIndex] || []
-    const toGroups = scopeHistory.history[scopeHistory.currentIndex + 1] || []
+    const fromGroups = todoHistory.value[currentTodoIndex.value] || []
+    const toGroups = todoHistory.value[currentTodoIndex.value + 1] || []
 
     console.log('[TodoListService] Redo - fromGroups:', fromGroups.length, 'toGroups:', toGroups.length)
     console.log('[TodoListService] playerBasesInstance available:', !!playerBasesInstance)
@@ -541,30 +472,22 @@ function createTodoList() {
         console.warn('[TodoListService] Cannot revert state: playerBases not registered')
       }
 
-      scopeHistory.currentIndex++
+      currentTodoIndex.value++
     } finally {
       isReverting = false
       saveToStorage()
     }
   }
 
-  // Clear all histories
+  // Clear all
   function clear(): void {
-    scopeHistories.value.clear()
+    todoHistory.value = [[]]
+    currentTodoIndex.value = 0
     saveToStorage()
   }
-
-  // Clear history for a specific scope
-  function clearForScope(scope: ScopeType, baseName?: string): void {
-    const scopeKey = getScopeKey(scope, baseName)
-    scopeHistories.value.delete(scopeKey)
-    saveToStorage()
-  }
-
   // Toggle panel
   function togglePanel(): void {
     isOpen.value = !isOpen.value
-    saveToStorage()
   }
 
   return {
@@ -573,17 +496,15 @@ function createTodoList() {
     displayGroups,
     allSteps,
     totalChanges,
+    canUndo,
+    canRedo,
     isOpen,
 
     // Methods
     addChange,
-    undoForScope,
-    redoForScope,
-    canUndoForScope,
-    canRedoForScope,
-    getDisplayGroupsForScope,
+    undo,
+    redo,
     clear,
-    clearForScope,
     togglePanel,
   }
 }

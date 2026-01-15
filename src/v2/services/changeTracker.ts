@@ -47,7 +47,6 @@ export function createChangeTracker() {
           from: fromLevel,
           to: toLevel,
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -75,7 +74,6 @@ export function createChangeTracker() {
           from: fromBonus.toFixed(2),
           to: toBonus.toFixed(2),
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -93,7 +91,6 @@ export function createChangeTracker() {
           changeId,
           action: 'add',
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -110,7 +107,6 @@ export function createChangeTracker() {
           changeId,
           action: 'remove',
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -156,7 +152,6 @@ export function createChangeTracker() {
           from: fromLevel,
           to: toLevel,
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -190,7 +185,6 @@ export function createChangeTracker() {
           buildingName,
           buildingId: buildingId?.toString(),
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -225,7 +219,6 @@ export function createChangeTracker() {
           buildingId: buildingId?.toString(),
           instanceId,
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -256,7 +249,6 @@ export function createChangeTracker() {
           recipeId: recipeId.toString(),
           recipeName,
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -290,7 +282,6 @@ export function createChangeTracker() {
           recipeName,
           instanceId,
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -330,7 +321,6 @@ export function createChangeTracker() {
           from: fromCount,
           to: toCount,
         },
-        timestamp: Date.now(),
       })
     },
 
@@ -370,7 +360,6 @@ export function createChangeTracker() {
           from: fromQty,
           to: toQty,
         },
-        timestamp: Date.now(),
       })
     },
 

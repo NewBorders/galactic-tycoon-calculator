@@ -22,29 +22,9 @@
           📋 Production Plan
         </h2>
         <div class="flex items-center gap-1">
-          <!-- Undo Button -->
+          <!-- Clear All Button -->
           <button
-            @click="undo"
-            :disabled="!canUndo"
-            class="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            title="Undo last change (Ctrl+Z)"
-          >
-            <span class="text-lg">↶</span>
-          </button>
-
-          <!-- Redo Button -->
-          <button
-            @click="redo"
-            :disabled="!canRedo"
-            class="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            title="Redo last change (Ctrl+Shift+Z)"
-          >
-            <span class="text-lg">↷</span>
-          </button>
-
-          <!-- Clear Button -->
-          <button
-            @click="handleClear"
+            @click="handleClearAll"
             :disabled="allSteps.length === 0"
             class="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
             title="Clear all steps"
@@ -63,12 +43,46 @@
         </div>
 
         <div v-else class="space-y-3 p-4">
-          <!-- Global Group -->
+          <!-- Groups by scope -->
           <div v-for="group in displayGroups" :key="group.baseName || 'global'" class="space-y-2">
-            <!-- Group Header -->
-            <div v-if="group.steps.length > 0" class="text-xs font-semibold uppercase text-purple-400 px-1">
-              <span v-if="group.scope === 'global'">🌍 Global Changes</span>
-              <span v-else>🏗️ {{ group.baseName }}</span>
+            <!-- Group Header with Undo/Redo buttons -->
+            <div v-if="group.steps.length > 0" class="flex items-center justify-between gap-2 px-1">
+              <div class="text-xs font-semibold uppercase text-purple-400">
+                <span v-if="group.scope === 'global'">🌍 Global Changes</span>
+                <span v-else>🏗️ {{ group.baseName }}</span>
+              </div>
+              
+              <!-- Per-scope Undo/Redo/Clear buttons -->
+              <div class="flex items-center gap-1">
+                <!-- Undo -->
+                <button
+                  @click="handleUndo(group)"
+                  :disabled="!canUndoForGroup(group)"
+                  class="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs"
+                  :title="`Undo in ${group.scope === 'global' ? 'Global' : group.baseName}`"
+                >
+                  <span class="text-base">↶</span>
+                </button>
+
+                <!-- Redo -->
+                <button
+                  @click="handleRedo(group)"
+                  :disabled="!canRedoForGroup(group)"
+                  class="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs"
+                  :title="`Redo in ${group.scope === 'global' ? 'Global' : group.baseName}`"
+                >
+                  <span class="text-base">↷</span>
+                </button>
+
+                <!-- Clear scope -->
+                <button
+                  @click="handleClearScope(group)"
+                  class="p-1 rounded hover:bg-gray-700 transition text-xs"
+                  :title="`Clear ${group.scope === 'global' ? 'Global' : group.baseName}`"
+                >
+                  <span class="text-base">✕</span>
+                </button>
+              </div>
             </div>
 
             <!-- Steps in Group -->
@@ -106,7 +120,18 @@
 <script setup lang="ts">
 import { useTodoList, type TodoGroup, type TodoStep } from '@/v2/services/todoListService'
 
-const { displayGroups, allSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()
+const { 
+  displayGroups, 
+  allSteps, 
+  isOpen, 
+  canUndoForScope, 
+  canRedoForScope, 
+  undoForScope, 
+  redoForScope, 
+  clear, 
+  clearForScope,
+  togglePanel 
+} = useTodoList()
 
 // Get global step number
 function getStepNumber(group: TodoGroup, stepIndex: number): string {
@@ -114,10 +139,38 @@ function getStepNumber(group: TodoGroup, stepIndex: number): string {
   return `${globalIndex + 1}`
 }
 
-// Handle clear
-function handleClear(): void {
+// Check if can undo for a group
+function canUndoForGroup(group: TodoGroup): boolean {
+  return canUndoForScope(group.scope, group.baseName)
+}
+
+// Check if can redo for a group
+function canRedoForGroup(group: TodoGroup): boolean {
+  return canRedoForScope(group.scope, group.baseName)
+}
+
+// Handle undo for a group
+function handleUndo(group: TodoGroup): void {
+  undoForScope(group.scope, group.baseName)
+}
+
+// Handle redo for a group
+function handleRedo(group: TodoGroup): void {
+  redoForScope(group.scope, group.baseName)
+}
+
+// Handle clear all
+function handleClearAll(): void {
   if (confirm('Are you sure you want to clear all planned changes?')) {
     clear()
+  }
+}
+
+// Handle clear scope
+function handleClearScope(group: TodoGroup): void {
+  const scopeName = group.scope === 'global' ? 'Global changes' : `${group.baseName}`
+  if (confirm(`Clear all changes in ${scopeName}?`)) {
+    clearForScope(group.scope, group.baseName)
   }
 }
 
