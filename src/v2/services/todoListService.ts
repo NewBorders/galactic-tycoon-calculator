@@ -6,7 +6,7 @@
 import { ref, computed } from 'vue'
 import type { PlayerBasesService } from './stateReversion'
 import { applyStateReversions } from './stateReversion'
-import { getChange, registerChange, unregisterChange } from './changeStorage'
+import { unregisterChange } from './changeStorage'
 
 export type ChangeType = 'technology' | 'building' | 'recipe' | 'stock' | 'base' | 'starting-bonus'
 export type ScopeType = 'global' | 'base'
@@ -93,6 +93,62 @@ function createTodoList() {
     return todoGroups.value.flatMap(group => group.steps)
   })
 
+  // Display groups - merge consecutive similar changes for cleaner UI
+  const displayGroups = computed(() => {
+    const merged: TodoGroup[] = []
+    
+    for (const group of todoGroups.value) {
+      const mergedSteps: TodoStep[] = []
+      
+      for (const step of group.steps) {
+        const lastMerged = mergedSteps[mergedSteps.length - 1]
+        
+        if (lastMerged && step.changes.length === 1 && lastMerged.changes.length === 1) {
+          const lastChange = lastMerged.changes[0]
+          const currentChange = step.changes[0]
+          
+          // Try to merge if same type and target
+          if (lastChange && currentChange && canMergeWithChange(lastChange, currentChange)) {
+            const from = lastChange.details?.from
+            const to = currentChange.details?.to
+            
+            if (from !== undefined && to !== undefined) {
+              // Update the last merged step with new "to" value
+              let newDescription = lastChange.description
+              if (currentChange.type === 'building' || currentChange.type === 'technology' || currentChange.type === 'stock') {
+                newDescription = lastChange.description.replace(
+                  /(\d+) → \d+/,
+                  `${from} → ${to}`
+                )
+              }
+              
+              lastMerged.changes = [{
+                ...lastChange,
+                description: newDescription,
+                details: {
+                  ...lastChange.details,
+                  to: to,
+                },
+              }]
+              lastMerged.description = newDescription
+              continue
+            }
+          }
+        }
+        
+        // Not mergeable, add as new step
+        mergedSteps.push({ ...step })
+      }
+      
+      merged.push({
+        ...group,
+        steps: mergedSteps,
+      })
+    }
+    
+    return merged
+  })
+
   // Get total change count
   const totalChanges = computed(() => {
     return allSteps.value.reduce((sum, step) => sum + step.changes.length, 0)
@@ -174,16 +230,6 @@ function createTodoList() {
     return false
   }
 
-  // Merge similar changes into existing step
-  function shouldMergeWithLastStep(lastStep: TodoStep | undefined, newChange: Change): boolean {
-    if (!lastStep || lastStep.changes.length === 0) return false
-
-    const lastChange = lastStep.changes[lastStep.changes.length - 1]
-    if (!lastChange) return false
-
-    return canMergeWithChange(lastChange, newChange)
-  }
-
   // Add a change to the todo list (organized by scope)
   function addChange(change: Change): void {
         // Don't track changes during undo/redo
@@ -235,6 +281,10 @@ function createTodoList() {
       const lastChange = lastStep.changes[0]
       if (lastChange && doCancelsOut(lastChange, changeWithTime)) {
         // Remove the last step (it cancels out)
+        const changeId = lastChange.details?.changeId as string | undefined
+        if (changeId) {
+          unregisterChange(changeId)
+        }
         targetGroup.steps.pop()
         // Add the modified copy as new history state
         todoHistory.value.push(currentGroups)
@@ -244,80 +294,15 @@ function createTodoList() {
       }
     }
 
-    // Try to merge with last step
-    if (shouldMergeWithLastStep(lastStep, changeWithTime)) {
-      if (!lastStep) return
-      const newChanges = [...lastStep.changes]
-      const lastChangeInStep = newChanges[newChanges.length - 1]
-
-      if (lastChangeInStep) {
-        // For any numeric change, update the "to" value while keeping the "from" value
-        const from = lastChangeInStep.details?.from ?? lastChangeInStep.details?.from
-        const to = changeWithTime.details?.to
-
-        if (from !== undefined && to !== undefined) {
-          // Check if changes cancel out (from == to)
-          if (from === to) {
-            console.log('[TodoListService] Changes cancel out (from == to), removing step')
-            // Remove the last step (they cancel out)
-            const changeId = lastChangeInStep.details?.changeId as string | undefined
-            if (changeId) {
-              unregisterChange(changeId)
-            }
-            targetGroup.steps.pop()
-            // Add the modified copy as new history state
-            todoHistory.value.push(currentGroups)
-            currentTodoIndex.value++
-            saveToStorage()
-            return
-          }
-
-          // Generate new description showing from → to
-          let newDescription = lastChangeInStep.description
-          
-          // Pattern: "something: Value X → Y" or "something: Level X → Y"
-          if (changeWithTime.type === 'building' || changeWithTime.type === 'technology' || changeWithTime.type === 'stock') {
-            newDescription = lastChangeInStep.description.replace(
-              /(\d+) → \d+/,
-              `${from} → ${to}`
-            )
-          }
-
-          newChanges[newChanges.length - 1] = {
-            ...lastChangeInStep,
-            description: newDescription,
-            details: {
-              ...lastChangeInStep.details,
-              to: to,
-            },
-          }
-
-          // Keep stored change metadata in sync so undo/redo uses the merged "to" value
-          const changeId = lastChangeInStep.details?.changeId as string | undefined
-          if (changeId) {
-            const stored = getChange(changeId)
-            if (stored) {
-              registerChange(changeId, {
-                ...stored,
-                newValue: typeof to === 'number' ? to : stored.newValue,
-                // Keep originalValue as the earliest "from"
-              })
-            }
-          }
-        }
-      }
-
-      lastStep.changes = newChanges
-      lastStep.description = generateStepDescription(newChanges)
-    } else {
-      const newStep: TodoStep = {
-        id: `step-${now}-${Math.random()}`,
-        changes: [changeWithTime],
-        description: generateStepDescription([changeWithTime]),
-        createdAt: now,
-      }
-      targetGroup.steps.push(newStep)
+    // Always add as new step (no history merging)
+    // Merging happens only in displayGroups computed property
+    const newStep: TodoStep = {
+      id: `step-${now}-${Math.random()}`,
+      changes: [changeWithTime],
+      description: generateStepDescription([changeWithTime]),
+      createdAt: now,
     }
+    targetGroup.steps.push(newStep)
 
     // Add the modified copy as new history state
     todoHistory.value.push(currentGroups)
@@ -432,6 +417,7 @@ function createTodoList() {
   return {
     // State
     todoGroups,
+    displayGroups,
     allSteps,
     totalChanges,
     canUndo,

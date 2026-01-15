@@ -64,7 +64,7 @@
 
         <div v-else class="space-y-3 p-4">
           <!-- Global Group -->
-          <div v-for="group in todoGroups" :key="group.baseName || 'global'" class="space-y-2">
+          <div v-for="group in displayGroups" :key="group.baseName || 'global'" class="space-y-2">
             <!-- Group Header -->
             <div v-if="group.steps.length > 0" class="text-xs font-semibold uppercase text-purple-400 px-1">
               <span v-if="group.scope === 'global'">🌍 Global Changes</span>
@@ -96,7 +96,7 @@
       <div v-if="allSteps.length > 0" class="border-t border-gray-700 p-3 text-xs text-gray-400 flex-shrink-0">
         <div class="flex justify-between">
           <span>{{ allSteps.length }} change(s)</span>
-          <span v-if="todoGroups.length > 0">{{ todoGroups.length }} scope(s)</span>
+          <span v-if="displayGroups.length > 0">{{ displayGroups.length }} scope(s)</span>
         </div>
       </div>
     </div>
@@ -106,7 +106,7 @@
 <script setup lang="ts">
 import { useTodoList, type TodoGroup, type TodoStep } from '@/v2/services/todoListService'
 
-const { todoGroups, allSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()
+const { displayGroups, allSteps, isOpen, canUndo, canRedo, undo, redo, clear, togglePanel } = useTodoList()
 
 // Get global step number
 function getStepNumber(group: TodoGroup, stepIndex: number): string {
