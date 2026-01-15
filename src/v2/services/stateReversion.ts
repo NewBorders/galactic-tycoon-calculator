@@ -57,13 +57,44 @@ export function calculateStateDiff(
   console.log('[StateReversion] fromChanges:', fromChanges.length, fromChanges.map(c => c.description))
   console.log('[StateReversion] toChanges:', toChanges.length, toChanges.map(c => c.description))
 
-  // Determine direction: are we undoing (backward) or redoing (forward)?
-  const direction = toChanges.length < fromChanges.length ? 'backward' : 'forward'
+  // Determine direction primarily by change counts
+  let direction: 'forward' | 'backward'
+  let changes: Change[] = []
 
-  // Changes that need to be reverted/applied
-  const changes = direction === 'backward' 
-    ? fromChanges.slice(toChanges.length)  // Changes to revert
-    : toChanges.slice(fromChanges.length)  // Changes to apply
+  if (toChanges.length !== fromChanges.length) {
+    direction = toChanges.length < fromChanges.length ? 'backward' : 'forward'
+    changes = direction === 'backward' 
+      ? fromChanges.slice(toChanges.length)  // Changes to revert
+      : toChanges.slice(fromChanges.length)  // Changes to apply
+  } else {
+    // Same number of changes – detect content differences (e.g., merged step with different values)
+    // Compare last change first (most recent)
+    const lastFrom = fromChanges[fromChanges.length - 1]
+    const lastTo = toChanges[toChanges.length - 1]
+
+    // Decide direction by timestamp if available
+    if (lastFrom && lastTo) {
+      direction = (lastFrom.timestamp || 0) > (lastTo.timestamp || 0) ? 'backward' : 'forward'
+
+      // If target differs (by id or values), include appropriate change
+      const sameTarget = lastFrom.details?.targetId === lastTo.details?.targetId
+      const sameType = lastFrom.type === lastTo.type
+      const sameBase = lastFrom.baseName === lastTo.baseName
+      const valueDiff = lastFrom.details?.to !== lastTo.details?.to || lastFrom.details?.from !== lastTo.details?.from
+
+      if (sameTarget && sameType && sameBase && valueDiff) {
+        // For backward, revert the 'from' change; for forward, apply the 'to' change
+        changes = direction === 'backward' ? [lastFrom] : [lastTo]
+      } else {
+        // No differences detected; nothing to apply
+        changes = []
+      }
+    } else {
+      // Fallback: no changes
+      direction = 'backward'
+      changes = []
+    }
+  }
 
   console.log('[StateReversion] Direction:', direction, 'Changes to apply/revert:', changes.length)
 
