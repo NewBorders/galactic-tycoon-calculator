@@ -78,7 +78,6 @@ function createTodoList() {
   const todoHistory = ref<TodoGroup[][]>(stored.history)
   const currentTodoIndex = ref<number>(stored.currentIndex)
   const isOpen = ref(stored.isOpen)
-  const mergeMode = ref(true) // true = merge similar changes in display, false = show each step
   
   // Flag to prevent tracking during undo/redo
   let isReverting = false
@@ -92,67 +91,6 @@ function createTodoList() {
   // Flatten all steps from all groups for statistics
   const allSteps = computed(() => {
     return todoGroups.value.flatMap(group => group.steps)
-  })
-
-  // Display groups - optionally merged for UI
-  const displayGroups = computed(() => {
-    if (!mergeMode.value) {
-      return todoGroups.value
-    }
-
-    // Merge consecutive similar changes for display only
-    const merged: TodoGroup[] = []
-    
-    for (const group of todoGroups.value) {
-      const mergedSteps: TodoStep[] = []
-      
-      for (const step of group.steps) {
-        const lastMerged = mergedSteps[mergedSteps.length - 1]
-        
-        if (lastMerged && step.changes.length === 1 && lastMerged.changes.length === 1) {
-          const lastChange = lastMerged.changes[0]
-          const currentChange = step.changes[0]
-          
-          // Try to merge if same type and target
-          if (lastChange && currentChange && canMergeWithChange(lastChange, currentChange)) {
-            const from = lastChange.details?.from
-            const to = currentChange.details?.to
-            
-            if (from !== undefined && to !== undefined) {
-              // Update the last merged step with new "to" value
-              let newDescription = lastChange.description
-              if (currentChange.type === 'building' || currentChange.type === 'technology' || currentChange.type === 'stock') {
-                newDescription = lastChange.description.replace(
-                  /(\d+) → \d+/,
-                  `${from} → ${to}`
-                )
-              }
-              
-              lastMerged.changes = [{
-                ...lastChange,
-                description: newDescription,
-                details: {
-                  ...lastChange.details,
-                  to: to,
-                },
-              }]
-              lastMerged.description = newDescription
-              continue
-            }
-          }
-        }
-        
-        // Not mergeable, add as new step
-        mergedSteps.push({ ...step })
-      }
-      
-      merged.push({
-        ...group,
-        steps: mergedSteps,
-      })
-    }
-    
-    return merged
   })
 
   // Get total change count
@@ -201,9 +139,16 @@ function createTodoList() {
     // Must be same type and same scope
     if (lastChange.baseName !== newChange.baseName) return false
 
-    // Building level changes: do not merge to allow stepwise undo/redo
+    // Building changes - only merge if both are LEVEL changes (not add/remove)
     if (lastChange.type === 'building' && newChange.type === 'building') {
-      return false
+      // Don't merge add/remove with level changes
+      const lastIsAction = !!lastChange.details?.action
+      const newIsAction = !!newChange.details?.action
+      
+      // Only merge if both are level changes (no action field) and same slot
+      if (lastIsAction || newIsAction) return false
+      
+      return lastChange.details?.slotId === newChange.details?.slotId
     }
 
     // Technology level changes - merge if same technology
@@ -483,22 +428,15 @@ function createTodoList() {
   function togglePanel(): void {
     isOpen.value = !isOpen.value
   }
-  
-  // Toggle merge mode
-  function toggleMergeMode(): void {
-    mergeMode.value = !mergeMode.value
-  }
 
   return {
     // State
     todoGroups,
-    displayGroups,
     allSteps,
     totalChanges,
     canUndo,
     canRedo,
     isOpen,
-    mergeMode,
 
     // Methods
     addChange,
@@ -506,7 +444,6 @@ function createTodoList() {
     redo,
     clear,
     togglePanel,
-    toggleMergeMode,
   }
 }
 
