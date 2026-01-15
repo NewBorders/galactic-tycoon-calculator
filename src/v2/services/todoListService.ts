@@ -169,6 +169,12 @@ function createTodoList() {
 
   // Check if two changes cancel each other out (add then remove)
   function doCancelsOut(change1: Change, change2: Change): boolean {
+    // Check if both changes affect the same target
+    if (change1.details?.targetId !== change2.details?.targetId) {
+      console.log('[doCancelsOut] Different targetIds:', change1.details?.targetId, change2.details?.targetId)
+      return false
+    }
+
     // Recipe added then removed
     if (change1.type === 'recipe' && change2.type === 'recipe') {
       const action1 = change1.details?.action as string
@@ -185,12 +191,53 @@ function createTodoList() {
     if (change1.type === 'building' && change2.type === 'building') {
       const action1 = change1.details?.action as string
       const action2 = change2.details?.action as string
-      const slotId1 = change1.details?.slotId as string
-      const slotId2 = change2.details?.slotId as string
       
-      // Check if one is add and one is remove, with same slot
-      return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add')
-             && slotId1 === slotId2
+      // Building added then removed (must be same slot)
+      if (action1 && action2) {
+        const slotId1 = change1.details?.slotId as string
+        const slotId2 = change2.details?.slotId as string
+        
+        // Check if one is add and one is remove, with same slot
+        return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add')
+               && slotId1 === slotId2
+      }
+      
+      // Building level changes (e.g., level 12→11→12)
+      const field1 = change1.details?.field as string
+      const field2 = change2.details?.field as string
+      const originalValue = change1.details?.originalValue
+      const newValue2 = change2.details?.newValue
+      
+      console.log('[doCancelsOut] Building level check:', {
+        field1,
+        field2,
+        originalValue,
+        newValue2,
+        matches: field1 === field2 && originalValue === newValue2
+      })
+      
+      // If change2 reverts back to the original value of change1
+      return field1 === field2 && originalValue === newValue2
+    }
+
+    // Numeric changes that return to original value (e.g., level 10→11→10)
+    if (change1.type === change2.type && change1.type !== 'recipe') {
+      const field1 = change1.details?.field as string
+      const field2 = change2.details?.field as string
+      const originalValue = change1.details?.originalValue
+      const newValue2 = change2.details?.newValue
+      
+      console.log('[doCancelsOut] Numeric check:', {
+        type: change1.type,
+        field1,
+        field2,
+        originalValue,
+        newValue2,
+        matches: field1 === field2 && originalValue === newValue2
+      })
+      
+      // If change2 reverts back to the original value of change1
+      return field1 === field2 && originalValue === newValue2
     }
 
     return false
@@ -279,30 +326,47 @@ function createTodoList() {
       currentGroups.push(targetGroup)
     }
 
-    const lastStep = targetGroup.steps[targetGroup.steps.length - 1]
     const now = Date.now()
     const changeWithTime: Change = { ...change, timestamp: now }
 
-    // Check if this change cancels out the last step
-    if (lastStep && lastStep.changes.length === 1) {
-      const lastChange = lastStep.changes[0]
-      if (lastChange && doCancelsOut(lastChange, changeWithTime)) {
-        // Remove the last step (it cancels out)
-        // Unregister both changes to prevent stale references
-        const lastChangeId = lastChange.details?.changeId as string | undefined
-        if (lastChangeId) {
-          unregisterChange(lastChangeId)
+    // Check if this change cancels out the last history entry
+    // Look at the CURRENT state (already has the previous change)
+    const stateForCancelCheck = todoHistory.value[currentTodoIndex.value]
+    if (stateForCancelCheck) {
+      const groupForCancelCheck = stateForCancelCheck.find(g => g.scope === scope && g.baseName === baseName)
+      
+      if (groupForCancelCheck && groupForCancelCheck.steps.length > 0) {
+        const lastStep = groupForCancelCheck.steps[groupForCancelCheck.steps.length - 1]
+        
+        if (lastStep && lastStep.changes.length === 1) {
+          const lastChange = lastStep.changes[0]
+          console.log('[TodoListService] Checking cancel-out for:', lastChange?.type, changeWithTime.type)
+          if (lastChange && doCancelsOut(lastChange, changeWithTime)) {
+            console.log('[TodoListService] Changes cancel out, reverting to previous state')
+            // Both changes negate each other - go back to the previous history state
+            // Unregister both changes to prevent stale references
+            const lastChangeId = lastChange.details?.changeId as string | undefined
+            if (lastChangeId) {
+              unregisterChange(lastChangeId)
+            }
+            const currentChangeId = changeWithTime.details?.changeId as string | undefined
+            if (currentChangeId) {
+              unregisterChange(currentChangeId)
+            }
+            
+            // Remove the last history entry (go back one step)
+            if (currentTodoIndex.value > 0) {
+              currentTodoIndex.value--
+              todoHistory.value = todoHistory.value.slice(0, currentTodoIndex.value + 1)
+            } else {
+              // If we're at index 0, just clear the history
+              todoHistory.value = [[]]
+              currentTodoIndex.value = 0
+            }
+            saveToStorage()
+            return
+          }
         }
-        const currentChangeId = changeWithTime.details?.changeId as string | undefined
-        if (currentChangeId) {
-          unregisterChange(currentChangeId)
-        }
-        targetGroup.steps.pop()
-        // Add the modified copy as new history state
-        todoHistory.value.push(currentGroups)
-        currentTodoIndex.value++
-        saveToStorage()
-        return
       }
     }
 
