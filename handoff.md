@@ -121,7 +121,107 @@
 
 ---
 
+## Session 8 Summary (Final Architecture Simplification)
+
+**Primary Accomplishment**: Eliminated all description parameter duplication by using `planetId` as sole base identifier and generating descriptions from repository data.
+
+**The Key Insight** 💡
+You were right: Why pass `baseName`, `buildingName`, `recipeName`, `materialName` everywhere when we can:
+1. Use `planetId` to identify the base
+2. Use repository lookups to get all descriptive info
+3. Generate descriptions in one place (changeTracker)
+
+**Architectural Changes**:
+
+### 1. **TodoListService Interface Cleanup**
+```typescript
+// Vorher
+interface Change {
+  baseName?: string  // ← Duplication!
+  description: string
+}
+interface TodoGroup {
+  baseName?: string  // ← Same info in multiple places
+}
+
+// Nachher
+interface Change {
+  planetId?: number  // ← Sole identifier for base changes
+  description: string
+}
+interface TodoGroup {
+  planetId?: number  // ← Sole identifier
+}
+```
+
+### 2. **ChangeTracker Method Signatures** - Dramatically simplified
+```typescript
+// Vorher (passing ALL the things)
+trackBuildingChange(
+  planetId, baseName, buildingInstanceId, slotNum, 
+  buildingId, buildingName, fromLevel, toLevel
+)
+
+// Nachher (only data-relevant info)
+trackBuildingChange(
+  planetId, buildingInstanceId, buildingId, 
+  fromLevel, toLevel
+)
+// Description generated internally from gameData
+```
+
+All per-base methods similarly simplified:
+- `trackAddBuilding(planetId, buildingId, instanceId)`
+- `trackRemoveBuilding(planetId, buildingId, instanceId)`
+- `trackAddRecipe(planetId, recipeId, instanceId)`
+- `trackRemoveRecipe(planetId, recipeId, instanceId)`
+- `trackRecipeCountChange(planetId, recipeId, fromCount, toCount)`
+- `trackStockChange(planetId, materialId, fromQty, toQty)`
+
+### 3. **Description Generation** - Single Source of Truth
+ChangeTracker now:
+- Imports gameData repository
+- Looks up building/recipe/material names by ID
+- Generates descriptions using repository data
+- Eliminates duplication from PlayerConfigPanel
+
+### 4. **Scope Grouping** - planetId-based
+```typescript
+// Vorher: getScopeKey(scope, baseName) → `base:MainBase`
+// Nachher: getScopeKey(scope, planetId) → `base:42`
+// More stable, numeric, reliable
+```
+
+**Benefits** ✨
+| Aspect | Vorher | Nachher |
+|--------|--------|---------|
+| **Duplicate Names** | Überall | ❌ Nur im Repo |
+| **Method Signatures** | 8+ Parameter | 5-6 Parameter |
+| **Source of Truth** | Caller | ✅ Repo |
+| **Descriptions** | Hand-written | ✅ Automatic |
+| **Type Safety** | planetId optional | ✅ Required |
+| **Scope Key** | String: 'MainBase' | ✅ Numeric: '42' |
+
+**Technology Changes**
+- Global changes (technology, starting-bonus) remain unchanged
+- No base info needed (correct design already)
+- No planetId in these changes
+
+**Test Results** ✅
+- **249/249 tests** passing
+- **Type-check**: No errors
+- **Lint**: No issues
+- **Code**: More maintainable, less duplication
+
+**Commit**: `6b5642c` ✅
+
+---
+
 ## Session 7 Summary (Simplified planetId Architecture)
+
+**Primary Accomplishment**: Completely refactored change tracking to use `planetId` as the sole primary identifier, eliminating all `baseId` dependencies and fallback logic.
+
+
 
 **Primary Accomplishment**: Completely refactored change tracking to use `planetId` as the sole primary identifier, eliminating all `baseId` dependencies and fallback logic.
 
