@@ -134,6 +134,7 @@ export function createChangeTracker() {
         type: 'buildingLevel',
         targetId: buildingInstanceId,
         targetField: 'level',
+        baseId: baseId,
         originalValue: fromLevel,
         newValue: toLevel,
       })

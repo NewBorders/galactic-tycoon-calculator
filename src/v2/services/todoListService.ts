@@ -336,11 +336,12 @@ function createTodoList() {
         field2,
         originalValue,
         newValue2,
-        matches: field1 === field2 && originalValue === newValue2
+        matches: field1 && field2 && field1 === field2 && originalValue !== undefined && newValue2 !== undefined && originalValue === newValue2
       })
       
       // If change2 reverts back to the original value of change1
-      return field1 === field2 && originalValue === newValue2
+      // All values must be defined
+      return !!(field1 && field2 && field1 === field2 && originalValue !== undefined && newValue2 !== undefined && originalValue === newValue2)
     }
 
     // Numeric changes that return to original value (e.g., level 10→11→10)
@@ -356,11 +357,12 @@ function createTodoList() {
         field2,
         originalValue,
         newValue2,
-        matches: field1 === field2 && originalValue === newValue2
+        matches: field1 && field2 && field1 === field2 && originalValue !== undefined && newValue2 !== undefined && originalValue === newValue2
       })
       
       // If change2 reverts back to the original value of change1
-      return field1 === field2 && originalValue === newValue2
+      // All values must be defined
+      return !!(field1 && field2 && field1 === field2 && originalValue !== undefined && newValue2 !== undefined && originalValue === newValue2)
     }
 
     return false
@@ -458,6 +460,7 @@ function createTodoList() {
         // Update the existing step with new values
         const from = lastChange.details?.from
         const to = changeWithTime.details?.to
+        const originalValue = lastChange.details?.originalValue  // Keep the true original value
         
         if (from !== undefined && to !== undefined) {
           // Update description
@@ -472,6 +475,7 @@ function createTodoList() {
             details: {
               ...changeWithTime.details,
               from: from,  // Keep original from value
+              originalValue: originalValue,  // Keep original value for cancel-out detection
             },
           }]
           lastStep.description = newDescription
