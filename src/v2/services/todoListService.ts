@@ -113,6 +113,13 @@ function createTodoList() {
             const to = currentChange.details?.to
             
             if (from !== undefined && to !== undefined) {
+              // Check if changes cancel out (from == to)
+              if (from === to) {
+                // Remove the last merged step as it cancels out
+                mergedSteps.pop()
+                continue
+              }
+              
               // Update the last merged step with new "to" value
               let newDescription = lastChange.description
               if (currentChange.type === 'building' || currentChange.type === 'technology' || currentChange.type === 'stock') {
@@ -281,9 +288,14 @@ function createTodoList() {
       const lastChange = lastStep.changes[0]
       if (lastChange && doCancelsOut(lastChange, changeWithTime)) {
         // Remove the last step (it cancels out)
-        const changeId = lastChange.details?.changeId as string | undefined
-        if (changeId) {
-          unregisterChange(changeId)
+        // Unregister both changes to prevent stale references
+        const lastChangeId = lastChange.details?.changeId as string | undefined
+        if (lastChangeId) {
+          unregisterChange(lastChangeId)
+        }
+        const currentChangeId = changeWithTime.details?.changeId as string | undefined
+        if (currentChangeId) {
+          unregisterChange(currentChangeId)
         }
         targetGroup.steps.pop()
         // Add the modified copy as new history state
