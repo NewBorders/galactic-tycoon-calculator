@@ -45,12 +45,24 @@ let todoListInstance: ReturnType<typeof createTodoList> | null = null
 let playerBasesInstance: PlayerBasesService | null = null
 
 const TODO_STORAGE_KEY = 'gt:v2:todoList:v2'  // New version for per-scope storage
+const OLD_TODO_STORAGE_KEY = 'gt:v2:todoList:v1'  // Old global history format
 
 function getScopeKey(scope: ScopeType, baseName?: string): ScopeKey {
   return scope === 'global' ? 'global' : `base:${baseName}`
 }
 
 function createTodoList() {
+  // Clean up old storage format (pre-release, can be removed after some time)
+  try {
+    const oldData = localStorage.getItem(OLD_TODO_STORAGE_KEY)
+    if (oldData) {
+      console.log('[TodoListService] Clearing old v1 storage format (not compatible with v2)')
+      localStorage.removeItem(OLD_TODO_STORAGE_KEY)
+    }
+  } catch (e) {
+    console.error('[TodoListService] Failed to clean old storage:', e)
+  }
+
   // Load from localStorage
   function loadFromStorage(): { histories: Map<ScopeKey, ScopeHistory>; isOpen: boolean } {
     try {
