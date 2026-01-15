@@ -112,18 +112,10 @@ export function usePlayerTechnology() {
       }
     })
 
-    // Update planned levels: keep user's planned values if they're higher than API values
-    const updatedLevels: Partial<Record<TechnologySpecialisation, number>> = {}
-    TECHNOLOGIES.forEach((tech) => {
-      const apiLevel = apiLevels[tech.id] ?? 0
-      const currentPlannedLevel = state.value.levels[tech.id] ?? 0
-      // Keep the higher value (user's planned level or API level)
-      updatedLevels[tech.id] = Math.max(apiLevel, currentPlannedLevel)
-    })
-
+    // Completely replace levels with API data (do not merge with existing)
     const next: PlayerTechnologyState = {
       startingBonus: startingBonus !== undefined ? clampStartingBonus(startingBonus) : state.value.startingBonus,
-      levels: updatedLevels,
+      levels: apiLevels,
     }
     
     state.value = next

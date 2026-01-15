@@ -46,12 +46,11 @@ export function migrateToV2(): void {
       // Ignore errors reading old data
     }
     
-    // Step 2: Mark migration in progress BEFORE clearing data
-    // This prevents re-migration attempts if clearing fails
-    setStorageVersion('2')
-    
-    // Step 3: Clear all old data
+    // Step 2: Clear all old data FIRST (but preserve version)
     clearAllWorldData()
+    
+    // Step 3: Set version AFTER clearing
+    setStorageVersion('2')
     
     // Step 4: Create new V2 structure with API key preserved
     if (oldApiKey) {

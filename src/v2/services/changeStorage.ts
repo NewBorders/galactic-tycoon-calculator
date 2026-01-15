@@ -13,6 +13,7 @@ export interface StoredChange {
   buildingId?: number  // For building add/remove
   recipeId?: number  // For recipe add/remove
   baseId?: string  // For building/recipe add/remove
+  planetId?: number // Fallback identifier when baseId is unavailable
 }
 
 // Map: changeId -> StoredChange
