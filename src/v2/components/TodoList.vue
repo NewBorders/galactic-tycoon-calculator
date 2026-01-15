@@ -44,12 +44,12 @@
 
         <div v-else class="space-y-3 p-4">
           <!-- Groups by scope -->
-          <div v-for="group in displayGroups" :key="group.baseName || 'global'" class="space-y-2">
+          <div v-for="group in displayGroups" :key="group.planetId || 'global'" class="space-y-2">
             <!-- Group Header with Undo/Redo buttons -->
             <div v-if="group.steps.length > 0" class="flex items-center justify-between gap-2 px-1">
               <div class="text-xs font-semibold uppercase text-purple-400">
                 <span v-if="group.scope === 'global'">🌍 Global Changes</span>
-                <span v-else>🏗️ {{ group.baseName }}</span>
+                <span v-else>🏗️ Planet {{ group.planetId }}</span>
               </div>
               
               <!-- Per-scope Undo/Redo/Clear buttons -->
@@ -59,7 +59,7 @@
                   @click="handleUndo(group)"
                   :disabled="!canUndoForGroup(group)"
                   class="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs"
-                  :title="`Undo in ${group.scope === 'global' ? 'Global' : group.baseName}`"
+                  :title="`Undo in ${group.scope === 'global' ? 'Global' : 'Planet ' + group.planetId}`"
                 >
                   <span class="text-base">↶</span>
                 </button>
@@ -69,7 +69,7 @@
                   @click="handleRedo(group)"
                   :disabled="!canRedoForGroup(group)"
                   class="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs"
-                  :title="`Redo in ${group.scope === 'global' ? 'Global' : group.baseName}`"
+                  :title="`Redo in ${group.scope === 'global' ? 'Global' : 'Planet ' + group.planetId}`"
                 >
                   <span class="text-base">↷</span>
                 </button>
@@ -78,7 +78,7 @@
                 <button
                   @click="handleClearScope(group)"
                   class="p-1 rounded hover:bg-gray-700 transition text-xs"
-                  :title="`Clear ${group.scope === 'global' ? 'Global' : group.baseName}`"
+                  :title="`Clear ${group.scope === 'global' ? 'Global' : 'Planet ' + group.planetId}`"
                 >
                   <span class="text-base">✕</span>
                 </button>
@@ -141,22 +141,22 @@ function getStepNumber(group: TodoGroup, stepIndex: number): string {
 
 // Check if can undo for a group
 function canUndoForGroup(group: TodoGroup): boolean {
-  return canUndoForScope(group.scope, group.baseName)
+  return canUndoForScope(group.scope, group.planetId)
 }
 
 // Check if can redo for a group
 function canRedoForGroup(group: TodoGroup): boolean {
-  return canRedoForScope(group.scope, group.baseName)
+  return canRedoForScope(group.scope, group.planetId)
 }
 
 // Handle undo for a group
 function handleUndo(group: TodoGroup): void {
-  undoForScope(group.scope, group.baseName)
+  undoForScope(group.scope, group.planetId)
 }
 
 // Handle redo for a group
 function handleRedo(group: TodoGroup): void {
-  redoForScope(group.scope, group.baseName)
+  redoForScope(group.scope, group.planetId)
 }
 
 // Handle clear all
@@ -168,9 +168,9 @@ function handleClearAll(): void {
 
 // Handle clear scope
 function handleClearScope(group: TodoGroup): void {
-  const scopeName = group.scope === 'global' ? 'Global changes' : `${group.baseName}`
+  const scopeName = group.scope === 'global' ? 'Global changes' : `Planet ${group.planetId}`
   if (confirm(`Clear all changes in ${scopeName}?`)) {
-    clearForScope(group.scope, group.baseName)
+    clearForScope(group.scope, group.planetId)
   }
 }
 

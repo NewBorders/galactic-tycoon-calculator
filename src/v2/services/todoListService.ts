@@ -16,7 +16,7 @@ export interface Change {
   type: ChangeType
   timestamp: number
   description: string
-  baseName?: string
+  planetId?: number
   details?: Record<string, string | number | undefined>
 }
 
@@ -29,7 +29,7 @@ export interface TodoStep {
 
 export interface TodoGroup {
   scope: ScopeType
-  baseName?: string
+  planetId?: number
   steps: TodoStep[]
 }
 
@@ -47,8 +47,8 @@ let playerBasesInstance: PlayerBasesService | null = null
 const TODO_STORAGE_KEY = 'gt:v2:todoList:v2'  // New version for per-scope storage
 const OLD_TODO_STORAGE_KEY = 'gt:v2:todoList:v1'  // Old global history format
 
-function getScopeKey(scope: ScopeType, baseName?: string): ScopeKey {
-  return scope === 'global' ? 'global' : `base:${baseName}`
+function getScopeKey(scope: ScopeType, planetId?: number): ScopeKey {
+  return scope === 'global' ? 'global' : `base:${planetId}`
 }
 
 function createTodoList() {
@@ -206,7 +206,7 @@ function createTodoList() {
       
       merged.push({
         scope: group.scope,
-        baseName: group.baseName,
+        planetId: group.planetId,
         steps: mergedSteps,
       })
     }
@@ -215,21 +215,21 @@ function createTodoList() {
   })
 
   // Get display groups for a specific scope
-  function getDisplayGroupsForScope(scope: ScopeType, baseName?: string): TodoGroup[] {
-    const scopeKey = getScopeKey(scope, baseName)
-    return displayGroups.value.filter(g => getScopeKey(g.scope, g.baseName) === scopeKey)
+  function getDisplayGroupsForScope(scope: ScopeType, planetId?: number): TodoGroup[] {
+    const scopeKey = getScopeKey(scope, planetId)
+    return displayGroups.value.filter(g => getScopeKey(g.scope, g.planetId) === scopeKey)
   }
 
   // Check if undo is available for a scope
-  function canUndoForScope(scope: ScopeType, baseName?: string): boolean {
-    const scopeKey = getScopeKey(scope, baseName)
+  function canUndoForScope(scope: ScopeType, planetId?: number): boolean {
+    const scopeKey = getScopeKey(scope, planetId)
     const history = scopeHistories.value.get(scopeKey)
     return history ? history.currentIndex > 0 : false
   }
 
   // Check if redo is available for a scope
-  function canRedoForScope(scope: ScopeType, baseName?: string): boolean {
-    const scopeKey = getScopeKey(scope, baseName)
+  function canRedoForScope(scope: ScopeType, planetId?: number): boolean {
+    const scopeKey = getScopeKey(scope, planetId)
     const history = scopeHistories.value.get(scopeKey)
     return history ? history.currentIndex < history.history.length - 1 : false
   }
@@ -240,7 +240,7 @@ function createTodoList() {
   // Check if two changes are similar enough to merge
   function canMergeWithChange(lastChange: Change, newChange: Change): boolean {
     // Must be same type and same scope
-    if (lastChange.baseName !== newChange.baseName) return false
+    if (lastChange.planetId !== newChange.planetId) return false
 
     // Building changes - only merge if both are LEVEL changes (not add/remove)
     if (lastChange.type === 'building' && newChange.type === 'building') {
@@ -377,8 +377,8 @@ function createTodoList() {
 
     // Determine scope based on change type
     const scope: ScopeType = change.type === 'technology' || change.type === 'starting-bonus' || change.type === 'base' ? 'global' : 'base'
-    const baseName = change.baseName
-    const scopeKey = getScopeKey(scope, baseName)
+    const planetId = change.planetId
+    const scopeKey = getScopeKey(scope, planetId)
 
     // Get or create scope history
     const scopeHistory = getOrCreateScopeHistory(scopeKey)
@@ -397,11 +397,11 @@ function createTodoList() {
     const currentGroups = JSON.parse(JSON.stringify(currentState)) as TodoGroup[]
 
     // Find or create target group in the copy
-    let targetGroup = currentGroups.find(g => g.scope === scope && g.baseName === baseName)
+    let targetGroup = currentGroups.find(g => g.scope === scope && g.planetId === planetId)
     if (!targetGroup) {
       targetGroup = {
         scope,
-        baseName,
+        planetId,
         steps: [],
       }
       currentGroups.push(targetGroup)
@@ -414,7 +414,7 @@ function createTodoList() {
     // Look at the CURRENT state (already has the previous change)
     const stateForCancelCheck = scopeHistory.history[scopeHistory.currentIndex]
     if (stateForCancelCheck) {
-      const groupForCancelCheck = stateForCancelCheck.find(g => g.scope === scope && g.baseName === baseName)
+      const groupForCancelCheck = stateForCancelCheck.find(g => g.scope === scope && g.planetId === planetId)
       
       if (groupForCancelCheck && groupForCancelCheck.steps.length > 0) {
         const lastStep = groupForCancelCheck.steps[groupForCancelCheck.steps.length - 1]
@@ -505,8 +505,8 @@ function createTodoList() {
   }
 
   // Undo for a specific scope
-  function undoForScope(scope: ScopeType, baseName?: string): void {
-    const scopeKey = getScopeKey(scope, baseName)
+  function undoForScope(scope: ScopeType, planetId?: number): void {
+    const scopeKey = getScopeKey(scope, planetId)
     const scopeHistory = scopeHistories.value.get(scopeKey)
     
     if (!scopeHistory || scopeHistory.currentIndex <= 0) return
@@ -535,8 +535,8 @@ function createTodoList() {
   }
 
   // Redo for a specific scope
-  function redoForScope(scope: ScopeType, baseName?: string): void {
-    const scopeKey = getScopeKey(scope, baseName)
+  function redoForScope(scope: ScopeType, planetId?: number): void {
+    const scopeKey = getScopeKey(scope, planetId)
     const scopeHistory = scopeHistories.value.get(scopeKey)
     
     if (!scopeHistory || scopeHistory.currentIndex >= scopeHistory.history.length - 1) return
@@ -571,8 +571,8 @@ function createTodoList() {
   }
 
   // Clear history for a specific scope
-  function clearForScope(scope: ScopeType, baseName?: string): void {
-    const scopeKey = getScopeKey(scope, baseName)
+  function clearForScope(scope: ScopeType, planetId?: number): void {
+    const scopeKey = getScopeKey(scope, planetId)
     scopeHistories.value.delete(scopeKey)
     saveToStorage()
   }

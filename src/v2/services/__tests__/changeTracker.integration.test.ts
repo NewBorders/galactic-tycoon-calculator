@@ -14,12 +14,9 @@ describe('Change Tracker Integration with Storage', () => {
 
   it('should generate and register changeId for building level changes', () => {
     tracker.trackBuildingChange(
-      'base-1',
-      'Base 1',
+      1,
       'building-123',
-      '1',
       5,
-      'Colony Barracks',
       2,
       4
     )
@@ -42,8 +39,8 @@ describe('Change Tracker Integration with Storage', () => {
   })
 
   it('should generate unique IDs for consecutive changes', () => {
-    tracker.trackBuildingChange('base-1', 'Base 1', 'building-123', '1', 5, 'Colony Barracks', 2, 4)
-    tracker.trackBuildingChange('base-1', 'Base 1', 'building-456', '2', 6, 'Defender', 1, 3)
+    tracker.trackBuildingChange(1, 'building-123', 5, 2, 4)
+    tracker.trackBuildingChange(1, 'building-456', 6, 1, 3)
 
     const { todoGroups } = useTodoList()
     const changes = todoGroups.value.flatMap(g => g.steps.flatMap(s => s.changes))
@@ -56,7 +53,7 @@ describe('Change Tracker Integration with Storage', () => {
   })
 
   it('should register recipe count changes', () => {
-    tracker.trackRecipeCountChange('base-1', 'Base 1', 10, 'Oak Essence', 1, 2)
+    tracker.trackRecipeCountChange(1, 10, 1, 2)
 
     const { todoGroups } = useTodoList()
     const changes = todoGroups.value.flatMap(g => g.steps.flatMap(s => s.changes))
@@ -83,7 +80,7 @@ describe('Change Tracker Integration with Storage', () => {
   })
 
   it('should register stock changes', () => {
-    tracker.trackStockChange('base-1', 'Base 1', 12, 'Oak', 100, 150)
+    tracker.trackStockChange(1, 12, 100, 150)
 
     const { todoGroups } = useTodoList()
     const changes = todoGroups.value.flatMap(g => g.steps.flatMap(s => s.changes))

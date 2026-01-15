@@ -39,7 +39,7 @@ const createGroupWithChange = (storedChange: StoredChange, description: string):
     type: storedChange.type === 'stock' ? 'stock' : 'building',
     timestamp: Date.now(),
     description,
-    baseName: 'Alpha',
+    planetId: 42,
     details: {
       changeId: storedChange.changeId,
       planetId: 42,
@@ -50,7 +50,7 @@ const createGroupWithChange = (storedChange: StoredChange, description: string):
     },
   }
   const step = { id: 'step-1', changes: [change], description, createdAt: Date.now() }
-  const group: TodoGroup = { scope: 'base', baseName: 'Alpha', steps: [step] }
+  const group: TodoGroup = { scope: 'base', planetId: 42, steps: [step] }
   return [group]
 }
 

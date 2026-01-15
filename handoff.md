@@ -1,3 +1,67 @@
+## Session 9 Summary (PlanetId Migration & Description Generation)
+
+**Primary Accomplishments**:
+1. ✅ Migrated change tracking from `baseName` to `planetId` in todoListService.ts
+2. ✅ Removed description parameters from all per-base change tracker methods
+3. ✅ Implemented internal description generation using gameData lookups
+4. ✅ Updated all UI components (TodoList.vue) to use planetId
+5. ✅ Updated stateReversion.ts to use planetId as primary identifier
+6. ✅ All tests pass (249/249), type-check clean, lint clean
+
+**Technical Changes**:
+
+1. **todoListService.ts Interface Updates**
+   - `Change` interface: `baseName?: string` → `planetId?: number`
+   - `TodoGroup` interface: `baseName?: string` → `planetId?: number`
+   - `getScopeKey()`: Now uses `base:${planetId}` instead of `base:${baseName}`
+   - Updated all scope methods to use planetId parameter
+
+2. **changeTracker.ts Method Simplifications**
+   - Added optional `gameData` parameter to `createChangeTracker()`
+   - Removed description/name parameters from all per-base methods:
+     - `trackBuildingChange(planetId, buildingInstanceId, buildingId, fromLevel, toLevel)` - REMOVED: baseName, slotNum, buildingName
+     - `trackAddBuilding(planetId, buildingId, instanceId)` - REMOVED: baseName, slotNum, buildingName
+     - `trackRemoveBuilding(planetId, buildingId, instanceId)` - REMOVED: baseName, slotNum, buildingName
+     - `trackAddRecipe(planetId, recipeId, instanceId)` - REMOVED: baseName, recipeName
+     - `trackRemoveRecipe(planetId, recipeId, instanceId)` - REMOVED: baseName, recipeName
+     - `trackRecipeCountChange(planetId, recipeId, fromCount, toCount)` - REMOVED: baseName, recipeName
+     - `trackStockChange(planetId, materialId, fromQty, toQty)` - REMOVED: baseName, materialName
+   - Descriptions now generated internally using gameData lookups with fallbacks
+
+3. **PlayerConfigPanel.vue Updates**
+   - Updated all `getChangeTracker()` calls to pass `props.gameData`
+   - Updated all `trackXxx()` calls to new simplified signatures
+   - Removed unused `getBaseName()` function
+
+4. **TodoList.vue Updates**
+   - Changed all `group.baseName` references to `group.planetId`
+   - Updated display labels: `{{ group.baseName }}` → `Planet {{ group.planetId }}`
+   - Updated scope handlers to use planetId
+
+5. **stateReversion.ts Updates**
+   - Changed `calculateStateDiff()` to use `lastFrom.planetId` instead of `lastFrom.baseName`
+   - Changed `revertChange()` to read `change.planetId` directly instead of from `change.details?.planetId`
+
+6. **Test Updates**
+   - `changeTracker.integration.test.ts`: Updated all test invocations to new signatures
+   - `stateReversion.spec.ts`: Updated TodoGroup mock to use planetId instead of baseName
+
+**Key Design Decisions**:
+1. Made gameData parameter optional in changeTracker to support global changes (technology, starting bonus) that don't need entity lookups
+2. Implemented fallback descriptions (e.g., `Building ${buildingId}`) when gameData is unavailable
+3. Changed scope key format for better reliability and immutability
+
+**Benefits**:
+- Cleaner API: No duplication of entity names in function parameters
+- Better separation of concerns: Names are looked up, not passed around
+- More maintainable: Changes are the source of truth, generated descriptions are derived
+- Same reliability: All lookups have sensible fallbacks
+
+**Test Results**:
+- ✅ 249 tests passed
+- ✅ Type-check: No errors
+- ✅ Lint: No issues
+
 ## Session 8 Summary (ChangeTracker Refactoring - PlanetId Primary ID)
 
 **Primary Accomplishments**:

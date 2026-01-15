@@ -79,10 +79,10 @@ export function calculateStateDiff(
       // If target differs (by id or values), include appropriate change
       const sameTarget = lastFrom.details?.targetId === lastTo.details?.targetId
       const sameType = lastFrom.type === lastTo.type
-      const sameBase = lastFrom.baseName === lastTo.baseName
+      const samePlanet = lastFrom.planetId === lastTo.planetId
       const valueDiff = lastFrom.details?.to !== lastTo.details?.to || lastFrom.details?.from !== lastTo.details?.from
 
-      if (sameTarget && sameType && sameBase && valueDiff) {
+      if (sameTarget && sameType && samePlanet && valueDiff) {
         // For backward, revert the 'from' change; for forward, apply the 'to' change
         changes = direction === 'backward' ? [lastFrom] : [lastTo]
       } else {
@@ -320,16 +320,11 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
     return
   }
 
-  // Base-specific changes require baseName and planetId
-  const baseName = change.baseName
-  if (!baseName) return
+  // Base-specific changes require planetId
+  const planetId = change.planetId
+  if (planetId === undefined) return
 
   // Resolve base from planetId (primary identifier)
-  const planetId = change.details?.planetId as number | undefined
-  if (typeof planetId !== 'number') {
-    console.warn('[StateReversion] Change missing planetId:', change)
-    return
-  }
   const base = playerBases.state.value.bases.find(b => b.planetId === planetId)
   const baseId = base?.id
   if (!baseId) {
