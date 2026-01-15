@@ -112,20 +112,19 @@ export function createChangeTracker() {
 
     /**
      * Track building level change (PER-BASE)
-     * @param baseId Unique base identifier (from playerBases)
+     * @param planetId The planet ID of the base
      * @param baseName Display name for the base
      * @param buildingInstanceId The instance ID of the building (from playerBases)
      */
     trackBuildingChange(
-      baseId: string,
+      planetId: number,
       baseName: string,
       buildingInstanceId: string,
       slotNum: string,
       buildingId: number,
       buildingName: string,
       fromLevel: number,
-      toLevel: number,
-      planetId?: number
+      toLevel: number
     ): void {
       const changeId = generateChangeId()
       
@@ -135,7 +134,6 @@ export function createChangeTracker() {
         type: 'buildingLevel',
         targetId: buildingInstanceId,
         targetField: 'level',
-        baseId: baseId,
         planetId: planetId,
         originalValue: fromLevel,
         newValue: toLevel,
@@ -148,7 +146,6 @@ export function createChangeTracker() {
         description: `🏢 ${buildingName} #${slotNum}: Level ${fromLevel} → ${toLevel}`,
         details: {
           changeId,
-          baseId: baseId,
           planetId: planetId,
           buildingInstanceId,
           slotId: slotNum,
@@ -162,7 +159,7 @@ export function createChangeTracker() {
     /**
      * Track building add (PER-BASE)
      */
-    trackAddBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string, buildingId?: number, instanceId?: string, planetId?: number): void {
+    trackAddBuilding(planetId: number, baseName: string, slotNum: string, buildingName: string, buildingId?: number, instanceId?: string): void {
       const changeId = generateChangeId()
       
       // Register the change for state reversion
@@ -171,7 +168,6 @@ export function createChangeTracker() {
           changeId,
           type: 'buildingAdd',
           targetId: instanceId,  // Will be set after building is added
-          baseId: baseId,
           planetId: planetId,
           buildingId: buildingId,
         })
@@ -184,7 +180,6 @@ export function createChangeTracker() {
         description: `🏢 Building added: ${buildingName} #${slotNum}`,
         details: {
           changeId,
-          baseId: baseId,
           planetId: planetId,
           action: 'add',
           slotId: slotNum,
@@ -197,7 +192,7 @@ export function createChangeTracker() {
     /**
      * Track building remove (PER-BASE)
      */
-    trackRemoveBuilding(baseId: string, baseName: string, slotNum: string, buildingName: string, buildingId?: number, instanceId?: string, planetId?: number): void {
+    trackRemoveBuilding(planetId: number, baseName: string, slotNum: string, buildingName: string, buildingId?: number, instanceId?: string): void {
       const changeId = generateChangeId()
       
       // Register the change for state reversion
@@ -206,7 +201,6 @@ export function createChangeTracker() {
           changeId,
           type: 'buildingRemove',
           targetId: instanceId,
-          baseId: baseId,
           planetId: planetId,
           buildingId: buildingId,
         })
@@ -219,7 +213,6 @@ export function createChangeTracker() {
         description: `🏢 Building removed: ${buildingName} #${slotNum}`,
         details: {
           changeId,
-          baseId: baseId,
           planetId: planetId,
           action: 'remove',
           slotId: slotNum,
@@ -233,7 +226,7 @@ export function createChangeTracker() {
     /**
      * Track recipe add (PER-BASE)
      */
-    trackAddRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string, instanceId?: string, planetId?: number): void {
+    trackAddRecipe(planetId: number, baseName: string, recipeId: number, recipeName: string, instanceId?: string): void {
       const changeId = generateChangeId()
       
       // Register the change for state reversion
@@ -241,7 +234,6 @@ export function createChangeTracker() {
         changeId,
         type: 'recipeAdd',
         targetId: instanceId,  // Will be set after recipe is added
-        baseId: baseId,
         planetId: planetId,
         recipeId: recipeId,
       })
@@ -253,7 +245,6 @@ export function createChangeTracker() {
         description: `➕ Recipe added: ${recipeName}`,
         details: {
           changeId,
-          baseId: baseId,
           planetId: planetId,
           action: 'add',
           recipeId: recipeId.toString(),
@@ -265,7 +256,7 @@ export function createChangeTracker() {
     /**
      * Track recipe remove (PER-BASE)
      */
-    trackRemoveRecipe(baseId: string, baseName: string, recipeId: number, recipeName: string, instanceId?: string, planetId?: number): void {
+    trackRemoveRecipe(planetId: number, baseName: string, recipeId: number, recipeName: string, instanceId?: string): void {
       const changeId = generateChangeId()
       
       // Register the change for state reversion
@@ -274,7 +265,6 @@ export function createChangeTracker() {
           changeId,
           type: 'recipeRemove',
           targetId: instanceId,
-          baseId: baseId,
           planetId: planetId,
           recipeId: recipeId,
         })
@@ -287,7 +277,6 @@ export function createChangeTracker() {
         description: `❌ Recipe removed: ${recipeName}`,
         details: {
           changeId,
-          baseId: baseId,
           planetId: planetId,
           action: 'remove',
           recipeId: recipeId.toString(),
@@ -301,13 +290,12 @@ export function createChangeTracker() {
      * Track recipe count change (PER-BASE)
      */
     trackRecipeCountChange(
-      baseId: string,
+      planetId: number,
       baseName: string,
       recipeId: number,
       recipeName: string,
       fromCount: number,
-      toCount: number,
-      planetId?: number
+      toCount: number
     ): void {
       const changeId = generateChangeId()
       
@@ -315,9 +303,8 @@ export function createChangeTracker() {
       registerChange(changeId, {
         changeId,
         type: 'recipeCount',
-        targetId: `${baseId}::recipe-${recipeId}`,
+        targetId: String(recipeId),
         targetField: 'count',
-        baseId: baseId,
         planetId: planetId,
         originalValue: fromCount,
         newValue: toCount,
@@ -330,7 +317,6 @@ export function createChangeTracker() {
         description: `🔄 ${recipeName}: Count ${fromCount} → ${toCount}`,
         details: {
           changeId,
-          baseId: baseId,
           planetId: planetId,
           recipeId: recipeId.toString(),
           recipeName,
@@ -344,13 +330,12 @@ export function createChangeTracker() {
      * Track stock change (PER-BASE)
      */
     trackStockChange(
-      baseId: string,
+      planetId: number,
       baseName: string,
       materialId: number,
       materialName: string,
       fromQty: number,
-      toQty: number,
-      planetId?: number
+      toQty: number
     ): void {
       const changeId = generateChangeId()
       
@@ -359,7 +344,6 @@ export function createChangeTracker() {
         changeId,
         type: 'stock',
         targetId: materialId.toString(),
-        baseId: baseId,
         planetId: planetId,
         targetField: 'amount',
         originalValue: fromQty,
@@ -373,7 +357,6 @@ export function createChangeTracker() {
         description: `📦 ${materialName}: Stock ${fromQty} → ${toQty}`,
         details: {
           changeId,
-          baseId: baseId,
           planetId: planetId,
           materialId: materialId.toString(),
           material: materialName,

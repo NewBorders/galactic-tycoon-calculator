@@ -1,4 +1,134 @@
-## Session 7 Summary (PlanetId Fallback + Bug Fixes)
+## Session 8 Summary (ChangeTracker Refactoring - PlanetId Primary ID)
+
+**Primary Accomplishments**:
+1. ✅ Refactored `changeTracker.ts` to use `planetId` as the primary identifier
+2. ✅ Removed all `baseId` references from per-base change tracking functions
+3. ✅ Updated 6 core tracking methods with new signatures
+4. ✅ Updated all call sites in `PlayerConfigPanel.vue` to use new signatures
+5. ✅ All tests pass (249/249), type-check clean, lint clean
+
+**Technical Changes**:
+
+1. **ChangeTracker.ts Refactoring**
+   - **trackBuildingChange**: Changed from `(baseId: string, ...)` to `(planetId: number, ...)`
+   - **trackAddBuilding**: Changed from `(baseId: string, ...)` to `(planetId: number, ...)`
+   - **trackRemoveBuilding**: Changed from `(baseId: string, ...)` to `(planetId: number, ...)`
+   - **trackAddRecipe**: Changed from `(baseId: string, ...)` to `(planetId: number, ...)`
+   - **trackRemoveRecipe**: Changed from `(baseId: string, ...)` to `(planetId: number, ...)`
+   - **trackRecipeCountChange**: Changed from `(baseId: string, ...)` to `(planetId: number, ...)` AND fixed `targetId` from `${baseId}::recipe-${recipeId}` to `String(recipeId)`
+   - **trackStockChange**: Changed from `(baseId: string, ...)` to `(planetId: number, ...)`
+   - Removed all `baseId` fields from `StoredChange` registrations and `change.details`
+   - Kept only `planetId` as the persistent per-base identifier
+
+2. **StoredChange Interface Update** (changeStorage.ts)
+   - Changed `planetId: number` to `planetId?: number` (optional)
+   - Rationale: Global changes (technologyLevel, startingBonus) don't have planetId
+   - Per-base changes always require planetId for proper baseId resolution
+
+3. **StateReversion Enhancement** (stateReversion.ts)
+   - Simplified baseId resolution logic to only use `planetId` lookup
+   - Removed fallback logic for `baseId` (no longer exists)
+   - Removed fallback logic for embedded baseId in targetId (no longer needed)
+   - Clean primary-identifier pattern: `planetId` → lookup `base.id` via playerBases
+
+4. **Call Site Updates** (PlayerConfigPanel.vue)
+   - Updated 6 call sites that invoke change tracking methods
+   - Changed parameter order: moved `base.planetId` to first position (was last optional param)
+   - Removed `base.id` from function calls
+
+**Benefits of Refactoring**:
+- Clearer semantics: `planetId` is the stable, persistent identifier for per-base changes
+- Reduced complexity: No more baseId fallback logic
+- Better separation of concerns: Global vs per-base changes use different identifier strategies
+- Easier to maintain: Direct planetId mapping without string concatenation/parsing
+- Type safety: Optional planetId properly reflects global vs per-base change types
+
+**Test Results**:
+- ✅ 249 tests passed
+- ✅ Type-check: No errors
+- ✅ Lint: No issues
+- ✅ All existing test suites continue to pass
+
+**Files Modified**:
+- [src/v2/services/changeTracker.ts](src/v2/services/changeTracker.ts) - Refactored 6 tracking methods to use planetId
+- [src/v2/services/changeStorage.ts](src/v2/services/changeStorage.ts) - Made planetId optional
+- [src/v2/services/stateReversion.ts](src/v2/services/stateReversion.ts) - Simplified baseId resolution
+- [src/v2/pages/player-config/PlayerConfigPanel.vue](src/v2/pages/player-config/PlayerConfigPanel.vue) - Updated all 6 call sites
+
+---
+
+## Session 7 Summary (Simplified planetId Architecture)
+
+**Primary Accomplishment**: Completely refactored change tracking to use `planetId` as the sole primary identifier, eliminating all `baseId` dependencies and fallback logic.
+
+**Technical Changes**:
+
+1. **StoredChange Interface Simplification**
+   - Made `planetId` a required field (not optional)
+   - Removed `baseId` entirely from the interface
+   - Updated comments to clarify stable identifier behavior
+
+2. **ChangeTracker Refactoring** - All 7 per-base methods updated:
+   - `trackBuildingChange(planetId, ...)` - planetId now first parameter
+   - `trackAddBuilding(planetId, ...)` - signature simplified
+   - `trackRemoveBuilding(planetId, ...)` - signature simplified
+   - `trackAddRecipe(planetId, ...)` - signature simplified
+   - `trackRemoveRecipe(planetId, ...)` - signature simplified
+   - `trackRecipeCountChange(planetId, ...)` - signature simplified
+   - `trackStockChange(planetId, ...)` - signature simplified
+   - Removed all `baseId` from StoredChange and change.details
+   - Fixed recipeCount targetId: `${baseId}::${recipeId}` → `String(recipeId)`
+
+3. **StateReversion Simplification**
+   - `revertStoredChange()`: Simplified to always use planetId lookup
+   - `revertChange()`: Removed baseId fallback logic; requires planetId
+   - Cleaner, more direct base resolution
+
+4. **PlayerConfigPanel** (Already updated)
+   - All 7 tracker calls already use `base.planetId` as first parameter
+   - No breaking changes for the UI layer
+
+**Architecture Benefits**:
+- ✅ Single stable identifier (planetId) for all per-base changes
+- ✅ No fallback logic needed
+- ✅ Works seamlessly with planned bases (no baseId)
+- ✅ Reduced code complexity
+- ✅ Type-safe: planetId is required, not optional
+
+**Test Results**:
+- ✅ 249/249 tests passing
+- ✅ Type-check: No errors
+- ✅ Lint: No issues
+
+**Files Modified**:
+- [src/v2/services/changeStorage.ts](src/v2/services/changeStorage.ts) - Simplified StoredChange interface
+- [src/v2/services/changeTracker.ts](src/v2/services/changeTracker.ts) - All per-base methods refactored to use planetId
+- [src/v2/services/stateReversion.ts](src/v2/services/stateReversion.ts) - Simplified base resolution logic
+
+---
+
+## Session 7 Part 1 Summary (Fixed Import and Migration Bugs)
+
+- Fixed Technology Import: `setFromApi()` now overwrites all levels instead of merging
+- Fixed WorldData Migration: Version persists correctly after migration by reordering steps
+- Enhanced planetId fallback for planned bases in undo/redo
+
+## Session 7 Summary (PlanetId Fallback for Undo/Redo)
+
+- Added `planetId` fallback support across change storage, tracker, and state reversion, so planned bases (without `baseId`) can be reliably resolved during undo/redo.
+- Extended per-base `ChangeTracker` signatures to accept optional `planetId` and propagated it into `StoredChange` and `change.details`.
+- Updated `PlayerConfigPanel` to pass `base.planetId` to all per-base tracking calls.
+- Enhanced `stateReversion` to resolve base via `planetId` when `baseId` is missing, for both stored changes and detail-parsed fallback.
+- Fixed and validated with a new integration-like unit test: planetId fallback for stock undo now passes.
+- Ran the full test suite: our new test passes; unrelated suites (technology import and world data migration) have some failures which are not caused by this change.
+- Next: If desired, we can address the remaining unrelated failures in `technologyImport` and `worldData` migration.
+
+# Handoff Document - Planning Mode Development
+
+## Session 5 Summary (Commits 2030e8c, dbdc921 - Latest)
+
+**Primary Accomplishment**: Completed undo/redo implementation for all operations including building/recipe add/remove. Fixed DOM ID propagation issue in NumberInput component. Fully functional undo/redo for building levels, recipe counts, and add/remove operations.
+
 
 **Primary Accomplishments**:
 1. ✅ Added `planetId` fallback support across change storage, tracker, and state reversion

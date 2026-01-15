@@ -125,12 +125,13 @@ function updateDOMValue(elementId: string, newValue: number): void {
  * Revert a stored change using precise metadata
  */
 function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerBases: PlayerBasesService): void {
-  // Resolve baseId with fallbacks: explicit baseId → embedded in targetId → planetId lookup
-  let baseId = storedChange.baseId || storedChange.targetId?.split('::')[0] || null
-  if (!baseId && typeof storedChange.planetId === 'number') {
+  // Resolve baseId from planetId (primary identifier)
+  let baseId: string | null = null
+  if (typeof storedChange.planetId === 'number') {
     const base = playerBases.state.value.bases.find(b => b.planetId === storedChange.planetId)
     baseId = base?.id ?? null
   }
+  
   const targetValue = storedChange.originalValue !== undefined && storedChange.newValue !== undefined 
     ? (isUndo ? storedChange.originalValue : storedChange.newValue)
     : undefined
@@ -319,24 +320,23 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
     return
   }
 
-  // Base-specific changes require baseName
+  // Base-specific changes require baseName and planetId
   const baseName = change.baseName
   if (!baseName) return
 
-  // Resolve base identifier: baseId preferred, else planetId fallback
-  let baseId = change.details?.baseId as string | undefined
-  if (!baseId) {
-    const planetId = change.details?.planetId as number | undefined
-    if (typeof planetId === 'number') {
-      const base = playerBases.state.value.bases.find(b => b.planetId === planetId)
-      baseId = base?.id
-    }
-  }
-  if (!baseId) {
-    console.warn('[StateReversion] Change missing baseId and planetId fallback failed:', change)
+  // Resolve base from planetId (primary identifier)
+  const planetId = change.details?.planetId as number | undefined
+  if (typeof planetId !== 'number') {
+    console.warn('[StateReversion] Change missing planetId:', change)
     return
   }
-  console.log('[StateReversion] Processing change for baseId:', baseId)
+  const base = playerBases.state.value.bases.find(b => b.planetId === planetId)
+  const baseId = base?.id
+  if (!baseId) {
+    console.warn('[StateReversion] Could not resolve base for planetId:', planetId)
+    return
+  }
+  console.log('[StateReversion] Processing change for planetId:', planetId, '→ baseId:', baseId)
 
   // Building changes
   if (change.type === 'building') {

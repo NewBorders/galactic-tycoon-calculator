@@ -6,14 +6,13 @@
 export interface StoredChange {
   changeId: string
   type: 'buildingLevel' | 'recipeCount' | 'technologyLevel' | 'startingBonus' | 'stock' | 'buildingAdd' | 'buildingRemove' | 'recipeAdd' | 'recipeRemove'
-  targetId?: string  // baseId for building/recipe/stock, techId for technology, instanceId for add/remove
-  targetField?: string  // 'level' for building, 'count' for recipe, etc.
+  targetId?: string  // instanceId for building/recipe add/remove, techId for technology, materialId for stock
+  targetField?: string  // 'level' for building, 'count' for recipe, 'amount' for stock, etc.
   originalValue?: number  // Optional for add/remove operations
   newValue?: number  // Optional for add/remove operations
   buildingId?: number  // For building add/remove
   recipeId?: number  // For recipe add/remove
-  baseId?: string  // For building/recipe add/remove
-  planetId?: number // Fallback identifier when baseId is unavailable
+  planetId?: number  // Primary identifier for per-base changes (stable across all base types) - optional for global changes
 }
 
 // Map: changeId -> StoredChange

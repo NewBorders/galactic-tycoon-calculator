@@ -661,7 +661,7 @@ async function refreshGameData() {
               if (buildingData && instanceId) {
                 const changeTracker = getChangeTracker()
                 const slotNum = base.buildings.length
-                changeTracker.trackAddBuilding(base.id, getBaseName(base), slotNum.toString(), buildingData.name, buildingId, instanceId, base.planetId)
+                changeTracker.trackAddBuilding(base.planetId, getBaseName(base), slotNum.toString(), buildingData.name, buildingId, instanceId)
               }
               
               persist()
@@ -677,15 +677,14 @@ async function refreshGameData() {
                   const slotNum = base.buildings.indexOf(building) + 1
                   const changeTracker = getChangeTracker()
                   changeTracker.trackBuildingChange(
-                    base.id,
+                    base.planetId,
                     getBaseName(base),
                     building.id,
                     slotNum.toString(),
                     building.buildingId,
                     buildingData.name,
                     building.level,
-                    patch.level,
-                    base.planetId
+                    patch.level
                   )
                 }
               }
@@ -702,7 +701,7 @@ async function refreshGameData() {
                 if (buildingData) {
                   const slotNum = base.buildings.indexOf(building) + 1
                   const changeTracker = getChangeTracker()
-                  changeTracker.trackRemoveBuilding(base.id, getBaseName(base), slotNum.toString(), buildingData.name, building.buildingId, building.id, base.planetId)
+                  changeTracker.trackRemoveBuilding(base.planetId, getBaseName(base), slotNum.toString(), buildingData.name, building.buildingId, building.id)
                 }
               }
               removeBuilding(base.id, id)
@@ -724,7 +723,7 @@ async function refreshGameData() {
               const recipe = props.gameData.recipes.find(r => r.id === recipeId)
               if (recipe && instanceId) {
                 const changeTracker = getChangeTracker()
-                changeTracker.trackAddRecipe(base.id, getBaseName(base), recipeId, recipe.output?.name ?? `Recipe ${recipeId}`, instanceId, base.planetId)
+                changeTracker.trackAddRecipe(base.planetId, getBaseName(base), recipeId, recipe.output?.name ?? `Recipe ${recipeId}`, instanceId)
               }
               
               persist()
@@ -738,7 +737,7 @@ async function refreshGameData() {
                 const recipeData = props.gameData.recipes.find(r => r.id === recipe.recipeId)
                 if (recipeData) {
                   const changeTracker = getChangeTracker()
-                  changeTracker.trackRemoveRecipe(base.id, getBaseName(base), recipe.recipeId, recipeData.output?.name ?? `Recipe ${recipe.recipeId}`, recipe.id, base.planetId)
+                  changeTracker.trackRemoveRecipe(base.planetId, getBaseName(base), recipe.recipeId, recipeData.output?.name ?? `Recipe ${recipe.recipeId}`, recipe.id)
                 }
               }
               removeRecipe(base.id, id)
@@ -755,13 +754,12 @@ async function refreshGameData() {
                   if (recipeData) {
                     const changeTracker = getChangeTracker()
                     changeTracker.trackRecipeCountChange(
-                      base.id,
+                      base.planetId,
                       getBaseName(base),
                       recipe.recipeId,
                       recipeData.output?.name ?? `Recipe ${recipe.recipeId}`,
                       recipe.count ?? 1,
-                      patch.count,
-                      base.planetId
+                      patch.count
                     )
                   }
                 }
@@ -796,13 +794,12 @@ async function refreshGameData() {
                   const material = props.gameData.materials.find(m => m.id === materialId)
                   if (material) {
                     changeTracker.trackStockChange(
-                      base.id,
+                      base.planetId,
                       getBaseName(base),
                       materialId,
                       material.name,
                       oldQty,
-                      newQty,
-                      base.planetId
+                      newQty
                     )
                   }
                 }
