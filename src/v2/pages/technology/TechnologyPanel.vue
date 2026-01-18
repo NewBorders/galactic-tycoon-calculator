@@ -185,7 +185,8 @@ const startingBonusDisplay = computed(() => {
         <div
           v-for="tech in TECHNOLOGIES"
           :key="tech.id"
-          class="rounded border border-slate-700 bg-slate-900 p-4 space-y-3"
+          class="rounded border p-4 space-y-3"
+          :class="plannedLevel(tech.id) !== currentLevel(tech.id) ? 'border-blue-700 bg-blue-900' : 'border-slate-700 bg-slate-900'"
         >
           <div>
             <div class="font-medium">{{ translate(tech.nameKey) }}</div>

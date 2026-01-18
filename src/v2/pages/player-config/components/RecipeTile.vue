@@ -185,7 +185,13 @@ function tierLabel(tier: number) {
   <div
     :id="`recipe-tile-${props.id}`"
     class="rounded border p-2 space-y-3 h-full transition-all"
-    :class="(props.count ?? 1) === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'"
+    :class="(() => {
+      const planned = (props.count ?? 1)
+      const current = (props.currentCount ?? 0)
+      const changed = planned !== current
+      if (changed) return 'border-blue-700 bg-blue-900'
+      return planned === 0 ? 'border-slate-600 bg-slate-900/50 opacity-60' : 'border-slate-700 bg-slate-900'
+    })()"
   >
     <!-- Header: Recipe + building on left, current/planned counts on right -->
     <div class="flex items-start justify-between gap-2">

@@ -40,7 +40,6 @@ const emit = defineEmits<{
   addBuilding: [{ buildingId: number; level: number }]
   updateBuilding: [{ id: string; patch: { level?: number } }]
   removeBuilding: [{ id: string }]
-  reorderBuildings: [{ ids: string[] }]
   addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
   reorderRecipes: [{ ids: string[] }]
@@ -484,12 +483,6 @@ const productivitySummary = computed(() => {
           @remove="
             (p) => {
               $emit('removeBuilding', p)
-              $emit('persist')
-            }
-          "
-          @reorder="
-            (p) => {
-              $emit('reorderBuildings', p)
               $emit('persist')
             }
           "

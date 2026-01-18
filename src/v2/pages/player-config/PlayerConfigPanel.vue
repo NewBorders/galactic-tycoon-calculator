@@ -41,7 +41,6 @@ const {
   addBuilding,
   setBuilding,
   removeBuilding,
-  reorderBuildings,
   addRecipe,
   removeRecipe,
   reorderRecipes,
@@ -57,11 +56,13 @@ const {
   setBaseOpen,
   getSections,
   setSection,
+  planets,
 } = usePlayerBases(props.gameData)
 
 // Register playerBases with TodoListService for state reversion
 registerPlayerBases({
   state,
+  planets,
   addBuilding,
   setBuilding,
   removeBuilding,
@@ -284,7 +285,7 @@ function selectPlanet(planet: Planet) {
   if (!planetHasBase(planet.id)) {
     // Track new base creation
     const changeTracker = getChangeTracker()
-    changeTracker.trackNewBase(planet.name || `Planet ${planet.id}`)
+    changeTracker.trackNewBase(planet.name || `Planet ${planet.id}`, planet.tier)
     
     addBase(planet.id)
   }
@@ -695,12 +696,6 @@ async function refreshGameData() {
               persist()
             }
           "
-          @reorderBuildings="
-            ({ ids }) => {
-              reorderBuildings(base.id, ids)
-              persist()
-            }
-          "
           @addRecipe="
             ({ recipeId }) => {
               // Add recipe first to get the instance ID
@@ -743,6 +738,7 @@ async function refreshGameData() {
                     changeTracker.trackRecipeCountChange(
                       base.planetId,
                       recipe.recipeId,
+                      id,  // recipeInstanceId
                       recipe.count ?? 1,
                       patch.count
                     )

@@ -6,7 +6,7 @@
 export interface StoredChange {
   changeId: string
   type: 'buildingLevel' | 'recipeCount' | 'technologyLevel' | 'startingBonus' | 'stock' | 'buildingAdd' | 'buildingRemove' | 'recipeAdd' | 'recipeRemove'
-  targetId?: string  // instanceId for building/recipe add/remove, techId for technology, materialId for stock
+  targetId?: string  // buildingInstanceId for building, recipeInstanceId for recipe, techId for technology, materialId for stock
   targetField?: string  // 'level' for building, 'count' for recipe, 'amount' for stock, etc.
   originalValue?: number  // Optional for add/remove operations
   newValue?: number  // Optional for add/remove operations

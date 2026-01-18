@@ -5,7 +5,7 @@ import type { GameBaseTransformed } from './api/types'
 
 export type PlayerRecipe = { id: string; recipeId: number; count?: number; currentCount?: number }
 
-export type PlayerBuilding = { id: string; buildingId: number; level: number }
+export type PlayerBuilding = { id: string; buildingId: number; level: number; slotId?: number }
 export type PlayerBase = {
   id: string
   planetId: number
@@ -62,12 +62,14 @@ function ensureUi(st: Partial<PlayerState>): PlayerState {
       id: bld.id ?? uid(),
       buildingId: bld.buildingId,
       level: Math.max(0, Math.floor(bld.level ?? 1)),
+      slotId: typeof bld.slotId === 'number' ? bld.slotId : undefined,
     })) ?? [],
     currentBuildings: Array.isArray(base.currentBuildings)
       ? (base.currentBuildings as PlayerBuilding[]).map((bld) => ({
           id: bld.id ?? uid(),
           buildingId: bld.buildingId,
           level: Math.max(0, Math.floor(bld.level ?? 1)),
+          slotId: typeof bld.slotId === 'number' ? bld.slotId : undefined,
         }))
       : undefined,
     recipes:
@@ -153,7 +155,20 @@ export function usePlayerBases(gd: GameData) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return undefined
     const instanceId = uid()
-    b.buildings.push({ id: instanceId, buildingId, level: Math.max(1, level) })
+    
+    // Assign temporary slotId for planned buildings without API import
+    // Use negative numbers to distinguish from real Game slots (which are >= 0)
+    // Find the minimum negative slotId in use and go one lower
+    const existingSlotIds = b.buildings.map((bld) => bld.slotId ?? 0).filter((id) => typeof id === 'number')
+    const minSlotId = Math.min(...existingSlotIds.filter((id) => id < 0), -1)
+    const tempSlotId = minSlotId - 1
+    
+    b.buildings.push({
+      id: instanceId,
+      buildingId,
+      level: Math.max(1, level),
+      slotId: tempSlotId,
+    })
     syncRecipesWithBuildings(b)
     saveState(state.value)
     return instanceId
@@ -174,14 +189,6 @@ export function usePlayerBases(gd: GameData) {
     if (!b) return
     b.buildings = b.buildings.filter((bb) => bb.id !== instanceId)
     syncRecipesWithBuildings(b)
-    saveState(state.value)
-  }
-
-  function reorderBuildings(baseId: string, orderedIds: string[]) {
-    const b = state.value.bases.find((x) => x.id === baseId)
-    if (!b) return
-    const byId = new Map(b.buildings.map((x) => [x.id, x]))
-    b.buildings = orderedIds.map((id) => byId.get(id)!).filter(Boolean)
     saveState(state.value)
   }
 
@@ -350,23 +357,67 @@ export function usePlayerBases(gd: GameData) {
     if (!b) return false
 
     // Store current (API) buildings as read-only reference
+    // This ONLY updates the current state from the API
     const slots = payload.buildingSlots ?? []
-    b.currentBuildings = slots.map((slot, index) => ({
-      id: `current_${slot.buildingId}_${index}`,
+    b.currentBuildings = slots.map((slot) => ({
+      id: `current_${slot.buildingId}_${slot.slot}`,
       buildingId: slot.buildingId,
       level: slot.level != null ? Math.max(1, Math.floor(Number(slot.level))) : 1,
+      slotId: slot.slot,
     }))
 
-    // Clear existing buildings and recipes (user's planned state)
-    b.buildings = []
-    b.recipes = []
+    // IMPORTANT: Do NOT overwrite b.buildings (user's planned values)
+    // They are preserved as-is so user can see what changed via highlighting
+    // Use slotId-based mapping to match currentBuildings (not array index)
+    // For new imports, seed buildings from currentBuildings only if buildings was empty
+    if (b.buildings.length === 0) {
+      b.buildings = b.currentBuildings.map((cur) => ({
+        id: `planned_${cur.buildingId}_${Math.random().toString(36).slice(2, 10)}`,
+        buildingId: cur.buildingId,
+        level: cur.level,
+        slotId: cur.slotId,
+      }))
+    } else {
+      // Update existing buildings to match currentBuildings structure using slotId
+      // Preserve levels from what user planned, but sync buildingIds and remove obsolete entries
+      const currentBySlotId = new Map<number, typeof b.currentBuildings[0]>()
+      b.currentBuildings.forEach((cur) => {
+        if (cur.slotId != null) currentBySlotId.set(cur.slotId, cur)
+      })
 
-    // Import buildingSlots using addBuilding (creates user-editable copy)
-    slots.forEach((slot) => {
-      const buildingId = Number(slot.buildingId)
-      if (!isFinite(buildingId)) return
-      const level = slot.level != null ? Math.max(1, Math.floor(Number(slot.level))) : 1
-      addBuilding(baseId, buildingId, level)
+      // Create map of existing planned buildings by slotId
+      const plannedBySlotId = new Map<number, typeof b.buildings[0]>()
+      b.buildings.forEach((planned) => {
+        if (planned.slotId != null) plannedBySlotId.set(planned.slotId, planned)
+      })
+
+      // Rebuild buildings array: For each current building, preserve planned level if exists
+      b.buildings = b.currentBuildings.map((current) => {
+        const existingPlanned = current.slotId != null ? plannedBySlotId.get(current.slotId) : null
+        if (existingPlanned) {
+          // Keep existing planned entry but update buildingId (in case it changed)
+          return {
+            ...existingPlanned,
+            buildingId: current.buildingId,
+            slotId: current.slotId,
+            // Keep planned.level (don't overwrite)
+          }
+        } else {
+          // New slot: create new planned entry from current
+          return {
+            id: `planned_${current.buildingId}_${Math.random().toString(36).slice(2, 10)}`,
+            buildingId: current.buildingId,
+            level: current.level,
+            slotId: current.slotId,
+          }
+        }
+      })
+    }
+
+    // Import productionOrders: Update currentCount but preserve planned counts
+    // (similar logic: only update currentCount from API, don't touch planned count)
+    b.recipes.forEach((recipe) => {
+      recipe.currentCount = 0 // Reset, will be filled below
     })
 
     // Import productionOrders: Count occurrences per recipeId to store in currentCount
@@ -378,14 +429,22 @@ export function usePlayerBases(gd: GameData) {
       recipeCountMap.set(recipeId, (recipeCountMap.get(recipeId) ?? 0) + 1)
     })
 
-    // Add recipes with currentCount from API
+    // Update recipes: set currentCount from API, preserve planned counts for existing recipes
+    // For new recipes (not in planned), seed both current and planned to match API
     recipeCountMap.forEach((apiCount, recipeId) => {
-      const recipeInstanceId = addRecipe(baseId, recipeId)
-      if (recipeInstanceId) {
-        const recipe = b.recipes.find((r) => r.id === recipeInstanceId)
-        if (recipe) {
-          recipe.currentCount = apiCount
-          recipe.count = apiCount // Also set planned count to match API initially
+      const existing = b.recipes.find((r) => r.recipeId === recipeId)
+      if (existing) {
+        // Recipe already planned: just update currentCount, preserve count (planned)
+        existing.currentCount = apiCount
+      } else {
+        // New recipe from API: add it with both current and planned matching
+        const recipeInstanceId = addRecipe(baseId, recipeId)
+        if (recipeInstanceId) {
+          const recipe = b.recipes.find((r) => r.id === recipeInstanceId)
+          if (recipe) {
+            recipe.currentCount = apiCount
+            recipe.count = apiCount // Seed planned to match current for new recipes
+          }
         }
       }
     })
@@ -456,7 +515,6 @@ export function usePlayerBases(gd: GameData) {
     addBuilding,
     setBuilding,
     removeBuilding,
-    reorderBuildings,
     addRecipe,
     removeRecipe,
     reorderRecipes,

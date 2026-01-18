@@ -889,14 +889,14 @@ onBeforeUnmount(() => {
                   class="py-1 text-right px-1 border-l border-slate-700/50 text-xs"
                   :class="[
                     Math.abs(row.planned.balancePerDay) < 0.01 ? 'text-slate-400' : row.planned.balancePerDay > 0 ? 'text-emerald-300' : 'text-rose-300',
-                    Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''
+                    Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900' : ''
                   ]"
                 >
                   {{ formatNumber(row.planned.balancePerPeriod, 1) }}
                 </td>
                 <td
                   class="py-1 text-right px-1 text-xs text-slate-400"
-                  :class="Math.abs(getWeightValue(row.planned.balancePerPeriod, row.materialId) - getWeightValue(row.current.balancePerPeriod, row.materialId)) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(getWeightValue(row.planned.balancePerPeriod, row.materialId) - getWeightValue(row.current.balancePerPeriod, row.materialId)) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatWeight(props.gameData, row.planned.balancePerPeriod, row.materialId) }}
                 </td>
@@ -904,7 +904,7 @@ onBeforeUnmount(() => {
                   class="py-1 text-right px-1 text-xs"
                   :class="[
                     Math.abs(row.planned.valuePerPeriod) < 0.01 ? 'text-slate-400' : row.planned.valuePerPeriod < 0 ? 'text-rose-300' : 'text-emerald-400',
-                    Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''
+                    Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900' : ''
                   ]"
                 >
                   {{ formatPrice(row.planned.valuePerPeriod, 0) }}
@@ -913,7 +913,7 @@ onBeforeUnmount(() => {
                   class="py-1 text-right px-1 text-xs"
                   :class="[
                     (row.planned.daysCoverage ?? 0) < periodFactor ? 'text-rose-300' : 'text-emerald-400',
-                    Math.abs((row.planned.daysCoverage ?? 0) - (row.current.daysCoverage ?? 0)) > 0.01 ? 'bg-blue-900/20' : ''
+                    Math.abs((row.planned.daysCoverage ?? 0) - (row.current.daysCoverage ?? 0)) > 0.01 ? 'bg-blue-900' : ''
                   ]"
                 >
                   <span v-if="row.planned.daysCoverage !== null">
@@ -954,12 +954,12 @@ onBeforeUnmount(() => {
                 <td class="py-2 text-right px-1"></td>
                 <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
                 <td class="py-2 text-right px-1 text-xs"
-                  :class="Math.abs(nonExportNegativeTotals.plannedWeight - nonExportNegativeTotals.currentWeight) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(nonExportNegativeTotals.plannedWeight - nonExportNegativeTotals.currentWeight) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatNumber(nonExportNegativeTotals.plannedWeight, 1) }}t
                 </td>
                 <td class="py-2 text-right px-1 text-xs text-rose-300"
-                  :class="Math.abs(nonExportNegativeTotals.plannedRevenue - nonExportNegativeTotals.currentRevenue) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(nonExportNegativeTotals.plannedRevenue - nonExportNegativeTotals.currentRevenue) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatPrice(nonExportNegativeTotals.plannedRevenue, 0) }}
                 </td>
@@ -980,12 +980,12 @@ onBeforeUnmount(() => {
                 <td class="py-2 text-right px-1"></td>
                 <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
                 <td class="py-2 text-right px-1 text-xs"
-                  :class="Math.abs(nonExportPositiveTotals.plannedWeight - nonExportPositiveTotals.currentWeight) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(nonExportPositiveTotals.plannedWeight - nonExportPositiveTotals.currentWeight) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatNumber(nonExportPositiveTotals.plannedWeight, 1) }}t
                 </td>
                 <td class="py-2 text-right px-1 text-xs text-emerald-400"
-                  :class="Math.abs(nonExportPositiveTotals.plannedRevenue - nonExportPositiveTotals.currentRevenue) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(nonExportPositiveTotals.plannedRevenue - nonExportPositiveTotals.currentRevenue) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatPrice(nonExportPositiveTotals.plannedRevenue, 0) }}
                 </td>
@@ -1006,12 +1006,12 @@ onBeforeUnmount(() => {
                 <td class="py-2 text-right px-1"></td>
                 <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
                 <td class="py-2 text-right px-1 text-xs"
-                  :class="Math.abs(nonExportTotals.plannedWeight - nonExportTotals.currentWeight) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(nonExportTotals.plannedWeight - nonExportTotals.currentWeight) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatNumber(nonExportTotals.plannedWeight, 1) }}t
                 </td>
                 <td class="py-2 text-right px-1 text-xs"
-                  :class="Math.abs(nonExportTotals.plannedRevenue - nonExportTotals.currentRevenue) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(nonExportTotals.plannedRevenue - nonExportTotals.currentRevenue) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatPrice(nonExportTotals.plannedRevenue, 0) }}
                 </td>
@@ -1065,19 +1065,19 @@ onBeforeUnmount(() => {
                 <!-- Planned Production -->
                 <td
                   class="py-1 text-right px-1 border-l border-slate-700/50 text-xs text-emerald-300 font-medium"
-                  :class="Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(row.planned.balancePerPeriod - row.current.balancePerPeriod) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatNumber(row.planned.balancePerPeriod, 1) }}
                 </td>
                 <td
                   class="py-1 text-right px-1 text-xs text-slate-400"
-                  :class="Math.abs(getWeightValue(row.planned.balancePerPeriod, row.materialId) - getWeightValue(row.current.balancePerPeriod, row.materialId)) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(getWeightValue(row.planned.balancePerPeriod, row.materialId) - getWeightValue(row.current.balancePerPeriod, row.materialId)) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatWeight(props.gameData, row.planned.balancePerPeriod, row.materialId) }}
                 </td>
                 <td
                   class="py-1 text-right px-1 text-xs text-emerald-400"
-                  :class="Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(row.planned.valuePerPeriod - row.current.valuePerPeriod) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatPrice(row.planned.valuePerPeriod, 0) }}
                 </td>
@@ -1112,12 +1112,12 @@ onBeforeUnmount(() => {
                 </td>
                 <td class="py-2 text-right px-1 border-l border-slate-700/50"></td>
                 <td class="py-2 text-right px-1 text-xs text-slate-300"
-                  :class="Math.abs(exportTotals.plannedWeight - exportTotals.currentWeight) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(exportTotals.plannedWeight - exportTotals.currentWeight) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatNumber(exportTotals.plannedWeight, 1) }}t
                 </td>
                 <td class="py-2 text-right px-1 text-xs text-slate-300"
-                  :class="Math.abs(exportTotals.plannedRevenue - exportTotals.currentRevenue) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(exportTotals.plannedRevenue - exportTotals.currentRevenue) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatPrice(exportTotals.plannedRevenue, 0) }}
                 </td>
@@ -1226,13 +1226,13 @@ onBeforeUnmount(() => {
                 <!-- Planned Consumption -->
                 <td
                   class="py-1 text-right px-1 border-l border-slate-700/50 text-xs"
-                  :class="Math.abs(row.planned.consumptionPerPeriod - row.current.consumptionPerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(row.planned.consumptionPerPeriod - row.current.consumptionPerPeriod) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatNumber(row.planned.consumptionPerPeriod, 1) }}
                 </td>
                 <td
                   class="py-1 text-right px-1 text-xs text-rose-300"
-                  :class="Math.abs(row.planned.costPerPeriod - row.current.costPerPeriod) > 0.01 ? 'bg-blue-900/20' : ''"
+                  :class="Math.abs(row.planned.costPerPeriod - row.current.costPerPeriod) > 0.01 ? 'bg-blue-900' : ''"
                 >
                   {{ formatPrice(row.planned.costPerPeriod, 0) }}
                 </td>

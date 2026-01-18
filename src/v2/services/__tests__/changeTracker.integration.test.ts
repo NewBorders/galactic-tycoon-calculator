@@ -53,7 +53,7 @@ describe('Change Tracker Integration with Storage', () => {
   })
 
   it('should register recipe count changes', () => {
-    tracker.trackRecipeCountChange(1, 10, 1, 2)
+    tracker.trackRecipeCountChange(1, 10, 'recipe-instance-1', 1, 2)
 
     const { todoGroups } = useTodoList()
     const changes = todoGroups.value.flatMap(g => g.steps.flatMap(s => s.changes))

@@ -1,6 +1,509 @@
-## Session 9 Summary (PlanetId Migration & Description Generation)
+## Session 11 Summary (Dynamic Building Index in TODOs)
+
+**Primary Accomplishment**:
+- Display dynamic building instance index (from current base order) in the TODO list for building-related steps.
+
+**What Changed**:
+- Added `getRegisteredPlayerBases()` in [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts) to expose the registered `playerBases` instance for read-only UI usage.
+- Updated [src/v2/components/TodoList.vue](src/v2/components/TodoList.vue) to compute and render a small `#N` badge before the description for building steps. The index comes from the current position of the building instance within the base’s `buildings` array.
+
+**Behavior**:
+- The badge updates automatically when the user reorders buildings because it derives from reactive `playerBases.state` and uses `planetId` + `buildingInstanceId`.
+- Supports legacy fields as a fallback (`slotId` and `instanceId`) when resolving the instance ID.
+
+**Notes / Next Considerations**:
+- We did not alter stored history; the number is computed at render time to remain consistent with UI order changes.
+- Consider aligning building-related `details` field naming across services (`slotId` vs `buildingInstanceId`) to avoid future confusion in merge/cancel-out logic.
+
+**Status**:
+- Type-check clean, ESLint clean.
+
+## Session 11 Extended Summary (Complete Cleanup: buildingInstanceId Unification & Parameter Standardization)
+
+**Secondary Accomplishments**:
+1. **Complete ID Consolidation**: Removed all `slotId` and redundant `instanceId` references; now exclusively using `buildingInstanceId` as the sole building instance identifier.
+2. **Parameter Standardization**: Renamed all tracker methods to use consistent parameter names: `buildingInstanceId` for building operations, `recipeInstanceId` for recipe operations.
+3. **Details Cleanup**: Removed redundant `instanceId` field from change details (was duplicating `buildingInstanceId`).
+4. **Comment Alignment**: Updated all JSDoc comments to reflect new parameter names and terminology.
+
+**Files Modified**:
+- [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts): Removed all fallback chains for building instance ID resolution; now pure `buildingInstanceId` lookup in merge/cancel-out logic.
+- [src/v2/services/stateReversion.ts](src/v2/services/stateReversion.ts): Simplified building-level change handling to use only `buildingInstanceId`; removed `slotId` and `instanceId` fallbacks.
+- [src/v2/services/changeTracker.ts](src/v2/services/changeTracker.ts):
+  - `trackAddBuilding()`: Renamed parameter to `buildingInstanceId`; updated JSDoc.
+  - `trackRemoveBuilding()`: Renamed parameter to `buildingInstanceId`; removed redundant `instanceId` from details; updated JSDoc.
+  - `trackAddRecipe()`: Renamed parameter to `recipeInstanceId`; updated JSDoc.
+  - `trackRemoveRecipe()`: Renamed parameter to `recipeInstanceId`; removed redundant `instanceId` from details; updated JSDoc.
+- [src/v2/components/TodoList.vue](src/v2/components/TodoList.vue): Simplified badge computation to use only `buildingInstanceId` (no fallbacks).
+- [src/v2/services/changeStorage.ts](src/v2/services/changeStorage.ts): Updated comment to reflect new terminology.
+
+**Benefits**:
+- **Clarity**: Code is now self-documenting; parameter names directly indicate the semantic meaning.
+- **Reduced Complexity**: No branching logic or fallback chains; single authoritative source per operation.
+- **Release-Ready**: Since data resets with this release, no migration code needed; clean slate for new identifiers.
+
+**Status**:
+- Type-check: ✅ clean
+- Lint: ✅ clean  
+- Tests: ✅ 249/249 passing
+
+## Session 13 Update (SlotId-Based Building Identification with Temporary SlotIds)
 
 **Primary Accomplishments**:
+1. Replaced index-based building identification with slotId-based identification
+2. Implemented temporary negative slotIds for planned buildings (before API import)
+3. Fixed localStorage persistence to save/restore slotIds across page reloads
+
+**Root Cause of Original Problem**:
+- Array-index was unstable: deleting buildings caused subsequent buildings to shift forward
+- Planned values shifted with them because they were bound to array position
+- Example: Delete building at index 0 → building at index 1 becomes index 0 → planned values misaligned
+
+**Solution - SlotId System**:
+
+**For Buildings from Game (API Import)**:
+- Each building gets a `slotId` from the Game API (`buildingSlots[].slot`)
+- SlotId is permanent and doesn't change when buildings are deleted
+- Display shows `#1, #2, #3...` (slotId + 1)
+- Example: Building on Game slot 3 is shown as `#4` (0-indexed → 1-indexed display)
+
+**For Planned Buildings (User-Added, No Import)**:
+- Temporary negative slotIds: `-1, -2, -3...` (in creation order)
+- Display shows `~` symbol to indicate "planned/not in game yet"
+- When API import happens, these temporary IDs are replaced with real Game slotIds
+- Example: User adds 2 buildings before any import → they get slotId: -1 and -2
+- After import, those slots that match the game get positive slotIds (0, 1, 2...)
+
+**Badge Behavior**:
+- `#N` (e.g., `#3`) = Game slot N-1 (real building)
+- `~` = Planned building (negative slotId, not yet in game)
+- `?` = No slotId assigned (shouldn't happen after fixes)
+
+**What Changed**:
+
+- [src/v2/services/playerBases.ts](src/v2/services/playerBases.ts):
+  - Updated `ensureUi()` to preserve `slotId` in localStorage
+  - Modified `addBuilding()` to assign temporary negative slotIds automatically
+  - Calculation: Find minimum negative slotId in use, assign one lower (e.g., -1, -2, -3...)
+  - Import logic unchanged (already handles slotId-based matching)
+
+- [src/v2/pages/player-config/components/BaseBuildingsSection.vue](src/v2/pages/player-config/components/BaseBuildingsSection.vue):
+  - Badge shows `#N` for positive slotIds (game slots)
+  - Badge shows `~` for negative slotIds (planned buildings)
+  - Badge shows `?` only if slotId somehow becomes null
+
+- [src/v2/components/TodoList.vue](src/v2/components/TodoList.vue):
+  - Shows game slot number (`#N`) only for positive slotIds
+  - Falls back to array index for planned buildings
+  - Import displays update to reflect actual game slot positions
+
+**Behavior Examples**:
+
+1. **Create New Base (No Import Yet)**:
+   ```
+   User adds 3 buildings
+   → slotId: -1, -2, -3 (temp)
+   → Display: ~, ~, ~ (planned badges)
+   ```
+
+2. **Import from Game**:
+   ```
+   Game has buildings on slots: 0, 1, 2, 4 (slot 3 is empty)
+   Planned buildings (-1, -2, -3) were for slots 0, 1, 2
+   → slotId: 0, 1, 2 (now real)
+   → Display: #1, #2, #3, #5 (game slot numbers)
+   → Planned levels preserved!
+   ```
+
+3. **Delete Building and Reload**:
+   ```
+   Delete building on slot 0
+   Remaining planned buildings: slot 1, 2, 4
+   Reload page
+   → localStorage saves slotIds (1, 2, 4)
+   → After reload: buildings still show correct planned levels
+   ```
+
+**Persistence**:
+- SlotIds are now saved in localStorage via `ensureUi()` sanitization
+- On page reload, slotIds are restored and match correctly
+- Temporary negative slotIds persist until API import replaces them
+
+**Design Benefits**:
+- ✅ Planned values stay with correct Game slot after deletions
+- ✅ Badge number reflects actual Game slot position (or `~` for planned)
+- ✅ Highlighting (current vs planned) remains accurate after structural changes
+- ✅ Works across page reloads (localStorage persistence)
+- ✅ No more "planned values shift forward" bug
+- ✅ Clearly distinguishes planned buildings (`~`) from imported buildings (`#N`)
+
+**Validation**:
+- Type-check: ✅ clean
+- Lint: ✅ clean
+- Tests: ✅ 249/249 passing
+- Persistence: ✅ slotIds saved/restored across reloads
+
+**Technical Notes**:
+- Negative slotIds are intentional (distinguish from game slots 0+)
+- `addBuilding()` auto-assigns: `Math.min(...negative_slotIds) - 1`
+- Import logic uses `Map<slotId, PlayerBuilding>` for reliable matching
+- Display uses `slotId >= 0` check to differentiate game vs planned
+
+## Session 13a Update (Remove Building Reordering - Lock to Game Order)
+
+**Primary Accomplishment**:
+Removed user-facing building reordering (Draggable component) to lock buildings to Game order. This fixes index-based matching between `buildings` (planned) and `currentBuildings` (current state).
+
+**Root Cause of Previous Issues**:
+- User-driven reordering in the tool UI broke index-based comparison.
+- Example: If user dragged building from index 0 to position 2, then `buildings[0] ≠ currentBuildings[0]`, causing incorrect current/planned comparisons.
+- The import logic was correct, but reordering made indices unreliable.
+
+**What Changed**:
+- [src/v2/pages/player-config/components/BaseBuildingsSection.vue](src/v2/pages/player-config/components/BaseBuildingsSection.vue):
+  - Removed `Draggable` wrapper and `vuedraggable` import
+  - Removed `list` computed property (reorder sync)
+  - Removed drag handle button and styling
+  - Changed to static div grid displaying buildings in index order (Game order)
+  - Updated comparison to use index-based lookup: `currentBuildings[index]` instead of type-based map lookup
+  
+- [src/v2/pages/player-config/PlayerConfigPanel.vue](src/v2/pages/player-config/PlayerConfigPanel.vue):
+  - Removed `@reorderBuildings` event handler
+  - Removed `reorderBuildings` from imports
+  
+- [src/v2/pages/player-config/components/ConfiguredBase.vue](src/v2/pages/player-config/components/ConfiguredBase.vue):
+  - Removed `reorderBuildings` event definition
+  - Removed `@reorder` handler on BaseBuildingsSection component
+  
+- [src/v2/services/playerBases.ts](src/v2/services/playerBases.ts):
+  - Removed `reorderBuildings()` function (no longer needed)
+  - Removed from exports
+
+**Design Trade-Off**:
+- **Loss**: User flexibility to reorder buildings in tool UI
+- **Gain**: Reliable index-based matching for current/planned state comparison
+- **User Workflow**: If reordering is needed, user does it in-game (where it's authoritative anyway)
+
+**Index-Based Matching Now Reliable**:
+- `buildings[i]` always corresponds to `currentBuildings[i]` by slot position
+- Highlighting (planned ≠ current) is now guaranteed accurate
+- No more divergence between tool order and Game order
+
+**Validation**:
+- Type-check: ✅ clean
+- Tests: ✅ 249/249 passing
+
+**Impact**:
+- Fixes persistent current/planned mismatch issues reported in Session 12a
+- Simplifies state management (no reorder operations)
+- Aligns tool UI with Game's authoritative building slot structure
+
+## Session 12 Update (Tile Highlights + Step Costs)
+
+
+**What I changed**:
+- Highlight tiles when planned ≠ current:
+   - Buildings: [BaseBuildingsSection.vue](src/v2/pages/player-config/components/BaseBuildingsSection.vue) now uses solid `bg-blue-900` + `border-blue-700` when planned level differs from current.
+   - Recipes: [RecipeTile.vue](src/v2/pages/player-config/components/RecipeTile.vue) highlights when planned `count` differs from `currentCount`.
+   - Technology: [TechnologyPanel.vue](src/v2/pages/technology/TechnologyPanel.vue) highlights per-tech tile when planned level differs from current.
+- Changed difference highlight color to solid:
+   - In [SummaryCalculationsSection.vue](src/v2/pages/player-config/components/SummaryCalculationsSection.vue) all planned vs current deltas now use `bg-blue-900` instead of `bg-blue-900/20`.
+- **Show material costs per step (building level changes)**:
+  - Building level changes now show tier-adjusted construction material costs in TODO steps.
+  - Cost calculation in [changeTracker.ts](src/v2/services/changeTracker.ts):
+    - Retrieves building's base `constructionMaterials` from GameData
+    - Applies tier multiplier: `actualCost = baseCost × getTierMultiplier(planetTier, buildingTier)`
+    - Formula: Each tier difference adds 50% cost (e.g., Tier 3 planet + Tier 1 building = 2× cost)
+  - Rendered by [TodoList.vue](src/v2/components/TodoList.vue) as "Cost: 150× Iron, 75× Steel" below each step
+- **Manual cost configuration structure** ([manualCosts.ts](src/v2/constants/manualCosts.ts)):
+  - `TECHNOLOGY_COSTS`: Object for manually defining tech upgrade costs per level transition
+  - `NEW_BASE_COSTS_BY_TIER`: Object for defining base creation costs per planet tier
+  - `getBuildingCostMultiplier()`: Helper function for tier-based building cost multiplier
+  - **Ready for you to fill in** with actual cost values
+
+**How building costs work**:
+- Buildings have base `constructionMaterials` in GameData (e.g., "10× Iron, 5× Steel")
+- Planet tier affects cost: Higher tier planets = more expensive to build
+- Current multiplier formula: `1 + (planetTier - buildingTier) × 0.5`
+  - Tier 1 planet + Tier 1 building = 1.0× (base cost)
+  - Tier 2 planet + Tier 1 building = 1.5×
+  - Tier 3 planet + Tier 1 building = 2.0×
+- Displayed cost = base × multiplier × levelDelta, rounded up
+
+**Next steps for manual costs**:
+1. Fill `TECHNOLOGY_COSTS` with actual tech upgrade material requirements
+2. Fill `NEW_BASE_COSTS_BY_TIER` with base creation costs per tier (source: `baseBuildingCost` from GameData)
+3. Adjust `getBuildingCostMultiplier()` if the 0.5 per tier scaling needs tuning
+
+**Notes**:
+- Technology and new base costs are not yet displayed (structures ready, but cost data needs manual entry)
+**Accomplishments**:
+1. **Group Name Repository**: Created `getBaseOrPlanetNameByPlanetId(planetId)` in [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts) to display base names or planet names in TODO list group headers.
+   - Priority order: baseName (if set) → planetName → fallback "Planet <id>"
+   - Uses registered playerBases for planet lookup
+2. **Updated TodoList.vue**: Group headers now display `🏗️ BaseName` or `🏗️ Planet Name` instead of `🏗️ Planet <id>`.
+3. **Removed PlanningControls**: 
+   - Removed [src/v2/components/PlanningControls.vue](src/v2/components/PlanningControls.vue) from [src/v2/AppV2.vue](src/v2/AppV2.vue)
+   - Removed unused component import
+   - All undo/redo functionality now exclusively in right-side TODO list panel
+4. **Extended PlayerBasesService Type**: Added `planets` property to interface for proper type checking.
+5. **Updated PlayerConfigPanel**: Now passes `planets` when registering playerBases.
+
+**Files Modified**:
+- [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts): Added `getBaseOrPlanetNameByPlanetId()` repository function
+- [src/v2/components/TodoList.vue](src/v2/components/TodoList.vue): Updated group header to use repository function
+- [src/v2/AppV2.vue](src/v2/AppV2.vue): Removed PlanningControls component and import
+- [src/v2/services/stateReversion.ts](src/v2/services/stateReversion.ts): Extended PlayerBasesService interface to include planets property
+- [src/v2/pages/player-config/PlayerConfigPanel.vue](src/v2/pages/player-config/PlayerConfigPanel.vue): Added planets to playerBases registration
+
+**Verification**:
+- Type-check: ✅ clean
+- Lint: ✅ clean
+- Tests: ✅ 249/249 passing
+
+**Status**: ✅ All tasks completed successfully
+
+## Session 12a Delta (Highlight & Cost Persistence)
+
+- Fixed building tile highlight mismatch after API import by preferring current level from `currentBuildings[index]` before falling back to type-based lookup.
+  - File: [src/v2/pages/player-config/components/BaseBuildingsSection.vue](src/v2/pages/player-config/components/BaseBuildingsSection.vue)
+- Ensured TODO step material costs persist across merges and reloads by merging `materialsCost` during step consolidation.
+  - File: [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts)
+- Added `xs` icon variant (12px) and refined cost parsing for robust icon rendering in TODO list.
+  - Files: [src/v2/style.css](src/v2/style.css), [src/v2/components/MaterialIcon.vue](src/v2/components/MaterialIcon.vue), [src/v2/components/TodoList.vue](src/v2/components/TodoList.vue)
+
+Validation: Type-check ✅, Tests ✅ 249/249.
+
+## Session 10c Summary (Cancel-Out History Fix)
+
+**Primary Accomplishment**:
+✅ Fixed cancel-out logic to properly remove ALL merged history states, not just the last one
+
+**Bug Fixed**:
+
+**Building/Recipe Cancel-Out Goes to Wrong History State**
+- **User Issue**: 
+  - Building: 11→12→13→12→11 showed "Level 11→13" after cancel-out (should delete completely)
+  - Recipe: 1→2→1 showed "Count 1→1" after cancel-out (should delete completely)
+  
+- **Root Cause**: 
+  The cancel-out logic only went back ONE step in history:
+  ```typescript
+  // Old logic (WRONG):
+  scopeHistory.currentIndex--  // Only goes back 1 step
+  scopeHistory.history = scopeHistory.history.slice(0, scopeHistory.currentIndex + 1)
+  ```
+  
+  With merged history:
+  - State 0: `[]`
+  - State 1: `[11→12]`
+  - State 2: `[11→13]` (merged from 11→12→13)
+  - State 3: `[11→12]` (merged from 11→13→12)
+  - After cancel-out: currentIndex = 2 → Shows `[11→13]` ❌ (should show `[]`)
+
+- **Solution**: 
+  Walk backwards through history to find the FIRST state that doesn't have any changes for this target:
+  ```typescript
+  // New logic (CORRECT):
+  let targetIndex = scopeHistory.currentIndex - 1
+  while (targetIndex >= 0) {
+    const state = scopeHistory.history[targetIndex]
+    const group = state?.find(g => g.scope === scope && g.planetId === planetId)
+    
+    if (!group || group.steps.length === 0) break  // Found empty state
+    
+    // Check if this state has changes for the same target
+    const hasTargetChanges = group.steps.some(s => s.changes.some(c => {
+      const cTarget = c.details?.slotId || c.details?.recipeInstanceId || ...
+      return cTarget === targetIdentifier
+    }))
+    
+    if (!hasTargetChanges) break  // Found state without this target
+    targetIndex--
+  }
+  
+  // Unregister all changes being removed
+  // Update history to targetIndex + 1
+  ```
+
+- **Files Modified**:
+  - [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts#L410-L475): Updated cancel-out logic in addChange()
+
+- **Result**: 
+  - Building 11→12→13→12→11 now correctly deletes the todo entry ✅
+  - Recipe 1→2→1 now correctly deletes the todo entry ✅
+  - Goes back to the state BEFORE all merged changes
+
+**Technical Details**:
+- The new logic identifies the target by checking `slotId` (buildings), `recipeInstanceId` (recipes), `materialId` (stock), or `techId` (technology)
+- Walks backwards through history until finding a state that either:
+  1. Has no changes for this scope/planetId at all (empty group)
+  2. Has changes but NOT for this specific target
+- Unregisters ALL changeIds being removed to prevent stale references
+- Sets currentIndex to `targetIndex + 1` (the first state without this target)
+
+**Test Results**:
+- All 249 tests passing ✅
+- TypeScript: No errors ✅
+- ESLint: No errors ✅
+
+## Session 10b Summary (Merge & Recipe Count Fixes)
+
+**Primary Accomplishments**:
+1. ✅ Fixed regex pattern for multi-digit number replacement in merge descriptions
+2. ✅ Fixed recipe count DOM element tracking by passing recipeInstanceId
+3. ✅ All tests pass (249/249), type-check clean, lint clean
+
+**Bug Fixes**:
+
+### User-Reported Bugs Fixed:
+
+1. **Building Level: 11→12→13→12→11 shows "11→13" instead of disappearing**
+   - **Root Cause**: Regex `/\d+ → \d+/` only matched single digits, so "11→12" was replaced as "1→1" → "13"
+   - **Fix**: Updated regex to `/(\d+) → (\d+)/` in TWO places:
+     - Line 454 in addChange() function: `newDescription.replace(/(\d+) → (\d+)/, ...)`
+     - Line 176 in displayGroups computed property: `lastChange.description.replace(/(\d+) → (\d+)/, ...)`
+   - **Also added**: Recipe type to the merge condition (was only building/technology/stock)
+   - **Result**: Now correctly merges 11→12→13→12→11 to 11→11→CANCEL_OUT
+
+2. **Recipe Count: 1→2→3 shows "2→3" instead of "1→3"**
+   - **Root Cause**: Same regex issue as above
+   - **Fix**: Same regex update as above
+   - **Result**: Now correctly merges 1→2→3 to 1→3
+
+3. **Recipe Count: 1→2→1 doesn't delete (cancel-out)**
+   - **Root Cause**: Cancel-out detection wasn't checking recipe type properly
+   - **Fix**: Added explicit check for `change1.type === 'recipe'` in doCancelsOut()
+   - **Result**: Now correctly detects 1→2→1 as cancel-out and deletes
+
+4. **Recipe Undo throws "DOM element not found: recipe-input-7"**
+   - **Root Cause**: trackRecipeCountChange() was storing `targetId: String(recipeId)` (e.g., "7") but DOM expects `recipe-input-{instanceId}` (e.g., "recipe-7-abc123")
+   - **Fix**: 
+     - Updated trackRecipeCountChange() signature: added `recipeInstanceId: string` parameter (after recipeId)
+     - Changed: `registerChange(..., targetId: String(recipeId))` → `registerChange(..., targetId: recipeInstanceId)`
+     - Updated PlayerConfigPanel.vue: pass `id` (recipeInstanceId) to trackRecipeCountChange()
+     - Updated test: pass instanceId to trackRecipeCountChange()
+   - **Files Modified**:
+     - [src/v2/services/changeTracker.ts](src/v2/services/changeTracker.ts#L321-L345): Updated trackRecipeCountChange() signature
+     - [src/v2/pages/player-config/PlayerConfigPanel.vue](src/v2/pages/player-config/PlayerConfigPanel.vue#L735-L756): Pass recipeInstanceId parameter
+     - [src/v2/services/__tests__/changeTracker.integration.test.ts](src/v2/services/__tests__/changeTracker.integration.test.ts#L55-L65): Updated test call
+
+**Technical Details**:
+
+- **Regex Fix**: The old pattern `/\d+ → \d+/` used non-capturing digits which only matched the FIRST digit group. The new `/(\d+) → (\d+)/` properly captures ALL digits before and after the arrow.
+  - Example: "Building Level 11 → 12" was being replaced as "Building Level 1 → 1 3" (matching only first "1" and replacing it)
+  - Now: "Building Level 11 → 12" is properly replaced to "Building Level 11 → 13"
+
+- **Recipe Instance ID Fix**: The merge/cancel-out logic and state reversion now have the correct recipeInstanceId to:
+  1. Update the DOM element correctly when undoing/redoing
+  2. Store the proper reference for future state reversions
+  3. Avoid "DOM element not found" errors
+
+**Test Results**:
+- All 249 tests passing
+- TypeScript: No errors
+- ESLint: No errors
+
+## Session 10a Summary (Cancel-Out Detection & Technology Undo)
+
+**Primary Accomplishments**:
+1. ✅ Fixed cancel-out detection for new `from`/`to` field structure in doCancelsOut()
+2. ✅ Fixed technology undo error by making playerBases parameter optional in stateReversion
+3. ✅ All tests pass (249/249), type-check clean, lint clean
+4. ✅ Global changes (technology, starting-bonus) now work without requiring playerBases
+
+**Technical Changes**:
+
+1. **Cancel-Out Detection Fix (todoListService.ts)**
+   - **Problem**: doCancelsOut() was checking for non-existent fields `field`, `originalValue`, `newValue`
+   - **Solution**: Updated to use `from` and `to` fields from change.details
+   - **Logic**: For each change type (technology, building, recipe, stock):
+     - Compare: `change1.details?.from === change2.details?.to`
+     - If true → changes cancelled out (reverted to original state)
+   - **Example**: Tech L2→L3 followed by L3→L2 now properly detects that L2===L2 (first from equals second to)
+   - **File**: [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts#L294-L354)
+
+2. **Technology Undo Error Fix (stateReversion.ts)**
+   - **Problem**: "[TodoListService] Cannot revert state: playerBases not registered" when undoing technology changes
+   - **Root Cause**: playerBases was required parameter, but technology changes are global and don't need it
+   - **Solution**:
+     - Made `playerBases` parameter optional in `revertChange()` and `applyStateReversions()`
+     - Made `playerBases` parameter optional in `revertStoredChange()`
+     - Added early returns for global changes (technologyLevel, startingBonus) BEFORE checking playerBases
+     - For base-specific changes: added warning if playerBases missing, early return
+   - **Changes**:
+     - `export function revertChange(change: Change, direction: 'forward' | 'backward', playerBases?: PlayerBasesService)`
+     - `export function applyStateReversions(fromGroups: TodoGroup[], toGroups: TodoGroup[], playerBases?: PlayerBasesService)`
+     - `function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerBases?: PlayerBasesService)`
+   - **File**: [src/v2/services/stateReversion.ts](src/v2/services/stateReversion.ts#L127-L280)
+
+3. **todoListService.ts State Reversion Calls**
+   - Simplified undo/redo logic to ALWAYS call applyStateReversions (no conditional check for playerBases)
+   - Changed: `if (playerBasesInstance) { applyStateReversions(...) } else { warn }` 
+   - To: `applyStateReversions(..., playerBasesInstance || undefined)`
+   - Now global changes work without playerBases; base-specific changes fail gracefully with warning
+   - **File**: [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts#L508-L548)
+
+**Bug Resolution Summary**:
+
+### Bug 1: Cancel-Out Not Working ✅ FIXED
+- **User Issue**: Technology/building level changes don't cancel out when reverted to original value
+- **Example**: Setting tech Agriculture L2→L3 then back to L3→L2 leaves todo "Agriculture: Level 2 → 2"
+- **Fix**: Updated doCancelsOut() to compare `from1 === to2` across change boundaries
+- **Status**: Fix applied, all tests pass
+
+### Bug 2: Technology Undo Error ✅ FIXED  
+- **User Issue**: Undo throws "[TodoListService] Cannot revert state: playerBases not registered"
+- **Root Cause**: playerBases was required but technology changes are global
+- **Fix**: Made playerBases optional, added early return for global changes
+- **Status**: Fix applied, all tests pass
+
+**Test Results**:
+- All 249 tests passing
+- TypeScript: No errors
+- ESLint: No errors
+
+## Session 10a Summary (Additional Bug Fixes: Cancel-Out Detection & Technology Undo)
+
+**Primary Accomplishments**:
+1. ✅ Fixed cancel-out detection for new `from`/`to` field structure in doCancelsOut()
+2. ✅ Fixed technology undo error by making playerBases parameter optional in stateReversion
+3. ✅ All tests pass (249/249), type-check clean, lint clean
+4. ✅ Global changes (technology, starting-bonus) now work without requiring playerBases
+
+**Technical Changes**:
+
+1. **Cancel-Out Detection Fix (todoListService.ts)**
+   - **Problem**: doCancelsOut() was checking for non-existent fields `field`, `originalValue`, `newValue`
+   - **Solution**: Updated to use `from` and `to` fields from change.details
+   - **Logic**: For each change type (technology, building, recipe, stock):
+     - Compare: `change1.details?.from === change2.details?.to`
+     - If true → changes cancelled out (reverted to original state)
+   - **Example**: Tech L2→L3 followed by L3→L2 now properly detects that L2===L2 (first from equals second to)
+   - **File**: [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts#L294-L354)
+
+2. **Technology Undo Error Fix (stateReversion.ts)**
+   - **Problem**: "[TodoListService] Cannot revert state: playerBases not registered" when undoing technology changes
+   - **Root Cause**: playerBases was required parameter, but technology changes are global and don't need it
+   - **Solution**:
+     - Made `playerBases` parameter optional in `revertChange()` and `applyStateReversions()`
+     - Made `playerBases` parameter optional in `revertStoredChange()`
+     - Added early returns for global changes (technologyLevel, startingBonus) BEFORE checking playerBases
+     - For base-specific changes: added warning if playerBases missing, early return
+   - **Changes**:
+     - `export function revertChange(change: Change, direction: 'forward' | 'backward', playerBases?: PlayerBasesService)`
+     - `export function applyStateReversions(fromGroups: TodoGroup[], toGroups: TodoGroup[], playerBases?: PlayerBasesService)`
+     - `function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerBases?: PlayerBasesService)`
+   - **File**: [src/v2/services/stateReversion.ts](src/v2/services/stateReversion.ts#L127-L280)
+
+3. **todoListService.ts State Reversion Calls**
+   - Simplified undo/redo logic to ALWAYS call applyStateReversions (no conditional check for playerBases)
+   - Changed: `if (playerBasesInstance) { applyStateReversions(...) } else { warn }` 
+   - To: `applyStateReversions(..., playerBasesInstance || undefined)`
+   - Now global changes work without playerBases; base-specific changes fail gracefully with warning
+   - **File**: [src/v2/services/todoListService.ts](src/v2/services/todoListService.ts#L508-L548)
+
+## Session 9 Summary (PlanetId Migration & Description Generation)
 1. ✅ Migrated change tracking from `baseName` to `planetId` in todoListService.ts
 2. ✅ Removed description parameters from all per-base change tracker methods
 3. ✅ Implemented internal description generation using gameData lookups
@@ -1389,4 +1892,28 @@ If user still wants productivity to drop when deactivating optionals:
 5. **PR Review**: Ready for final code review
 
 **Status**: ✅ Production Ready
+
+
+## Session 14 Summary (New Base TODO Step + Tier Costs)
+
+**Primary Accomplishment**:
+- Added "New Base" as a global TODO step with material cost display based on planet tier, wired to existing selection flow.
+
+**What Changed**:
+- Populated tier-based base creation costs in [src/v2/constants/manualCosts.ts](src/v2/constants/manualCosts.ts) via `NEW_BASE_COSTS_BY_TIER` using GameData `baseBuildingCost` materials: Concrete (3), Construction Kit (26), Construction Vehicle (52), Prefab Kit (92).
+- Integrated cost formatting through `getNewBaseCostForTier()` already used by [src/v2/services/changeTracker.ts](src/v2/services/changeTracker.ts) → `trackNewBase()`.
+- Added integration tests to validate that selecting a planet produces a base step with correctly formatted costs.
+
+**Tests**:
+- New test: [src/v2/services/__tests__/newBaseCost.test.ts](src/v2/services/__tests__/newBaseCost.test.ts)
+   - Verifies Tier 1 and Tier 3 display: `250× Concrete`, `30× Construction Kit`, `10× Construction Vehicle`, `30× Prefab Kit`.
+
+**Notes / Next Considerations**:
+- Currently, all tiers share the same base creation costs. If the wiki specifies tier-specific differences for founding costs, update `NEW_BASE_COSTS_BY_TIER` accordingly (structure is in place).
+- UI already shows cost icons in [src/v2/components/TodoList.vue](src/v2/components/TodoList.vue) when `materialsCost` is present.
+
+**Status**:
+- Type-check: ✅ clean
+- Lint: ✅ clean
+- Tests: ✅ passing (251/251)
 

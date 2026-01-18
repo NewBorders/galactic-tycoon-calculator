@@ -17,7 +17,6 @@ import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
 import MarketAnalysisPanel from './pages/market/MarketAnalysisPanel.vue'
 import PriceAlertsPanel from './pages/price-alerts/PriceAlertsPanel.vue'
-import PlanningControls from './components/PlanningControls.vue'
 import TodoList from './components/TodoList.vue'
 import ApiLandingPage from './components/ApiLandingPage.vue'
 
@@ -201,8 +200,6 @@ async function handleGameDataRefreshed(payload: {
             {{ translate('tabConfig') }}
           </button>
         </nav>
-
-        <PlanningControls />
       </div>
 
       <p v-if="err" class="text-red-600 text-sm">{{ err }}</p>

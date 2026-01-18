@@ -10,6 +10,7 @@
 import { useTodoList, type Change } from './todoListService'
 import { registerChange } from './changeStorage'
 import type { GameData } from './gamedata/types'
+import { getBuildingCostMultiplier, computeTechnologyResearchCost, getNewBaseCostForTier } from '@/v2/constants/manualCosts'
 
 function generateChangeId(): string {
   return crypto.randomUUID?.() ?? `change_${Date.now()}_${Math.random()}`
@@ -37,6 +38,8 @@ export function createChangeTracker(gameData?: GameData) {
         originalValue: fromLevel,
         newValue: toLevel,
       })
+      // Compute materials cost for planned technology upgrade (if configured)
+      const materialsCost = computeTechnologyResearchCost(techId, fromLevel, toLevel, gameData ? { materials: gameData.materials } : undefined)
       
       addChange({
         id: changeId,
@@ -47,6 +50,7 @@ export function createChangeTracker(gameData?: GameData) {
           technologyId: techId.toString(),
           from: fromLevel,
           to: toLevel,
+          materialsCost,
         },
       })
     },
@@ -82,8 +86,12 @@ export function createChangeTracker(gameData?: GameData) {
      * Track new base creation (GLOBAL)
      * @param baseName The name of the new base being planned
      */
-    trackNewBase(baseName: string): void {
+    trackNewBase(baseName: string, planetTier?: number): void {
       const changeId = generateChangeId()
+      // Compute materials cost for new base creation by planet tier if provided
+      const materialsCost = planetTier != null
+        ? getNewBaseCostForTier(planetTier, gameData ? { materials: gameData.materials } : undefined)
+        : undefined
       addChange({
         id: changeId,
         type: 'base',
@@ -91,6 +99,7 @@ export function createChangeTracker(gameData?: GameData) {
         details: {
           changeId,
           action: 'add',
+          materialsCost,
         },
       })
     },
@@ -132,6 +141,24 @@ export function createChangeTracker(gameData?: GameData) {
       const building = gameData?.buildings.find(b => b.id === buildingId)
       const buildingName = building?.name ?? `Building ${buildingId}`
       
+      // Get planet tier for cost multiplier
+      const planet = gameData?.planets.find(p => p.id === planetId)
+      const planetTier = planet?.tier ?? 1
+      const buildingTier = building?.tier ?? 1
+      const tierMultiplier = getBuildingCostMultiplier(planetTier, buildingTier)
+      
+      // Compute material costs display for level changes if gameData available
+      const levelDelta = Math.abs(toLevel - fromLevel)
+      const materialsCost = levelDelta > 0 && building
+        ? (building.constructionMaterials || [])
+            .filter(cm => (cm?.amount ?? 0) > 0)
+            .map(cm => {
+              const adjustedAmount = Math.ceil(cm.amount * levelDelta * tierMultiplier)
+              return `${adjustedAmount}× ${cm.name}`
+            })
+            .join(', ')
+        : undefined
+      
       // Register the change for state reversion
       registerChange(changeId, {
         changeId,
@@ -155,6 +182,7 @@ export function createChangeTracker(gameData?: GameData) {
           buildingId: buildingId.toString(),
           from: fromLevel,
           to: toLevel,
+          materialsCost,
         },
       })
     },
@@ -163,9 +191,9 @@ export function createChangeTracker(gameData?: GameData) {
      * Track building add (PER-BASE)
      * @param planetId The planet ID of the base
      * @param buildingId The building ID
-     * @param instanceId The instance ID (will be assigned after building is added)
+     * @param buildingInstanceId The building instance ID (will be assigned after building is added)
      */
-    trackAddBuilding(planetId: number, buildingId: number, instanceId?: string): void {
+    trackAddBuilding(planetId: number, buildingId: number, buildingInstanceId?: string): void {
       const changeId = generateChangeId()
       
       // Retrieve building name from gameData if available
@@ -177,7 +205,7 @@ export function createChangeTracker(gameData?: GameData) {
         registerChange(changeId, {
           changeId,
           type: 'buildingAdd',
-          targetId: instanceId,  // Will be set after building is added
+          targetId: buildingInstanceId,  // Will be set after building is added
           planetId: planetId,
           buildingId: buildingId,
         })
@@ -193,6 +221,7 @@ export function createChangeTracker(gameData?: GameData) {
           planetId: planetId,
           action: 'add',
           buildingId: buildingId.toString(),
+          buildingInstanceId: buildingInstanceId,
         },
       })
     },
@@ -201,9 +230,9 @@ export function createChangeTracker(gameData?: GameData) {
      * Track building remove (PER-BASE)
      * @param planetId The planet ID of the base
      * @param buildingId The building ID
-     * @param instanceId The instance ID of the building being removed
+     * @param buildingInstanceId The building instance ID of the building being removed
      */
-    trackRemoveBuilding(planetId: number, buildingId: number, instanceId?: string): void {
+    trackRemoveBuilding(planetId: number, buildingId: number, buildingInstanceId?: string): void {
       const changeId = generateChangeId()
       
       // Retrieve building name from gameData if available
@@ -211,11 +240,11 @@ export function createChangeTracker(gameData?: GameData) {
       const buildingName = building?.name ?? `Building ${buildingId}`
       
       // Register the change for state reversion
-      if (buildingId !== undefined && instanceId !== undefined) {
+      if (buildingId !== undefined && buildingInstanceId !== undefined) {
         registerChange(changeId, {
           changeId,
           type: 'buildingRemove',
-          targetId: instanceId,
+          targetId: buildingInstanceId,
           planetId: planetId,
           buildingId: buildingId,
         })
@@ -231,7 +260,7 @@ export function createChangeTracker(gameData?: GameData) {
           planetId: planetId,
           action: 'remove',
           buildingId: buildingId.toString(),
-          instanceId,
+          buildingInstanceId: buildingInstanceId,
         },
       })
     },
@@ -240,9 +269,9 @@ export function createChangeTracker(gameData?: GameData) {
      * Track recipe add (PER-BASE)
      * @param planetId The planet ID of the base
      * @param recipeId The recipe ID
-     * @param instanceId The instance ID (will be assigned after recipe is added)
+     * @param recipeInstanceId The recipe instance ID (will be assigned after recipe is added)
      */
-    trackAddRecipe(planetId: number, recipeId: number, instanceId?: string): void {
+    trackAddRecipe(planetId: number, recipeId: number, recipeInstanceId?: string): void {
       const changeId = generateChangeId()
       
       // Retrieve recipe name from gameData if available
@@ -253,7 +282,7 @@ export function createChangeTracker(gameData?: GameData) {
       registerChange(changeId, {
         changeId,
         type: 'recipeAdd',
-        targetId: instanceId,  // Will be set after recipe is added
+        targetId: recipeInstanceId,  // Will be set after recipe is added
         planetId: planetId,
         recipeId: recipeId,
       })
@@ -276,9 +305,9 @@ export function createChangeTracker(gameData?: GameData) {
      * Track recipe remove (PER-BASE)
      * @param planetId The planet ID of the base
      * @param recipeId The recipe ID
-     * @param instanceId The instance ID of the recipe being removed
+     * @param recipeInstanceId The recipe instance ID of the recipe being removed
      */
-    trackRemoveRecipe(planetId: number, recipeId: number, instanceId?: string): void {
+    trackRemoveRecipe(planetId: number, recipeId: number, recipeInstanceId?: string): void {
       const changeId = generateChangeId()
       
       // Retrieve recipe name from gameData if available
@@ -286,11 +315,11 @@ export function createChangeTracker(gameData?: GameData) {
       const recipeName = recipe?.output?.name ?? `Recipe ${recipeId}`
       
       // Register the change for state reversion
-      if (instanceId !== undefined) {
+      if (recipeInstanceId !== undefined) {
         registerChange(changeId, {
           changeId,
           type: 'recipeRemove',
-          targetId: instanceId,
+          targetId: recipeInstanceId,
           planetId: planetId,
           recipeId: recipeId,
         })
@@ -306,7 +335,6 @@ export function createChangeTracker(gameData?: GameData) {
           planetId: planetId,
           action: 'remove',
           recipeId: recipeId.toString(),
-          instanceId,
         },
       })
     },
@@ -321,6 +349,7 @@ export function createChangeTracker(gameData?: GameData) {
     trackRecipeCountChange(
       planetId: number,
       recipeId: number,
+      recipeInstanceId: string,
       fromCount: number,
       toCount: number
     ): void {
@@ -334,9 +363,10 @@ export function createChangeTracker(gameData?: GameData) {
       registerChange(changeId, {
         changeId,
         type: 'recipeCount',
-        targetId: String(recipeId),
+        targetId: recipeInstanceId,  // Use instance ID for DOM updates
         targetField: 'count',
         planetId: planetId,
+        recipeId: recipeId,  // Keep recipe ID for reference
         originalValue: fromCount,
         newValue: toCount,
       })
@@ -350,6 +380,7 @@ export function createChangeTracker(gameData?: GameData) {
           changeId,
           planetId: planetId,
           recipeId: recipeId.toString(),
+          recipeInstanceId: recipeInstanceId,  // Add instance ID for cancel-out detection
           from: fromCount,
           to: toCount,
         },

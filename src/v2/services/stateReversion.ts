@@ -10,6 +10,7 @@ import { getChange, type StoredChange } from './changeStorage'
 // Helper type for playerBases service
 export interface PlayerBasesService {
   state: { value: { bases: Array<{ id: string; planetId?: number; name?: string; buildings: Array<{ id: string }> }> } }
+  planets: { value: Array<{ id: number; name: string }> }
   addBuilding: (baseId: string, buildingId: number, level?: number) => string | undefined
   setBuilding: (baseId: string, instanceId: string, patch: { level?: number }) => void
   removeBuilding: (baseId: string, instanceId: string) => void
@@ -124,7 +125,37 @@ function updateDOMValue(elementId: string, newValue: number): void {
 /**
  * Revert a stored change using precise metadata
  */
-function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerBases: PlayerBasesService): void {
+function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerBases?: PlayerBasesService): void {
+  // Global changes (technology, starting bonus) don't need playerBases
+  if (storedChange.type === 'technologyLevel' || storedChange.type === 'startingBonus') {
+    if (storedChange.type === 'technologyLevel') {
+      const targetValue = isUndo 
+        ? (storedChange.originalValue as number)
+        : (storedChange.newValue as number)
+      if (targetValue !== undefined && typeof storedChange.targetId === 'string') {
+        const { setLevel } = usePlayerTechnology()
+        setLevel(storedChange.targetId as unknown as TechnologySpecialisation, targetValue)
+        console.log('[StateReversion] Set technology level to:', targetValue)
+      }
+    } else {
+      const targetValue = isUndo 
+        ? (storedChange.originalValue as number)
+        : (storedChange.newValue as number)
+      if (targetValue !== undefined) {
+        const { setStartingBonus } = usePlayerTechnology()
+        setStartingBonus(targetValue)
+        console.log('[StateReversion] Set starting bonus to:', targetValue)
+      }
+    }
+    return
+  }
+
+  // Base-specific changes require playerBases
+  if (!playerBases) {
+    console.warn('[StateReversion] playerBases required for change type:', storedChange.type)
+    return
+  }
+
   // Resolve baseId from planetId (primary identifier)
   let baseId: string | null = null
   if (typeof storedChange.planetId === 'number') {
@@ -235,22 +266,6 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
       }
       break
 
-    case 'technologyLevel':
-      if (storedChange.targetId && typeof storedChange.targetId === 'string' && targetValue !== undefined) {
-        const { setLevel } = usePlayerTechnology()
-        setLevel(storedChange.targetId as unknown as TechnologySpecialisation, targetValue)
-        console.log('[StateReversion] Set technology level to:', targetValue)
-      }
-      break
-
-    case 'startingBonus':
-      if (targetValue !== undefined) {
-        const { setStartingBonus } = usePlayerTechnology()
-        setStartingBonus(targetValue)
-        console.log('[StateReversion] Set starting bonus to:', targetValue)
-      }
-      break
-
     case 'stock':
       if (baseId && storedChange.targetId && targetValue !== undefined) {
         const base = playerBases.state.value.bases.find(b => b.id === baseId)
@@ -269,8 +284,9 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
 /**
  * Revert a single change to the game state
  * First tries to use stored change metadata, falls back to parsing details
+ * playerBases is only required for base-specific changes (building, recipe, stock)
  */
-export function revertChange(change: Change, direction: 'forward' | 'backward', playerBases: PlayerBasesService): void {
+export function revertChange(change: Change, direction: 'forward' | 'backward', playerBases?: PlayerBasesService): void {
   const isUndo = direction === 'backward'
 
   // Try to use stored change metadata if available
@@ -291,7 +307,7 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
 
   const isRevert = isUndo
 
-  // Technology changes
+  // Technology changes (global, don't need playerBases)
   if (change.type === 'technology') {
     const techId = change.details?.technologyId as unknown
     if (!techId) return
@@ -307,7 +323,7 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
     return
   }
 
-  // Starting bonus changes
+  // Starting bonus changes (global, don't need playerBases)
   if (change.type === 'starting-bonus') {
     const { setStartingBonus } = usePlayerTechnology()
     const targetValue = isRevert 
@@ -317,6 +333,12 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
     if (targetValue !== undefined) {
       setStartingBonus(targetValue)
     }
+    return
+  }
+
+  // All other changes require playerBases
+  if (!playerBases) {
+    console.warn('[StateReversion] playerBases required for change type:', change.type)
     return
   }
 
@@ -336,15 +358,15 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
   // Building changes
   if (change.type === 'building') {
     const action = change.details?.action as string | undefined
-    const slotId = change.details?.slotId as string | undefined
+    const buildingInstanceId = change.details?.buildingInstanceId as string | undefined
     const buildingId = change.details?.buildingId as number | undefined
 
     // Building add/remove
     if (action && buildingId) {
       if (action === 'add') {
         // Revert add = remove, Apply add = add
-        if (isRevert && slotId) {
-          playerBases.removeBuilding(baseId, slotId)
+        if (isRevert && buildingInstanceId) {
+          playerBases.removeBuilding(baseId, buildingInstanceId)
         } else if (!isRevert) {
           playerBases.addBuilding(baseId, buildingId)
         }
@@ -352,23 +374,23 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
         // Revert remove = add back, Apply remove = remove
         if (isRevert) {
           playerBases.addBuilding(baseId, buildingId)
-        } else if (slotId) {
-          playerBases.removeBuilding(baseId, slotId)
+        } else if (buildingInstanceId) {
+          playerBases.removeBuilding(baseId, buildingInstanceId)
         }
       }
       return
     }
 
     // Building level change
-    if (slotId && buildingId) {
+    if (buildingInstanceId && buildingId) {
       const targetLevel = isRevert 
         ? (change.details?.from as number) 
         : (change.details?.to as number)
 
-      console.log('[StateReversion] Building level change - slotId:', slotId, 'targetLevel:', targetLevel)
+      console.log('[StateReversion] Building level change - instanceId:', buildingInstanceId, 'targetLevel:', targetLevel)
       
       if (targetLevel !== undefined) {
-        playerBases.setBuilding(baseId, slotId, { level: targetLevel })
+        playerBases.setBuilding(baseId, buildingInstanceId, { level: targetLevel })
         console.log('[StateReversion] Building level set to:', targetLevel)
       }
     }
@@ -449,7 +471,7 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
 export function applyStateReversions(
   fromGroups: TodoGroup[],
   toGroups: TodoGroup[],
-  playerBases: PlayerBasesService
+  playerBases?: PlayerBasesService
 ): void {
   const { changes, direction } = calculateStateDiff(fromGroups, toGroups)
 

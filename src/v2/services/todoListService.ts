@@ -179,12 +179,18 @@ function createTodoList() {
               
               // Update the last merged step with new "to" value
               let newDescription = lastChange.description
-              if (currentChange.type === 'building' || currentChange.type === 'technology' || currentChange.type === 'stock') {
+              if (currentChange.type === 'building' || currentChange.type === 'technology' || currentChange.type === 'stock' || currentChange.type === 'recipe') {
                 newDescription = lastChange.description.replace(
-                  /(\d+) → \d+/,
+                  /(\d+) → (\d+)/,
                   `${from} → ${to}`
                 )
               }
+              
+              // Merge material costs if present
+              const mergedCost = mergeMaterialsCosts(
+                lastChange.details?.materialsCost as string | undefined,
+                currentChange.details?.materialsCost as string | undefined
+              )
               
               lastMerged.changes = [{
                 ...lastChange,
@@ -192,6 +198,7 @@ function createTodoList() {
                 details: {
                   ...lastChange.details,
                   to: to,
+                  materialsCost: mergedCost,
                 },
               }]
               lastMerged.description = newDescription
@@ -237,6 +244,27 @@ function createTodoList() {
   // Total number of changes
   const totalChanges = computed(() => allSteps.value.length)
 
+  // Helper to merge material costs from two changes
+  function mergeMaterialsCosts(cost1?: string, cost2?: string): string | undefined {
+    const materialMap = new Map<string, number>()
+    const sources = [cost1, cost2]
+    for (const src of sources) {
+      if (!src || typeof src !== 'string' || src.length === 0) continue
+      src.split(',').forEach(part => {
+        const match = part.trim().match(/^(\d+)×\s*(.+)$/)
+        if (!match) return
+        const amount = parseInt(match[1]!, 10)
+        const material = match[2]!.trim()
+        materialMap.set(material, (materialMap.get(material) || 0) + amount)
+      })
+    }
+    const parts: string[] = []
+    materialMap.forEach((amount, material) => {
+      parts.push(`${amount}× ${material}`)
+    })
+    return parts.length > 0 ? parts.join(', ') : undefined
+  }
+
   // Check if two changes are similar enough to merge
   function canMergeWithChange(lastChange: Change, newChange: Change): boolean {
     // Must be same type and same scope
@@ -250,10 +278,10 @@ function createTodoList() {
       
       if (lastIsAction || newIsAction) return false
 
-      // Check if same building slot
-      const lastSlotId = lastChange.details?.slotId as string
-      const newSlotId = newChange.details?.slotId as string
-      return lastSlotId === newSlotId
+      // Check if same building instance
+      const lastInst = lastChange.details?.buildingInstanceId as string | undefined
+      const newInst = newChange.details?.buildingInstanceId as string | undefined
+      return !!lastInst && lastInst === newInst
     }
 
     // Recipe changes - only merge count changes, not add/remove
@@ -292,77 +320,96 @@ function createTodoList() {
   }
 
   function doCancelsOut(change1: Change, change2: Change): boolean {
-    // Check if both changes affect the same target
+    // For recipe count changes, compare recipeInstanceId instead of targetId
+    if (change1.type === 'recipe' && change2.type === 'recipe') {
+      const action1 = change1.details?.action as string
+      const action2 = change2.details?.action as string
+      
+      // Recipe added then removed
+      if (action1 && action2) {
+        // Check if both affect the same target
+        if (change1.details?.targetId !== change2.details?.targetId) {
+          return false
+        }
+        return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add')
+      }
+      
+      // Recipe count changes - compare by recipeInstanceId
+      const instanceId1 = change1.details?.recipeInstanceId as string | undefined
+      const instanceId2 = change2.details?.recipeInstanceId as string | undefined
+      
+      if (!instanceId1 || !instanceId2 || instanceId1 !== instanceId2) {
+        console.log('[doCancelsOut] Different recipe instances:', instanceId1, instanceId2)
+        return false
+      }
+      
+      // Check if count returns to original value
+      const from1 = change1.details?.from as number | undefined
+      const to2 = change2.details?.to as number | undefined
+      
+      if (from1 !== undefined && to2 !== undefined && from1 === to2) {
+        console.log('[doCancelsOut] Recipe count reverted:', { from: from1, to: to2 })
+        return true
+      }
+      
+      return false
+    }
+    
+    // Check if both changes affect the same target (for non-recipe changes)
     if (change1.details?.targetId !== change2.details?.targetId) {
       console.log('[doCancelsOut] Different targetIds:', change1.details?.targetId, change2.details?.targetId)
       return false
     }
 
-    // Recipe added then removed
-    if (change1.type === 'recipe' && change2.type === 'recipe') {
-      const action1 = change1.details?.action as string
-      const action2 = change2.details?.action as string
-      const recipeName1 = change1.details?.recipeName as string
-      const recipeName2 = change2.details?.recipeName as string
-      
-      // Check if one is add and one is remove, with same recipe name
-      return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add') 
-             && recipeName1 === recipeName2
-    }
-
-    // Building changes
+    // Building add/remove (cancel out)
     if (change1.type === 'building' && change2.type === 'building') {
+      // Ensure both affect the same building instance
+      const inst1 = change1.details?.buildingInstanceId as string | undefined
+      const inst2 = change2.details?.buildingInstanceId as string | undefined
+      if (!inst1 || !inst2 || inst1 !== inst2) {
+        console.log('[doCancelsOut] Different building instances:', inst1, inst2)
+        return false
+      }
+
       const action1 = change1.details?.action as string
       const action2 = change2.details?.action as string
       
-      // Building added then removed (must be same slot)
+      // Building added then removed (cancel out)
       if (action1 && action2) {
-        const slotId1 = change1.details?.slotId as string
-        const slotId2 = change2.details?.slotId as string
-        
-        // Check if one is add and one is remove, with same slot
         return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add')
-               && slotId1 === slotId2
       }
       
       // Building level changes (e.g., level 12→11→12)
-      const field1 = change1.details?.field as string
-      const field2 = change2.details?.field as string
-      const originalValue = change1.details?.originalValue
-      const newValue2 = change2.details?.newValue
+      // If fromValue === toValue at the end, they cancel out
+      const from1 = change1.details?.from as number | undefined
+      const to2 = change2.details?.to as number | undefined
       
-      console.log('[doCancelsOut] Building level check:', {
-        field1,
-        field2,
-        originalValue,
-        newValue2,
-        matches: field1 && field2 && field1 === field2 && originalValue !== undefined && newValue2 !== undefined && originalValue === newValue2
-      })
-      
-      // If change2 reverts back to the original value of change1
-      // All values must be defined
-      return !!(field1 && field2 && field1 === field2 && originalValue !== undefined && newValue2 !== undefined && originalValue === newValue2)
+      if (from1 !== undefined && to2 !== undefined && from1 === to2) {
+        console.log('[doCancelsOut] Building level reverted:', { from: from1, to: to2 })
+        return true
+      }
     }
 
-    // Numeric changes that return to original value (e.g., level 10→11→10)
-    if (change1.type === change2.type && change1.type !== 'recipe') {
-      const field1 = change1.details?.field as string
-      const field2 = change2.details?.field as string
-      const originalValue = change1.details?.originalValue
-      const newValue2 = change2.details?.newValue
+    // Technology level changes (e.g., level 2→3→2)
+    if (change1.type === 'technology' && change2.type === 'technology') {
+      const from1 = change1.details?.from as number | undefined
+      const to2 = change2.details?.to as number | undefined
       
-      console.log('[doCancelsOut] Numeric check:', {
-        type: change1.type,
-        field1,
-        field2,
-        originalValue,
-        newValue2,
-        matches: field1 && field2 && field1 === field2 && originalValue !== undefined && newValue2 !== undefined && originalValue === newValue2
-      })
+      if (from1 !== undefined && to2 !== undefined && from1 === to2) {
+        console.log('[doCancelsOut] Technology level reverted:', { from: from1, to: to2 })
+        return true
+      }
+    }
+
+    // Stock count changes that return to original value
+    if (change1.type === 'stock' && change2.type === 'stock') {
+      const from1 = change1.details?.from as number | undefined
+      const to2 = change2.details?.to as number | undefined
       
-      // If change2 reverts back to the original value of change1
-      // All values must be defined
-      return !!(field1 && field2 && field1 === field2 && originalValue !== undefined && newValue2 !== undefined && originalValue === newValue2)
+      if (from1 !== undefined && to2 !== undefined && from1 === to2) {
+        console.log('[doCancelsOut] Stock reverted:', { from: from1, to: to2 })
+        return true
+      }
     }
 
     return false
@@ -424,26 +471,67 @@ function createTodoList() {
           console.log('[TodoListService] Checking cancel-out for:', lastChange?.type, changeWithTime.type)
           if (lastChange && doCancelsOut(lastChange, changeWithTime)) {
             console.log('[TodoListService] Changes cancel out, reverting to previous state')
-            // Both changes negate each other - go back to the previous history state
-            // Unregister both changes to prevent stale references
-            const lastChangeId = lastChange.details?.changeId as string | undefined
-            if (lastChangeId) {
-              unregisterChange(lastChangeId)
+            // Both changes negate each other - go back to the state BEFORE all merged changes
+            // Find the first state that doesn't have any changes for this target
+            const targetIdentifier = lastChange.details?.buildingInstanceId || 
+                                    lastChange.details?.recipeInstanceId || 
+                                    lastChange.details?.materialId ||
+                                    lastChange.details?.techId
+            
+            // Go back through history to find the first state without this target
+            let targetIndex = scopeHistory.currentIndex - 1
+            while (targetIndex >= 0) {
+              const state = scopeHistory.history[targetIndex]
+              const group = state?.find(g => g.scope === scope && g.planetId === planetId)
+              
+              if (!group || group.steps.length === 0) {
+                // Found a state without any changes for this scope
+                break
+              }
+              
+              // Check if this state has changes for the same target
+              const hasTargetChanges = group.steps.some(s => s.changes.some(c => {
+                const cTarget = c.details?.buildingInstanceId || 
+                               c.details?.recipeInstanceId || 
+                               c.details?.materialId ||
+                               c.details?.techId
+                return cTarget === targetIdentifier
+              }))
+              
+              if (!hasTargetChanges) {
+                // Found a state without this specific target
+                break
+              }
+              
+              targetIndex--
             }
+            
+            // Unregister all changes that will be removed
+            for (let i = targetIndex + 1; i <= scopeHistory.currentIndex; i++) {
+              const state = scopeHistory.history[i]
+              const group = state?.find(g => g.scope === scope && g.planetId === planetId)
+              if (group) {
+                group.steps.forEach(step => {
+                  step.changes.forEach(c => {
+                    const cId = c.details?.changeId as string | undefined
+                    if (cId) unregisterChange(cId)
+                  })
+                })
+              }
+            }
+            
+            // Unregister the new change as well
             const currentChangeId = changeWithTime.details?.changeId as string | undefined
             if (currentChangeId) {
               unregisterChange(currentChangeId)
             }
             
-            // Remove the last history entry (go back one step)
-            if (scopeHistory.currentIndex > 0) {
-              scopeHistory.currentIndex--
-              scopeHistory.history = scopeHistory.history.slice(0, scopeHistory.currentIndex + 1)
-            } else {
-              // If we're at index 0, just clear the history
-              scopeHistory.history = [[]]
-              scopeHistory.currentIndex = 0
-            }
+            // Update history to remove all merged states
+            // targetIndex points to the last state WITHOUT this target, so we keep it
+            scopeHistory.currentIndex = targetIndex
+            scopeHistory.history = scopeHistory.history.slice(0, scopeHistory.currentIndex + 1)
+            
+            console.log('[TodoListService] Reverted to index:', targetIndex, 'history length:', scopeHistory.history.length)
             saveToStorage()
             return
           }
@@ -465,9 +553,15 @@ function createTodoList() {
         if (from !== undefined && to !== undefined) {
           // Update description
           let newDescription = change.description
-          if (change.type === 'building' || change.type === 'technology' || change.type === 'stock') {
-            newDescription = change.description.replace(/\d+ → \d+/, `${from} → ${to}`)
+          if (change.type === 'building' || change.type === 'technology' || change.type === 'stock' || change.type === 'recipe') {
+            newDescription = change.description.replace(/(\d+) → (\d+)/, `${from} → ${to}`)
           }
+
+          // Merge material costs if present on building/technology changes
+          const mergedCost = mergeMaterialsCosts(
+            lastChange.details?.materialsCost as string | undefined,
+            changeWithTime.details?.materialsCost as string | undefined
+          )
           
           lastStep.changes = [{
             ...changeWithTime,
@@ -476,6 +570,7 @@ function createTodoList() {
               ...changeWithTime.details,
               from: from,  // Keep original from value
               originalValue: originalValue,  // Keep original value for cancel-out detection
+              materialsCost: mergedCost,
             },
           }]
           lastStep.description = newDescription
@@ -520,12 +615,10 @@ function createTodoList() {
 
     isReverting = true
     try {
-      // Apply state reversions if playerBases is available
-      if (playerBasesInstance) {
-        applyStateReversions(fromGroups, toGroups, playerBasesInstance)
-      } else {
-        console.warn('[TodoListService] Cannot revert state: playerBases not registered')
-      }
+      // Apply state reversions
+      // playerBases is only required for base-specific changes (building, recipe, stock)
+      // Global changes (technology, starting-bonus) work without it
+      applyStateReversions(fromGroups, toGroups, playerBasesInstance || undefined)
 
       scopeHistory.currentIndex--
     } finally {
@@ -550,12 +643,10 @@ function createTodoList() {
 
     isReverting = true
     try {
-      // Apply state reversions if playerBases is available
-      if (playerBasesInstance) {
-        applyStateReversions(fromGroups, toGroups, playerBasesInstance)
-      } else {
-        console.warn('[TodoListService] Cannot revert state: playerBases not registered')
-      }
+      // Apply state reversions
+      // playerBases is only required for base-specific changes (building, recipe, stock)
+      // Global changes (technology, starting-bonus) work without it
+      applyStateReversions(fromGroups, toGroups, playerBasesInstance || undefined)
 
       scopeHistory.currentIndex++
     } finally {
@@ -620,6 +711,32 @@ export function useTodoListService() {
  */
 export function registerPlayerBases(playerBases: PlayerBasesService) {
   playerBasesInstance = playerBases
+}
+
+/**
+ * Access the registered playerBases instance (read-only usage in UI)
+ */
+export function getRegisteredPlayerBases(): PlayerBasesService | null {
+  return playerBasesInstance
+}
+
+/**
+ * Get base name (if set) or planet name for a given planetId
+ * Returns: baseName > planetName > "Planet <planetId>"
+ */
+export function getBaseOrPlanetNameByPlanetId(planetId: number): string {
+  const playerBases = getRegisteredPlayerBases()
+  if (!playerBases) return `Planet ${planetId}`
+
+  const base = playerBases.state.value.bases.find((b) => b.planetId === planetId)
+  if (!base) return `Planet ${planetId}`
+
+  // Prefer baseName if set
+  if (base.name) return base.name
+
+  // Fallback to planet name from the planets list
+  const planet = playerBases.planets.value.find((p) => p.id === planetId)
+  return planet?.name ?? `Planet ${planetId}`
 }
 
 /**

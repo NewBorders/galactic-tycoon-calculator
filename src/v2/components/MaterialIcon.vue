@@ -5,7 +5,7 @@ import { resolveIconId, spriteIndexReady } from '@/v2/constants/spriteIndex'
 const props = defineProps<{
   name: string
   size?: number
-  variant?: 'sm' | 'md' | 'lg'
+  variant?: 'xs' | 'sm' | 'md' | 'lg'
   class?: string
 }>()
 

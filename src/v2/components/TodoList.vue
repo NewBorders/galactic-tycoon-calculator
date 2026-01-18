@@ -49,7 +49,7 @@
             <div v-if="group.steps.length > 0" class="flex items-center justify-between gap-2 px-1">
               <div class="text-xs font-semibold uppercase text-purple-400">
                 <span v-if="group.scope === 'global'">🌍 Global Changes</span>
-                <span v-else>🏗️ Planet {{ group.planetId }}</span>
+                <span v-else>🏗️ {{ getBaseOrPlanetNameByPlanetId(group.planetId || 0) }}</span>
               </div>
               
               <!-- Per-scope Undo/Redo/Clear buttons -->
@@ -93,12 +93,24 @@
                   {{ getStepNumber(group, stepIndex) }}
                 </div>
                 <div class="flex-1 min-w-0">
-                  <p class="text-sm text-gray-300 font-medium break-words">
-                    {{ step.description }}
+                  <p class="text-sm text-gray-300 font-medium break-words flex items-center gap-2">
+                    <span v-if="getBuildingIndexLabel(step)" class="text-[10px] font-semibold text-blue-300 bg-gray-700/80 rounded px-1.5 py-0.5">
+                      {{ getBuildingIndexLabel(step) }}
+                    </span>
+                    <span>{{ step.description }}</span>
                   </p>
                   <p class="text-xs text-gray-500 mt-1">
                     {{ formatTime(step.createdAt) }}
                   </p>
+                  <div v-if="parseMaterialsCost(step).length > 0" class="mt-1 flex flex-wrap items-center gap-1">
+                    <span class="text-[10px] text-slate-400">Cost:</span>
+                    <template v-for="(mat, idx) in parseMaterialsCost(step)" :key="idx">
+                      <div class="inline-flex items-center gap-0.5 text-[11px] text-slate-300">
+                        <MaterialIcon :name="mat.name" variant="xs" />
+                        <span>{{ mat.amount }}</span>
+                      </div>
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
@@ -118,7 +130,9 @@
 </template>
 
 <script setup lang="ts">
-import { useTodoList, type TodoGroup, type TodoStep } from '@/v2/services/todoListService'
+import { useTodoList, getRegisteredPlayerBases, getBaseOrPlanetNameByPlanetId, type TodoGroup, type TodoStep } from '@/v2/services/todoListService'
+import type { PlayerBuilding } from '@/v2/services/playerBases'
+import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
 const { 
   displayGroups, 
@@ -132,6 +146,39 @@ const {
   clearForScope,
   togglePanel 
 } = useTodoList()
+
+// Compute dynamic building index label for a step (based on current base order)
+function getBuildingIndexLabel(step: TodoStep): string | null {
+  if (!step || !Array.isArray(step.changes) || step.changes.length === 0) return null
+  const change = step.changes[0]
+  if (!change || change.type !== 'building') return null
+
+  const playerBases = getRegisteredPlayerBases()
+  if (!playerBases) return null
+
+  const planetId = change.planetId
+  if (planetId == null) return null
+
+  const base = playerBases.state.value.bases.find((b) => b.planetId === planetId)
+  if (!base) return null
+
+  const instanceId = (change.details?.buildingInstanceId as string | undefined) || null
+  if (!instanceId) return null
+
+  const building = base.buildings.find((bb) => bb.id === instanceId)
+  if (!building) return null
+
+  // Display slotId (1-indexed) if available and positive (from game)
+  // Negative slotIds are temporary for planned buildings
+  const slotId = (building as PlayerBuilding).slotId
+  if (slotId != null && slotId >= 0) {
+    return `#${slotId + 1}`
+  }
+  
+  // For negative/planned slotIds or undefined, use array index as fallback
+  const idx = base.buildings.findIndex((bb) => bb.id === instanceId)
+  return idx >= 0 ? `#${idx + 1}` : null
+}
 
 // Get global step number
 function getStepNumber(group: TodoGroup, stepIndex: number): string {
@@ -192,6 +239,25 @@ function formatTime(timestamp: number): string {
   const hours = date.getHours().toString().padStart(2, '0')
   const mins = date.getMinutes().toString().padStart(2, '0')
   return `${month}/${day} ${hours}:${mins}`
+}
+
+// Parse materials cost into array for icon rendering
+function parseMaterialsCost(step: TodoStep): Array<{ name: string; amount: number }> {
+  const change = step?.changes?.[0]
+  const raw = typeof change?.details?.['materialsCost'] === 'string' ? String(change.details!['materialsCost']) : ''
+  if (!raw) return []
+  const result: Array<{ name: string; amount: number }> = []
+  const parts = raw.split(',')
+  for (const part of parts) {
+    const m = /^(\d+)×\s*(.+)$/.exec(part.trim())
+    if (!m) continue
+    const amt = Number.parseInt(m[1]!, 10)
+    if (!Number.isFinite(amt)) continue
+    const nm = String(m[2] ?? '').trim()
+    if (!nm) continue
+    result.push({ amount: amt, name: nm })
+  }
+  return result
 }
 </script>
 
