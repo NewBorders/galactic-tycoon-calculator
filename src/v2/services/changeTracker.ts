@@ -10,7 +10,7 @@
 import { useTodoList, type Change } from './todoListService'
 import { registerChange } from './changeStorage'
 import type { GameData } from './gamedata/types'
-import { getBuildingCostMultiplier, computeTechnologyResearchCost, getNewBaseCostForTier, computeBuildingTierExtras, formatMaterialList } from '@/v2/constants/manualCosts'
+import { computeTechnologyResearchCost, getNewBaseCostForTier, computeBuildingTierExtras, formatMaterialList, computeBuildingUpgradeCost } from '@/v2/constants/manualCosts'
 import { useWorldData } from './worldData'
 import { usePlayerTechnology } from './playerTechnology'
 import { usePlanningMode } from './planningMode/state'
@@ -130,8 +130,10 @@ export function createChangeTracker(gameData?: GameData) {
     /**
      * Track new base creation (GLOBAL)
      * @param baseName The name of the new base being planned
+     * @param planetTier The tier of the planet (for cost calculation)
+     * @param planetId The ID of the planet where the base is being created
      */
-    trackNewBase(baseName: string, planetTier?: number): void {
+    trackNewBase(baseName: string, planetTier?: number, planetId?: number): void {
       const changeId = generateChangeId()
       // Compute materials cost for new base creation by planet tier if provided
       const materialsCost = planetTier != null
@@ -145,14 +147,18 @@ export function createChangeTracker(gameData?: GameData) {
           changeId,
           action: 'add',
           materialsCost,
+          planetId,
         },
       })
     },
 
     /**
      * Track base removal (GLOBAL)
+     * @param baseName The name of the base being removed
+     * @param planetId The ID of the planet where the base exists
+     * @param baseId The ID of the base being removed
      */
-    trackRemoveBase(baseName: string): void {
+    trackRemoveBase(baseName: string, planetId?: number, baseId?: string): void {
       const changeId = generateChangeId()
       addChange({
         id: changeId,
@@ -161,6 +167,8 @@ export function createChangeTracker(gameData?: GameData) {
         details: {
           changeId,
           action: 'remove',
+          planetId,
+          baseId,
         },
       })
     },
@@ -189,35 +197,17 @@ export function createChangeTracker(gameData?: GameData) {
       // Get planet tier for cost multiplier
       const planet = gameData?.planets.find(p => p.id === planetId)
       const planetTier = planet?.tier ?? 1
-      const buildingTier = building?.tier ?? 1
-      const tierMultiplier = getBuildingCostMultiplier(planetTier, buildingTier)
 
-      // Compute material costs display for level changes if gameData available
-      const levelDelta = Math.abs(toLevel - fromLevel)
-      let materialsCost: string | undefined
-
-      if (levelDelta > 0 && building) {
-        const baseMaterials = (building.constructionMaterials || [])
-          .filter(cm => (cm?.amount ?? 0) > 0)
-          .map(cm => ({
-            materialId: cm.id,
-            amount: Math.ceil(cm.amount * levelDelta * tierMultiplier)
-          }))
-
-        // Add tier-specific extras for planet tiers 2-4
-        const tierExtras = computeBuildingTierExtras(planetTier, buildingTier)
-          .map((extra: { materialId: number; amount: number }) => ({
-            materialId: extra.materialId,
-            amount: extra.amount * levelDelta
-          }))
-
-        // Combine base materials and tier extras
-        const allMaterials = [...baseMaterials, ...tierExtras]
-
-        if (allMaterials.length > 0) {
-          materialsCost = formatMaterialList(allMaterials, gameData ? { materials: gameData.materials } : undefined)
-        }
-      }
+      // Compute material costs using per-level scaling and planet tier
+      const materialsCost = building
+        ? computeBuildingUpgradeCost(
+            building,
+            planetTier,
+            fromLevel,
+            toLevel,
+            gameData ? { materials: gameData.materials } : undefined,
+          )
+        : undefined
 
       // Register the change for state reversion
       registerChange(changeId, {

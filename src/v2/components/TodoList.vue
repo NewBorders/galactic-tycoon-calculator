@@ -46,43 +46,57 @@
           <!-- Groups by scope -->
           <div v-for="group in displayGroups" :key="group.planetId || 'global'" class="space-y-2">
             <!-- Group Header with Undo/Redo buttons -->
-            <div v-if="group.steps.length > 0" class="flex items-center justify-between gap-2 px-1">
-              <div class="text-xs font-semibold uppercase text-purple-400">
-                <span v-if="group.scope === 'global'">🌍 Global Changes</span>
-                <span v-else>🏗️ {{ getBaseOrPlanetNameByPlanetId(group.planetId || 0) }}</span>
+            <div v-if="group.steps.length > 0" class="space-y-1">
+              <!-- Name row -->
+              <div class="flex items-center justify-between gap-2 px-1">
+                <div class="text-xs font-semibold uppercase text-purple-400">
+                  <span v-if="group.scope === 'global'">🌍 Global Changes</span>
+                  <span v-else>🏗️ {{ getBaseOrPlanetNameByPlanetId(group.planetId || 0) }}</span>
+                </div>
+
+                <!-- Per-scope Undo/Redo/Clear buttons -->
+                <div class="flex items-center gap-1">
+                  <!-- Undo -->
+                  <button
+                    @click="handleUndo(group)"
+                    :disabled="!canUndoForGroup(group)"
+                    class="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs"
+                    :title="`Undo in ${group.scope === 'global' ? 'Global' : 'Planet ' + group.planetId}`"
+                  >
+                    <span class="text-base">↶</span>
+                  </button>
+
+                  <!-- Redo -->
+                  <button
+                    @click="handleRedo(group)"
+                    :disabled="!canRedoForGroup(group)"
+                    class="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs"
+                    :title="`Redo in ${group.scope === 'global' ? 'Global' : 'Planet ' + group.planetId}`"
+                  >
+                    <span class="text-base">↷</span>
+                  </button>
+
+                  <!-- Clear scope -->
+                  <button
+                    @click="handleClearScope(group)"
+                    class="p-1 rounded hover:bg-gray-700 transition text-xs"
+                    :title="`Clear ${group.scope === 'global' ? 'Global' : 'Planet ' + group.planetId}`"
+                  >
+                    <span class="text-base">✕</span>
+                  </button>
+                </div>
               </div>
+            </div>
 
-              <!-- Per-scope Undo/Redo/Clear buttons -->
-              <div class="flex items-center gap-1">
-                <!-- Undo -->
-                <button
-                  @click="handleUndo(group)"
-                  :disabled="!canUndoForGroup(group)"
-                  class="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs"
-                  :title="`Undo in ${group.scope === 'global' ? 'Global' : 'Planet ' + group.planetId}`"
-                >
-                  <span class="text-base">↶</span>
-                </button>
-
-                <!-- Redo -->
-                <button
-                  @click="handleRedo(group)"
-                  :disabled="!canRedoForGroup(group)"
-                  class="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs"
-                  :title="`Redo in ${group.scope === 'global' ? 'Global' : 'Planet ' + group.planetId}`"
-                >
-                  <span class="text-base">↷</span>
-                </button>
-
-                <!-- Clear scope -->
-                <button
-                  @click="handleClearScope(group)"
-                  class="p-1 rounded hover:bg-gray-700 transition text-xs"
-                  :title="`Clear ${group.scope === 'global' ? 'Global' : 'Planet ' + group.planetId}`"
-                >
-                  <span class="text-base">✕</span>
-                </button>
-              </div>
+            <!-- Total costs display for building changes and new bases -->
+            <div v-if="Object.keys(getTotalBuildingCost(group)).length > 0" class="px-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+              <span>Total Cost:</span>
+              <template v-for="(amount, material) in getTotalBuildingCost(group)" :key="material">
+                <div class="inline-flex items-center gap-0.5 text-slate-300">
+                  <MaterialIcon :name="material" variant="xs" />
+                  <span>{{ amount }}</span>
+                </div>
+              </template>
             </div>
 
             <!-- Steps in Group -->
@@ -258,6 +272,25 @@ function parseMaterialsCost(step: TodoStep): Array<{ name: string; amount: numbe
     result.push({ amount: amt, name: nm })
   }
   return result
+}
+
+// Calculate total cost for all building changes in a group
+function getTotalBuildingCost(group: TodoGroup): Record<string, number> {
+  const totals: Record<string, number> = {}
+  
+  // Sum costs for building changes (base scope) or base creation (global scope)
+  group.steps.forEach((step) => {
+    step.changes.forEach((change) => {
+      if (change.type === 'building' || change.type === 'base') {
+        const costs = parseMaterialsCost(step)
+        costs.forEach(({ name, amount }) => {
+          totals[name] = (totals[name] || 0) + amount
+        })
+      }
+    })
+  })
+  
+  return totals
 }
 </script>
 

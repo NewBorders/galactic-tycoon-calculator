@@ -12,6 +12,8 @@ import { getChange, type StoredChange } from './changeStorage'
 export interface PlayerBasesService {
   state: { value: { bases: Array<{ id: string; planetId?: number; name?: string; buildings: Array<{ id: string }> }> } }
   planets: { value: Array<{ id: number; name: string }> }
+  addBase: (planetId: number) => void
+  removeBase: (baseId: string) => void
   addBuilding: (baseId: string, buildingId: number, level?: number) => string | undefined
   setBuilding: (baseId: string, instanceId: string, patch: { level?: number }) => void
   removeBuilding: (baseId: string, instanceId: string) => void
@@ -346,6 +348,54 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
 
     if (targetValue !== undefined) {
       setStartingBonus(targetValue)
+    }
+    return
+  }
+
+  // Base creation/removal (global but needs playerBases)
+  if (change.type === 'base') {
+    if (!playerBases) {
+      console.warn('[StateReversion] playerBases required for base changes')
+      return
+    }
+
+    const action = change.details?.action as string | undefined
+    const planetId = change.details?.planetId as number | undefined
+    const baseId = change.details?.baseId as string | undefined
+
+    if (action === 'add') {
+      // Undo add = remove, Redo add = add
+      if (isRevert) {
+        // Remove the base that was added
+        if (planetId !== undefined) {
+          const base = playerBases.state.value.bases.find(b => b.planetId === planetId)
+          if (base) {
+            playerBases.removeBase(base.id)
+            console.log('[StateReversion] Removed base:', base.id, 'from planet:', planetId)
+          }
+        }
+      } else {
+        // Re-add the base
+        if (planetId !== undefined) {
+          playerBases.addBase(planetId)
+          console.log('[StateReversion] Added base to planet:', planetId)
+        }
+      }
+    } else if (action === 'remove') {
+      // Undo remove = add back, Redo remove = remove
+      if (isRevert) {
+        // Re-add the base
+        if (planetId !== undefined) {
+          playerBases.addBase(planetId)
+          console.log('[StateReversion] Re-added base to planet:', planetId)
+        }
+      } else {
+        // Remove the base again
+        if (baseId) {
+          playerBases.removeBase(baseId)
+          console.log('[StateReversion] Removed base:', baseId)
+        }
+      }
     }
     return
   }

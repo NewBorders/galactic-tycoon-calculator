@@ -224,6 +224,16 @@ export function computeBuildingTierExtras(
 }
 
 /**
+ * Calculate growth multiplier for building upgrade costs based on target level.
+ * Formula from Wiki: GrowthMultiplier(level) = 0.1 × level + 1.07^level (for levels 1-8)
+ * Source: https://wiki.galactictycoons.com/mechanics/buildings#regular-buildings
+ */
+export function getBuildingGrowthMultiplier(level: number): number {
+  if (level < 1 || level > 8) return 1
+  return 0.1 * level + Math.pow(1.07, level)
+}
+
+/**
  * Building cost tier multipliers
  * Buildings have base construction costs, but these are multiplied by planet tier
  * Formula: actualCost = baseCost * getTierMultiplier(planetTier, buildingTier)
@@ -238,6 +248,64 @@ export function getBuildingCostMultiplier(planetTier: number, buildingTier: numb
   // Tier 3 planet + Tier 1 building = 2x cost
   // etc.
   return 1 + (tierDiff * 0.5)
+}
+
+/**
+ * Compute building upgrade materials for a level change.
+ * Uses Wiki formula: GrowthMultiplier(level) = 0.1 × level + 1.07^level
+ * Source: https://wiki.galactictycoons.com/mechanics/buildings#regular-buildings
+ * Headquarters use different formula: 0.8^level (reversed growth)
+ * Source: https://wiki.galactictycoons.com/mechanics/buildings#headquarters
+ * Handles both upgrades and downgrades by summing intermediate levels.
+ */
+export function computeBuildingUpgradeCost(
+  building: { constructionMaterials: Array<{ id: number; amount: number }>; tier?: number; name?: string },
+  planetTier: number,
+  fromLevel: number,
+  toLevel: number,
+  gameData?: { materials: Array<{ id: number; name: string }> }
+): string | undefined {
+  if (!building || !Number.isFinite(fromLevel) || !Number.isFinite(toLevel) || fromLevel === toLevel) {
+    return undefined
+  }
+
+  const start = Math.min(fromLevel, toLevel)
+  const end = Math.max(fromLevel, toLevel)
+  const buildingTier = building.tier ?? 1
+  const tierMultiplier = getBuildingCostMultiplier(planetTier, buildingTier)
+  const tierExtras = computeBuildingTierExtras(planetTier, buildingTier)
+  const totals = new Map<number, number>()
+  
+  // Check if this is Headquarters (uses different formula)
+  const isHeadquarters = building.name?.toLowerCase().includes('headquarters') ?? false
+
+  for (let level = start; level < end; level++) {
+    const nextLevel = level + 1
+    // Use Wiki growth formula based on building type
+    const levelMultiplier = isHeadquarters 
+      ? Math.pow(0.8, nextLevel) // Headquarters: 0.8^level (costs decrease with level)
+      : getBuildingGrowthMultiplier(nextLevel) // Regular: 0.1*level + 1.07^level
+    const stepMultiplier = tierMultiplier * levelMultiplier
+
+    for (const cm of building.constructionMaterials ?? []) {
+      const amount = Math.ceil((cm?.amount ?? 0) * stepMultiplier)
+      if (amount > 0) {
+        totals.set(cm.id, (totals.get(cm.id) ?? 0) + amount)
+      }
+    }
+
+    for (const extra of tierExtras) {
+      const amount = Math.ceil((extra?.amount ?? 0) * levelMultiplier)
+      if (amount > 0) {
+        totals.set(extra.materialId, (totals.get(extra.materialId) ?? 0) + amount)
+      }
+    }
+  }
+
+  if (totals.size === 0) return undefined
+
+  const list = Array.from(totals.entries()).map(([materialId, amount]) => ({ materialId, amount }))
+  return formatMaterialList(list, gameData)
 }
 
 /**

@@ -13,6 +13,7 @@ import { fetchCompanyBases, fetchGameBaseDetails, fetchWarehouseStockForBase } f
 import { extractMarketDetails } from './marketAnalysis/extractor'
 import { usePlayerTechnology } from './playerTechnology'
 import { useWorldData } from './worldData'
+import { syncTodoListWithApiData } from './todoListService'
 
 export interface SyncEntry {
   id: string
@@ -113,12 +114,20 @@ export async function initializeSyncService(
         
         // Update current state with API data
         const apiTechnology: Record<number, number> = {}
+        
         result.data.technologies.forEach((tech) => {
           apiTechnology[tech.id] = tech.level
         })
+        
         worldData.value.current.technology = apiTechnology
         worldData.value.current.startingBonus = result.data.startingBonus ?? 1
         worldData.value.current.fetchedAt = Date.now()
+        
+        // Auto-complete TODOs when technology goals are achieved
+        // Note: Building data is fetched separately per-base, so we only sync technology here
+        syncTodoListWithApiData({
+          technology: apiTechnology,
+        })
       }
       
       // Format bases data
@@ -284,12 +293,20 @@ export async function refreshEntry(entryId: string): Promise<void> {
         
         // Update current state with API data
         const apiTechnology: Record<number, number> = {}
+        
         result.data.technologies.forEach((tech) => {
           apiTechnology[tech.id] = tech.level
         })
+        
         worldData.value.current.technology = apiTechnology
         worldData.value.current.startingBonus = result.data.startingBonus ?? 1
         worldData.value.current.fetchedAt = Date.now()
+        
+        // Auto-complete TODOs when technology goals are achieved
+        // Note: Building data is fetched separately per-base, so we only sync technology here
+        syncTodoListWithApiData({
+          technology: apiTechnology,
+        })
       }
       
       const bases = result.data.bases.map((b) => ({
@@ -309,7 +326,29 @@ export async function refreshEntry(entryId: string): Promise<void> {
     } else if (entryId.startsWith('base-')) {
       if (!apiKey) throw new Error('No API key')
       const baseId = parseInt(entryId.replace('base-', ''))
-      await fetchGameBaseDetails(apiKey, baseId, world)
+      const result = await fetchGameBaseDetails(apiKey, baseId, world)
+      
+      // Extract building levels and sync with TODOs
+      if (result.data.buildingSlots && Array.isArray(result.data.buildingSlots)) {
+        const buildings: Array<{ buildingId: number; level: number; planetId: number }> = []
+        
+        result.data.buildingSlots.forEach((slot) => {
+          if (slot.status === 2 && slot.building && slot.building.level) {
+            buildings.push({
+              buildingId: slot.building.type,
+              level: slot.building.level,
+              planetId: result.data.planetId,
+            })
+          }
+        })
+        
+        // Auto-complete building TODOs for this base
+        if (buildings.length > 0) {
+          syncTodoListWithApiData({
+            buildings: buildings,
+          })
+        }
+      }
     } else if (entryId.startsWith('warehouse-')) {
       if (!apiKey) throw new Error('No API key')
       const warehouseId = parseInt(entryId.replace('warehouse-', ''))

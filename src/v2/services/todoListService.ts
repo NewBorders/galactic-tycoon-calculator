@@ -7,7 +7,7 @@ import { ref, computed } from 'vue'
 import type { PlayerBasesService } from './stateReversion'
 import { applyStateReversions } from './stateReversion'
 import { unregisterChange } from './changeStorage'
-import { computeTechnologyResearchCost, getBuildingCostMultiplier, computeBuildingTierExtras, formatMaterialList } from '@/v2/constants/manualCosts'
+import { computeTechnologyResearchCost, computeBuildingUpgradeCost } from '@/v2/constants/manualCosts'
 import { useWorldData } from './worldData'
 import { usePlanningMode } from './planningMode/state'
 import { getGameData } from './gamedata/gameDataRepository'
@@ -428,6 +428,9 @@ function createTodoList() {
       return
     }
 
+    // Generate ID if not provided
+    const changeId = change.id || (crypto?.randomUUID?.() ?? `change_${Date.now()}_${Math.random()}`)
+
     // Determine scope based on change type
     const scope: ScopeType = change.type === 'technology' || change.type === 'starting-bonus' || change.type === 'base' ? 'global' : 'base'
     const planetId = change.planetId
@@ -461,7 +464,7 @@ function createTodoList() {
     }
 
     const now = Date.now()
-    const changeWithTime: Change = { ...change, timestamp: now }
+    const changeWithTime: Change = { ...change, id: changeId, timestamp: now }
 
     // Check if this change cancels out any existing change
     // Look at the CURRENT state (already has the previous changes)
@@ -608,49 +611,28 @@ function createTodoList() {
               }
             }
             
-            // For building changes, recalculate merged costs based on actual level change
-            // This handles upgrades and downgrades correctly
+            // For building changes, recalculate merged costs with per-level scaling and planet tier
             if (change.type === 'building' && from !== undefined && to !== undefined) {
               const buildingId = changeWithTime.details?.buildingId ? Number(changeWithTime.details.buildingId) : undefined
               const planetId = changeWithTime.planetId
-              
+
               if (buildingId !== undefined && planetId !== undefined) {
                 try {
                   const gd = getGameData()
                   const building = gd?.buildings.find(b => b.id === buildingId)
                   const planet = gd?.planets.find(p => p.id === planetId)
-                  
+
                   if (building && planet) {
-                    const planetTier = planet.tier ?? 1
-                    const buildingTier = building.tier ?? 1
-                    const tierMultiplier = getBuildingCostMultiplier(planetTier, buildingTier)
-                    
-                    const levelDelta = Math.abs(Number(to) - Number(from))
-                    
-                    if (levelDelta > 0) {
-                      const baseMaterials = (building.constructionMaterials || [])
-                        .filter(cm => (cm?.amount ?? 0) > 0)
-                        .map(cm => ({
-                          materialId: cm.id,
-                          amount: Math.ceil(cm.amount * levelDelta * tierMultiplier)
-                        }))
-                      
-                      const tierExtras = computeBuildingTierExtras(planetTier, buildingTier)
-                        .map((extra: { materialId: number; amount: number }) => ({
-                          materialId: extra.materialId,
-                          amount: extra.amount * levelDelta
-                        }))
-                      
-                      const allMaterials = [...baseMaterials, ...tierExtras]
-                      
-                      if (allMaterials.length > 0) {
-                        const recalculatedCost = formatMaterialList(allMaterials, gd ? { materials: gd.materials } : undefined)
-                        if (recalculatedCost) {
-                          mergedCost = recalculatedCost
-                        }
-                      }
+                    const recalculatedCost = computeBuildingUpgradeCost(
+                      building,
+                      planet.tier ?? 1,
+                      Number(from),
+                      Number(to),
+                      gd ? { materials: gd.materials } : undefined
+                    )
+                    if (recalculatedCost !== undefined) {
+                      mergedCost = recalculatedCost
                     } else {
-                      // No level change, no cost
                       mergedCost = undefined
                     }
                   }
@@ -778,6 +760,7 @@ function createTodoList() {
     allSteps,
     totalChanges,
     isOpen,
+    scopeHistories,  // Expose for sync functionality
 
     // Methods
     addChange,
@@ -791,6 +774,103 @@ function createTodoList() {
     togglePanel,
   }
 }
+
+/**
+ * Sync TODO list with current API data and auto-complete achieved goals
+ * This is called when API data refreshes to remove TODOs that have been completed
+ * @returns Number of TODOs that were auto-completed
+ */
+export function syncTodoListWithApiData(currentState: {
+  technology?: Record<number, number>
+  buildings?: Array<{ buildingId: number; level: number; planetId: number }>
+}): number {
+  const service = useTodoListService()
+
+  if (!service) return 0
+
+  const completedChangeIds = new Set<string>()
+
+  // Iterate through all scopes and their current states
+  service.scopeHistories.value.forEach((scopeHistory) => {
+    const currentGroupsAtIndex = scopeHistory.history[scopeHistory.currentIndex]
+    if (!currentGroupsAtIndex || !Array.isArray(currentGroupsAtIndex)) return
+
+    // Check each group's steps for completion
+    currentGroupsAtIndex.forEach((group) => {
+      group.steps.forEach((step) => {
+        step.changes.forEach((change) => {
+          // Check if technology change is completed
+          if (change.type === 'technology' && currentState.technology) {
+            const techId = change.details?.technologyId ?? change.details?.techId
+            const targetLevel = change.details?.to as number | undefined
+            const currentLevel = currentState.technology[Number(techId)] ?? 0
+
+            if (targetLevel !== undefined && Number.isFinite(targetLevel) && currentLevel >= targetLevel) {
+              console.log(
+                `[TodoListService] Auto-completed technology: Tech ${techId} reached level ${currentLevel} (target: ${targetLevel})`
+              )
+              completedChangeIds.add(change.id)
+            }
+          }
+
+          // Check if building change is completed
+          if (change.type === 'building' && currentState.buildings) {
+            const targetLevel = change.details?.to as number | undefined
+            const planetId = group.planetId
+
+            const building = currentState.buildings.find(
+              (b) => b.planetId === planetId && b.buildingId === Number(change.details?.buildingId)
+            )
+
+            if (targetLevel !== undefined && building && Number.isFinite(targetLevel) && building.level >= targetLevel) {
+              console.log(
+                `[TodoListService] Auto-completed building: Building ${change.details?.buildingId} reached level ${building.level} (target: ${targetLevel}) on planet ${planetId}`
+              )
+              completedChangeIds.add(change.id)
+            }
+          }
+        })
+      })
+    })
+  })
+
+  // Remove completed changes from TODO list by updating the reactive state
+  if (completedChangeIds.size > 0) {
+    console.log(`[TodoListService] Removing ${completedChangeIds.size} completed changes from TODO list`)
+
+    // Update each scope's history
+    service.scopeHistories.value.forEach((scopeHistory) => {
+      const currentIndex = scopeHistory.currentIndex
+      if (currentIndex >= 0 && currentIndex < scopeHistory.history.length) {
+        const currentGroups = scopeHistory.history[currentIndex]
+        if (!Array.isArray(currentGroups)) return
+
+        // Filter out completed changes
+        const updatedGroups = currentGroups
+          .map((group) => {
+            const updatedSteps = group.steps
+              .map((step) => ({
+                ...step,
+                changes: step.changes.filter((change) => !completedChangeIds.has(change.id)),
+              }))
+              .filter((step) => step.changes.length > 0)
+            
+            return {
+              ...group,
+              steps: updatedSteps,
+            }
+          })
+          .filter((group) => group.steps.length > 0)
+
+        // Update the history at current index
+        scopeHistory.history[currentIndex] = updatedGroups
+      }
+    })
+  }
+  
+  return completedChangeIds.size
+}
+
 
 /**
  * Get the singleton instance of the todo list

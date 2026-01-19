@@ -108,4 +108,36 @@ describe('Building Downgrade Costs', () => {
     // Should have 0 changes (cancelled out)
     expect(changes.length).toBe(0)
   })
+
+  it('should use Wiki formula for building costs (Refinery 3→4)', async () => {
+    const { data } = await loadGameData(true)
+    const tracker = createChangeTracker(data)
+    
+    const refinery = data.buildings.find(b => b.name === 'Refinery')
+    const planet = data.planets.find(p => p.tier === 1)
+    
+    if (!refinery || !planet) {
+      throw new Error('Refinery or Tier 1 planet not found')
+    }
+    
+    const { todoGroups } = useTodoList()
+    
+    // Upgrade Refinery from level 3 to 4
+    tracker.trackBuildingChange(planet.id, 'refinery-test', refinery.id, 3, 4)
+    
+    const steps = todoGroups.value.flatMap(g => g.steps)
+    const changes = steps.flatMap(s => s.changes)
+    
+    expect(changes).toHaveLength(1)
+    
+    const cost = changes[0].details.materialsCost as string
+    console.log('Refinery 3→4 cost:', cost)
+    
+    // Wiki formula: GrowthMultiplier(4) = 0.1×4 + 1.07^4 = 1.7108
+    // Base costs: 2 Amenities, 3 Construction Kit, 5 Prefab Kit
+    // Expected: ceil(2×1.7108)=4, ceil(3×1.7108)=6, ceil(5×1.7108)=9
+    expect(cost).toContain('4× Amenities')
+    expect(cost).toContain('6× Construction Kit')  // Wiki: ceil(3 × 1.7108) = 6
+    expect(cost).toContain('9× Prefab Kit')        // Wiki: ceil(5 × 1.7108) = 9
+  })
 })

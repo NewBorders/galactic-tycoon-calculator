@@ -20,7 +20,7 @@ import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
 import { usePlanningMode } from '@/v2/services/planningMode/state'
 import { getChangeTracker } from '@/v2/services/changeTracker'
-import { registerPlayerBases } from '@/v2/services/todoListService'
+import { registerPlayerBases, syncTodoListWithApiData } from '@/v2/services/todoListService'
 
 import { computeBaseReport } from '@/v2/services/production/engine'
 
@@ -64,6 +64,8 @@ const {
 registerPlayerBases({
   state,
   planets,
+  addBase,
+  removeBase,
   addBuilding,
   setBuilding,
   removeBuilding,
@@ -289,8 +291,8 @@ onBeforeUnmount(() => {
 function selectPlanet(planet: Planet) {
   if (!planetHasBase(planet.id)) {
     // Track new base creation
-    const changeTracker = getChangeTracker()
-    changeTracker.trackNewBase(planet.name || `Planet ${planet.id}`, planet.tier)
+    const changeTracker = getChangeTracker(props.gameData)
+    changeTracker.trackNewBase(planet.name || `Planet ${planet.id}`, planet.tier, planet.id)
 
     addBase(planet.id)
   }
@@ -420,12 +422,42 @@ async function handleImportBase(base: typeof state.value.bases[0]) {
     // Strict ETL: transform raw API payload to normalized format
     const transformed = transformGameBase(details.data)
     const imported = importBaseFromApiPayload(localBase.id, transformed)
+    
+    // Auto-complete building TODOs based on imported data
+    let completedTodosCount = 0
+    if (details.data.buildingSlots && Array.isArray(details.data.buildingSlots)) {
+      const buildings: Array<{ buildingId: number; level: number; planetId: number }> = []
+      
+      details.data.buildingSlots.forEach((slot) => {
+        if (slot.status === 2 && slot.building && slot.building.level) {
+          buildings.push({
+            buildingId: slot.building.type,
+            level: slot.building.level,
+            planetId: details.data.planetId,
+          })
+        }
+      })
+      
+      if (buildings.length > 0) {
+        completedTodosCount = syncTodoListWithApiData({
+          buildings: buildings,
+        })
+      }
+    }
+    
     if (!imported) {
       importError.value = translate('importBaseError')
       console.warn('[ImportBase] Import returned false - nothing imported')
     } else {
       persist()
-      importSuccess.value = translate('importBaseSuccess')
+      
+      // Show success message with TODO completion count
+      if (completedTodosCount > 0) {
+        importSuccess.value = `${translate('importBaseSuccess')} (${completedTodosCount} ${completedTodosCount === 1 ? 'TODO' : 'TODOs'} ${translate('completed')})`
+      } else {
+        importSuccess.value = translate('importBaseSuccess')
+      }
+      
       // Clear success message after 5 seconds
       setTimeout(() => {
         importSuccess.value = null
