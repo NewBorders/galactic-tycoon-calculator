@@ -8,6 +8,7 @@ import {
   usePlayerTechnology,
 } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
+import { usePlanningMode } from '@/v2/services/planningMode/state'
 import { refreshEntry, getSyncEntries } from '@/v2/services/syncService'
 import { getChangeTracker } from '@/v2/services/changeTracker'
 import type { GameData } from '@/v2/services/gamedata/service'
@@ -23,7 +24,8 @@ interface Props {
 const props = defineProps<Props>()
 
 const { state, setLevel, setStartingBonus } = usePlayerTechnology()
-const { current } = useWorldData()
+const { current, worldData, save } = useWorldData()
+const { isPlanningActive, plannedTechnology } = usePlanningMode()
 
 // Get player bases for net profit calculation
 const playerBasesData = props.gameData ? usePlayerBases(props.gameData) : null
@@ -39,9 +41,9 @@ const globalWorkforceBurden = computed(() => {
       const buildingData = gd.buildings.find((b) => b.id === building.buildingId)
       if (!buildingData) return
       // Sum all worker tiers
-      const housing = (buildingData.workersHousing?.worker || 0) + 
-                     (buildingData.workersHousing?.technician || 0) + 
-                     (buildingData.workersHousing?.engineer || 0) + 
+      const housing = (buildingData.workersHousing?.worker || 0) +
+                     (buildingData.workersHousing?.technician || 0) +
+                     (buildingData.workersHousing?.engineer || 0) +
                      (buildingData.workersHousing?.scientist || 0)
       total += housing * building.level
     })
@@ -53,7 +55,10 @@ const globalWorkforceBurden = computed(() => {
 const { priceResolver } = props.gameData ? useMaterialPricing(props.gameData) : { priceResolver: ref(undefined) }
 
 // Planned technology levels and starting bonus
-const plannedTechnologyLevels = computed(() => state.value.levels ?? {})
+// Use planning mode state when in planning mode, otherwise use playerTechnology state
+const plannedTechnologyLevels = computed(() => 
+  isPlanningActive.value ? plannedTechnology.value : state.value.levels ?? {}
+)
 const plannedStartingBonus = computed(() => state.value.startingBonus ?? 1)
 
 // Net profit forecast composable
@@ -127,6 +132,9 @@ function currentLevel(id: TechnologySpecialisation): number {
 
 // Planned level (editable, affects planned production)
 function plannedLevel(id: TechnologySpecialisation): number {
+  if (isPlanningActive.value && plannedTechnology.value) {
+    return plannedTechnology.value[id] ?? 0
+  }
   return state.value.levels?.[id] ?? 0
 }
 
@@ -153,7 +161,15 @@ function onLevelInput(id: TechnologySpecialisation, event: Event) {
     }
   }
 
-  setLevel(id, newLevel)
+  // Update planning state if in planning mode, otherwise update playerTechnology
+  if (isPlanningActive.value && worldData.value.planning) {
+    // Update planning state directly and save
+    worldData.value.planning.technology[id] = newLevel
+    worldData.value.planning.modifiedAt = Date.now()
+    save()
+  } else {
+    setLevel(id, newLevel)
+  }
 }
 
 // Manual refresh of company data
@@ -187,10 +203,10 @@ const startingBonusDisplay = computed(() => {
 function formatNetProfitForecast(techId: TechnologySpecialisation): string {
   const forecast = allForecasts.value.get(techId)
   if (!forecast) return '—'
-  
+
   const change = forecast.netProfitChange
   if (Math.abs(change) < 0.01) return '±$0'
-  
+
   const sign = change > 0 ? '+' : ''
   return `${sign}$${formatNumber(change, 0)}`
 }
@@ -206,7 +222,7 @@ function getForecastColorClass(techId: TechnologySpecialisation): string {
 function formatROI(techId: TechnologySpecialisation): string {
   const forecast = allForecasts.value.get(techId)
   if (!forecast || !forecast.roiDays) return '—'
-  
+
   const days = forecast.roiDays
   if (days < 1) return '<1 day'
   if (days < 7) return `${formatNumber(days, 1)} days`
@@ -219,16 +235,16 @@ function formatROI(techId: TechnologySpecialisation): string {
 function getUpgradeCostDisplay(techId: TechnologySpecialisation): string {
   const forecast = allForecasts.value.get(techId)
   if (!forecast) return '—'
-  
+
   const materials = forecast.upgradeCost || '—'
-  const dollarValue = forecast.upgradeCostValue > 0 
-    ? `$${formatNumber(forecast.upgradeCostValue, 0)}` 
+  const dollarValue = forecast.upgradeCostValue > 0
+    ? `$${formatNumber(forecast.upgradeCostValue, 0)}`
     : ''
-  
+
   if (materials === '—' && !dollarValue) return '—'
   if (!dollarValue) return materials
   if (materials === '—') return dollarValue
-  
+
   return `${materials} (${dollarValue})`
 }
 </script>

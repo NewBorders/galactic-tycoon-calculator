@@ -1,3 +1,140 @@
+## Session 17 Summary (Tech Cost Merge + Undo Sync + Cancel-Out Fix + Individual Step Costs)
+
+**Fixed Issues**:
+
+1. **Merged technology upgrade costs (3→5 now shows correct 297 RD)**
+   - Applied techPenalty per step using running total in `computeTechnologyResearchCost`
+   - Multi-level upgrades now match stepwise sums (e.g., 3→5 = 127+170 = 297 RD)
+
+2. **Technology cost calculation base**
+   - `trackTechnologyChange` uses `fromLevel` as baseline for cost calculation
+   - Prevents cumulative costs when creating separate (non-merged) steps
+   - Each step shows its individual cost, not total from API level
+
+3. **Undo/redo sync with technology inputs**
+   - StateReversion now writes into Planning Mode state when active
+   - Technology input fields update correctly after undo/redo operations
+   - Uses new `applyTechnologyLevel()` helper that routes to correct state
+
+4. **Cancel-out with multiple technologies**
+   - Problem: Tech1 1→2, Tech2 1→2, then Tech2 2→1 removed BOTH entries instead of just Tech2
+   - Root cause: Cancel-out logic only checked last step and removed too much history
+   - Fix: Search through ALL steps to find the one that cancels, then remove only that step
+   - Added `changeType` check to ensure we only match same type of changes
+   - Fixed `technologyId` field access (was using `techId`, now uses `technologyId ?? techId`)
+
+5. **Individual costs for separate technology steps** ✨ NEW
+   - Problem: Chemistry 1→2, FoodProd 1→2, Chemistry 2→3 showed cumulative cost (191 RD) instead of individual cost (108 RD)
+   - Root cause: `trackTechnologyChange` always calculated from API level, not from planned level
+   - Fix: Use `fromLevel` parameter (represents visible UI state) instead of `currentTechLevel`
+   - Result: Separate steps now show individual costs (e.g., 2→3 shows only that increment)
+   - Merged steps still correctly recalculate from API level baseline
+
+**Implementation Details**:
+
+1. **manualCosts.ts** - Running total for techPenalty:
+   - Introduced `runningTotal` variable incremented after each level step
+   - Ensures techPenalty grows correctly for multi-level upgrades
+
+2. **changeTracker.ts** - Use fromLevel for cost calculation:
+   ```typescript
+   // OLD: Always from API level
+   const currentTechLevel = current.value?.technology?.[techId] ?? 0
+   const materialsCost = computeTechnologyResearchCost(techId, currentTechLevel, toLevel, ...)
+   
+   // NEW: Use fromLevel as passed by caller
+   const materialsCost = computeTechnologyResearchCost(techId, fromLevel, toLevel, ...)
+   ```
+   - When creating a NEW step: shows individual cost (fromLevel → toLevel)
+   - When MERGING steps: merge recalculation still uses currentLevel baseline
+
+3. **stateReversion.ts** - Planning Mode awareness:
+   - New `applyTechnologyLevel()` helper checks `isPlanningActive`
+   - Writes to `worldData.value.planning.technology` when in planning mode
+   - Falls back to `usePlayerTechnology()` otherwise
+
+4. **todoListService.ts** - Smart cancel-out + merge logic:
+   - Cancel-out: Searches ALL steps (not just last) to find cancelling change
+   - Removes only the cancelled step from current state
+   - Preserves other unrelated changes
+   - Merge recalculation: Uses API level baseline for merged costs (cumulative)
+   - Type-safe field access for technology changes
+
+**Cost Behavior Examples**:
+
+*Scenario 1: Merged steps (same tech, consecutive)*
+- Chemistry 1→2, immediately Chemistry 2→3
+- Merges to: Chemistry 1→3
+- Cost: Cumulative from API level 1→3 (e.g., 80+108 = 188 RD)
+
+*Scenario 2: Separate steps (different tech in between)*
+- Chemistry 1→2
+- Food Production 1→2
+- Chemistry 2→3
+- Result: Three separate steps
+- Chemistry 1→2 cost: ~80 RD (individual)
+- Food Production 1→2 cost: ~83 RD (individual)
+- Chemistry 2→3 cost: ~108 RD (individual, NOT cumulative!)
+
+**Quality Assurance**:
+- ✅ Type-check: Successful
+- ✅ Lint: Successful
+- ✅ Tests: 281/281 passed (2 new tests for individual step costs)
+- ✅ Integration: All test scenarios pass
+
+**New Test Coverage**:
+- [twoTechsCancelOut.test.ts](src/v2/services/__tests__/twoTechsCancelOut.test.ts)
+  - Two techs, cancel second (Tech1 remains)
+  - Two techs, cancel first (Tech2 remains)
+  - Three techs, cancel middle (Tech1 & Tech3 remain)
+- [separateTechStepsCosts.test.ts](src/v2/services/__tests__/separateTechStepsCosts.test.ts)
+  - Separate steps show individual costs
+  - Multiple non-adjacent tech changes handled correctly
+
+## Session 16 Summary (Planning Mode State Consistency)
+
+**Issues Fixed**:
+
+**1. Global Summary not reflecting planned tech changes**
+- Problem: Bases > Global Summary showed no change in "Total Net Profit (Planned)" when tech levels changed
+- Root cause: PlayerConfigPanel was using `usePlayerTechnology()` instead of Planning Mode state
+- Fix: Updated PlayerConfigPanel to use `usePlanningMode().plannedTechnology` when in planning mode
+
+**2. Technology cost calculation errors in TODO list**
+- Problem: Multiple consecutive tech upgrades showed wrong costs (e.g., 3→4 showed 306 instead of 127)
+- Root cause: ChangeTracker was using `usePlayerTechnology()` state to calculate total technologies, missing the current Planning Mode changes
+- Fix: Updated ChangeTracker to use `usePlanningMode().plannedTechnology` when in planning mode for accurate cost calculation
+
+**3. Technology level UI not persisting across reloads**
+- Problem: After page reload, TODO list showed changes but tech levels reset
+- Root cause: TechnologyPanel was using `usePlayerTechnology()` instead of Planning Mode state
+- Fix: Updated TechnologyPanel to use Planning Mode state when active and save changes to worldData directly
+
+**Implementation Details**:
+
+1. **PlayerConfigPanel.vue**:
+   - Added `usePlanningMode()` import
+   - Updated `plannedTechnologyLevels` computed to use `plannedTechnology` when `isPlanningActive.value` is true
+   - Now correctly passes planning mode tech levels to GlobalSummary
+
+2. **TechnologyPanel.vue**:
+   - Added `usePlanningMode()` import
+   - Updated `plannedLevel()` to use `plannedTechnology.value` when in planning mode
+   - Updated `onLevelInput()` to write directly to `worldData.value.planning.technology` when in planning mode
+   - Calls `save()` explicitly to persist changes
+
+3. **ChangeTracker.ts**:
+   - Added `usePlanningMode()` import
+   - Created `getPlannedTechnologyLevels()` helper that returns planning mode state when active
+   - Updated `trackTechnologyChange()` to use correct planned levels for cost calculation
+
+**Result**: All systems now properly respect Planning Mode state:
+- Tech levels persist across page reloads ✓
+- Global summary shows accurate planned net profit changes ✓
+- Technology costs calculated correctly for consecutive upgrades ✓
+- TODO list accurately tracks all changes ✓
+- All 276 tests passing ✓
+
 ## Session 15 Summary (Technology Net Profit Forecast + ROI Feature)
 
 **New Feature Added**:

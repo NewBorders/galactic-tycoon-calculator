@@ -115,9 +115,8 @@ export function useTechnologyNetProfitForecast(
 
     // Calculate upgrade cost (same logic as changeTracker)
     let totalTechnologies = 0
-    
+
     // Add current technology levels from world data
-    const currentWorldTech = toValue(bases)[0] // We need access to current world state
     // For now, use the sum of planned levels as approximation
     Object.values(currentLevels).forEach((level) => {
       totalTechnologies += level
@@ -177,7 +176,6 @@ export function useTechnologyNetProfitForecast(
    */
   const allForecasts = computed(() => {
     const forecasts = new Map<TechnologySpecialisation, TechnologyNetProfitForecast>()
-    const techLevels = toValue(technologyLevels)
 
     // Calculate for each technology
     const techIds: TechnologySpecialisation[] = [1, 2, 3, 4, 5, 6, 7, 8, 10]

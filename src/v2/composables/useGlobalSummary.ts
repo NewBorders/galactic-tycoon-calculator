@@ -109,6 +109,7 @@ export function useGlobalSummary(
   globalWorkforceBurden: MaybeRef<number>,
   exportThreshold: MaybeRef<number>, // percentage threshold (0-100) to consider material as export
   marketOpportunities?: MaybeRef<MarketOpportunity[] | undefined>, // optional market analysis data
+  currentTechnologyLevels?: MaybeRef<Partial<Record<number, number>> | undefined>,
 ) {
   const resolvedPriceResolver = computed((): ((materialId: number) => number) => {
     const resolver = toValue(priceResolver)
@@ -139,16 +140,19 @@ export function useGlobalSummary(
     return Math.min(100, Math.max(0, threshold)) / 100
   })
 
-  const technologyLevelsOption = computed(() => {
+  const normalizeTechnologyLevels = (levels: MaybeRef<Partial<Record<number, number>> | undefined>) => {
     const obj: Record<number, number> = {}
-    Object.entries(toValue(technologyLevels) ?? {}).forEach(([key, value]) => {
+    Object.entries(toValue(levels) ?? {}).forEach(([key, value]) => {
       const spec = Number(key)
       const level = typeof value === 'number' ? value : Number(value)
       if (!Number.isFinite(spec) || Number.isNaN(level)) return
       obj[spec] = Math.max(0, Math.floor(level))
     })
     return obj
-  })
+  }
+
+  const plannedTechnologyLevelsOption = computed(() => normalizeTechnologyLevels(technologyLevels))
+  const currentTechnologyLevelsOption = computed(() => normalizeTechnologyLevels(currentTechnologyLevels))
 
   // Helper to compute report for a base with specific buildings/recipes configuration
   const computeReport = (base: PlayerBase, useCurrent: boolean) => {
@@ -180,13 +184,17 @@ export function useGlobalSummary(
       (base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'),
     )
 
+    const technologyLevelsToUse = useCurrent
+      ? currentTechnologyLevelsOption.value
+      : plannedTechnologyLevelsOption.value
+
     return computeBaseReport(toValue(gameData), {
       assignment,
       horizonDays: 1,
       options: {
         activeOptionalConsumables,
         priceResolver: resolvedPriceResolver.value,
-        technologyLevels: technologyLevelsOption.value,
+        technologyLevels: technologyLevelsToUse,
         startingBonus: toValue(startingBonus),
         globalWorkforceBurden: toValue(globalWorkforceBurden),
       },
@@ -239,7 +247,7 @@ export function useGlobalSummary(
         options: {
           activeOptionalConsumables,
           priceResolver: resolvedPriceResolver.value,
-          technologyLevels: technologyLevelsOption.value,
+          technologyLevels: plannedTechnologyLevelsOption.value,
           startingBonus: toValue(startingBonus),
           globalWorkforceBurden: 2000,
         },
@@ -279,7 +287,7 @@ export function useGlobalSummary(
         options: {
           activeOptionalConsumables,
           priceResolver: resolvedPriceResolver.value,
-          technologyLevels: technologyLevelsOption.value,
+          technologyLevels: currentTechnologyLevelsOption.value,
           startingBonus: toValue(startingBonus),
           globalWorkforceBurden: 2000,
         },

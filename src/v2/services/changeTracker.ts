@@ -13,6 +13,7 @@ import type { GameData } from './gamedata/types'
 import { getBuildingCostMultiplier, computeTechnologyResearchCost, getNewBaseCostForTier, computeBuildingTierExtras, formatMaterialList } from '@/v2/constants/manualCosts'
 import { useWorldData } from './worldData'
 import { usePlayerTechnology } from './playerTechnology'
+import { usePlanningMode } from './planningMode/state'
 
 function generateChangeId(): string {
   return crypto.randomUUID?.() ?? `change_${Date.now()}_${Math.random()}`
@@ -25,6 +26,17 @@ export function createChangeTracker(gameData?: GameData) {
   const { addChange } = useTodoList()
   const { current } = useWorldData()
   const { state } = usePlayerTechnology()
+  const { isPlanningActive, plannedTechnology } = usePlanningMode()
+
+  /**
+   * Get planned tech levels (from planning mode if active, otherwise from playerTechnology)
+   */
+  function getPlannedTechnologyLevels(): Partial<Record<number, number>> {
+    if (isPlanningActive.value && plannedTechnology.value) {
+      return plannedTechnology.value
+    }
+    return state.value?.levels ?? {}
+  }
 
   return {
     /**
@@ -54,18 +66,18 @@ export function createChangeTracker(gameData?: GameData) {
 
       // Add planned technology level increases (excluding this current change)
       // This ensures subsequent tech upgrades account for earlier planned upgrades
-      if (state.value?.levels) {
-        Object.entries(state.value.levels).forEach(([tId, plannedLevel]) => {
-          const techIdNum = Number(tId)
-          if (techIdNum !== techId && current.value?.technology) {
-            const currentLevel = current.value.technology[techIdNum] ?? 0
-            const increase = Math.max(0, plannedLevel - currentLevel)
-            totalTechnologies += increase
-          }
-        })
-      }
+      const plannedLevels = getPlannedTechnologyLevels()
+      Object.entries(plannedLevels).forEach(([tId, plannedLevel]) => {
+        const techIdNum = Number(tId)
+        if (techIdNum !== techId && current.value?.technology) {
+          const currentLevel = current.value.technology[techIdNum] ?? 0
+          const increase = Math.max(0, (plannedLevel ?? 0) - currentLevel)
+          totalTechnologies += increase
+        }
+      })
 
       // Compute materials cost for planned technology upgrade (if configured)
+      // Use the fromLevel as passed by the caller (represents the visible state in UI)
       const materialsCost = computeTechnologyResearchCost(
         techId,
         fromLevel,

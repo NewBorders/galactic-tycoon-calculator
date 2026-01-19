@@ -30,7 +30,10 @@ describe('useTechnologyNetProfitForecast', () => {
 
     const startingBonus = ref(1)
     const globalWorkforceBurden = ref(0)
-    const priceResolver = ref((materialId: number) => 100) // Fixed price for simplicity
+    const priceResolver = ref((materialId: number) => {
+      void materialId
+      return 100
+    }) // Fixed price for simplicity
 
     const { getForecast, allForecasts } = useTechnologyNetProfitForecast(
       ref(gameData),
@@ -58,12 +61,12 @@ describe('useTechnologyNetProfitForecast', () => {
     expect(typeof forecast.forecastedNetProfit).toBe('number')
     expect(typeof forecast.netProfitChange).toBe('number')
     expect(typeof forecast.upgradeCostValue).toBe('number')
-    
+
     // Verify upgrade cost is a string or undefined
     if (forecast.upgradeCost) {
       expect(typeof forecast.upgradeCost).toBe('string')
     }
-    
+
     // Verify ROI is a number or undefined
     if (forecast.roiDays !== undefined) {
       expect(typeof forecast.roiDays).toBe('number')
@@ -97,7 +100,10 @@ describe('useTechnologyNetProfitForecast', () => {
 
     const startingBonus = ref(1)
     const globalWorkforceBurden = ref(0)
-    const priceResolver = ref((materialId: number) => 100)
+    const priceResolver = ref((materialId: number) => {
+      void materialId
+      return 100
+    })
 
     const { getForecast } = useTechnologyNetProfitForecast(
       ref(gameData),

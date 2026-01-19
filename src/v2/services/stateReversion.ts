@@ -5,6 +5,7 @@
 
 import type { Change, TodoGroup } from './todoListService'
 import { usePlayerTechnology, type TechnologySpecialisation } from './playerTechnology'
+import { useWorldData } from './worldData'
 import { getChange, type StoredChange } from './changeStorage'
 
 // Helper type for playerBases service
@@ -41,6 +42,22 @@ function findRecipeInstance(playerBases: PlayerBasesService, baseId: string, rec
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recipeInstance = (base as any).recipes?.find((r: any) => r.recipeId === recipeId)
   return recipeInstance?.id || null
+}
+
+/**
+ * Apply a technology level change to the correct state (planning mode or player technology)
+ */
+function applyTechnologyLevel(techId: TechnologySpecialisation, targetValue: number): void {
+  const { setLevel } = usePlayerTechnology()
+  const { isPlanningActive, worldData, save } = useWorldData()
+
+  if (isPlanningActive.value && worldData.value.planning) {
+    worldData.value.planning.technology[techId] = targetValue
+    worldData.value.planning.modifiedAt = Date.now()
+    save()
+  } else {
+    setLevel(techId, targetValue)
+  }
 }
 
 /**
@@ -133,8 +150,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
         ? (storedChange.originalValue as number)
         : (storedChange.newValue as number)
       if (targetValue !== undefined && typeof storedChange.targetId === 'string') {
-        const { setLevel } = usePlayerTechnology()
-        setLevel(storedChange.targetId as unknown as TechnologySpecialisation, targetValue)
+        applyTechnologyLevel(storedChange.targetId as unknown as TechnologySpecialisation, targetValue)
         console.log('[StateReversion] Set technology level to:', targetValue)
       }
     } else {
@@ -311,14 +327,12 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
   if (change.type === 'technology') {
     const techId = change.details?.technologyId as unknown
     if (!techId) return
-
-    const { setLevel } = usePlayerTechnology()
     const targetValue = isRevert
       ? (change.details?.from as number)
       : (change.details?.to as number)
 
     if (targetValue !== undefined && typeof techId === 'string') {
-      setLevel(techId as unknown as TechnologySpecialisation, targetValue)
+      applyTechnologyLevel(techId as unknown as TechnologySpecialisation, targetValue)
     }
     return
   }

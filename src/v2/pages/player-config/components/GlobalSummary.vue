@@ -12,6 +12,7 @@ const props = defineProps<{
   index: GdIndex
   priceResolver: (materialId: number) => number
   technologyLevels: Partial<Record<number, number>>
+  currentTechnologyLevels?: Partial<Record<number, number>>
   startingBonus: number
   timeframeHours: number
   globalWorkforceBurden: number
@@ -32,6 +33,7 @@ const { totalNetProfit, totalExportNetProfit, totalConsumptionOverheadCost, tota
     toRef(() => props.globalWorkforceBurden),
     toRef(() => props.exportThreshold),
     undefined, // no market opportunities in player config page
+    toRef(() => props.currentTechnologyLevels),
   )
 </script>
 

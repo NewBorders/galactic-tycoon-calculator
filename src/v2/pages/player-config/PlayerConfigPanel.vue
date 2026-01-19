@@ -18,6 +18,7 @@ import GlobalSummary from './components/GlobalSummary.vue'
 import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
 import { useWorldData } from '@/v2/services/worldData'
+import { usePlanningMode } from '@/v2/services/planningMode/state'
 import { getChangeTracker } from '@/v2/services/changeTracker'
 import { registerPlayerBases } from '@/v2/services/todoListService'
 
@@ -80,9 +81,13 @@ fetchMarketData()
 
 const { state: technologyState } = usePlayerTechnology()
 const { current: currentWorldState } = useWorldData()
+const { isPlanningActive, plannedTechnology } = usePlanningMode()
 
-// Planned technology levels and starting bonus (user's planned changes)
-const plannedTechnologyLevels = computed(() => technologyState.value.levels ?? {})
+// Planned technology levels and starting bonus
+// Use planning mode state when in planning mode, otherwise use playerTechnology state
+const plannedTechnologyLevels = computed(() => 
+  isPlanningActive.value ? plannedTechnology.value : (technologyState.value.levels ?? {})
+)
 const plannedStartingBonus = computed(() => technologyState.value.startingBonus ?? 1)
 
 // Current technology levels and starting bonus (from API, read-only)
@@ -589,6 +594,7 @@ async function refreshGameData() {
       :index="props.index"
       :price-resolver="priceResolver"
       :technology-levels="technologyLevels"
+      :current-technology-levels="currentTechnologyLevels"
       :starting-bonus="startingBonus"
       :timeframe-hours="timeframeHours"
       :global-workforce-burden="globalWorkforceBurden"

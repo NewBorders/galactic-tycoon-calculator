@@ -7,6 +7,10 @@ import { ref, computed } from 'vue'
 import type { PlayerBasesService } from './stateReversion'
 import { applyStateReversions } from './stateReversion'
 import { unregisterChange } from './changeStorage'
+import { computeTechnologyResearchCost } from '@/v2/constants/manualCosts'
+import { useWorldData } from './worldData'
+import { usePlanningMode } from './planningMode/state'
+import { getGameData } from './gamedata/gameDataRepository'
 
 export type ChangeType = 'technology' | 'building' | 'recipe' | 'stock' | 'base' | 'starting-bonus'
 export type ScopeType = 'global' | 'base'
@@ -459,81 +463,58 @@ function createTodoList() {
     const now = Date.now()
     const changeWithTime: Change = { ...change, timestamp: now }
 
-    // Check if this change cancels out the last history entry
-    // Look at the CURRENT state (already has the previous change)
+    // Check if this change cancels out any existing change
+    // Look at the CURRENT state (already has the previous changes)
     const stateForCancelCheck = scopeHistory.history[scopeHistory.currentIndex]
     if (stateForCancelCheck) {
       const groupForCancelCheck = stateForCancelCheck.find(g => g.scope === scope && g.planetId === planetId)
 
       if (groupForCancelCheck && groupForCancelCheck.steps.length > 0) {
-        const lastStep = groupForCancelCheck.steps[groupForCancelCheck.steps.length - 1]
+        // Search through ALL steps to find the one that cancels out (not just the last one)
+        let cancelledStepIndex = -1
+        let cancelledChange: Change | null = null
 
-        if (lastStep && lastStep.changes.length === 1) {
-          const lastChange = lastStep.changes[0]
-          console.log('[TodoListService] Checking cancel-out for:', lastChange?.type, changeWithTime.type)
-          if (lastChange && doCancelsOut(lastChange, changeWithTime)) {
-            console.log('[TodoListService] Changes cancel out, reverting to previous state')
-            // Both changes negate each other - go back to the state BEFORE all merged changes
-            // Find the first state that doesn't have any changes for this target
-            const targetIdentifier = lastChange.details?.buildingInstanceId ||
-                                    lastChange.details?.recipeInstanceId ||
-                                    lastChange.details?.materialId ||
-                                    lastChange.details?.techId
-
-            // Go back through history to find the first state without this target
-            let targetIndex = scopeHistory.currentIndex - 1
-            while (targetIndex >= 0) {
-              const state = scopeHistory.history[targetIndex]
-              const group = state?.find(g => g.scope === scope && g.planetId === planetId)
-
-              if (!group || group.steps.length === 0) {
-                // Found a state without any changes for this scope
-                break
-              }
-
-              // Check if this state has changes for the same target
-              const hasTargetChanges = group.steps.some(s => s.changes.some(c => {
-                const cTarget = c.details?.buildingInstanceId ||
-                               c.details?.recipeInstanceId ||
-                               c.details?.materialId ||
-                               c.details?.techId
-                return cTarget === targetIdentifier
-              }))
-
-              if (!hasTargetChanges) {
-                // Found a state without this specific target
-                break
-              }
-
-              targetIndex--
+        for (let i = groupForCancelCheck.steps.length - 1; i >= 0; i--) {
+          const step = groupForCancelCheck.steps[i]
+          if (step && step.changes.length === 1) {
+            const existingChange = step.changes[0]
+            if (existingChange && doCancelsOut(existingChange, changeWithTime)) {
+              cancelledStepIndex = i
+              cancelledChange = existingChange
+              console.log('[TodoListService] Found cancel-out at step', i, ':', existingChange.type, existingChange.description)
+              break
             }
+          }
+        }
 
-            // Unregister all changes that will be removed
-            for (let i = targetIndex + 1; i <= scopeHistory.currentIndex; i++) {
-              const state = scopeHistory.history[i]
-              const group = state?.find(g => g.scope === scope && g.planetId === planetId)
-              if (group) {
-                group.steps.forEach(step => {
-                  step.changes.forEach(c => {
-                    const cId = c.details?.changeId as string | undefined
-                    if (cId) unregisterChange(cId)
-                  })
-                })
-              }
-            }
+        if (cancelledStepIndex >= 0 && cancelledChange) {
+          console.log('[TodoListService] Changes cancel out, removing step', cancelledStepIndex)
+          
+          // Unregister the cancelled change
+          const cancelledChangeId = cancelledChange.details?.changeId as string | undefined
+          if (cancelledChangeId) {
+            unregisterChange(cancelledChangeId)
+          }
+          
+          // Unregister the new change as well (it cancels out)
+          const currentChangeId = changeWithTime.details?.changeId as string | undefined
+          if (currentChangeId) {
+            unregisterChange(currentChangeId)
+          }
 
-            // Unregister the new change as well
-            const currentChangeId = changeWithTime.details?.changeId as string | undefined
-            if (currentChangeId) {
-              unregisterChange(currentChangeId)
-            }
-
-            // Update history to remove all merged states
-            // targetIndex points to the last state WITHOUT this target, so we keep it
-            scopeHistory.currentIndex = targetIndex
-            scopeHistory.history = scopeHistory.history.slice(0, scopeHistory.currentIndex + 1)
-
-            console.log('[TodoListService] Reverted to index:', targetIndex, 'history length:', scopeHistory.history.length)
+          // Create a new state by removing the cancelled step from the current groups
+          const newGroups = JSON.parse(JSON.stringify(currentGroups)) as TodoGroup[]
+          const newTargetGroup = newGroups.find(g => g.scope === scope && g.planetId === planetId)
+          
+          if (newTargetGroup) {
+            // Remove the cancelled step
+            newTargetGroup.steps.splice(cancelledStepIndex, 1)
+            
+            // Add this as a new history state
+            scopeHistory.history.push(newGroups)
+            scopeHistory.currentIndex++
+            
+            console.log('[TodoListService] Removed step at index', cancelledStepIndex, ', history length:', scopeHistory.history.length)
             saveToStorage()
             return
           }
@@ -573,6 +554,59 @@ function createTodoList() {
               changeWithTime.details?.materialsCost as string | undefined
             )
           }
+          
+            // For technology changes, recalculate merged costs to account for non-linear techPenalty
+            // Use the CURRENT (API) level as base, not the old change's level
+            if (change.type === 'technology' && from !== undefined && to !== undefined && to > from) {
+              const techId = changeWithTime.details?.technologyId ? Number(changeWithTime.details.technologyId) : undefined
+              if (techId !== undefined) {
+                try {
+                  const { current } = useWorldData()
+                  const { isPlanningActive, plannedTechnology } = usePlanningMode()
+                  const currentLevel = current.value?.technology?.[techId] ?? 0
+                  const targetLevel = typeof to === 'number' ? to : Number(to)
+
+                  if (!Number.isFinite(targetLevel)) {
+                    console.warn('[TodoListService] Invalid target level for tech merge recalculation:', to)
+                    throw new Error('Invalid target level')
+                  }
+                
+                  // Only recalculate if we're actually changing from current level
+                  if (targetLevel !== currentLevel) {
+                    let totalTechnologies = 0
+                    if (current.value?.technology) {
+                      totalTechnologies = Object.values(current.value.technology).reduce((sum, level) => sum + level, 0)
+                    }
+                  
+                    // Don't count this tech's own planned increase
+                    const plannedLevels = isPlanningActive.value && plannedTechnology.value ? plannedTechnology.value : {}
+                    Object.entries(plannedLevels).forEach(([tId, plannedLevel]) => {
+                      const techIdNum = Number(tId)
+                      if (techIdNum !== techId && current.value?.technology) {
+                        const currentLvl = current.value.technology[techIdNum] ?? 0
+                        const inc = Math.max(0, plannedLevel - currentLvl)
+                        totalTechnologies += inc
+                      }
+                    })
+                  
+                    const gd = getGameData()
+                    const recalculatedCost = computeTechnologyResearchCost(
+                      techId,
+                      currentLevel,
+                      targetLevel,
+                      gd ? { materials: gd.materials } : undefined,
+                      totalTechnologies
+                    )
+                    if (recalculatedCost) {
+                      mergedCost = recalculatedCost
+                    }
+                  }
+                } catch (e) {
+                  // If recalculation fails, fall back to the merged costs
+                  console.warn('[TodoListService] Failed to recalculate merged costs:', e)
+                }
+              }
+            }
 
           lastStep.changes = [{
             ...changeWithTime,

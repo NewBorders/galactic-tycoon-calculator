@@ -282,6 +282,9 @@ export function computeTechnologyResearchCost(
   // The caller should calculate this from world data
   const currentTotal = totalTechnologies ?? 0
 
+  // Track the running total to reflect techPenalty growth after each level-up
+  let runningTotal = currentTotal
+
   const totals = new Map<number, number>()
 
   // Handle both upgrades and downgrades
@@ -289,9 +292,11 @@ export function computeTechnologyResearchCost(
     // Upgrade: Calculate costs for each level from fromLevel to toLevel
     for (let level = fromLevel; level < toLevel; level++) {
       const nextLevel = level + 1
-      // Use currentTotal directly - don't add intermediate level increases
-      // The totalTechnologies should already account for the CURRENT state
-      const materials = getTechnologyLevelCost(nextLevel, currentTotal)
+      // Use the current running total, then increment for the next step
+      const materials = getTechnologyLevelCost(nextLevel, runningTotal)
+
+      // Each researched level increases the total technology sum
+      runningTotal += 1
 
       for (const mat of materials) {
         const prev = totals.get(mat.materialId) || 0
@@ -303,7 +308,10 @@ export function computeTechnologyResearchCost(
     // (Sum all costs from level 1 to the target level)
     for (let level = 1; level < toLevel; level++) {
       const nextLevel = level + 1
-      const materials = getTechnologyLevelCost(nextLevel, currentTotal)
+      const materials = getTechnologyLevelCost(nextLevel, runningTotal)
+
+      // Keep running total in sync with the levels being accumulated
+      runningTotal += 1
 
       for (const mat of materials) {
         const prev = totals.get(mat.materialId) || 0
