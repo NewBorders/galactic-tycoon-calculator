@@ -286,7 +286,7 @@ function selectPlanet(planet: Planet) {
     // Track new base creation
     const changeTracker = getChangeTracker()
     changeTracker.trackNewBase(planet.name || `Planet ${planet.id}`, planet.tier)
-    
+
     addBase(planet.id)
   }
   query.value = ''
@@ -649,14 +649,14 @@ async function refreshGameData() {
             ({ buildingId, level }) => {
               // Add building first to get the instance ID
               const instanceId = addBuilding(base.id, buildingId, level)
-              
-              // Track building add with building ID and instance ID
+
+              // Track building add with building ID, instance ID, and level
               const buildingData = props.gameData.buildings.find(b => b.id === buildingId)
               if (buildingData && instanceId) {
                 const changeTracker = getChangeTracker(props.gameData)
-                changeTracker.trackAddBuilding(base.planetId, buildingId, instanceId)
+                changeTracker.trackAddBuilding(base.planetId, buildingId, instanceId, level)
               }
-              
+
               persist()
             }
           "
@@ -700,14 +700,14 @@ async function refreshGameData() {
             ({ recipeId }) => {
               // Add recipe first to get the instance ID
               const instanceId = addRecipe(base.id, recipeId)
-              
+
               // Track recipe add with recipe ID and instance ID
               const recipe = props.gameData.recipes.find(r => r.id === recipeId)
               if (recipe && instanceId) {
                 const changeTracker = getChangeTracker(props.gameData)
                 changeTracker.trackAddRecipe(base.planetId, recipeId, instanceId)
               }
-              
+
               persist()
             }
           "

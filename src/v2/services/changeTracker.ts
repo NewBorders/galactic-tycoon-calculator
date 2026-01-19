@@ -1,7 +1,7 @@
 /**
  * Change Tracker Service
  * Tracks changes to planned production and integrates with TodoList
- * 
+ *
  * Automatically determines scope:
  * - Global: Technology, Starting Bonus, New Bases (affects all bases)
  * - Per-Base: Buildings, Recipes, Stock (specific to a base)
@@ -10,7 +10,9 @@
 import { useTodoList, type Change } from './todoListService'
 import { registerChange } from './changeStorage'
 import type { GameData } from './gamedata/types'
-import { getBuildingCostMultiplier, computeTechnologyResearchCost, getNewBaseCostForTier } from '@/v2/constants/manualCosts'
+import { getBuildingCostMultiplier, computeTechnologyResearchCost, getNewBaseCostForTier, computeBuildingTierExtras, formatMaterialList } from '@/v2/constants/manualCosts'
+import { useWorldData } from './worldData'
+import { usePlayerTechnology } from './playerTechnology'
 
 function generateChangeId(): string {
   return crypto.randomUUID?.() ?? `change_${Date.now()}_${Math.random()}`
@@ -21,6 +23,8 @@ function generateChangeId(): string {
  */
 export function createChangeTracker(gameData?: GameData) {
   const { addChange } = useTodoList()
+  const { current } = useWorldData()
+  const { state } = usePlayerTechnology()
 
   return {
     /**
@@ -28,7 +32,7 @@ export function createChangeTracker(gameData?: GameData) {
      */
     trackTechnologyChange(techId: number, techName: string, fromLevel: number, toLevel: number): void {
       const changeId = generateChangeId()
-      
+
       // Register the change for state reversion
       registerChange(changeId, {
         changeId,
@@ -38,9 +42,38 @@ export function createChangeTracker(gameData?: GameData) {
         originalValue: fromLevel,
         newValue: toLevel,
       })
-      // Compute materials cost for planned technology upgrade (if configured)
-      const materialsCost = computeTechnologyResearchCost(techId, fromLevel, toLevel, gameData ? { materials: gameData.materials } : undefined)
       
+      // Calculate total technologies for cost calculation
+      // Must include BOTH current levels AND planned level increases
+      let totalTechnologies = 0
+      
+      // Add current technology levels
+      if (current.value?.technology) {
+        totalTechnologies = Object.values(current.value.technology).reduce((sum, level) => sum + level, 0)
+      }
+      
+      // Add planned technology level increases (excluding this current change)
+      // This ensures subsequent tech upgrades account for earlier planned upgrades
+      if (state.value?.levels) {
+        Object.entries(state.value.levels).forEach(([tId, plannedLevel]) => {
+          const techIdNum = Number(tId)
+          if (techIdNum !== techId && current.value?.technology) {
+            const currentLevel = current.value.technology[techIdNum] ?? 0
+            const increase = Math.max(0, plannedLevel - currentLevel)
+            totalTechnologies += increase
+          }
+        })
+      }
+      
+      // Compute materials cost for planned technology upgrade (if configured)
+      const materialsCost = computeTechnologyResearchCost(
+        techId, 
+        fromLevel, 
+        toLevel, 
+        gameData ? { materials: gameData.materials } : undefined,
+        totalTechnologies
+      )
+
       addChange({
         id: changeId,
         type: 'technology',
@@ -60,7 +93,7 @@ export function createChangeTracker(gameData?: GameData) {
      */
     trackStartingBonusChange(fromBonus: number, toBonus: number): void {
       const changeId = generateChangeId()
-      
+
       // Register the change for state reversion
       registerChange(changeId, {
         changeId,
@@ -69,7 +102,7 @@ export function createChangeTracker(gameData?: GameData) {
         originalValue: fromBonus,
         newValue: toBonus,
       })
-      
+
       addChange({
         id: changeId,
         type: 'starting-bonus',
@@ -136,29 +169,44 @@ export function createChangeTracker(gameData?: GameData) {
       toLevel: number
     ): void {
       const changeId = generateChangeId()
-      
+
       // Retrieve building name from gameData if available
       const building = gameData?.buildings.find(b => b.id === buildingId)
       const buildingName = building?.name ?? `Building ${buildingId}`
-      
+
       // Get planet tier for cost multiplier
       const planet = gameData?.planets.find(p => p.id === planetId)
       const planetTier = planet?.tier ?? 1
       const buildingTier = building?.tier ?? 1
       const tierMultiplier = getBuildingCostMultiplier(planetTier, buildingTier)
-      
+
       // Compute material costs display for level changes if gameData available
       const levelDelta = Math.abs(toLevel - fromLevel)
-      const materialsCost = levelDelta > 0 && building
-        ? (building.constructionMaterials || [])
-            .filter(cm => (cm?.amount ?? 0) > 0)
-            .map(cm => {
-              const adjustedAmount = Math.ceil(cm.amount * levelDelta * tierMultiplier)
-              return `${adjustedAmount}× ${cm.name}`
-            })
-            .join(', ')
-        : undefined
-      
+      let materialsCost: string | undefined
+
+      if (levelDelta > 0 && building) {
+        const baseMaterials = (building.constructionMaterials || [])
+          .filter(cm => (cm?.amount ?? 0) > 0)
+          .map(cm => ({
+            materialId: cm.id,
+            amount: Math.ceil(cm.amount * levelDelta * tierMultiplier)
+          }))
+        
+        // Add tier-specific extras for planet tiers 2-4
+        const tierExtras = computeBuildingTierExtras(planetTier, buildingTier)
+          .map((extra: { materialId: number; amount: number }) => ({
+            materialId: extra.materialId,
+            amount: extra.amount * levelDelta
+          }))
+        
+        // Combine base materials and tier extras
+        const allMaterials = [...baseMaterials, ...tierExtras]
+        
+        if (allMaterials.length > 0) {
+          materialsCost = formatMaterialList(allMaterials, gameData ? { materials: gameData.materials } : undefined)
+        }
+      }
+
       // Register the change for state reversion
       registerChange(changeId, {
         changeId,
@@ -169,7 +217,7 @@ export function createChangeTracker(gameData?: GameData) {
         originalValue: fromLevel,
         newValue: toLevel,
       })
-      
+
       addChange({
         id: changeId,
         type: 'building',
@@ -192,14 +240,35 @@ export function createChangeTracker(gameData?: GameData) {
      * @param planetId The planet ID of the base
      * @param buildingId The building ID
      * @param buildingInstanceId The building instance ID (will be assigned after building is added)
+     * @param level The building level (defaults to 1)
      */
-    trackAddBuilding(planetId: number, buildingId: number, buildingInstanceId?: string): void {
+    trackAddBuilding(planetId: number, buildingId: number, buildingInstanceId?: string, level: number = 1): void {
       const changeId = generateChangeId()
-      
-      // Retrieve building name from gameData if available
+
+      // Retrieve building name and costs from gameData if available
       const building = gameData?.buildings.find(b => b.id === buildingId)
       const buildingName = building?.name ?? `Building ${buildingId}`
       
+      // Calculate materials cost for the building
+      let materialsCost: string | undefined = undefined
+      if (building?.constructionMaterials && building.constructionMaterials.length > 0) {
+        const baseMaterials = building.constructionMaterials.map(m => ({
+          materialId: m.id,
+          amount: m.amount
+        }))
+        
+        // For new buildings, also add tier extras if on Tier 2-4 planet
+        // Tier 2, 3, 4 planets get tier extras based on building level
+        let allMaterials = [...baseMaterials]
+        if (planetId > 1) {
+          // planetId corresponds roughly to tier (1=tier1, 2=tier2, etc.)
+          const tierExtras = computeBuildingTierExtras(planetId, level)
+          allMaterials = [...allMaterials, ...tierExtras]
+        }
+        
+        materialsCost = formatMaterialList(allMaterials, gameData)
+      }
+
       // Register the change for state reversion
       if (buildingId !== undefined) {
         registerChange(changeId, {
@@ -210,7 +279,7 @@ export function createChangeTracker(gameData?: GameData) {
           buildingId: buildingId,
         })
       }
-      
+
       addChange({
         id: changeId,
         type: 'building',
@@ -222,6 +291,7 @@ export function createChangeTracker(gameData?: GameData) {
           action: 'add',
           buildingId: buildingId.toString(),
           buildingInstanceId: buildingInstanceId,
+          materialsCost,
         },
       })
     },
@@ -234,11 +304,11 @@ export function createChangeTracker(gameData?: GameData) {
      */
     trackRemoveBuilding(planetId: number, buildingId: number, buildingInstanceId?: string): void {
       const changeId = generateChangeId()
-      
+
       // Retrieve building name from gameData if available
       const building = gameData?.buildings.find(b => b.id === buildingId)
       const buildingName = building?.name ?? `Building ${buildingId}`
-      
+
       // Register the change for state reversion
       if (buildingId !== undefined && buildingInstanceId !== undefined) {
         registerChange(changeId, {
@@ -249,7 +319,7 @@ export function createChangeTracker(gameData?: GameData) {
           buildingId: buildingId,
         })
       }
-      
+
       addChange({
         id: changeId,
         type: 'building',
@@ -273,11 +343,11 @@ export function createChangeTracker(gameData?: GameData) {
      */
     trackAddRecipe(planetId: number, recipeId: number, recipeInstanceId?: string): void {
       const changeId = generateChangeId()
-      
+
       // Retrieve recipe name from gameData if available
       const recipe = gameData?.recipes.find(r => r.id === recipeId)
       const recipeName = recipe?.output?.name ?? `Recipe ${recipeId}`
-      
+
       // Register the change for state reversion
       registerChange(changeId, {
         changeId,
@@ -286,7 +356,7 @@ export function createChangeTracker(gameData?: GameData) {
         planetId: planetId,
         recipeId: recipeId,
       })
-      
+
       addChange({
         id: changeId,
         type: 'recipe',
@@ -309,11 +379,11 @@ export function createChangeTracker(gameData?: GameData) {
      */
     trackRemoveRecipe(planetId: number, recipeId: number, recipeInstanceId?: string): void {
       const changeId = generateChangeId()
-      
+
       // Retrieve recipe name from gameData if available
       const recipe = gameData?.recipes.find(r => r.id === recipeId)
       const recipeName = recipe?.output?.name ?? `Recipe ${recipeId}`
-      
+
       // Register the change for state reversion
       if (recipeInstanceId !== undefined) {
         registerChange(changeId, {
@@ -324,7 +394,7 @@ export function createChangeTracker(gameData?: GameData) {
           recipeId: recipeId,
         })
       }
-      
+
       addChange({
         id: changeId,
         type: 'recipe',
@@ -354,11 +424,11 @@ export function createChangeTracker(gameData?: GameData) {
       toCount: number
     ): void {
       const changeId = generateChangeId()
-      
+
       // Retrieve recipe name from gameData if available
       const recipe = gameData?.recipes.find(r => r.id === recipeId)
       const recipeName = recipe?.output?.name ?? `Recipe ${recipeId}`
-      
+
       // Register the change for state reversion
       registerChange(changeId, {
         changeId,
@@ -370,7 +440,7 @@ export function createChangeTracker(gameData?: GameData) {
         originalValue: fromCount,
         newValue: toCount,
       })
-      
+
       addChange({
         id: changeId,
         type: 'recipe',
@@ -401,11 +471,11 @@ export function createChangeTracker(gameData?: GameData) {
       toQty: number
     ): void {
       const changeId = generateChangeId()
-      
+
       // Retrieve material name from gameData if available
       const material = gameData?.materials.find(m => m.id === materialId)
       const materialName = material?.name ?? `Material ${materialId}`
-      
+
       // Register the change for state reversion
       registerChange(changeId, {
         changeId,
@@ -416,7 +486,7 @@ export function createChangeTracker(gameData?: GameData) {
         originalValue: fromQty,
         newValue: toQty,
       })
-      
+
       addChange({
         id: changeId,
         type: 'stock',
@@ -443,12 +513,16 @@ export function createChangeTracker(gameData?: GameData) {
 
 /**
  * Create a simple change tracker instance (singleton)
+ * Note: gameData can be provided on first call or later updates
  */
 let trackerInstance: ReturnType<typeof createChangeTracker> | null = null
+let lastGameData: GameData | undefined = undefined
 
 export function getChangeTracker(gameData?: GameData) {
-  if (!trackerInstance) {
+  // If gameData has changed or no instance exists, create/recreate it
+  if (!trackerInstance || gameData !== lastGameData) {
     trackerInstance = createChangeTracker(gameData)
+    lastGameData = gameData
   }
   return trackerInstance
 }

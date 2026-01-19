@@ -155,14 +155,14 @@ export function usePlayerBases(gd: GameData) {
     const b = state.value.bases.find((x) => x.id === baseId)
     if (!b) return undefined
     const instanceId = uid()
-    
+
     // Assign temporary slotId for planned buildings without API import
     // Use negative numbers to distinguish from real Game slots (which are >= 0)
     // Find the minimum negative slotId in use and go one lower
     const existingSlotIds = b.buildings.map((bld) => bld.slotId ?? 0).filter((id) => typeof id === 'number')
     const minSlotId = Math.min(...existingSlotIds.filter((id) => id < 0), -1)
     const tempSlotId = minSlotId - 1
-    
+
     b.buildings.push({
       id: instanceId,
       buildingId,
@@ -325,7 +325,7 @@ export function usePlayerBases(gd: GameData) {
     console.log('[PlayerBases] updateStockForWarehouse called', { gameWarehouseId, stockCount: Object.keys(stocks).length })
     const sanitizedStocks = sanitizeStock(stocks)
     const timestamp = Date.now()
-    
+
     let updated = false
     state.value.bases.forEach((base) => {
       if (base.gameWarehouseId === gameWarehouseId) {
@@ -335,7 +335,7 @@ export function usePlayerBases(gd: GameData) {
         updated = true
       }
     })
-    
+
     if (updated) {
       console.log('[PlayerBases] Stock updated, saving to localStorage')
       saveState(state.value)

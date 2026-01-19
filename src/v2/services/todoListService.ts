@@ -70,13 +70,13 @@ function createTodoList() {
       if (stored) {
         const parsed = JSON.parse(stored)
         const historiesMap = new Map<ScopeKey, ScopeHistory>()
-        
+
         if (parsed.histories && typeof parsed.histories === 'object') {
           Object.entries(parsed.histories).forEach(([key, value]) => {
             historiesMap.set(key, value as ScopeHistory)
           })
         }
-        
+
         return {
           histories: historiesMap,
           isOpen: parsed.isOpen ?? true,
@@ -95,7 +95,7 @@ function createTodoList() {
       scopeHistories.value.forEach((history, key) => {
         historiesObj[key] = history
       })
-      
+
       const data = {
         histories: historiesObj,
         isOpen: isOpen.value,
@@ -108,11 +108,11 @@ function createTodoList() {
 
   // Initialize from storage
   const stored = loadFromStorage()
-  
+
   // Per-scope histories
   const scopeHistories = ref<Map<ScopeKey, ScopeHistory>>(stored.histories)
   const isOpen = ref(stored.isOpen)
-  
+
   // Flag to prevent tracking during undo/redo
   let isReverting = false
 
@@ -132,7 +132,7 @@ function createTodoList() {
   // Get all current groups (from all scopes at their current indices)
   const todoGroups = computed(() => {
     const allGroups: TodoGroup[] = []
-    
+
     scopeHistories.value.forEach((scopeHistory) => {
       if (scopeHistory.currentIndex >= 0 && scopeHistory.currentIndex < scopeHistory.history.length) {
         const groupsAtIndex = scopeHistory.history[scopeHistory.currentIndex]
@@ -141,7 +141,7 @@ function createTodoList() {
         }
       }
     })
-    
+
     return allGroups
   })
 
@@ -153,22 +153,22 @@ function createTodoList() {
   // Display groups - merge consecutive similar changes for cleaner UI
   const displayGroups = computed(() => {
     const merged: TodoGroup[] = []
-    
+
     for (const group of todoGroups.value) {
       const mergedSteps: TodoStep[] = []
-      
+
       for (const step of group.steps) {
         const lastMerged = mergedSteps[mergedSteps.length - 1]
-        
+
         if (lastMerged && step.changes.length === 1 && lastMerged.changes.length === 1) {
           const lastChange = lastMerged.changes[0]
           const currentChange = step.changes[0]
-          
+
           // Try to merge if same type and target
           if (lastChange && currentChange && canMergeWithChange(lastChange, currentChange)) {
             const from = lastChange.details?.from
             const to = currentChange.details?.to
-            
+
             if (from !== undefined && to !== undefined) {
               // Check if changes cancel out (from == to)
               if (from === to) {
@@ -176,7 +176,7 @@ function createTodoList() {
                 mergedSteps.pop()
                 continue
               }
-              
+
               // Update the last merged step with new "to" value
               let newDescription = lastChange.description
               if (currentChange.type === 'building' || currentChange.type === 'technology' || currentChange.type === 'stock' || currentChange.type === 'recipe') {
@@ -185,13 +185,13 @@ function createTodoList() {
                   `${from} → ${to}`
                 )
               }
-              
+
               // Merge material costs if present
               const mergedCost = mergeMaterialsCosts(
                 lastChange.details?.materialsCost as string | undefined,
                 currentChange.details?.materialsCost as string | undefined
               )
-              
+
               lastMerged.changes = [{
                 ...lastChange,
                 description: newDescription,
@@ -206,18 +206,18 @@ function createTodoList() {
             }
           }
         }
-        
+
         // Not mergeable, add as new step
         mergedSteps.push({ ...step })
       }
-      
+
       merged.push({
         scope: group.scope,
         planetId: group.planetId,
         steps: mergedSteps,
       })
     }
-    
+
     return merged
   })
 
@@ -275,7 +275,7 @@ function createTodoList() {
       // Don't merge add/remove with level changes
       const lastIsAction = !!lastChange.details?.action
       const newIsAction = !!newChange.details?.action
-      
+
       if (lastIsAction || newIsAction) return false
 
       // Check if same building instance
@@ -288,7 +288,7 @@ function createTodoList() {
     if (lastChange.type === 'recipe' && newChange.type === 'recipe') {
       const lastIsAction = !!lastChange.details?.action
       const newIsAction = !!newChange.details?.action
-      
+
       if (lastIsAction || newIsAction) return false
 
       // Check if same recipe instance
@@ -299,9 +299,9 @@ function createTodoList() {
 
     // Technology - merge changes to same tech
     if (lastChange.type === 'technology' && newChange.type === 'technology') {
-      const lastTechId = lastChange.details?.techId as number
-      const newTechId = newChange.details?.techId as number
-      return lastTechId === newTechId
+      const lastTechId = (lastChange.details?.technologyId ?? lastChange.details?.techId) as string | number
+      const newTechId = (newChange.details?.technologyId ?? newChange.details?.techId) as string | number
+      return String(lastTechId) === String(newTechId)
     }
 
     // Starting bonus - always merge
@@ -324,7 +324,7 @@ function createTodoList() {
     if (change1.type === 'recipe' && change2.type === 'recipe') {
       const action1 = change1.details?.action as string
       const action2 = change2.details?.action as string
-      
+
       // Recipe added then removed
       if (action1 && action2) {
         // Check if both affect the same target
@@ -333,28 +333,28 @@ function createTodoList() {
         }
         return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add')
       }
-      
+
       // Recipe count changes - compare by recipeInstanceId
       const instanceId1 = change1.details?.recipeInstanceId as string | undefined
       const instanceId2 = change2.details?.recipeInstanceId as string | undefined
-      
+
       if (!instanceId1 || !instanceId2 || instanceId1 !== instanceId2) {
         console.log('[doCancelsOut] Different recipe instances:', instanceId1, instanceId2)
         return false
       }
-      
+
       // Check if count returns to original value
       const from1 = change1.details?.from as number | undefined
       const to2 = change2.details?.to as number | undefined
-      
+
       if (from1 !== undefined && to2 !== undefined && from1 === to2) {
         console.log('[doCancelsOut] Recipe count reverted:', { from: from1, to: to2 })
         return true
       }
-      
+
       return false
     }
-    
+
     // Check if both changes affect the same target (for non-recipe changes)
     if (change1.details?.targetId !== change2.details?.targetId) {
       console.log('[doCancelsOut] Different targetIds:', change1.details?.targetId, change2.details?.targetId)
@@ -373,17 +373,17 @@ function createTodoList() {
 
       const action1 = change1.details?.action as string
       const action2 = change2.details?.action as string
-      
+
       // Building added then removed (cancel out)
       if (action1 && action2) {
         return (action1 === 'add' && action2 === 'remove' || action1 === 'remove' && action2 === 'add')
       }
-      
+
       // Building level changes (e.g., level 12→11→12)
       // If fromValue === toValue at the end, they cancel out
       const from1 = change1.details?.from as number | undefined
       const to2 = change2.details?.to as number | undefined
-      
+
       if (from1 !== undefined && to2 !== undefined && from1 === to2) {
         console.log('[doCancelsOut] Building level reverted:', { from: from1, to: to2 })
         return true
@@ -392,10 +392,12 @@ function createTodoList() {
 
     // Technology level changes (e.g., level 2→3→2)
     if (change1.type === 'technology' && change2.type === 'technology') {
+      const tech1Id = (change1.details?.technologyId ?? change1.details?.techId) as string | number | undefined
+      const tech2Id = (change2.details?.technologyId ?? change2.details?.techId) as string | number | undefined
       const from1 = change1.details?.from as number | undefined
       const to2 = change2.details?.to as number | undefined
-      
-      if (from1 !== undefined && to2 !== undefined && from1 === to2) {
+
+      if (String(tech1Id) === String(tech2Id) && from1 !== undefined && to2 !== undefined && from1 === to2) {
         console.log('[doCancelsOut] Technology level reverted:', { from: from1, to: to2 })
         return true
       }
@@ -405,7 +407,7 @@ function createTodoList() {
     if (change1.type === 'stock' && change2.type === 'stock') {
       const from1 = change1.details?.from as number | undefined
       const to2 = change2.details?.to as number | undefined
-      
+
       if (from1 !== undefined && to2 !== undefined && from1 === to2) {
         console.log('[doCancelsOut] Stock reverted:', { from: from1, to: to2 })
         return true
@@ -462,10 +464,10 @@ function createTodoList() {
     const stateForCancelCheck = scopeHistory.history[scopeHistory.currentIndex]
     if (stateForCancelCheck) {
       const groupForCancelCheck = stateForCancelCheck.find(g => g.scope === scope && g.planetId === planetId)
-      
+
       if (groupForCancelCheck && groupForCancelCheck.steps.length > 0) {
         const lastStep = groupForCancelCheck.steps[groupForCancelCheck.steps.length - 1]
-        
+
         if (lastStep && lastStep.changes.length === 1) {
           const lastChange = lastStep.changes[0]
           console.log('[TodoListService] Checking cancel-out for:', lastChange?.type, changeWithTime.type)
@@ -473,39 +475,39 @@ function createTodoList() {
             console.log('[TodoListService] Changes cancel out, reverting to previous state')
             // Both changes negate each other - go back to the state BEFORE all merged changes
             // Find the first state that doesn't have any changes for this target
-            const targetIdentifier = lastChange.details?.buildingInstanceId || 
-                                    lastChange.details?.recipeInstanceId || 
+            const targetIdentifier = lastChange.details?.buildingInstanceId ||
+                                    lastChange.details?.recipeInstanceId ||
                                     lastChange.details?.materialId ||
                                     lastChange.details?.techId
-            
+
             // Go back through history to find the first state without this target
             let targetIndex = scopeHistory.currentIndex - 1
             while (targetIndex >= 0) {
               const state = scopeHistory.history[targetIndex]
               const group = state?.find(g => g.scope === scope && g.planetId === planetId)
-              
+
               if (!group || group.steps.length === 0) {
                 // Found a state without any changes for this scope
                 break
               }
-              
+
               // Check if this state has changes for the same target
               const hasTargetChanges = group.steps.some(s => s.changes.some(c => {
-                const cTarget = c.details?.buildingInstanceId || 
-                               c.details?.recipeInstanceId || 
+                const cTarget = c.details?.buildingInstanceId ||
+                               c.details?.recipeInstanceId ||
                                c.details?.materialId ||
                                c.details?.techId
                 return cTarget === targetIdentifier
               }))
-              
+
               if (!hasTargetChanges) {
                 // Found a state without this specific target
                 break
               }
-              
+
               targetIndex--
             }
-            
+
             // Unregister all changes that will be removed
             for (let i = targetIndex + 1; i <= scopeHistory.currentIndex; i++) {
               const state = scopeHistory.history[i]
@@ -519,18 +521,18 @@ function createTodoList() {
                 })
               }
             }
-            
+
             // Unregister the new change as well
             const currentChangeId = changeWithTime.details?.changeId as string | undefined
             if (currentChangeId) {
               unregisterChange(currentChangeId)
             }
-            
+
             // Update history to remove all merged states
             // targetIndex points to the last state WITHOUT this target, so we keep it
             scopeHistory.currentIndex = targetIndex
             scopeHistory.history = scopeHistory.history.slice(0, scopeHistory.currentIndex + 1)
-            
+
             console.log('[TodoListService] Reverted to index:', targetIndex, 'history length:', scopeHistory.history.length)
             saveToStorage()
             return
@@ -541,15 +543,16 @@ function createTodoList() {
 
     // Try to merge with last step if possible
     const lastStep = targetGroup.steps[targetGroup.steps.length - 1]
-    
+
     if (lastStep && lastStep.changes.length === 1) {
       const lastChange = lastStep.changes[0]
       if (lastChange && canMergeWithChange(lastChange, changeWithTime)) {
         // Update the existing step with new values
         const from = lastChange.details?.from
         const to = changeWithTime.details?.to
+        const newFrom = changeWithTime.details?.from
         const originalValue = lastChange.details?.originalValue  // Keep the true original value
-        
+
         if (from !== undefined && to !== undefined) {
           // Update description
           let newDescription = change.description
@@ -557,12 +560,20 @@ function createTodoList() {
             newDescription = change.description.replace(/(\d+) → (\d+)/, `${from} → ${to}`)
           }
 
-          // Merge material costs if present on building/technology changes
-          const mergedCost = mergeMaterialsCosts(
-            lastChange.details?.materialsCost as string | undefined,
-            changeWithTime.details?.materialsCost as string | undefined
-          )
-          
+          // Merge material costs - special handling for technology downgrades
+          // If the new change is a downgrade (to < from in the NEW change), replace costs instead of adding
+          let mergedCost: string | undefined
+          if (change.type === 'technology' && newFrom !== undefined && to !== undefined && to < newFrom) {
+            // New change is a downgrade: use only the new cost (replaces the old upgrade plan)
+            mergedCost = changeWithTime.details?.materialsCost as string | undefined
+          } else {
+            // Upgrade or other changes: add costs
+            mergedCost = mergeMaterialsCosts(
+              lastChange.details?.materialsCost as string | undefined,
+              changeWithTime.details?.materialsCost as string | undefined
+            )
+          }
+
           lastStep.changes = [{
             ...changeWithTime,
             description: newDescription,
@@ -574,7 +585,7 @@ function createTodoList() {
             },
           }]
           lastStep.description = newDescription
-          
+
           // Add the modified copy as new history state
           scopeHistory.history.push(currentGroups)
           scopeHistory.currentIndex++
@@ -603,7 +614,7 @@ function createTodoList() {
   function undoForScope(scope: ScopeType, planetId?: number): void {
     const scopeKey = getScopeKey(scope, planetId)
     const scopeHistory = scopeHistories.value.get(scopeKey)
-    
+
     if (!scopeHistory || scopeHistory.currentIndex <= 0) return
 
     // Get the current and target states
@@ -631,7 +642,7 @@ function createTodoList() {
   function redoForScope(scope: ScopeType, planetId?: number): void {
     const scopeKey = getScopeKey(scope, planetId)
     const scopeHistory = scopeHistories.value.get(scopeKey)
-    
+
     if (!scopeHistory || scopeHistory.currentIndex >= scopeHistory.history.length - 1) return
 
     // Get the current and target states
@@ -703,6 +714,13 @@ export function useTodoListService() {
     todoListInstance = createTodoList()
   }
   return todoListInstance
+}
+
+/**
+ * Reset the singleton instance (only for testing)
+ */
+export function resetTodoListService() {
+  todoListInstance = null
 }
 
 /**

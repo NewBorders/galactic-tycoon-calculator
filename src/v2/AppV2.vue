@@ -222,7 +222,7 @@ async function handleGameDataRefreshed(payload: {
         :game-data-loaded-at="gdLoadedAt"
         @gameDataRefreshed="handleGameDataRefreshed"
       />
-      <TechnologyPanel v-if="active === 'technology'" />
+      <TechnologyPanel v-if="gd && active === 'technology'" :gameData="gd" />
       <MarketAnalysisPanel v-if="gd && gdIndex && active === 'market'" :gameData="gd" :index="gdIndex" />
       <PriceAlertsPanel v-if="gd && gdIndex && active === 'alerts'" :gameData="gd" :index="gdIndex" />
       <ConfigPanel v-if="active === 'config'" />

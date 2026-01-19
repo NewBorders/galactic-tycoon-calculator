@@ -37,7 +37,7 @@ function findBaseById(playerBases: PlayerBasesService, baseId: string): string |
 function findRecipeInstance(playerBases: PlayerBasesService, baseId: string, recipeId: number): string | null {
   const base = playerBases.state.value.bases.find(b => b.id === baseId)
   if (!base) return null
-  
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recipeInstance = (base as any).recipes?.find((r: any) => r.recipeId === recipeId)
   return recipeInstance?.id || null
@@ -64,7 +64,7 @@ export function calculateStateDiff(
 
   if (toChanges.length !== fromChanges.length) {
     direction = toChanges.length < fromChanges.length ? 'backward' : 'forward'
-    changes = direction === 'backward' 
+    changes = direction === 'backward'
       ? fromChanges.slice(toChanges.length)  // Changes to revert
       : toChanges.slice(fromChanges.length)  // Changes to apply
   } else {
@@ -113,10 +113,10 @@ function updateDOMValue(elementId: string, newValue: number): void {
   }
 
   console.log('[StateReversion] Updating DOM element:', elementId, 'to value:', newValue)
-  
+
   // Update the value
   inputElement.value = String(newValue)
-  
+
   // Trigger input and change events to notify Vue
   inputElement.dispatchEvent(new Event('input', { bubbles: true }))
   inputElement.dispatchEvent(new Event('change', { bubbles: true }))
@@ -129,7 +129,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
   // Global changes (technology, starting bonus) don't need playerBases
   if (storedChange.type === 'technologyLevel' || storedChange.type === 'startingBonus') {
     if (storedChange.type === 'technologyLevel') {
-      const targetValue = isUndo 
+      const targetValue = isUndo
         ? (storedChange.originalValue as number)
         : (storedChange.newValue as number)
       if (targetValue !== undefined && typeof storedChange.targetId === 'string') {
@@ -138,7 +138,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
         console.log('[StateReversion] Set technology level to:', targetValue)
       }
     } else {
-      const targetValue = isUndo 
+      const targetValue = isUndo
         ? (storedChange.originalValue as number)
         : (storedChange.newValue as number)
       if (targetValue !== undefined) {
@@ -162,8 +162,8 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
     const base = playerBases.state.value.bases.find(b => b.planetId === storedChange.planetId)
     baseId = base?.id ?? null
   }
-  
-  const targetValue = storedChange.originalValue !== undefined && storedChange.newValue !== undefined 
+
+  const targetValue = storedChange.originalValue !== undefined && storedChange.newValue !== undefined
     ? (isUndo ? storedChange.originalValue : storedChange.newValue)
     : undefined
 
@@ -180,7 +180,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
       if (baseId && storedChange.targetId && targetValue !== undefined) {
         playerBases.setBuilding(baseId, storedChange.targetId, { level: targetValue })
         console.log('[StateReversion] Set building level to:', targetValue)
-        
+
         // Also update DOM
         updateDOMValue(`building-input-${storedChange.targetId}`, targetValue)
       }
@@ -197,7 +197,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
           // Re-add the building
           const instanceId = playerBases.addBuilding(baseId, storedChange.buildingId)
           console.log('[StateReversion] Added building:', storedChange.buildingId, '→', instanceId)
-          
+
           // Update the stored change with the instance ID for future reversions
           if (instanceId) {
             storedChange.targetId = instanceId
@@ -225,7 +225,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
       if (baseId && storedChange.targetId && targetValue !== undefined) {
         playerBases.setRecipeCount(baseId, storedChange.targetId, targetValue)
         console.log('[StateReversion] Set recipe count to:', targetValue)
-        
+
         // Also update DOM
         updateDOMValue(`recipe-input-${storedChange.targetId}`, targetValue)
       }
@@ -242,7 +242,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
           // Re-add the recipe
           const instanceId = playerBases.addRecipe(baseId, storedChange.recipeId)
           console.log('[StateReversion] Added recipe:', storedChange.recipeId, '→', instanceId)
-          
+
           // Update the stored change with the instance ID for future reversions
           if (instanceId) {
             storedChange.targetId = instanceId
@@ -313,8 +313,8 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
     if (!techId) return
 
     const { setLevel } = usePlayerTechnology()
-    const targetValue = isRevert 
-      ? (change.details?.from as number) 
+    const targetValue = isRevert
+      ? (change.details?.from as number)
       : (change.details?.to as number)
 
     if (targetValue !== undefined && typeof techId === 'string') {
@@ -326,8 +326,8 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
   // Starting bonus changes (global, don't need playerBases)
   if (change.type === 'starting-bonus') {
     const { setStartingBonus } = usePlayerTechnology()
-    const targetValue = isRevert 
-      ? (change.details?.from as number) 
+    const targetValue = isRevert
+      ? (change.details?.from as number)
       : (change.details?.to as number)
 
     if (targetValue !== undefined) {
@@ -383,12 +383,12 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
 
     // Building level change
     if (buildingInstanceId && buildingId) {
-      const targetLevel = isRevert 
-        ? (change.details?.from as number) 
+      const targetLevel = isRevert
+        ? (change.details?.from as number)
         : (change.details?.to as number)
 
       console.log('[StateReversion] Building level change - instanceId:', buildingInstanceId, 'targetLevel:', targetLevel)
-      
+
       if (targetLevel !== undefined) {
         playerBases.setBuilding(baseId, buildingInstanceId, { level: targetLevel })
         console.log('[StateReversion] Building level set to:', targetLevel)
@@ -430,8 +430,8 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
 
     // Recipe count change
     if (!action && recipeId) {
-      const targetCount = isRevert 
-        ? (change.details?.from as number) 
+      const targetCount = isRevert
+        ? (change.details?.from as number)
         : (change.details?.to as number)
 
       if (targetCount !== undefined) {
@@ -449,8 +449,8 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
     const materialId = change.details?.materialId as number | undefined
     if (!materialId) return
 
-    const targetAmount = isRevert 
-      ? (change.details?.from as number) 
+    const targetAmount = isRevert
+      ? (change.details?.from as number)
       : (change.details?.to as number)
 
     if (targetAmount !== undefined) {

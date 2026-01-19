@@ -10,6 +10,13 @@ import {
 import { useWorldData } from '@/v2/services/worldData'
 import { refreshEntry, getSyncEntries } from '@/v2/services/syncService'
 import { getChangeTracker } from '@/v2/services/changeTracker'
+import type { GameData } from '@/v2/services/gamedata/service'
+
+interface Props {
+  gameData?: GameData
+}
+
+const props = defineProps<Props>()
 
 const { state, setLevel, setStartingBonus } = usePlayerTechnology()
 const { current } = useWorldData()
@@ -59,7 +66,7 @@ const startingBonus = computed({
       // Track starting bonus change
       const oldBonus = state.value.startingBonus
       if (oldBonus !== numeric) {
-        const changeTracker = getChangeTracker()
+        const changeTracker = getChangeTracker(props.gameData)
         changeTracker.trackStartingBonusChange(oldBonus, numeric)
       }
       setStartingBonus(numeric)
@@ -85,13 +92,13 @@ function onLevelInput(id: TechnologySpecialisation, event: Event) {
   const level = Number.isNaN(value) ? 0 : value
   const minLevel = currentLevel(id) // Kann nicht unter current level gesetzt werden
   const newLevel = Math.max(minLevel, level)
-  
+
   // Track technology level change
   const oldLevel = plannedLevel(id)
   if (oldLevel !== newLevel) {
     const tech = TECHNOLOGIES.find(t => t.id === id)
     if (tech) {
-      const changeTracker = getChangeTracker()
+      const changeTracker = getChangeTracker(props.gameData)
       changeTracker.trackTechnologyChange(
         id,
         translate(tech.nameKey),
@@ -100,7 +107,7 @@ function onLevelInput(id: TechnologySpecialisation, event: Event) {
       )
     }
   }
-  
+
   setLevel(id, newLevel)
 }
 
@@ -192,7 +199,7 @@ const startingBonusDisplay = computed(() => {
             <div class="font-medium">{{ translate(tech.nameKey) }}</div>
             <p class="text-xs text-slate-400 leading-relaxed">{{ translate(tech.descriptionKey) }}</p>
           </div>
-          
+
           <!-- Current Level (from API) -->
           <div class="flex flex-wrap items-center gap-3 text-sm">
             <div class="flex items-center gap-2">
@@ -203,7 +210,7 @@ const startingBonusDisplay = computed(() => {
               {{ formatBonus(currentLevel(tech.id)) }}
             </span>
           </div>
-          
+
           <!-- Planned Level (Editable, for planning your production) -->
           <div class="flex flex-wrap items-center gap-3 text-sm">
             <label class="flex items-center gap-2">

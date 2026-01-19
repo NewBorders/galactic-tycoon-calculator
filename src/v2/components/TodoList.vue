@@ -51,7 +51,7 @@
                 <span v-if="group.scope === 'global'">🌍 Global Changes</span>
                 <span v-else>🏗️ {{ getBaseOrPlanetNameByPlanetId(group.planetId || 0) }}</span>
               </div>
-              
+
               <!-- Per-scope Undo/Redo/Clear buttons -->
               <div class="flex items-center gap-1">
                 <!-- Undo -->
@@ -134,17 +134,17 @@ import { useTodoList, getRegisteredPlayerBases, getBaseOrPlanetNameByPlanetId, t
 import type { PlayerBuilding } from '@/v2/services/playerBases'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
-const { 
-  displayGroups, 
-  allSteps, 
-  isOpen, 
-  canUndoForScope, 
-  canRedoForScope, 
-  undoForScope, 
-  redoForScope, 
-  clear, 
+const {
+  displayGroups,
+  allSteps,
+  isOpen,
+  canUndoForScope,
+  canRedoForScope,
+  undoForScope,
+  redoForScope,
+  clear,
   clearForScope,
-  togglePanel 
+  togglePanel
 } = useTodoList()
 
 // Compute dynamic building index label for a step (based on current base order)
@@ -174,7 +174,7 @@ function getBuildingIndexLabel(step: TodoStep): string | null {
   if (slotId != null && slotId >= 0) {
     return `#${slotId + 1}`
   }
-  
+
   // For negative/planned slotIds or undefined, use array index as fallback
   const idx = base.buildings.findIndex((bb) => bb.id === instanceId)
   return idx >= 0 ? `#${idx + 1}` : null
