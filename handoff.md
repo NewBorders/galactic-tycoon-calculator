@@ -1,3 +1,52 @@
+## Session 18 Summary (Building Cost Recalculation on Merge)
+
+**Fixed Issue**: Building TODO list costs not recalculating correctly when upgrading and downgrading
+
+**Problem**: User reported building Y costs in TODO list:
+1. Building Y from 1 to 2: costs correct
+2. Building Y from 2 to 3: costs correct (merged to 1→3)
+3. Building Y from 3 to 2: costs increased instead of decreasing (should merge back to 1→2)
+
+**Root Cause**:
+- Building changes were being merged (1→2, then 2→3 merged to 1→3)
+- When downgrading (3→2), costs were simply added instead of recalculated
+- `Math.abs(toLevel - fromLevel)` in changeTracker meant upgrades and downgrades had same cost
+- Merge logic didn't recalculate total building costs like it did for technology
+
+**Solution**: Added building cost recalculation in todoListService merge logic
+
+1. **Import building cost functions** (todoListService.ts:10):
+   ```typescript
+   import { computeTechnologyResearchCost, getBuildingCostMultiplier, 
+            computeBuildingTierExtras, formatMaterialList } from '@/v2/constants/manualCosts'
+   ```
+
+2. **Added building recalculation block** (todoListService.ts:615-666):
+   - Similar to technology recalculation logic
+   - Retrieves building and planet from gameData
+   - Calculates `levelDelta = Math.abs(to - from)` from merged levels
+   - Recomputes base materials and tier extras
+   - Formats new materialsCost string
+   - Falls back to merged costs if recalculation fails
+
+3. **Test Coverage**: Created buildingDowngradeCosts.test.ts
+   - Test 1: Verifies costs recalculate correctly (1→2→3→2 shows 1→2 cost, not accumulated)
+   - Test 2: Verifies cancel-out works (1→2→1 removes the change entirely)
+   - Both tests passing with real gameData
+
+**Result**:
+- Building Y 1→2: Shows base cost (e.g., 1× Amenities)
+- Building Y 2→3 (merged to 1→3): Shows 2× base cost
+- Building Y 3→2 (merged back to 1→2): Shows 1× base cost again (NOT 3× accumulated)
+
+**Files Modified**:
+- `src/v2/services/todoListService.ts`: Added building cost recalculation in merge logic
+- `src/v2/services/__tests__/buildingDowngradeCosts.test.ts`: New test file (2 tests)
+
+**Test Status**: ✅ All 283 tests passing (281 + 2 new)
+
+---
+
 ## Session 17 Summary (Tech Cost Merge + Undo Sync + Cancel-Out Fix + Individual Step Costs)
 
 **Fixed Issues**:

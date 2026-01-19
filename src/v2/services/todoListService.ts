@@ -7,7 +7,7 @@ import { ref, computed } from 'vue'
 import type { PlayerBasesService } from './stateReversion'
 import { applyStateReversions } from './stateReversion'
 import { unregisterChange } from './changeStorage'
-import { computeTechnologyResearchCost } from '@/v2/constants/manualCosts'
+import { computeTechnologyResearchCost, getBuildingCostMultiplier, computeBuildingTierExtras, formatMaterialList } from '@/v2/constants/manualCosts'
 import { useWorldData } from './worldData'
 import { usePlanningMode } from './planningMode/state'
 import { getGameData } from './gamedata/gameDataRepository'
@@ -604,6 +604,58 @@ function createTodoList() {
                 } catch (e) {
                   // If recalculation fails, fall back to the merged costs
                   console.warn('[TodoListService] Failed to recalculate merged costs:', e)
+                }
+              }
+            }
+            
+            // For building changes, recalculate merged costs based on actual level change
+            // This handles upgrades and downgrades correctly
+            if (change.type === 'building' && from !== undefined && to !== undefined) {
+              const buildingId = changeWithTime.details?.buildingId ? Number(changeWithTime.details.buildingId) : undefined
+              const planetId = changeWithTime.planetId
+              
+              if (buildingId !== undefined && planetId !== undefined) {
+                try {
+                  const gd = getGameData()
+                  const building = gd?.buildings.find(b => b.id === buildingId)
+                  const planet = gd?.planets.find(p => p.id === planetId)
+                  
+                  if (building && planet) {
+                    const planetTier = planet.tier ?? 1
+                    const buildingTier = building.tier ?? 1
+                    const tierMultiplier = getBuildingCostMultiplier(planetTier, buildingTier)
+                    
+                    const levelDelta = Math.abs(Number(to) - Number(from))
+                    
+                    if (levelDelta > 0) {
+                      const baseMaterials = (building.constructionMaterials || [])
+                        .filter(cm => (cm?.amount ?? 0) > 0)
+                        .map(cm => ({
+                          materialId: cm.id,
+                          amount: Math.ceil(cm.amount * levelDelta * tierMultiplier)
+                        }))
+                      
+                      const tierExtras = computeBuildingTierExtras(planetTier, buildingTier)
+                        .map((extra: { materialId: number; amount: number }) => ({
+                          materialId: extra.materialId,
+                          amount: extra.amount * levelDelta
+                        }))
+                      
+                      const allMaterials = [...baseMaterials, ...tierExtras]
+                      
+                      if (allMaterials.length > 0) {
+                        const recalculatedCost = formatMaterialList(allMaterials, gd ? { materials: gd.materials } : undefined)
+                        if (recalculatedCost) {
+                          mergedCost = recalculatedCost
+                        }
+                      }
+                    } else {
+                      // No level change, no cost
+                      mergedCost = undefined
+                    }
+                  }
+                } catch (e) {
+                  console.warn('[TodoListService] Failed to recalculate building costs:', e)
                 }
               }
             }
