@@ -1,3 +1,122 @@
+## Session 15 Summary (Technology Net Profit Forecast + ROI Feature)
+
+**New Feature Added**:
+- Added forecasted net profit calculation for each technology when increasing by +1 level
+- Added upgrade cost display showing total dollar value (based on configured market prices)
+- Added ROI (Return on Investment) calculation showing payback time in days/weeks/months
+- Displays all three metrics per technology tile to help users make informed upgrade decisions
+
+### Implementation
+
+**1. Created new composable: [useTechnologyNetProfitForecast.ts](src/v2/composables/useTechnologyNetProfitForecast.ts)**
+- Calculates net profit impact of increasing a technology level by +1
+- Compares current planned state vs hypothetical state with tech +1
+- Calculates upgrade cost using same logic as TODO list (`computeTechnologyResearchCost`)
+- Parses material costs and calculates total dollar value using price resolver
+- **Uses configured market prices** from Config > Price Management (manual, current, or average)
+- Calculates ROI (days to break even) = upgrade cost / daily profit increase
+- Returns forecast with: currentNetProfit, forecastedNetProfit, netProfitChange, percentChange, upgradeCost, upgradeCostValue, roiDays
+
+**2. Updated [TechnologyPanel.vue](src/v2/pages/technology/TechnologyPanel.vue)**
+- Integrated the forecast composable
+- Added three-line display in each technology tile:
+  1. **Upgrade cost**: Shows total dollar value (e.g., "$8,000") based on market prices
+  2. **Net profit +1 lvl**: Shows daily profit change with color coding (green/red/gray)
+  3. **ROI (payback)**: Shows time to break even in human-readable format
+- Format examples:
+  - Upgrade cost: "$8,000" (total value of all required materials)
+  - Net profit: "+$1,234/day" (daily profit increase)
+  - ROI: "3.5 days" (time to recover investment)
+
+**3. Added translations**
+- English: "Upgrade cost", "Net profit +1 lvl", "ROI (payback)"
+- German: "Upgrade-Kosten", "Nettogewinn +1 Stufe", "ROI (Amortisation)"
+
+### Technical Details
+
+**Forecast Calculation**:
+1. Takes current planned technology levels and bases configuration
+2. Calculates current total net profit across all bases
+3. Simulates increasing the specific technology by 1 level
+4. Recalculates net profit with the upgraded technology
+5. Calculates upgrade cost using `computeTechnologyResearchCost()`
+6. Parses material costs (e.g., "80× Research Data") and converts to dollar value
+7. **Price Resolution**: Uses the user's configured price resolver (manual prices, current market, or average market)
+8. Calculates ROI: `upgradeCostValue / netProfitChange` (in days)
+
+**Cost Calculation (Single Source of Truth)**:
+- Uses same `computeTechnologyResearchCost()` function as changeTracker
+- Ensures consistency between TODO list costs and forecast costs
+- Includes material divisors and total technologies penalty
+- Respects user's price configuration from Config > Price Management
+
+**ROI Display Format**:
+- < 1 day: "<1 day"
+- 1-7 days: "X.X days"
+- 7-30 days: "X.X weeks"
+- 30-365 days: "X.X months"
+- > 365 days: "X.X years"
+- Shows "—" if ROI cannot be calculated (negative or zero profit increase)
+
+### Files Modified
+
+1. **[src/v2/composables/useTechnologyNetProfitForecast.ts](src/v2/composables/useTechnologyNetProfitForecast.ts)**
+   - Updated type `TechnologyNetProfitForecast` to include: upgradeCost, upgradeCostValue, roiDays
+   - Added import for `computeTechnologyResearchCost`
+   - Added upgrade cost calculation in `getForecast()`
+   - Added material cost parsing with regex to extract amounts
+   - Added dollar value calculation using priceResolver
+   - Added ROI calculation (cost / daily profit increase)
+
+2. **[src/v2/pages/technology/TechnologyPanel.vue](src/v2/pages/technology/TechnologyPanel.vue)**
+   - Added `formatROI()` function to format ROI in human-readable time units
+   - Added `getUpgradeCostValue()` function to format dollar value
+   - Updated template to show 3-line forecast display:
+     - Upgrade cost as dollar value (e.g., "$8,000")
+     - Net profit change (with color coding)
+     - ROI payback time
+
+3. **[src/v2/localisation/messages.ts](src/v2/localisation/messages.ts)**
+   - Updated English translations: 'Upgrade cost', 'Net profit +1 lvl', 'ROI (payback)'
+   - Updated German translations: 'Upgrade-Kosten', 'Nettogewinn +1 Stufe', 'ROI (Amortisation)'
+
+4. **[src/v2/composables/__tests__/useTechnologyNetProfitForecast.test.ts](src/v2/composables/__tests__/useTechnologyNetProfitForecast.test.ts)**
+   - Updated test to verify new fields: upgradeCost, upgradeCostValue, roiDays
+   - Added type checks and validation for ROI values
+
+### Testing
+
+- ✅ All 276 tests passing
+- ✅ Type-check: clean
+- ✅ No regressions in existing functionality
+- ✅ Forecast calculates upgrade cost correctly
+- ✅ ROI calculation verified for positive profit scenarios
+
+### User Benefits
+
+1. **Complete Decision Support**: See cost, profit, and payback time all in one place
+2. **ROI Transparency**: Understand how long it takes to recoup the investment
+3. **Cost Awareness**: See total dollar value based on your configured prices (manual/current/average)
+4. **Planning Optimization**: Compare technologies by ROI to prioritize best investments
+5. **Single Source of Truth**: Costs match TODO list exactly (same calculation)
+6. **Price Configuration Support**: Respects user's price management settings
+
+### Example Display
+
+For a Chemistry technology upgrade:
+```
+Upgrade cost: $8,000
+Net profit +1 lvl: +$1,234/day
+ROI (payback): 3.5 days
+```
+
+This tells the user: "Upgrading Chemistry will cost $8,000 (based on your configured market prices), increase your daily profit by $1,234, and pay for itself in 3.5 days."
+
+The upgrade cost automatically reflects:
+- Manual prices if configured in Config > Price Management
+- Current market prices if using "current" mode
+- Average market prices if using "average" mode
+
 ## Session 14i Summary (FINAL FIX - Downgrade Cost Calculation Fixed)
 
 **Remaining Issue Fixed**:

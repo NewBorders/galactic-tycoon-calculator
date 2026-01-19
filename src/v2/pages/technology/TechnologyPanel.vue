@@ -11,6 +11,10 @@ import { useWorldData } from '@/v2/services/worldData'
 import { refreshEntry, getSyncEntries } from '@/v2/services/syncService'
 import { getChangeTracker } from '@/v2/services/changeTracker'
 import type { GameData } from '@/v2/services/gamedata/service'
+import { usePlayerBases } from '@/v2/services/playerBases'
+import { useMaterialPricing } from '@/v2/services/gamedata/service'
+import { useTechnologyNetProfitForecast } from '@/v2/composables/useTechnologyNetProfitForecast'
+import { formatNumber } from '@/v2/utils/formatNumber'
 
 interface Props {
   gameData?: GameData
@@ -20,6 +24,47 @@ const props = defineProps<Props>()
 
 const { state, setLevel, setStartingBonus } = usePlayerTechnology()
 const { current } = useWorldData()
+
+// Get player bases for net profit calculation
+const playerBasesData = props.gameData ? usePlayerBases(props.gameData) : null
+const basesState = computed(() => playerBasesData?.state.value ?? { bases: [] })
+
+// Calculate global workforce burden
+const globalWorkforceBurden = computed(() => {
+  let total = 0
+  basesState.value.bases.forEach((base) => {
+    base.buildings.forEach((building) => {
+      const gd = props.gameData
+      if (!gd) return
+      const buildingData = gd.buildings.find((b) => b.id === building.buildingId)
+      if (!buildingData) return
+      // Sum all worker tiers
+      const housing = (buildingData.workersHousing?.worker || 0) + 
+                     (buildingData.workersHousing?.technician || 0) + 
+                     (buildingData.workersHousing?.engineer || 0) + 
+                     (buildingData.workersHousing?.scientist || 0)
+      total += housing * building.level
+    })
+  })
+  return total
+})
+
+// Get price resolver for calculations
+const { priceResolver } = props.gameData ? useMaterialPricing(props.gameData) : { priceResolver: ref(undefined) }
+
+// Planned technology levels and starting bonus
+const plannedTechnologyLevels = computed(() => state.value.levels ?? {})
+const plannedStartingBonus = computed(() => state.value.startingBonus ?? 1)
+
+// Net profit forecast composable
+const { allForecasts } = useTechnologyNetProfitForecast(
+  computed(() => props.gameData),
+  computed(() => basesState.value.bases),
+  plannedTechnologyLevels,
+  plannedStartingBonus,
+  globalWorkforceBurden,
+  priceResolver
+)
 
 const isRefreshing = ref(false)
 const syncEntries = getSyncEntries()
@@ -137,6 +182,55 @@ const startingBonusDisplay = computed(() => {
   const sign = percent > 0 ? '+' : ''
   return `${sign}${percent.toFixed(0)}% · ${bonus.toFixed(2)}×`
 })
+
+// Format net profit forecast for a technology
+function formatNetProfitForecast(techId: TechnologySpecialisation): string {
+  const forecast = allForecasts.value.get(techId)
+  if (!forecast) return '—'
+  
+  const change = forecast.netProfitChange
+  if (Math.abs(change) < 0.01) return '±$0'
+  
+  const sign = change > 0 ? '+' : ''
+  return `${sign}$${formatNumber(change, 0)}`
+}
+
+// Get forecast color class for a technology
+function getForecastColorClass(techId: TechnologySpecialisation): string {
+  const forecast = allForecasts.value.get(techId)
+  if (!forecast || Math.abs(forecast.netProfitChange) < 0.01) return 'text-slate-400'
+  return forecast.netProfitChange > 0 ? 'text-green-400' : 'text-red-400'
+}
+
+// Format ROI (Return on Investment) for a technology
+function formatROI(techId: TechnologySpecialisation): string {
+  const forecast = allForecasts.value.get(techId)
+  if (!forecast || !forecast.roiDays) return '—'
+  
+  const days = forecast.roiDays
+  if (days < 1) return '<1 day'
+  if (days < 7) return `${formatNumber(days, 1)} days`
+  if (days < 30) return `${formatNumber(days / 7, 1)} weeks`
+  if (days < 365) return `${formatNumber(days / 30, 1)} months`
+  return `${formatNumber(days / 365, 1)} years`
+}
+
+// Get upgrade cost with materials and dollar value for a technology
+function getUpgradeCostDisplay(techId: TechnologySpecialisation): string {
+  const forecast = allForecasts.value.get(techId)
+  if (!forecast) return '—'
+  
+  const materials = forecast.upgradeCost || '—'
+  const dollarValue = forecast.upgradeCostValue > 0 
+    ? `$${formatNumber(forecast.upgradeCostValue, 0)}` 
+    : ''
+  
+  if (materials === '—' && !dollarValue) return '—'
+  if (!dollarValue) return materials
+  if (materials === '—') return dollarValue
+  
+  return `${materials} (${dollarValue})`
+}
 </script>
 
 <template>
@@ -228,6 +322,24 @@ const startingBonusDisplay = computed(() => {
             <span class="text-xs text-slate-400">
               {{ formatBonus(plannedLevel(tech.id)) }}
             </span>
+          </div>
+
+          <!-- Net Profit Forecast (+1 Level) -->
+          <div class="border-t border-slate-700/50 pt-3 space-y-2">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <span class="text-slate-400 flex-shrink-0">{{ translate('technologyUpgradeCost') }}:</span>
+              <span class="text-slate-300 font-semibold text-right">{{ getUpgradeCostDisplay(tech.id) }}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-400">{{ translate('technologyNetProfitForecast') }}:</span>
+              <span class="font-semibold" :class="getForecastColorClass(tech.id)">
+                {{ formatNetProfitForecast(tech.id) }}/{{ translate('day') }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-400">{{ translate('technologyROI') }}:</span>
+              <span class="text-slate-300 font-semibold">{{ formatROI(tech.id) }}</span>
+            </div>
           </div>
         </div>
       </div>

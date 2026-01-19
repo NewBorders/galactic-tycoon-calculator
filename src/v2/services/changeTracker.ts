@@ -42,16 +42,16 @@ export function createChangeTracker(gameData?: GameData) {
         originalValue: fromLevel,
         newValue: toLevel,
       })
-      
+
       // Calculate total technologies for cost calculation
       // Must include BOTH current levels AND planned level increases
       let totalTechnologies = 0
-      
+
       // Add current technology levels
       if (current.value?.technology) {
         totalTechnologies = Object.values(current.value.technology).reduce((sum, level) => sum + level, 0)
       }
-      
+
       // Add planned technology level increases (excluding this current change)
       // This ensures subsequent tech upgrades account for earlier planned upgrades
       if (state.value?.levels) {
@@ -64,12 +64,12 @@ export function createChangeTracker(gameData?: GameData) {
           }
         })
       }
-      
+
       // Compute materials cost for planned technology upgrade (if configured)
       const materialsCost = computeTechnologyResearchCost(
-        techId, 
-        fromLevel, 
-        toLevel, 
+        techId,
+        fromLevel,
+        toLevel,
         gameData ? { materials: gameData.materials } : undefined,
         totalTechnologies
       )
@@ -191,17 +191,17 @@ export function createChangeTracker(gameData?: GameData) {
             materialId: cm.id,
             amount: Math.ceil(cm.amount * levelDelta * tierMultiplier)
           }))
-        
+
         // Add tier-specific extras for planet tiers 2-4
         const tierExtras = computeBuildingTierExtras(planetTier, buildingTier)
           .map((extra: { materialId: number; amount: number }) => ({
             materialId: extra.materialId,
             amount: extra.amount * levelDelta
           }))
-        
+
         // Combine base materials and tier extras
         const allMaterials = [...baseMaterials, ...tierExtras]
-        
+
         if (allMaterials.length > 0) {
           materialsCost = formatMaterialList(allMaterials, gameData ? { materials: gameData.materials } : undefined)
         }
@@ -248,7 +248,7 @@ export function createChangeTracker(gameData?: GameData) {
       // Retrieve building name and costs from gameData if available
       const building = gameData?.buildings.find(b => b.id === buildingId)
       const buildingName = building?.name ?? `Building ${buildingId}`
-      
+
       // Calculate materials cost for the building
       let materialsCost: string | undefined = undefined
       if (building?.constructionMaterials && building.constructionMaterials.length > 0) {
@@ -256,7 +256,7 @@ export function createChangeTracker(gameData?: GameData) {
           materialId: m.id,
           amount: m.amount
         }))
-        
+
         // For new buildings, also add tier extras if on Tier 2-4 planet
         // Tier 2, 3, 4 planets get tier extras based on building level
         let allMaterials = [...baseMaterials]
@@ -265,7 +265,7 @@ export function createChangeTracker(gameData?: GameData) {
           const tierExtras = computeBuildingTierExtras(planetId, level)
           allMaterials = [...allMaterials, ...tierExtras]
         }
-        
+
         materialsCost = formatMaterialList(allMaterials, gameData)
       }
 

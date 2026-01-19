@@ -42,7 +42,7 @@ describe('Technology Costs - User Verified Wiki Values', () => {
 
   it('should show all levels to diagnose the issue (TotalTech=19)', async () => {
     const { data: gameData } = await loadGameData(true)
-    
+
     for (let level = 0; level <= 10; level++) {
       const cost = computeTechnologyResearchCost(1, level, level + 1, gameData, TOTAL_TECH)
       console.log(`Level ${level}→${level + 1}: ${cost}`)

@@ -16,25 +16,25 @@
 /**
  * Technology research costs per level upgrade
  * Source: https://wiki.galactictycoons.com/mechanics/technology#research-requirements
- * 
+ *
  * Material tiers by level range:
  * - Levels 1-5: Research Data only
  * - Levels 6-10: Research Data + Advanced Research Data
  * - Levels 11-15: Advanced Research Data + Apex Research Data
  * - Levels 16-20: Apex Research Data + Quantum Research Data
  * - Levels 20+: Quantum Research Data only
- * 
+ *
  * Cost Formula (from wiki):
  * Step 1: Calculate Total Value
  *   ValueMultiplier = ((CurrentLevel / 4) + 1)³
  *   TechPenalty = (TotalTechnologies + 1)^1.015 - TotalTechnologies
  *   TechFlat = TotalTechnologies × 3,000
  *   TotalValue = (ValueMultiplier × 8,000) × TechPenalty + TechFlat
- * 
+ *
  * Step 2: Determine Material Distribution
  *   tierPart = NextLevel / 5.0
  *   Based on tierPart, distribute TotalValue across material tiers
- * 
+ *
  * Material IDs:
  * - 64: Research Data (Tier 1)
  * - 65: Advanced Research Data (Tier 2)
@@ -84,10 +84,10 @@ function getTechnologyLevelCost(nextLevel: number, totalTechnologies: number): T
     const progress = tierPart - 1.0
     const t1Percentage = 0.8 - (0.6 * progress) // 80% → 20%
     const t2Percentage = 0.2 + (0.6 * progress) // 20% → 80%
-    
+
     const t1Amount = Math.ceil((totalValue * t1Percentage) / T1_DIVISOR)
     const t2Amount = Math.ceil((totalValue * t2Percentage) / T2_DIVISOR)
-    
+
     if (t1Amount > 0) {
       materials.push({ materialId: 64, amount: t1Amount })
     }
@@ -99,10 +99,10 @@ function getTechnologyLevelCost(nextLevel: number, totalTechnologies: number): T
     const progress = tierPart - 2.0
     const t2Percentage = 0.8 - (0.6 * progress) // 80% → 20%
     const t3Percentage = 0.2 + (0.6 * progress) // 20% → 80%
-    
+
     const t2Amount = Math.ceil((totalValue * t2Percentage) / T2_DIVISOR)
     const t3Amount = Math.ceil((totalValue * t3Percentage) / T3_DIVISOR)
-    
+
     if (t2Amount > 0) {
       materials.push({ materialId: 65, amount: t2Amount })
     }
@@ -114,10 +114,10 @@ function getTechnologyLevelCost(nextLevel: number, totalTechnologies: number): T
     const progress = tierPart - 3.0
     const t3Percentage = 0.8 - (0.6 * progress) // 80% → 20%
     const t4Percentage = 0.2 + (0.6 * progress) // 20% → 80%
-    
+
     const t3Amount = Math.ceil((totalValue * t3Percentage) / T3_DIVISOR)
     const t4Amount = Math.ceil((totalValue * t4Percentage) / T4_DIVISOR)
-    
+
     if (t3Amount > 0) {
       materials.push({ materialId: 127, amount: t3Amount })
     }
@@ -138,7 +138,7 @@ function getTechnologyLevelCost(nextLevel: number, totalTechnologies: number): T
 /**
  * Build the full TECHNOLOGY_COSTS lookup table dynamically
  * Generates costs for levels 0-99 for all 9 technologies
- * 
+ *
  * Note: This assumes totalTechnologies = 0 for base cost calculation.
  * In actual usage, computeTechnologyResearchCost should recalculate with current totals.
  */
@@ -150,7 +150,7 @@ const TECHNOLOGY_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 10]
 // Generate costs for all technologies up to level 100
 TECHNOLOGY_IDS.forEach(techId => {
   TECHNOLOGY_COSTS[techId] = {}
-  
+
   for (let level = 0; level < 100; level++) {
     const key = `${level}_${level + 1}`
     // Use level as approximation for totalTechnologies in lookup table
@@ -202,7 +202,7 @@ export const NEW_BASE_COSTS_BY_TIER: Record<number, Array<{ materialId: number; 
  * Compute building tier extras for planet tiers 2-4
  * Formula: 8 × building tier of the specific material per planet tier
  * Source: https://wiki.galactictycoons.com/guide/second-base#building-costs
- * 
+ *
  * Planet Tier 2: Pressure Sealant Kit (id 90)
  * Planet Tier 3: Composite Shielding (id 120)
  * Planet Tier 4: Nanoweave Shielding (id 121)
@@ -260,7 +260,7 @@ export function formatMaterialList(
 /**
  * Compute technology research materials cost for a planned upgrade from `fromLevel` to `toLevel`.
  * Works for both upgrades (fromLevel < toLevel) and downgrades (fromLevel > toLevel).
- * 
+ *
  * @param techId Technology ID (1-8, 10)
  * @param fromLevel Starting level
  * @param toLevel Target level
@@ -277,13 +277,13 @@ export function computeTechnologyResearchCost(
 ): string | undefined {
   if (!Number.isFinite(techId) || !Number.isFinite(fromLevel) || !Number.isFinite(toLevel)) return undefined
   if (toLevel === fromLevel) return undefined
-  
+
   // If totalTechnologies not provided, default to 0
   // The caller should calculate this from world data
   const currentTotal = totalTechnologies ?? 0
-  
+
   const totals = new Map<number, number>()
-  
+
   // Handle both upgrades and downgrades
   if (toLevel > fromLevel) {
     // Upgrade: Calculate costs for each level from fromLevel to toLevel
@@ -292,7 +292,7 @@ export function computeTechnologyResearchCost(
       // Use currentTotal directly - don't add intermediate level increases
       // The totalTechnologies should already account for the CURRENT state
       const materials = getTechnologyLevelCost(nextLevel, currentTotal)
-      
+
       for (const mat of materials) {
         const prev = totals.get(mat.materialId) || 0
         totals.set(mat.materialId, prev + mat.amount)
@@ -304,17 +304,17 @@ export function computeTechnologyResearchCost(
     for (let level = 1; level < toLevel; level++) {
       const nextLevel = level + 1
       const materials = getTechnologyLevelCost(nextLevel, currentTotal)
-      
+
       for (const mat of materials) {
         const prev = totals.get(mat.materialId) || 0
         totals.set(mat.materialId, prev + mat.amount)
       }
     }
   }
-  
+
   const list: Array<{ materialId: number; amount: number }> = []
   totals.forEach((amount, materialId) => list.push({ materialId, amount }))
-  
+
   return list.length > 0 ? formatMaterialList(list, gameData) : undefined
 }
 
