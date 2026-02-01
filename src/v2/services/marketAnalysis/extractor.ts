@@ -6,6 +6,9 @@
 
 import type { MarketDetailsApiResponse, MaterialDetailsRaw } from './types'
 import type { World } from '../api/types'
+import { createLogger } from '../debug/logger'
+
+const logger = createLogger('MarketAnalysis')
 
 /**
  * Cache configuration
@@ -95,7 +98,7 @@ export async function extractMarketDetails(
     // If API fails and we have stale cache, return it (especially for rate limits)
     if (cached) {
       const cacheAgeMinutes = Math.floor((Date.now() - cached.ts) / 60000)
-      console.warn(`[Market Analysis] API failed, returning cached data (${cacheAgeMinutes}min old)`, error)
+      logger.warn(`API failed, returning cached data (${cacheAgeMinutes}min old)`, error)
         return { data: cached.data, source: 'cache', ts: cached.ts }
     }
 

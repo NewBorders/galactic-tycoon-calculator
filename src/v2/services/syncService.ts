@@ -7,6 +7,7 @@
 
 import { ref, type Ref } from 'vue'
 import { getWorld, getApiKey } from './api/apiKeyManager'
+import { createLogger } from './debug/logger'
 import { loadGameData } from './gamedata/service'
 import { resetPriceCache } from './gamedata/prices'
 import { fetchCompanyBases, fetchGameBaseDetails, fetchWarehouseStockForBase } from './api/warehouseService'
@@ -37,6 +38,7 @@ const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
 let countdownTimer: number | null = null
 let callbacks: SyncCallbacks = {}
 let pendingBasesData: Array<{ id: number; name: string; planetId: number; warehouseId: number }> | null = null
+const logger = createLogger('SyncService')
 
 /**
  * Register callbacks for sync events
@@ -175,7 +177,7 @@ export async function initializeSyncService(
         }
       }
     } catch (error) {
-      console.error('[SyncService] Failed to load bases:', error)
+      logger.error('Failed to load bases:', error)
     }
   }
   
@@ -196,10 +198,10 @@ export async function initializeSyncService(
       try {
         // Don't await - let them load in parallel
         refreshEntry(entry.id).catch(e => {
-          console.warn('[SyncService] Initial warehouse load failed:', entry.id, e)
+          logger.warn('Initial warehouse load failed:', entry.id, e)
         })
       } catch (e) {
-        console.warn('[SyncService] Failed to trigger initial warehouse load:', entry.id, e)
+        logger.warn('Failed to trigger initial warehouse load:', entry.id, e)
       }
     }
   }
@@ -371,11 +373,11 @@ export async function refreshEntry(entryId: string): Promise<void> {
       }
       
       // Trigger callback to update player bases (single source of truth)
-      console.log('[SyncService] Warehouse stocks loaded', { warehouseId, stockCount: Object.keys(warehouseStocks).length, hasCallback: !!callbacks.onWarehouseStockLoaded })
+      logger.debug('Warehouse stocks loaded', { warehouseId, stockCount: Object.keys(warehouseStocks).length, hasCallback: !!callbacks.onWarehouseStockLoaded })
       if (callbacks.onWarehouseStockLoaded) {
         callbacks.onWarehouseStockLoaded(warehouseId, warehouseStocks)
       } else {
-        console.warn('[SyncService] No onWarehouseStockLoaded callback registered!')
+        logger.warn('No onWarehouseStockLoaded callback registered!')
       }
     }
     
@@ -384,7 +386,7 @@ export async function refreshEntry(entryId: string): Promise<void> {
     saveSyncTimes()
   } catch (error) {
     entry.error = formatApiError(error)
-    console.error(`[SyncService] Failed to refresh ${entryId}:`, error)
+    logger.error(`Failed to refresh ${entryId}:`, error)
   } finally {
     entry.isRefreshing = false
   }
@@ -417,14 +419,14 @@ function startBackgroundRefresh() {
         entry.nextRefresh -= 1000
       } else {
         // Auto-refresh when countdown reaches zero
-        console.log(`[SyncService] Auto-refreshing ${entry.id}`)
+        logger.debug(`Auto-refreshing ${entry.id}`)
         refreshEntry(entry.id)
         entry.nextRefresh = AUTO_REFRESH_INTERVAL
       }
     })
   }, 1000)
   
-  console.log('[SyncService] Background refresh timer started')
+  logger.debug('Background refresh timer started')
 }
 
 /**
@@ -434,7 +436,7 @@ export function stopBackgroundRefresh() {
   if (countdownTimer !== null) {
     clearInterval(countdownTimer)
     countdownTimer = null
-    console.log('[SyncService] Background refresh timer stopped')
+    logger.debug('Background refresh timer stopped')
   }
 }
 
@@ -457,7 +459,7 @@ function loadSyncTimes() {
       })
     }
   } catch (error) {
-    console.error('[SyncService] Failed to load sync times:', error)
+    logger.error('Failed to load sync times:', error)
   }
 }
 
@@ -473,7 +475,7 @@ function saveSyncTimes() {
     })
     localStorage.setItem(`gt:v2:syncStatus:${world}`, JSON.stringify(data))
   } catch (error) {
-    console.error('[SyncService] Failed to save sync times:', error)
+    logger.error('Failed to save sync times:', error)
   }
 }
 

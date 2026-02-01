@@ -5,6 +5,9 @@
  */
 
 import { ref, watch } from 'vue'
+import { createLogger } from '../debug/logger'
+
+const logger = createLogger('ExportThreshold')
 
 const STORAGE_KEY = 'exportThreshold'
 const DEFAULT_THRESHOLD = 50 // 50% by default
@@ -22,7 +25,7 @@ function loadThreshold(): number {
       }
     }
   } catch (e) {
-    console.warn('Failed to load export threshold from localStorage:', e)
+    logger.warn('Failed to load export threshold from localStorage:', e)
   }
   return DEFAULT_THRESHOLD
 }
@@ -31,7 +34,7 @@ function saveThreshold(value: number): void {
   try {
     localStorage.setItem(STORAGE_KEY, value.toString())
   } catch (e) {
-    console.warn('Failed to save export threshold to localStorage:', e)
+    logger.warn('Failed to save export threshold to localStorage:', e)
   }
 }
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { createLogger } from '@/v2/services/debug/logger'
 import type { GameData, GdIndex, Planet } from '../../services/gamedata/service.ts'
 import { searchPlanetsByName, useMaterialPricing, loadGameData } from '../../services/gamedata/service.ts'
 import { usePlayerBases } from '../../services/playerBases.ts'
@@ -359,18 +360,21 @@ async function handleBasesLoaded(
           importBaseFromApiPayload(localBase.id, transformed)
         }
       } catch (e) {
-        console.warn('[LoadBases] Auto-import failed for base', gameBaseId, e)
+        const logger = createLogger('LoadBases')
+        logger.warn('Auto-import failed for base', gameBaseId, e)
       }
     }
   } else {
-    console.warn('[LoadBases] API key not set; skipping auto-import for new bases')
+    const logger = createLogger('LoadBases')
+    logger.warn('API key not set; skipping auto-import for new bases')
   }
 
   persist()
 }
 
 function handleWarehouseStockLoaded(warehouseId: number, stocks: Record<number, number>) {
-  console.log('[PlayerConfigPanel] handleWarehouseStockLoaded', { warehouseId, stockCount: Object.keys(stocks).length })
+  const logger = createLogger('PlayerConfigPanel')
+  logger.debug('handleWarehouseStockLoaded', { warehouseId, stockCount: Object.keys(stocks).length })
   // Update all bases that share this warehouse
   updateStockForWarehouse(warehouseId, stocks)
 }
@@ -447,7 +451,8 @@ async function handleImportBase(base: typeof state.value.bases[0]) {
     
     if (!imported) {
       importError.value = translate('importBaseError')
-      console.warn('[ImportBase] Import returned false - nothing imported')
+      const logger = createLogger('ImportBase')
+      logger.warn('Import returned false - nothing imported')
     } else {
       persist()
       

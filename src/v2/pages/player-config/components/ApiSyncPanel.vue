@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { createLogger } from '@/v2/services/debug/logger'
 import { getApiKey, getApiKeyRef, getWorld } from '@/v2/services/api/apiKeyManager'
 import { fetchWarehouseStockForBase } from '@/v2/services/api/warehouseService'
 import { translate } from '@/v2/localisation'
@@ -135,7 +136,8 @@ async function handleSyncWarehouse() {
 
     if (errors.length > 0) {
       error.value = `Partially loaded: ${errors.length} error(s)`
-      console.warn('[Warehouse] Errors:', errors)
+      const logger = createLogger('Warehouse')
+      logger.warn('Errors:', errors)
     }
   } catch (e) {
     error.value = `${translate('warehouseStockLoadError')}: ${e instanceof Error ? e.message : String(e)}`

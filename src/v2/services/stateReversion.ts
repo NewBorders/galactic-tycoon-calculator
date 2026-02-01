@@ -7,6 +7,9 @@ import type { Change, TodoGroup } from './todoListService'
 import { usePlayerTechnology, type TechnologySpecialisation } from './playerTechnology'
 import { useWorldData } from './worldData'
 import { getChange, type StoredChange } from './changeStorage'
+import { createLogger } from './debug/logger'
+
+const logger = createLogger('StateReversion')
 
 // Helper type for playerBases service
 export interface PlayerBasesService {
@@ -29,8 +32,8 @@ export interface PlayerBasesService {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function findBaseById(playerBases: PlayerBasesService, baseId: string): string | null {
   const base = playerBases.state.value.bases.find(b => b.id === baseId)
-  console.log('[StateReversion] findBaseById:', baseId, '→', base?.id || 'NOT FOUND')
-  console.log('[StateReversion] Available bases:', playerBases.state.value.bases.map(b => ({ id: b.id, name: b.name || 'Base' })))
+  logger.debug('findBaseById:', baseId, '→', base?.id || 'NOT FOUND')
+  logger.debug('Available bases:', playerBases.state.value.bases.map(b => ({ id: b.id, name: b.name || 'Base' })))
   return base?.id || null
 }
 
@@ -74,8 +77,8 @@ export function calculateStateDiff(
   const fromChanges = fromGroups.flatMap(g => g.steps.flatMap(s => s.changes))
   const toChanges = toGroups.flatMap(g => g.steps.flatMap(s => s.changes))
 
-  console.log('[StateReversion] fromChanges:', fromChanges.length, fromChanges.map(c => c.description))
-  console.log('[StateReversion] toChanges:', toChanges.length, toChanges.map(c => c.description))
+  logger.debug('fromChanges:', fromChanges.length, fromChanges.map(c => c.description))
+  logger.debug('toChanges:', toChanges.length, toChanges.map(c => c.description))
 
   // Determine direction primarily by change counts
   let direction: 'forward' | 'backward'
@@ -116,7 +119,7 @@ export function calculateStateDiff(
     }
   }
 
-  console.log('[StateReversion] Direction:', direction, 'Changes to apply/revert:', changes.length)
+  logger.debug('Direction:', direction, 'Changes to apply/revert:', changes.length)
 
   return { changes, direction }
 }
@@ -127,11 +130,11 @@ export function calculateStateDiff(
 function updateDOMValue(elementId: string, newValue: number): void {
   const inputElement = document.getElementById(elementId) as HTMLInputElement | null
   if (!inputElement) {
-    console.warn('[StateReversion] DOM element not found:', elementId)
+    logger.warn('DOM element not found:', elementId)
     return
   }
 
-  console.log('[StateReversion] Updating DOM element:', elementId, 'to value:', newValue)
+  logger.debug('Updating DOM element:', elementId, 'to value:', newValue)
 
   // Update the value
   inputElement.value = String(newValue)
@@ -153,7 +156,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
         : (storedChange.newValue as number)
       if (targetValue !== undefined && typeof storedChange.targetId === 'string') {
         applyTechnologyLevel(storedChange.targetId as unknown as TechnologySpecialisation, targetValue)
-        console.log('[StateReversion] Set technology level to:', targetValue)
+        logger.debug('Set technology level to:', targetValue)
       }
     } else {
       const targetValue = isUndo
@@ -162,7 +165,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
       if (targetValue !== undefined) {
         const { setStartingBonus } = usePlayerTechnology()
         setStartingBonus(targetValue)
-        console.log('[StateReversion] Set starting bonus to:', targetValue)
+        logger.debug('Set starting bonus to:', targetValue)
       }
     }
     return
@@ -170,7 +173,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
 
   // Base-specific changes require playerBases
   if (!playerBases) {
-    console.warn('[StateReversion] playerBases required for change type:', storedChange.type)
+    logger.warn('playerBases required for change type:', storedChange.type)
     return
   }
 
@@ -185,7 +188,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
     ? (isUndo ? storedChange.originalValue : storedChange.newValue)
     : undefined
 
-  console.log('[StateReversion] Reverting stored change:', {
+  logger.debug('Reverting stored change:', {
     type: storedChange.type,
     targetId: storedChange.targetId,
     baseId,
@@ -197,7 +200,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
     case 'buildingLevel':
       if (baseId && storedChange.targetId && targetValue !== undefined) {
         playerBases.setBuilding(baseId, storedChange.targetId, { level: targetValue })
-        console.log('[StateReversion] Set building level to:', targetValue)
+        logger.debug('Set building level to:', targetValue)
 
         // Also update DOM
         updateDOMValue(`building-input-${storedChange.targetId}`, targetValue)
@@ -210,11 +213,11 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
         if (isUndo && storedChange.targetId) {
           // Remove the building that was added
           playerBases.removeBuilding(baseId, storedChange.targetId)
-          console.log('[StateReversion] Removed building:', storedChange.targetId)
+          logger.debug('Removed building:', storedChange.targetId)
         } else {
           // Re-add the building
           const instanceId = playerBases.addBuilding(baseId, storedChange.buildingId)
-          console.log('[StateReversion] Added building:', storedChange.buildingId, '→', instanceId)
+          logger.debug('Added building:', storedChange.buildingId, '→', instanceId)
 
           // Update the stored change with the instance ID for future reversions
           if (instanceId) {
@@ -230,11 +233,11 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
         if (isUndo) {
           // Re-add the building that was removed
           const instanceId = playerBases.addBuilding(baseId, storedChange.buildingId)
-          console.log('[StateReversion] Re-added removed building:', storedChange.buildingId, '→', instanceId)
+          logger.debug('Re-added removed building:', storedChange.buildingId, '→', instanceId)
         } else if (storedChange.targetId) {
           // Remove the building again
           playerBases.removeBuilding(baseId, storedChange.targetId)
-          console.log('[StateReversion] Removed building:', storedChange.targetId)
+          logger.debug('Removed building:', storedChange.targetId)
         }
       }
       break
@@ -242,7 +245,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
     case 'recipeCount':
       if (baseId && storedChange.targetId && targetValue !== undefined) {
         playerBases.setRecipeCount(baseId, storedChange.targetId, targetValue)
-        console.log('[StateReversion] Set recipe count to:', targetValue)
+        logger.debug('Set recipe count to:', targetValue)
 
         // Also update DOM
         updateDOMValue(`recipe-input-${storedChange.targetId}`, targetValue)
@@ -255,11 +258,11 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
         if (isUndo && storedChange.targetId) {
           // Remove the recipe that was added
           playerBases.removeRecipe(baseId, storedChange.targetId)
-          console.log('[StateReversion] Removed recipe:', storedChange.targetId)
+          logger.debug('Removed recipe:', storedChange.targetId)
         } else {
           // Re-add the recipe
           const instanceId = playerBases.addRecipe(baseId, storedChange.recipeId)
-          console.log('[StateReversion] Added recipe:', storedChange.recipeId, '→', instanceId)
+          logger.debug('Added recipe:', storedChange.recipeId, '→', instanceId)
 
           // Update the stored change with the instance ID for future reversions
           if (instanceId) {
@@ -275,11 +278,11 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
         if (isUndo) {
           // Re-add the recipe that was removed
           const instanceId = playerBases.addRecipe(baseId, storedChange.recipeId)
-          console.log('[StateReversion] Re-added removed recipe:', storedChange.recipeId, '→', instanceId)
+          logger.debug('Re-added removed recipe:', storedChange.recipeId, '→', instanceId)
         } else if (storedChange.targetId) {
           // Remove the recipe again
           playerBases.removeRecipe(baseId, storedChange.targetId)
-          console.log('[StateReversion] Removed recipe:', storedChange.targetId)
+          logger.debug('Removed recipe:', storedChange.targetId)
         }
       }
       break
@@ -292,7 +295,7 @@ function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerB
           const currentStock = (base as any).stock || {}
           const materialId = parseInt(storedChange.targetId)
           playerBases.setStock(baseId, { ...currentStock, [materialId]: targetValue })
-          console.log('[StateReversion] Set stock to:', targetValue)
+          logger.debug('Set stock to:', targetValue)
         }
       }
       break
@@ -312,16 +315,16 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
   if (changeId) {
     const storedChange = getChange(changeId)
     if (storedChange) {
-      console.log('[StateReversion] Using stored change for reversion')
+      logger.debug('Using stored change for reversion')
       revertStoredChange(storedChange, isUndo, playerBases)
       return
     } else {
-      console.warn('[StateReversion] Change ID found but no stored change:', changeId)
+      logger.warn('Change ID found but no stored change:', changeId)
     }
   }
 
   // Fallback to parsing details (for older changes or manual changes)
-  console.log('[StateReversion] Falling back to detail parsing for change:', change.type)
+  logger.debug('Falling back to detail parsing for change:', change.type)
 
   const isRevert = isUndo
 
@@ -355,7 +358,7 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
   // Base creation/removal (global but needs playerBases)
   if (change.type === 'base') {
     if (!playerBases) {
-      console.warn('[StateReversion] playerBases required for base changes')
+      logger.warn('playerBases required for base changes')
       return
     }
 
@@ -371,7 +374,7 @@ export function revertChange(change: Change, direction: 'forward' | 'backward', 
           const base = playerBases.state.value.bases.find(b => b.planetId === planetId)
           if (base) {
             playerBases.removeBase(base.id)
-            console.log('[StateReversion] Removed base:', base.id, 'from planet:', planetId)
+            logger.debug('Removed base:', base.id, 'from planet:', planetId)
           }
         }
       } else {

@@ -259,12 +259,40 @@ export function createChangeTracker(gameData?: GameData) {
           amount: m.amount
         }))
 
+        // Determine building type for tier extras
+        let isWarehouse = false
+        let isHousing = false
+        let isProduction = false
+        let affectedByFertilityOrAbundance = false
+
+        // Warehouse: name or specialization 0
+        if (building.name?.toLowerCase().includes('warehouse') || building.specialization === 0) {
+          isWarehouse = true
+        }
+        // Housing: workersHousing is array and not null
+        else if (Array.isArray(building.workersHousing) && building.workersHousing.some(x => x > 0)) {
+          isHousing = true
+        }
+        // Production: specialization 2, 3, 4, 5, 6, 8, 10 (see BuildingSpecialization)
+        else if ([2,3,4,5,6,8,10].includes(building.specialization)) {
+          isProduction = true
+          // Fertility/Abundance: Agriculture (3), FoodProduction (8), evtl. ResourceExtraction (4)
+          if ([3,8].includes(building.specialization)) {
+            affectedByFertilityOrAbundance = true
+          }
+        }
+
         // For new buildings, also add tier extras if on Tier 2-4 planet
-        // Tier 2, 3, 4 planets get tier extras based on building level
         let allMaterials = [...baseMaterials]
         if (planetId > 1) {
           // planetId corresponds roughly to tier (1=tier1, 2=tier2, etc.)
-          const tierExtras = computeBuildingTierExtras(planetId, level)
+          const tierExtras = computeBuildingTierExtras(planetId, level, {
+            isWarehouse,
+            isHousing,
+            isProduction,
+            affectedByFertilityOrAbundance,
+            specialization: building.specialization
+          })
           allMaterials = [...allMaterials, ...tierExtras]
         }
 

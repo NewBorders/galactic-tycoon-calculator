@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { loadGameData } from './services/gamedata/service'
+import { createLogger } from './services/debug/logger'
 import type { GameData, GdIndex } from './services/gamedata/service'
 import { translate } from './localisation'
 import { getWorld } from './services/api/apiKeyManager'
@@ -84,7 +85,8 @@ onMounted(async () => {
 
   // Load SVG sprite first (parallel with game data)
   loadSvgSprite().catch((e) => {
-    console.error('[AppV2] Failed to load SVG sprite:', e)
+    const logger = createLogger('AppV2')
+    logger.error('Failed to load SVG sprite:', e)
   })
 
   loading.value = true

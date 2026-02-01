@@ -207,20 +207,54 @@ export const NEW_BASE_COSTS_BY_TIER: Record<number, Array<{ materialId: number; 
  * Planet Tier 3: Composite Shielding (id 120)
  * Planet Tier 4: Nanoweave Shielding (id 121)
  */
+/**
+ * Compute building tier extras for planet tiers 2-4
+ * Neue Regeln (2026):
+ * - Warehouse: 2 pro Stufe
+ * - Housing: 4 pro Stufe
+ * - Production (unabhängig von Fertility/Abundance): 1 pro Stufe (ab Level 2: 2)
+ * - Production (abhängig von Fertility/Abundance): 8 pro Stufe
+ *
+ * @param planetTier Planetentier (2, 3, 4)
+ * @param buildingTier Gebäudetier (meist 1)
+ * @param opts Optionale Infos: { specialization, isWarehouse, isHousing, isProduction, affectedByFertilityOrAbundance }
+ */
 export function computeBuildingTierExtras(
   planetTier: number,
-  buildingTier: number
+  buildingTier: number,
+  opts?: {
+    specialization?: number
+    isWarehouse?: boolean
+    isHousing?: boolean
+    isProduction?: boolean
+    affectedByFertilityOrAbundance?: boolean
+  }
 ): Array<{ materialId: number; amount: number }> {
-  if (planetTier === 2) {
-    return [{ materialId: 90, amount: 8 * buildingTier }]  // Pressure Sealant Kit
+  let materialId: number | undefined
+  if (planetTier === 2) materialId = 90
+  if (planetTier === 3) materialId = 120
+  if (planetTier === 4) materialId = 121
+  if (!materialId) return []
+
+  // Default: 8 pro Stufe (Legacy)
+  let amount = 8
+
+  // Neue Regeln
+  if (opts) {
+    if (opts.isWarehouse) {
+      amount = 2
+    } else if (opts.isHousing) {
+      amount = 4
+    } else if (opts.isProduction) {
+      if (opts.affectedByFertilityOrAbundance) {
+        amount = 8
+      } else {
+        // Level 1: 1, ab Level 2: 2
+        amount = buildingTier >= 2 ? 2 : 1
+      }
+    }
   }
-  if (planetTier === 3) {
-    return [{ materialId: 120, amount: 8 * buildingTier }] // Composite Shielding
-  }
-  if (planetTier === 4) {
-    return [{ materialId: 121, amount: 8 * buildingTier }] // Nanoweave Shielding
-  }
-  return []
+  return [{ materialId, amount }]
 }
 
 /**
@@ -271,9 +305,41 @@ export function computeBuildingUpgradeCost(
 
   const start = Math.min(fromLevel, toLevel)
   const end = Math.max(fromLevel, toLevel)
+  // Für Tier-Extras ist das Ziel-Level (toLevel) relevant
   const buildingTier = building.tier ?? 1
+  const targetLevel = toLevel
   const tierMultiplier = getBuildingCostMultiplier(planetTier, buildingTier)
-  const tierExtras = computeBuildingTierExtras(planetTier, buildingTier)
+
+  // Determine building type for tier extras
+  let isWarehouse = false
+  let isHousing = false
+  let isProduction = false
+  let affectedByFertilityOrAbundance = false
+
+  // Warehouse: name or specialization 0
+  if (building.name?.toLowerCase().includes('warehouse') || building.specialization === 0) {
+    isWarehouse = true
+  }
+  // Housing: workersHousing is array and not null
+  else if (Array.isArray(building.workersHousing) && building.workersHousing.some(x => x > 0)) {
+    isHousing = true
+  }
+  // Production: specialization 2, 3, 4, 5, 6, 8, 10 (siehe BuildingSpecialization)
+  else if ([2,3,4,5,6,8,10].includes(building.specialization)) {
+    isProduction = true
+    // Fertility/Abundance: Agriculture (3), FoodProduction (8), evtl. ResourceExtraction (4)
+    if ([3,8].includes(building.specialization)) {
+      affectedByFertilityOrAbundance = true
+    }
+  }
+
+  const tierExtras = computeBuildingTierExtras(planetTier, targetLevel, {
+    isWarehouse,
+    isHousing,
+    isProduction,
+    affectedByFertilityOrAbundance,
+    specialization: building.specialization
+  })
   const totals = new Map<number, number>()
   
   // Check if this is Headquarters (uses different formula)
@@ -293,12 +359,12 @@ export function computeBuildingUpgradeCost(
         totals.set(cm.id, (totals.get(cm.id) ?? 0) + amount)
       }
     }
+  }
 
-    for (const extra of tierExtras) {
-      const amount = Math.ceil((extra?.amount ?? 0) * levelMultiplier)
-      if (amount > 0) {
-        totals.set(extra.materialId, (totals.get(extra.materialId) ?? 0) + amount)
-      }
+  // Tier-Extras nach neuer Regel: Nur einmalig für das Ziel-Level (nicht pro Level)
+  for (const extra of tierExtras) {
+    if (extra?.amount > 0) {
+      totals.set(extra.materialId, (totals.get(extra.materialId) ?? 0) + extra.amount)
     }
   }
 
