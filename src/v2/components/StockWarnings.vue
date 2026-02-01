@@ -177,8 +177,8 @@ const getUrgencyClass = (days: number): string => {
                 <tr>
                   <th class="text-left">{{ translate('material') }}</th>
                   <th class="text-center">{{ translate('bases') }}</th>
+                  <th class="text-left">{{ translate('timeLeft') }}</th>
                   <th class="text-center">{{ translate('actionRedistribute') }}</th>
-                  <th class="text-right">{{ translate('timeLeft') }}</th>
                   <th class="text-right">{{ translate('currentStock') }}</th>
                   <th class="text-right">{{ translate('toBuy') }}</th>
                   <th class="text-right">{{ translate('weight') }}</th>
@@ -212,6 +212,13 @@ const getUrgencyClass = (days: number): string => {
                       </span>
                     </div>
                   </td>
+                  <td class="text-left">
+                    <div class="timeleft-per-base">
+                      <div v-for="base in group.bases" :key="base.baseId" class="timeleft-item">
+                        <span :class="getUrgencyClass(base.daysUntilEmpty)">{{ formatDays(base.daysUntilEmpty) }}</span>
+                      </div>
+                    </div>
+                  </td>
                   <td class="text-center">
                     <span
                       class="action-badge"
@@ -227,11 +234,7 @@ const getUrgencyClass = (days: number): string => {
                       </span>
                     </div>
                   </td>
-                  <td class="text-right">
-                    <span :class="getUrgencyClass(group.urgency)">
-                      {{ formatDays(group.urgency) }}
-                    </span>
-                  </td>
+
                   <td class="text-right">
                     <div class="stock-per-base">
                       <div v-for="base in group.bases" :key="base.baseId" class="stock-item">
