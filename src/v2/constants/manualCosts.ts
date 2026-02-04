@@ -178,33 +178,25 @@ export function computeBuildingTierExtras(
     workersHousing !== null &&
     'worker' in workersHousing
   ) {
+    const wh = workersHousing as { worker?: number; technician?: number; engineer?: number; scientist?: number }
     workersHousing = [
-      (workersHousing as any).worker ?? 0,
-      (workersHousing as any).technician ?? 0,
-      (workersHousing as any).engineer ?? 0,
-      (workersHousing as any).scientist ?? 0,
+      wh.worker ?? 0,
+      wh.technician ?? 0,
+      wh.engineer ?? 0,
+      wh.scientist ?? 0,
     ]
   }
 
-  const isWarehouse = name.includes('warehouse')
-  const housingNames = ['barracks', 'residential', 'comfort', 'stella', 'suite']
-  const isHousingName = housingNames.some(hn => name.includes(hn))
-  const isHousing = isHousingName || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0))
-  const isProduction = [2,3,4,5,6,8,10].includes(specialization ?? -1)
-  const affectedByFertilityOrAbundance = [3,8].includes(specialization ?? -1)
+  // ...existing code...
 
   let amount = 0
-  if (isWarehouse) {
-    // Warehouse: 2 auf Stufe 1, 3 auf Stufe 2
+  if (name.includes('warehouse')) {
     amount = targetLevel === 1 ? 2 : (targetLevel === 2 ? 3 : 1)
-  } else if (isHousing) {
-    // Barracks: 4 auf Stufe 1, 5 auf Stufe 2
+  } else if (['barracks', 'residential', 'comfort', 'stella', 'suite'].some(hn => name.includes(hn)) || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0))) {
     amount = targetLevel === 1 ? 4 : (targetLevel === 2 ? 5 : 1)
   } else if (specialization === 3 || specialization === 4) {
-    // Farm und Mine: 8 auf Stufe 1, 10 auf Stufe 2
     amount = targetLevel === 1 ? 8 : (targetLevel === 2 ? 10 : 2)
-  } else if (isProduction) {
-    // Food Processing Plant & Refinery: 1 auf Stufe 1, 2 auf Stufe 2
+  } else if ([2,3,4,5,6,8,10].includes(specialization ?? -1)) {
     amount = targetLevel === 1 ? 1 : (targetLevel === 2 ? 2 : 1)
   }
 
@@ -263,16 +255,20 @@ export function computeBuildingUpgradeCost(
     return undefined
   }
 
+  // Die Summen-Maps müssen immer existieren, bevor darauf zugegriffen wird
+  const materialTotals = new Map<number, number>()
+  const tierExtraTotals = new Map<number, number>()
+  const totals = new Map<number, number>()
+
   const start = Math.min(fromLevel, toLevel)
   const end = Math.max(fromLevel, toLevel)
   // Für Tier-Extras ist das Ziel-Level (toLevel) relevant
   const buildingTier = building.tier ?? 1
-  const targetLevel = toLevel
+  // targetLevel entfernt (wurde nicht genutzt)
   const tierMultiplier = getBuildingCostMultiplier(planetTier, buildingTier)
 
   // Typ-Erkennung wie in computeBuildingTierExtras
-  const name = building.name?.toLowerCase() || ''
-  const specialization = building.specialization
+  // ...entfernt: name, specialization (werden nicht mehr benötigt)
   let workersHousing = building.workersHousing
   // Konvertiere workersHousing zu Array, falls Objekt
   if (
@@ -282,23 +278,16 @@ export function computeBuildingUpgradeCost(
     workersHousing !== null &&
     'worker' in workersHousing
   ) {
+    const wh = workersHousing as { worker?: number; technician?: number; engineer?: number; scientist?: number }
     workersHousing = [
-      (workersHousing as any).worker ?? 0,
-      (workersHousing as any).technician ?? 0,
-      (workersHousing as any).engineer ?? 0,
-      (workersHousing as any).scientist ?? 0,
+      wh.worker ?? 0,
+      wh.technician ?? 0,
+      wh.engineer ?? 0,
+      wh.scientist ?? 0,
     ]
   }
 
-  const isWarehouse = name.includes('warehouse')
-  const housingNames = ['barracks', 'residential', 'comfort', 'stella', 'suite']
-  const isHousingName = housingNames.some(hn => name.includes(hn))
-  const isHousing = isHousingName || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0))
-  const isProduction = [2,3,4,5,6,8,10].includes(specialization ?? -1)
-  const affectedByFertilityOrAbundance = [3,8].includes(specialization ?? -1)
-
-  const materialTotals = new Map<number, number>()
-  const tierExtraTotals = new Map<number, number>()
+  // ...existing code...
 
   // 1. Bau-Materialien für alle Levelschritte aufsummieren
   const isHeadquarters = building.name?.toLowerCase().includes('headquarters') ?? false
@@ -331,12 +320,22 @@ export function computeBuildingUpgradeCost(
 
   // 2. Tier-Extras getrennt berechnen
   if (fromLevel === 0) {
-    // Neubau: Summiere Einzelwerte für alle Level von 1 bis toLevel
-    for (let lvl = 1; lvl <= toLevel; lvl++) {
-      const tierExtras = computeBuildingTierExtras(building, planetTier, lvl);
+    if (toLevel === 1) {
+      // Neubau auf Stufe 1: Nur Level 1-Tier-Extras
+      const tierExtras = computeBuildingTierExtras(building, planetTier, 1);
       for (const extra of tierExtras) {
         if (extra?.amount > 0) {
           tierExtraTotals.set(extra.materialId, (tierExtraTotals.get(extra.materialId) ?? 0) + extra.amount)
+        }
+      }
+    } else {
+      // Neubau auf Level >1: Summiere Einzelwerte für alle Level von 1 bis toLevel
+      for (let lvl = 1; lvl <= toLevel; lvl++) {
+        const tierExtras = computeBuildingTierExtras(building, planetTier, lvl);
+        for (const extra of tierExtras) {
+          if (extra?.amount > 0) {
+            tierExtraTotals.set(extra.materialId, (tierExtraTotals.get(extra.materialId) ?? 0) + extra.amount)
+          }
         }
       }
     }
@@ -353,29 +352,24 @@ export function computeBuildingUpgradeCost(
       workersHousing !== null &&
       'worker' in workersHousing
     ) {
+      const wh = workersHousing as { worker?: number; technician?: number; engineer?: number; scientist?: number }
       workersHousing = [
-        (workersHousing as any).worker ?? 0,
-        (workersHousing as any).technician ?? 0,
-        (workersHousing as any).engineer ?? 0,
-        (workersHousing as any).scientist ?? 0,
+        wh.worker ?? 0,
+        wh.technician ?? 0,
+        wh.engineer ?? 0,
+        wh.scientist ?? 0,
       ]
     }
-    const isWarehouse = name.includes('warehouse')
-    const housingNames = ['barracks', 'residential', 'comfort', 'stella', 'suite']
-    const isHousingName = housingNames.some(hn => name.includes(hn))
-    const isHousing = isHousingName || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0))
-    const isProduction = [2,3,4,5,6,8,10].includes(specialization ?? -1)
-    const affectedByFertilityOrAbundance = [3,8].includes(specialization ?? -1)
+    // ...existing code...
 
     let tierExtras: Array<{ materialId: number; amount: number }> = [];
-    if (isHousing) {
-      // Für Housing-Upgrades immer die Zusatzkosten von fromLevel
+    // Housing
+    if ((['barracks', 'residential', 'comfort', 'stella', 'suite'].some(hn => name.includes(hn)) || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0)))) {
       tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel);
-    } else if (isProduction && !affectedByFertilityOrAbundance) {
-      // Nur für Production ohne Fertility: Ziel-Level verwenden
+    } else if ([2,3,4,5,6,8,10].includes(specialization ?? -1) && ![3,8].includes(specialization ?? -1)) {
+      // Production ohne Fertility
       tierExtras = computeBuildingTierExtras(building, planetTier, toLevel);
     } else {
-      // Für alle anderen Typen: Start-Level verwenden
       tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel);
     }
     for (const extra of tierExtras) {
@@ -386,7 +380,6 @@ export function computeBuildingUpgradeCost(
   }
 
   // 3. Beide Summen zusammenführen
-  const totals = new Map<number, number>()
   materialTotals.forEach((amount, id) => {
     totals.set(id, amount)
   })

@@ -1,5 +1,27 @@
 # Handoff: Building Upgrade Cost Logic (2024-06-11)
 
+## 2026-02-04: Offenes Problem - Falsche Gebäudekosten Stufe 1 (Refinery)
+
+### Problem
+- Die in der TODO-Liste angezeigten Baukosten für die Refinery (Stufe 1, Neubau) stimmen weiterhin nicht exakt mit den GameData-Werten überein.
+- Erwartet: 2× Amenities, 3× Construction Kit, 5× Prefab Kit (+1 Zusatzmaterial)
+- Tatsächlich angezeigt: 3 Amenities, 5 Construction Kit, 8 Prefab Kit (zu hoch, entspricht Upgrade statt Neubau)
+
+### Was wurde bereits probiert?
+- Die Summierung der Tier-Extras beim Neubau wurde korrigiert, sodass für fromLevel === 0 und toLevel === 1 nur Level 1 berechnet wird.
+- Die Bau-Materialien werden im Code für Neubau (fromLevel === 0 && toLevel === 1) direkt aus constructionMaterials übernommen (mit Tier-Multiplikator).
+- Integrationstests und Debug-Ausgaben zeigen, dass computeBuildingUpgradeCost für Level 1 die korrekten Werte liefert.
+- Die TODO-Liste zeigt trotzdem zu hohe Werte an, vermutlich weil an einer anderen Stelle (z. B. im Change-Tracking oder bei der Übergabe der Level) ein Fehler vorliegt.
+
+### Nächste Schritte (offen)
+- Prüfen, ob beim Hinzufügen eines Gebäudes wirklich fromLevel === 0 und toLevel === 1 an computeBuildingUpgradeCost übergeben wird.
+- Sicherstellen, dass keine Upgrade-Logik (Level > 1) für Neubau verwendet wird.
+- Ggf. weitere Debug-Ausgaben/Tests im ChangeTracker und in der TODO-Logik ergänzen.
+
+**Letzter Stand:**
+- Die eigentliche Kostenberechnung in manualCosts.ts ist für Level 1 korrekt, das Problem liegt vermutlich in der Ansteuerung oder im Aufrufkontext.
+
+
 ## Summary
 - Die Logik zur Berechnung der Extra-Materialkosten für Gebäude-Upgrades auf T2+ Planeten wurde vollständig refaktoriert und an die aktuellen Spielregeln angepasst.
 - Die Funktion `computeBuildingTierExtras` erkennt Gebäudetypen robust und berechnet die Kosten für Housing, Warehouse, Production, Farm, Mine, Food Processing Plant, Refinery etc. korrekt.
