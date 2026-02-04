@@ -510,13 +510,13 @@ function createTodoList() {
 
         if (cancelledStepIndex >= 0 && cancelledChange) {
           console.log('[TodoListService] Changes cancel out, removing step', cancelledStepIndex)
-          
+
           // Unregister the cancelled change
           const cancelledChangeId = cancelledChange.details?.changeId as string | undefined
           if (cancelledChangeId) {
             unregisterChange(cancelledChangeId)
           }
-          
+
           // Unregister the new change as well (it cancels out)
           const currentChangeId = changeWithTime.details?.changeId as string | undefined
           if (currentChangeId) {
@@ -526,15 +526,15 @@ function createTodoList() {
           // Create a new state by removing the cancelled step from the current groups
           const newGroups = JSON.parse(JSON.stringify(currentGroups)) as TodoGroup[]
           const newTargetGroup = newGroups.find(g => g.scope === scope && g.planetId === planetId)
-          
+
           if (newTargetGroup) {
             // Remove the cancelled step
             newTargetGroup.steps.splice(cancelledStepIndex, 1)
-            
+
             // Add this as a new history state
             scopeHistory.history.push(newGroups)
             scopeHistory.currentIndex++
-            
+
             console.log('[TodoListService] Removed step at index', cancelledStepIndex, ', history length:', scopeHistory.history.length)
             saveToStorage()
             return
@@ -575,7 +575,7 @@ function createTodoList() {
               changeWithTime.details?.materialsCost as string | undefined
             )
           }
-          
+
             // For technology changes, recalculate merged costs to account for non-linear techPenalty
             // Use the CURRENT (API) level as base, not the old change's level
             if (change.type === 'technology' && from !== undefined && to !== undefined && to > from) {
@@ -591,14 +591,14 @@ function createTodoList() {
                     console.warn('[TodoListService] Invalid target level for tech merge recalculation:', to)
                     throw new Error('Invalid target level')
                   }
-                
+
                   // Only recalculate if we're actually changing from current level
                   if (targetLevel !== currentLevel) {
                     let totalTechnologies = 0
                     if (current.value?.technology) {
                       totalTechnologies = Object.values(current.value.technology).reduce((sum, level) => sum + level, 0)
                     }
-                  
+
                     // Don't count this tech's own planned increase
                     const plannedLevels = isPlanningActive.value && plannedTechnology.value ? plannedTechnology.value : {}
                     Object.entries(plannedLevels).forEach(([tId, plannedLevel]) => {
@@ -609,7 +609,7 @@ function createTodoList() {
                         totalTechnologies += inc
                       }
                     })
-                  
+
                     const gd = getGameData()
                     const recalculatedCost = computeTechnologyResearchCost(
                       techId,
@@ -628,7 +628,7 @@ function createTodoList() {
                 }
               }
             }
-            
+
             // For building changes, recalculate merged costs with per-level scaling and planet tier
             if (change.type === 'building' && from !== undefined && to !== undefined) {
               const buildingId = changeWithTime.details?.buildingId ? Number(changeWithTime.details.buildingId) : undefined
@@ -873,7 +873,7 @@ export function syncTodoListWithApiData(currentState: {
                 changes: step.changes.filter((change) => !completedChangeIds.has(change.id)),
               }))
               .filter((step) => step.changes.length > 0)
-            
+
             return {
               ...group,
               steps: updatedSteps,
@@ -886,7 +886,7 @@ export function syncTodoListWithApiData(currentState: {
       }
     })
   }
-  
+
   return completedChangeIds.size
 }
 
