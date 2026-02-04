@@ -1,3 +1,21 @@
+// Hilfsfunktion: workersHousing normalisieren (Objekt → Array)
+function normalizeWorkersHousing(building: any): any {
+  if (
+    building &&
+    building.workersHousing &&
+    !Array.isArray(building.workersHousing) &&
+    typeof building.workersHousing === 'object' &&
+    building.workersHousing !== null &&
+    'worker' in building.workersHousing
+  ) {
+    const wh = building.workersHousing
+    return {
+      ...building,
+      workersHousing: [wh.worker ?? 0, wh.technician ?? 0, wh.engineer ?? 0, wh.scientist ?? 0]
+    }
+  }
+  return building
+}
 /**
  * TodoList Service - Singleton pattern with per-scope histories
  * Each base and global changes have separate undo/redo histories
@@ -623,8 +641,9 @@ function createTodoList() {
                   const planet = gd?.planets.find(p => p.id === planetId)
 
                   if (building && planet) {
+                    const buildingForCost = normalizeWorkersHousing(building)
                     const recalculatedCost = computeBuildingUpgradeCost(
-                      building,
+                      buildingForCost,
                       planet.tier ?? 1,
                       Number(from),
                       Number(to),

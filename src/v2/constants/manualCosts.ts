@@ -3,45 +3,6 @@
  * These costs are manually maintained and can be updated as needed.
  */
 
-/**
- * Technology upgrade costs per level
- * Format: { technologyId: { levelFrom_levelTo: [{ materialId, amount }] } }
- *
- * Example:
- * 1: { // Construction tech
- *   '0_1': [{ materialId: 3, amount: 100 }, { materialId: 26, amount: 50 }],
- *   '1_2': [{ materialId: 3, amount: 200 }, { materialId: 26, amount: 100 }],
- * }
- */
-/**
- * Technology research costs per level upgrade
- * Source: https://wiki.galactictycoons.com/mechanics/technology#research-requirements
- *
- * Material tiers by level range:
- * - Levels 1-5: Research Data only
- * - Levels 6-10: Research Data + Advanced Research Data
- * - Levels 11-15: Advanced Research Data + Apex Research Data
- * - Levels 16-20: Apex Research Data + Quantum Research Data
- * - Levels 20+: Quantum Research Data only
- *
- * Cost Formula (from wiki):
- * Step 1: Calculate Total Value
- *   ValueMultiplier = ((CurrentLevel / 4) + 1)³
- *   TechPenalty = (TotalTechnologies + 1)^1.015 - TotalTechnologies
- *   TechFlat = TotalTechnologies × 3,000
- *   TotalValue = (ValueMultiplier × 8,000) × TechPenalty + TechFlat
- *
- * Step 2: Determine Material Distribution
- *   tierPart = NextLevel / 5.0
- *   Based on tierPart, distribute TotalValue across material tiers
- *
- * Material IDs:
- * - 64: Research Data (Tier 1)
- * - 65: Advanced Research Data (Tier 2)
- * - 127: Apex Research Data (Tier 3)
- * - 164: Quantum Research Data (Tier 4)
- */
-
 interface TechnologyMaterial {
   materialId: number
   amount: number
@@ -142,44 +103,20 @@ function getTechnologyLevelCost(nextLevel: number, totalTechnologies: number): T
  * Note: This assumes totalTechnologies = 0 for base cost calculation.
  * In actual usage, computeTechnologyResearchCost should recalculate with current totals.
  */
-export const TECHNOLOGY_COSTS: Record<number, Record<string, TechnologyMaterial[]>> = {}
 
-// Technology IDs: 1-8, 10 (9 is not used)
-const TECHNOLOGY_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 10]
-
-// Generate costs for all technologies up to level 100
-TECHNOLOGY_IDS.forEach(techId => {
-  TECHNOLOGY_COSTS[techId] = {}
-
-  for (let level = 0; level < 100; level++) {
-    const key = `${level}_${level + 1}`
-    // Use level as approximation for totalTechnologies in lookup table
-    // This provides reasonable base costs; actual computation should use real totals
-    TECHNOLOGY_COSTS[techId][key] = getTechnologyLevelCost(level + 1, level)
-  }
-})
-
-/**
- * New base creation costs per planet tier
- * Format: { tier: [{ materialId, amount }] }
- *
- * These are the costs from baseBuildingCost in GameData, organized by tier
- * Tier 1 = cheapest, Tier 5 = most expensive
- */
 export const NEW_BASE_COSTS_BY_TIER: Record<number, Array<{ materialId: number; amount: number }>> = {
-  // Base creation costs per tier (from wiki: https://wiki.galactictycoons.com/guide/second-base)
   1: [
-    { materialId: 3, amount: 250 },   // Concrete
-    { materialId: 26, amount: 30 },   // Construction Kit
-    { materialId: 52, amount: 10 },   // Construction Vehicle
-    { materialId: 92, amount: 30 },   // Prefab Kit
+    { materialId: 3, amount: 250 },
+    { materialId: 26, amount: 30 },
+    { materialId: 52, amount: 10 },
+    { materialId: 92, amount: 30 },
   ],
   2: [
     { materialId: 3, amount: 250 },
     { materialId: 26, amount: 30 },
     { materialId: 52, amount: 10 },
     { materialId: 92, amount: 30 },
-    { materialId: 90, amount: 40 },   // Pressure Sealant Kit
+    { materialId: 90, amount: 40 },
   ],
   3: [
     { materialId: 3, amount: 250 },
@@ -212,48 +149,71 @@ export const NEW_BASE_COSTS_BY_TIER: Record<number, Array<{ materialId: number; 
  * Neue Regeln (2026):
  * - Warehouse: 2 pro Stufe
  * - Housing: 4 pro Stufe
- * - Production (unabhängig von Fertility/Abundance): 1 pro Stufe (ab Level 2: 2)
- * - Production (abhängig von Fertility/Abundance): 8 pro Stufe
+ * - Production (unabhängig von Fertility/Abundance): 1 pro Stufe (rundt auf 2 auf Stufe Level 2)
+ * - sonst: 8 pro Stufe
  *
  * @param planetTier Planetentier (2, 3, 4)
  * @param buildingTier Gebäudetier (meist 1)
  * @param opts Optionale Infos: { specialization, isWarehouse, isHousing, isProduction, affectedByFertilityOrAbundance }
  */
 export function computeBuildingTierExtras(
-  planetTier: number,
-  buildingTier: number,
-  opts?: {
+  building: {
+    name?: string
     specialization?: number
-    isWarehouse?: boolean
-    isHousing?: boolean
-    isProduction?: boolean
-    affectedByFertilityOrAbundance?: boolean
-  }
+    workersHousing?: number[] | null
+    tier?: number
+  },
+  planetTier: number,
+  targetLevel: number,
 ): Array<{ materialId: number; amount: number }> {
+  // Typ-Erkennung
+  const name = building.name?.toLowerCase() || ''
+  const specialization = building.specialization
+  let workersHousing = building.workersHousing
+  // Konvertiere workersHousing zu Array, falls Objekt
+  if (
+    workersHousing &&
+    !Array.isArray(workersHousing) &&
+    typeof workersHousing === 'object' &&
+    workersHousing !== null &&
+    'worker' in workersHousing
+  ) {
+    workersHousing = [
+      (workersHousing as any).worker ?? 0,
+      (workersHousing as any).technician ?? 0,
+      (workersHousing as any).engineer ?? 0,
+      (workersHousing as any).scientist ?? 0,
+    ]
+  }
+
+  const isWarehouse = name.includes('warehouse')
+  const housingNames = ['barracks', 'residential', 'comfort', 'stella', 'suite']
+  const isHousingName = housingNames.some(hn => name.includes(hn))
+  const isHousing = isHousingName || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0))
+  const isProduction = [2,3,4,5,6,8,10].includes(specialization ?? -1)
+  const affectedByFertilityOrAbundance = [3,8].includes(specialization ?? -1)
+
+  let amount = 0
+  if (isWarehouse) {
+    // Warehouse: 2 auf Stufe 1, 3 auf Stufe 2
+    amount = targetLevel === 1 ? 2 : (targetLevel === 2 ? 3 : 1)
+  } else if (isHousing) {
+    // Barracks: 4 auf Stufe 1, 5 auf Stufe 2
+    amount = targetLevel === 1 ? 4 : (targetLevel === 2 ? 5 : 1)
+  } else if (specialization === 3 || specialization === 4) {
+    // Farm und Mine: 8 auf Stufe 1, 10 auf Stufe 2
+    amount = targetLevel === 1 ? 8 : (targetLevel === 2 ? 10 : 2)
+  } else if (isProduction) {
+    // Food Processing Plant & Refinery: 1 auf Stufe 1, 2 auf Stufe 2
+    amount = targetLevel === 1 ? 1 : (targetLevel === 2 ? 2 : 1)
+  }
+
   let materialId: number | undefined
   if (planetTier === 2) materialId = 90
-  if (planetTier === 3) materialId = 120
-  if (planetTier === 4) materialId = 121
+  else if (planetTier === 3) materialId = 120
+  else if (planetTier === 4) materialId = 121
+
   if (!materialId) return []
-
-  // Default: 8 pro Stufe (Legacy)
-  let amount = 8
-
-  // Neue Regeln
-  if (opts) {
-    if (opts.isWarehouse) {
-      amount = 2
-    } else if (opts.isHousing) {
-      amount = 4
-    } else if (opts.isProduction) {
-      if (opts.affectedByFertilityOrAbundance) {
-        amount = 8
-      } else {
-        // Level 1: 1, ab Level 2: 2
-        amount = buildingTier >= 2 ? 2 : 1
-      }
-    }
-  }
   return [{ materialId, amount }]
 }
 
@@ -293,7 +253,7 @@ export function getBuildingCostMultiplier(planetTier: number, buildingTier: numb
  * Handles both upgrades and downgrades by summing intermediate levels.
  */
 export function computeBuildingUpgradeCost(
-  building: { constructionMaterials: Array<{ id: number; amount: number }>; tier?: number; name?: string },
+  building: { constructionMaterials: Array<{ id: number; amount: number }>; tier?: number; name?: string; specialization?: number; workersHousing?: number[] | null },
   planetTier: number,
   fromLevel: number,
   toLevel: number,
@@ -310,63 +270,129 @@ export function computeBuildingUpgradeCost(
   const targetLevel = toLevel
   const tierMultiplier = getBuildingCostMultiplier(planetTier, buildingTier)
 
-  // Determine building type for tier extras
-  let isWarehouse = false
-  let isHousing = false
-  let isProduction = false
-  let affectedByFertilityOrAbundance = false
-
-  // Warehouse: name or specialization 0
-  if (building.name?.toLowerCase().includes('warehouse') || building.specialization === 0) {
-    isWarehouse = true
-  }
-  // Housing: workersHousing is array and not null
-  else if (Array.isArray(building.workersHousing) && building.workersHousing.some(x => x > 0)) {
-    isHousing = true
-  }
-  // Production: specialization 2, 3, 4, 5, 6, 8, 10 (siehe BuildingSpecialization)
-  else if ([2,3,4,5,6,8,10].includes(building.specialization)) {
-    isProduction = true
-    // Fertility/Abundance: Agriculture (3), FoodProduction (8), evtl. ResourceExtraction (4)
-    if ([3,8].includes(building.specialization)) {
-      affectedByFertilityOrAbundance = true
-    }
+  // Typ-Erkennung wie in computeBuildingTierExtras
+  const name = building.name?.toLowerCase() || ''
+  const specialization = building.specialization
+  let workersHousing = building.workersHousing
+  // Konvertiere workersHousing zu Array, falls Objekt
+  if (
+    workersHousing &&
+    !Array.isArray(workersHousing) &&
+    typeof workersHousing === 'object' &&
+    workersHousing !== null &&
+    'worker' in workersHousing
+  ) {
+    workersHousing = [
+      (workersHousing as any).worker ?? 0,
+      (workersHousing as any).technician ?? 0,
+      (workersHousing as any).engineer ?? 0,
+      (workersHousing as any).scientist ?? 0,
+    ]
   }
 
-  const tierExtras = computeBuildingTierExtras(planetTier, targetLevel, {
-    isWarehouse,
-    isHousing,
-    isProduction,
-    affectedByFertilityOrAbundance,
-    specialization: building.specialization
-  })
-  const totals = new Map<number, number>()
-  
-  // Check if this is Headquarters (uses different formula)
+  const isWarehouse = name.includes('warehouse')
+  const housingNames = ['barracks', 'residential', 'comfort', 'stella', 'suite']
+  const isHousingName = housingNames.some(hn => name.includes(hn))
+  const isHousing = isHousingName || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0))
+  const isProduction = [2,3,4,5,6,8,10].includes(specialization ?? -1)
+  const affectedByFertilityOrAbundance = [3,8].includes(specialization ?? -1)
+
+  const materialTotals = new Map<number, number>()
+  const tierExtraTotals = new Map<number, number>()
+
+  // 1. Bau-Materialien für alle Levelschritte aufsummieren
   const isHeadquarters = building.name?.toLowerCase().includes('headquarters') ?? false
-
-  for (let level = start; level < end; level++) {
-    const nextLevel = level + 1
-    // Use Wiki growth formula based on building type
-    const levelMultiplier = isHeadquarters 
-      ? Math.pow(0.8, nextLevel) // Headquarters: 0.8^level (costs decrease with level)
-      : getBuildingGrowthMultiplier(nextLevel) // Regular: 0.1*level + 1.07^level
-    const stepMultiplier = tierMultiplier * levelMultiplier
-
+  if (fromLevel === 0 && toLevel === 1) {
+    // Neubau auf Stufe 1: Nur Tier-Multiplikator, API-Daten
     for (const cm of building.constructionMaterials ?? []) {
-      const amount = Math.ceil((cm?.amount ?? 0) * stepMultiplier)
+      const amount = Math.round((cm?.amount ?? 0) * tierMultiplier)
       if (amount > 0) {
-        totals.set(cm.id, (totals.get(cm.id) ?? 0) + amount)
+        materialTotals.set(cm.id, (materialTotals.get(cm.id) ?? 0) + amount)
+      }
+    }
+  } else {
+    for (let level = start; level < end; level++) {
+      const nextLevel = level + 1
+      let stepMultiplier = tierMultiplier
+      if (nextLevel > 1) {
+        const levelMultiplier = isHeadquarters
+          ? Math.pow(0.8, nextLevel)
+          : getBuildingGrowthMultiplier(nextLevel)
+        stepMultiplier *= levelMultiplier
+      }
+      for (const cm of building.constructionMaterials ?? []) {
+        const amount = Math.round((cm?.amount ?? 0) * stepMultiplier)
+        if (amount > 0) {
+          materialTotals.set(cm.id, (materialTotals.get(cm.id) ?? 0) + amount)
+        }
       }
     }
   }
 
-  // Tier-Extras nach neuer Regel: Nur einmalig für das Ziel-Level (nicht pro Level)
-  for (const extra of tierExtras) {
-    if (extra?.amount > 0) {
-      totals.set(extra.materialId, (totals.get(extra.materialId) ?? 0) + extra.amount)
+  // 2. Tier-Extras getrennt berechnen
+  if (fromLevel === 0) {
+    // Neubau: Summiere Einzelwerte für alle Level von 1 bis toLevel
+    for (let lvl = 1; lvl <= toLevel; lvl++) {
+      const tierExtras = computeBuildingTierExtras(building, planetTier, lvl);
+      for (const extra of tierExtras) {
+        if (extra?.amount > 0) {
+          tierExtraTotals.set(extra.materialId, (tierExtraTotals.get(extra.materialId) ?? 0) + extra.amount)
+        }
+      }
+    }
+  } else if (fromLevel !== toLevel) {
+    // Typ-Erkennung wie in computeBuildingTierExtras
+    const name = building.name?.toLowerCase() || ''
+    const specialization = building.specialization
+    let workersHousing = building.workersHousing
+    // Konvertiere workersHousing zu Array, falls Objekt
+    if (
+      workersHousing &&
+      !Array.isArray(workersHousing) &&
+      typeof workersHousing === 'object' &&
+      workersHousing !== null &&
+      'worker' in workersHousing
+    ) {
+      workersHousing = [
+        (workersHousing as any).worker ?? 0,
+        (workersHousing as any).technician ?? 0,
+        (workersHousing as any).engineer ?? 0,
+        (workersHousing as any).scientist ?? 0,
+      ]
+    }
+    const isWarehouse = name.includes('warehouse')
+    const housingNames = ['barracks', 'residential', 'comfort', 'stella', 'suite']
+    const isHousingName = housingNames.some(hn => name.includes(hn))
+    const isHousing = isHousingName || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0))
+    const isProduction = [2,3,4,5,6,8,10].includes(specialization ?? -1)
+    const affectedByFertilityOrAbundance = [3,8].includes(specialization ?? -1)
+
+    let tierExtras: Array<{ materialId: number; amount: number }> = [];
+    if (isHousing) {
+      // Für Housing-Upgrades immer die Zusatzkosten von fromLevel
+      tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel);
+    } else if (isProduction && !affectedByFertilityOrAbundance) {
+      // Nur für Production ohne Fertility: Ziel-Level verwenden
+      tierExtras = computeBuildingTierExtras(building, planetTier, toLevel);
+    } else {
+      // Für alle anderen Typen: Start-Level verwenden
+      tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel);
+    }
+    for (const extra of tierExtras) {
+      if (extra?.amount > 0) {
+        tierExtraTotals.set(extra.materialId, (tierExtraTotals.get(extra.materialId) ?? 0) + extra.amount)
+      }
     }
   }
+
+  // 3. Beide Summen zusammenführen
+  const totals = new Map<number, number>()
+  materialTotals.forEach((amount, id) => {
+    totals.set(id, amount)
+  })
+  tierExtraTotals.forEach((amount, id) => {
+    totals.set(id, (totals.get(id) ?? 0) + amount)
+  })
 
   if (totals.size === 0) return undefined
 

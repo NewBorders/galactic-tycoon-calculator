@@ -1,3 +1,29 @@
+// ...existing code...
+// ...existing code...
+// ...existing code...
+  // ...existing code...
+// ...existing code...
+// Hilfsfunktion: workersHousing normalisieren (Objekt → Array)
+function normalizeWorkersHousing(building: any): any {
+  if (
+    building &&
+    building.workersHousing &&
+    !Array.isArray(building.workersHousing) &&
+    typeof building.workersHousing === 'object' &&
+    building.workersHousing !== null &&
+    'worker' in building.workersHousing
+  ) {
+    const wh = building.workersHousing
+    return {
+      ...building,
+      workersHousing: [wh.worker ?? 0, wh.technician ?? 0, wh.engineer ?? 0, wh.scientist ?? 0]
+    }
+  }
+  return building
+}
+
+// ...existing code...
+
 /**
  * Change Tracker Service
  * Tracks changes to planned production and integrates with TodoList
@@ -61,7 +87,7 @@ export function createChangeTracker(gameData?: GameData) {
 
       // Add current technology levels
       if (current.value?.technology) {
-        totalTechnologies = Object.values(current.value.technology).reduce((sum, level) => sum + level, 0)
+        totalTechnologies = (Object.values(current.value.technology) as number[]).reduce((sum, level) => sum + level, 0)
       }
 
       // Add planned technology level increases (excluding this current change)
@@ -191,7 +217,8 @@ export function createChangeTracker(gameData?: GameData) {
       const changeId = generateChangeId()
 
       // Retrieve building name from gameData if available
-      const building = gameData?.buildings.find(b => b.id === buildingId)
+      let building = gameData?.buildings.find(b => b.id === buildingId)
+      building = normalizeWorkersHousing(building)
       const buildingName = building?.name ?? `Building ${buildingId}`
 
       // Get planet tier for cost multiplier
@@ -199,9 +226,10 @@ export function createChangeTracker(gameData?: GameData) {
       const planetTier = planet?.tier ?? 1
 
       // Compute material costs using per-level scaling and planet tier
-      const materialsCost = building
+      const buildingForCost = normalizeWorkersHousing(building)
+      const materialsCost = buildingForCost
         ? computeBuildingUpgradeCost(
-            building,
+            buildingForCost,
             planetTier,
             fromLevel,
             toLevel,
@@ -248,55 +276,22 @@ export function createChangeTracker(gameData?: GameData) {
       const changeId = generateChangeId()
 
       // Retrieve building name and costs from gameData if available
-      const building = gameData?.buildings.find(b => b.id === buildingId)
+      let building = gameData?.buildings.find(b => b.id === buildingId)
+      building = normalizeWorkersHousing(building)
       const buildingName = building?.name ?? `Building ${buildingId}`
 
-      // Calculate materials cost for the building
+      // Für neue Gebäude: alle Material- und Zusatzkosten für alle Stufen aufsummieren
       let materialsCost: string | undefined = undefined
-      if (building?.constructionMaterials && building.constructionMaterials.length > 0) {
-        const baseMaterials = building.constructionMaterials.map(m => ({
-          materialId: m.id,
-          amount: m.amount
-        }))
-
-        // Determine building type for tier extras
-        let isWarehouse = false
-        let isHousing = false
-        let isProduction = false
-        let affectedByFertilityOrAbundance = false
-
-        // Warehouse: name or specialization 0
-        if (building.name?.toLowerCase().includes('warehouse') || building.specialization === 0) {
-          isWarehouse = true
-        }
-        // Housing: workersHousing is array and not null
-        else if (Array.isArray(building.workersHousing) && building.workersHousing.some(x => x > 0)) {
-          isHousing = true
-        }
-        // Production: specialization 2, 3, 4, 5, 6, 8, 10 (see BuildingSpecialization)
-        else if ([2,3,4,5,6,8,10].includes(building.specialization)) {
-          isProduction = true
-          // Fertility/Abundance: Agriculture (3), FoodProduction (8), evtl. ResourceExtraction (4)
-          if ([3,8].includes(building.specialization)) {
-            affectedByFertilityOrAbundance = true
-          }
-        }
-
-        // For new buildings, also add tier extras if on Tier 2-4 planet
-        let allMaterials = [...baseMaterials]
-        if (planetId > 1) {
-          // planetId corresponds roughly to tier (1=tier1, 2=tier2, etc.)
-          const tierExtras = computeBuildingTierExtras(planetId, level, {
-            isWarehouse,
-            isHousing,
-            isProduction,
-            affectedByFertilityOrAbundance,
-            specialization: building.specialization
-          })
-          allMaterials = [...allMaterials, ...tierExtras]
-        }
-
-        materialsCost = formatMaterialList(allMaterials, gameData)
+      const buildingForCost2 = normalizeWorkersHousing(building)
+      if (buildingForCost2?.constructionMaterials && buildingForCost2.constructionMaterials.length > 0) {
+        // planetId entspricht planetTier
+        materialsCost = computeBuildingUpgradeCost(
+          buildingForCost2,
+          planetId,
+          0,
+          level,
+          gameData ? { materials: gameData.materials } : undefined
+        )
       }
 
       // Register the change for state reversion

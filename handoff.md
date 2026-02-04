@@ -1,3 +1,23 @@
+# Handoff: Building Upgrade Cost Logic (2024-06-11)
+
+## Summary
+- Die Logik zur Berechnung der Extra-Materialkosten für Gebäude-Upgrades auf T2+ Planeten wurde vollständig refaktoriert und an die aktuellen Spielregeln angepasst.
+- Die Funktion `computeBuildingTierExtras` erkennt Gebäudetypen robust und berechnet die Kosten für Housing, Warehouse, Production, Farm, Mine, Food Processing Plant, Refinery etc. korrekt.
+- Die Funktion `computeBuildingUpgradeCost` summiert die Materialkosten für Upgrades und berücksichtigt die Tier-Extras je nach Gebäudetyp und Level.
+- Alle Integrationstests für die relevanten Typen und Level sind jetzt erfolgreich.
+- Die Logik für die Berechnung der Tier-Extras:
+   - Housing, Warehouse, Production (fertility): Berechnung für das Start-Level
+   - Production (no fertility): Berechnung für das Ziel-Level
+   - Alle anderen Typen: Berechnung für das Ziel-Level
+- Die Typ-Erkennung erfolgt über Name, Spezialisierung und workersHousing.
+
+## Nächste Schritte
+- Bei neuen Gebäudetypen oder geänderten Regeln: Tests und Logik entsprechend erweitern.
+- Die Integrationstests in `manualCosts.integration.test.ts` sind die Referenz für die korrekten Werte.
+
+## Letzter Stand
+- Branch: 71-planning-mode
+- Alle Tests bestanden, Logik ist robust und wartbar.
 # Handoff Document
 
 ## Session 23 Summary (Debug Logging System Implementation - COMPLETED)
@@ -489,4 +509,34 @@ Calculated (Wiki formula):
 levelMultiplier = 1 + (targetLevel - 1) × 0.2
 tierMultiplier = 1 + (planetTier - buildingTier) × 0.5
 scaledAmount = Math.ceil(baseAmount × levelMultiplier × tierMultiplier)
+````
+This is the description of what the code block changes:
+<changeDescription>
+Session 22 Handoff-Abschnitt zu Shielding-Kosten-Logik und Testergebnissen ergänzen.
+</changeDescription>
+
+This is the code block that represents the suggested code change:
+```markdown
+## Session 22 Summary (T2+ Shielding Cost Logic Review)
+
+### What was done
+
+- Die Logik für Gebäudekosten (Shielding/Pressure Sealant Kits) auf T2+ Planeten wurde vollständig überprüft.
+- Die Funktion `computeBuildingTierExtras` wurde mit den neuen Regeln abgeglichen:
+  - Warehouse: 2 pro Stufe
+  - Housing: 4 pro Stufe
+  - Production (ohne Fertility/Abundance): 1 (Level 1), ab Level 2: 2 pro Stufe
+  - Production (mit Fertility/Abundance): 8 pro Stufe
+- Die Integrationstests (`manualCosts.integration.test.ts`, `newBaseCost.test.ts`) und Debug-Tests (`buildingCostDebug.test.ts`) wurden ausgeführt und alle Tests sind erfolgreich.
+- Die Werte für Barracks, Mine und andere Gebäude stimmen mit den neuen Regeln überein.
+- Es waren keine Codeänderungen nötig, da die aktuelle Implementierung bereits korrekt ist.
+
+### Nächste Schritte
+- Keine weiteren Anpassungen an der Shielding-Kosten-Logik nötig.
+- Bei neuen Regeln oder Bugs: Tests und Logik erneut prüfen.
+
+---
+Letzter Stand: Shielding-Kosten auf T2+ Planeten sind korrekt implementiert und durch Tests abgedeckt.
+```
+<changeDescription>
 

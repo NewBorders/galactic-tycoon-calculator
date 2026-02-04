@@ -1,3 +1,15 @@
+import { createLogger } from '@/v2/services/debug/logger'
+const logger = createLogger('PlayerConfigPanel')
+
+watch(() => props.gameData, (newVal, oldVal) => {
+  logger.info('PlayerConfigPanel: gameData updated', {
+    newMaterialCount: newVal?.materials?.length,
+    newBuildingCount: newVal?.buildings?.length,
+    loadedAt: props.gameDataLoadedAt,
+    firstMaterial: newVal?.materials?.[0],
+    firstBuilding: newVal?.buildings?.[0],
+  })
+})
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createLogger } from '@/v2/services/debug/logger'

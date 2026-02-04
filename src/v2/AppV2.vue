@@ -95,6 +95,14 @@ onMounted(async () => {
     gd.value = data
     gdIndex.value = index
     gdLoadedAt.value = loadedAt
+    // Debug-Log: gameData nach erfolgreichem Laden
+    console.info('AppV2: gameData loaded', {
+      materialCount: data?.materials?.length,
+      buildingCount: data?.buildings?.length,
+      loadedAt,
+      firstMaterial: data?.materials?.[0],
+      firstBuilding: data?.buildings?.[0],
+    })
     // Start global alert checking once gameData is loaded
     setupAlertChecking()
     // Initialize sync service for background auto-refresh
@@ -121,6 +129,14 @@ watch(getWorld, async () => {
     gd.value = result.data
     gdIndex.value = result.index
     gdLoadedAt.value = result.loadedAt
+    // Debug-Log: gameData nach erfolgreichem Laden (World-Wechsel)
+    console.info('AppV2: gameData loaded (world change)', {
+      materialCount: result.data?.materials?.length,
+      buildingCount: result.data?.buildings?.length,
+      loadedAt: result.loadedAt,
+      firstMaterial: result.data?.materials?.[0],
+      firstBuilding: result.data?.buildings?.[0],
+    })
     // Restart alert checking for new world
     setupAlertChecking()
     // Reinitialize sync service for new world
