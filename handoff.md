@@ -2,6 +2,7 @@
 
 ## Status
 - No open items.
+ - Added building add + upgrade merge in todo list and verified with new integration test.
 
 ---
 

@@ -308,7 +308,15 @@ function createTodoList() {
       const lastIsAction = !!lastChange.details?.action
       const newIsAction = !!newChange.details?.action
 
-      if (lastIsAction || newIsAction) return false
+      if (lastIsAction || newIsAction) {
+        const lastAction = lastChange.details?.action as string | undefined
+        if (lastAction === 'add' && !newIsAction) {
+          const lastInst = lastChange.details?.buildingInstanceId as string | undefined
+          const newInst = newChange.details?.buildingInstanceId as string | undefined
+          return !!lastInst && lastInst === newInst
+        }
+        return false
+      }
 
       // Check if same building instance
       const lastInst = lastChange.details?.buildingInstanceId as string | undefined
@@ -564,6 +572,68 @@ function createTodoList() {
         const to = changeWithTime.details?.to
         const newFrom = changeWithTime.details?.from
         const originalValue = lastChange.details?.originalValue  // Keep the true original value
+
+        if (
+          lastChange.type === 'building' &&
+          changeWithTime.type === 'building' &&
+          lastChange.details?.action === 'add' &&
+          !changeWithTime.details?.action
+        ) {
+          const targetLevel = typeof to === 'number' ? to : Number(to)
+          if (!Number.isFinite(targetLevel)) return
+
+          let mergedCost = mergeMaterialsCosts(
+            lastChange.details?.materialsCost as string | undefined,
+            changeWithTime.details?.materialsCost as string | undefined
+          )
+
+          const buildingId = changeWithTime.details?.buildingId ? Number(changeWithTime.details.buildingId) : undefined
+          const planetId = changeWithTime.planetId
+          if (buildingId !== undefined && planetId !== undefined) {
+            try {
+              const gd = getGameData()
+              const building = gd?.buildings.find(b => b.id === buildingId)
+              const planet = gd?.planets.find(p => p.id === planetId)
+              if (building && planet) {
+                const buildingForCost = normalizeWorkersHousing(building)
+                const recalculatedCost = computeBuildingUpgradeCost(
+                  buildingForCost,
+                  planet.tier ?? 1,
+                  0,
+                  targetLevel,
+                  gd ? { materials: gd.materials } : undefined
+                )
+                if (recalculatedCost !== undefined) {
+                  mergedCost = recalculatedCost
+                }
+              }
+            } catch (e) {
+              console.warn('[TodoListService] Failed to recalculate add+upgrade costs:', e)
+            }
+          }
+
+          const lastName = lastChange.description.replace(/^🏢\s*/, '').replace(/\s+added.*$/, '')
+          const newDescription = `🏢 ${lastName} added (Level ${targetLevel})`
+
+          lastStep.changes = [{
+            ...changeWithTime,
+            description: newDescription,
+            details: {
+              ...changeWithTime.details,
+              action: 'add',
+              from: 0,
+              to: targetLevel,
+              buildingInstanceId: changeWithTime.details?.buildingInstanceId ?? lastChange.details?.buildingInstanceId,
+              materialsCost: mergedCost,
+            },
+          }]
+          lastStep.description = newDescription
+
+          scopeHistory.history.push(currentGroups)
+          scopeHistory.currentIndex++
+          saveToStorage()
+          return
+        }
 
         if (from !== undefined && to !== undefined) {
           // Update description
