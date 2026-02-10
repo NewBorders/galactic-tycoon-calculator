@@ -5,6 +5,8 @@
 - Technology import now bumps planned levels to at least current during API sync.
 - Added integration coverage for planned tech bump on import.
 - Sync intervals now applied per entry consistently (init, refresh, reload).
+- Added in-flight request deduping for sync init, game data loads, and warehouse/company/base API calls.
+- Base import now bumps planned building levels and recipe counts to at least current; added integration coverage.
 
 ---
 

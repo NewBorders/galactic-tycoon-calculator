@@ -48,6 +48,12 @@ const cache = {
   warehouse: new Map<string, { data: WarehouseStockResponse; ts: number }>(), // key: "world:warehouseId"
 }
 
+const inFlight = {
+  bases: new Map<World, Promise<{ data: CompanyResponse; source: 'api' | 'cache' }>>(),
+  warehouse: new Map<string, Promise<{ data: WarehouseStockResponse; source: 'api' | 'cache' }>>(),
+  baseDetails: new Map<string, Promise<{ data: GameBaseRaw; source: 'api' | 'cache' }>>(),
+}
+
 /**
  * Check if a cache entry is still valid
  */
@@ -70,7 +76,12 @@ export async function fetchCompanyBases(
     return { data: cached.data, source: 'cache' }
   }
 
-  try {
+  const existing = inFlight.bases.get(world)
+  if (existing) {
+    return existing
+  }
+
+  const requestPromise = (async () => {
     const baseUrl = getApiBaseUrl(world)
     const url = new URL(`${baseUrl}/public/company`)
     url.searchParams.set('apikey', apiKey)
@@ -99,8 +110,16 @@ export async function fetchCompanyBases(
     cache.bases.set(world, { data, ts: Date.now() })
 
     return { data, source: 'api' }
+  })()
+
+  inFlight.bases.set(world, requestPromise)
+
+  try {
+    return await requestPromise
   } catch (error) {
     throw new Error(`Failed to fetch company bases: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    inFlight.bases.delete(world)
   }
 }
 
@@ -123,7 +142,12 @@ export async function fetchWarehouseStockForBase(
     return { data: cached.data, source: 'cache' }
   }
 
-  try {
+  const existing = inFlight.warehouse.get(cacheKey)
+  if (existing) {
+    return existing
+  }
+
+  const requestPromise = (async () => {
     const baseUrl = getApiBaseUrl(world)
     const url = new URL(`${baseUrl}/public/company/warehouse/${warehouseId}`)
     url.searchParams.set('apikey', apiKey)
@@ -154,10 +178,18 @@ export async function fetchWarehouseStockForBase(
     cache.warehouse.set(cacheKey, { data, ts: Date.now() })
 
     return { data, source: 'api' }
+  })()
+
+  inFlight.warehouse.set(cacheKey, requestPromise)
+
+  try {
+    return await requestPromise
   } catch (error) {
     throw new Error(
       `Failed to fetch warehouse stock for warehouse ${warehouseId}: ${error instanceof Error ? error.message : String(error)}`,
     )
+  } finally {
+    inFlight.warehouse.delete(cacheKey)
   }
 }
 
@@ -193,46 +225,62 @@ export async function fetchGameBaseDetails(
   gameBaseId: number,
   world: World = 'g2',
 ): Promise<{ data: GameBaseRaw; source: 'api' | 'cache' }> {
-  try {
-    const baseUrl = getApiBaseUrl(world)
-    // Try endpoint with id path first
-    const url = new URL(`${baseUrl}/public/company/base/${gameBaseId}`)
-    url.searchParams.set('apikey', apiKey)
+  const cacheKey = `${world}:${gameBaseId}`
+  const existing = inFlight.baseDetails.get(cacheKey)
+  if (existing) {
+    return existing
+  }
 
-    const response = await fetch(url.toString())
-    if (!response.ok) {
-      // Fallback: try list endpoint and filter
-      const listUrl = new URL(`${baseUrl}/public/company/base`)
-      listUrl.searchParams.set('apikey', apiKey)
-      const listResp = await fetch(listUrl.toString())
-      if (!listResp.ok) {
-        // Try to extract error message from response body
-        let errorDetail = `${listResp.status} ${listResp.statusText}`
-        try {
-          const errorBody = await listResp.json()
-          if (errorBody.error) {
-            errorDetail = `${listResp.status}: ${errorBody.error}`
-          } else if (errorBody.message) {
-            errorDetail = `${listResp.status}: ${errorBody.message}`
+  const requestPromise = (async () => {
+    try {
+      const baseUrl = getApiBaseUrl(world)
+      // Try endpoint with id path first
+      const url = new URL(`${baseUrl}/public/company/base/${gameBaseId}`)
+      url.searchParams.set('apikey', apiKey)
+
+      const response = await fetch(url.toString())
+      if (!response.ok) {
+        // Fallback: try list endpoint and filter
+        const listUrl = new URL(`${baseUrl}/public/company/base`)
+        listUrl.searchParams.set('apikey', apiKey)
+        const listResp = await fetch(listUrl.toString())
+        if (!listResp.ok) {
+          // Try to extract error message from response body
+          let errorDetail = `${listResp.status} ${listResp.statusText}`
+          try {
+            const errorBody = await listResp.json()
+            if (errorBody.error) {
+              errorDetail = `${listResp.status}: ${errorBody.error}`
+            } else if (errorBody.message) {
+              errorDetail = `${listResp.status}: ${errorBody.message}`
+            }
+          } catch {
+            // Failed to parse error body, use status text
           }
-        } catch {
-          // Failed to parse error body, use status text
+          throw new Error(`API error: ${errorDetail}`)
         }
-        throw new Error(`API error: ${errorDetail}`)
+        const listData = await listResp.json()
+        // Try to find matching base
+        const found = Array.isArray(listData) ? listData.find((b: Record<string, unknown>) => b.id === gameBaseId) : null
+        if (!found) throw new Error(`Base ${gameBaseId} not found in API response`)
+        return { data: found as GameBaseRaw, source: 'api' }
       }
-      const listData = await listResp.json()
-      // Try to find matching base
-      const found = Array.isArray(listData) ? listData.find((b: Record<string, unknown>) => b.id === gameBaseId) : null
-      if (!found) throw new Error(`Base ${gameBaseId} not found in API response`)
-      return { data: found as GameBaseRaw, source: 'api' }
-    }
 
-    const data = await response.json()
-    return { data: data as GameBaseRaw, source: 'api' }
-  } catch (error) {
-    throw new Error(
-      `Failed to fetch base details for base ${gameBaseId}: ${error instanceof Error ? error.message : String(error)}`,
-    )
+      const data = await response.json()
+      return { data: data as GameBaseRaw, source: 'api' }
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch base details for base ${gameBaseId}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  })()
+
+  inFlight.baseDetails.set(cacheKey, requestPromise)
+
+  try {
+    return await requestPromise
+  } finally {
+    inFlight.baseDetails.delete(cacheKey)
   }
 }
 

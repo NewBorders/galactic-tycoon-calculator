@@ -43,6 +43,12 @@ export function buildIndex(gd: GameData): GdIndex {
 // Singleton state for the repository
 let cachedGameData: GameData | null = null
 let cachedIndex: GdIndex | null = null
+const inFlightLoads = new Map<string, Promise<{
+  data: GameData
+  index: GdIndex
+  source: GameDataSource
+  loadedAt: number
+}>>()
 
 /**
  * Initialize the repository with game data
@@ -89,6 +95,7 @@ export async function loadGameData(force = false): Promise<{
   loadedAt: number
 }> {
   const world = getWorld()
+  const inFlightKey = `${world}:${force ? 'force' : 'normal'}`
   if (!force) {
     const c = readCache(world)
     if (c) {
@@ -99,13 +106,29 @@ export async function loadGameData(force = false): Promise<{
       return { data, index, source: cachedSource, loadedAt: c.ts }
     }
   }
-  const { raw, source } = await extractRaw()
-  const data: GameData = { ...normalize(raw), source }
-  const ts = Date.now()
-  writeCache(world, { ts, data })
-  const index = buildIndex(data)
-  initializeRepository(data, index)
-  return { data, index, source, loadedAt: ts }
+
+  const existing = inFlightLoads.get(inFlightKey)
+  if (existing) {
+    return existing
+  }
+
+  const loadPromise = (async () => {
+    const { raw, source } = await extractRaw()
+    const data: GameData = { ...normalize(raw), source }
+    const ts = Date.now()
+    writeCache(world, { ts, data })
+    const index = buildIndex(data)
+    initializeRepository(data, index)
+    return { data, index, source, loadedAt: ts }
+  })()
+
+  inFlightLoads.set(inFlightKey, loadPromise)
+
+  try {
+    return await loadPromise
+  } finally {
+    inFlightLoads.delete(inFlightKey)
+  }
 }
 
 /**

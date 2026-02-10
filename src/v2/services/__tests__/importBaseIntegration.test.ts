@@ -118,4 +118,42 @@ describe('Import Base Integration', () => {
     expect(updated.recipes[0].recipeId).toBe(200)
     expect(updated.recipes[0].count).toBe(1)
   })
+
+  it('bumps planned levels and counts to current on import', () => {
+    const fresh = usePlayerBases(mockGameData)
+
+    fresh.syncBaseFromApi({ id: 101, name: 'API Base', planetId: 1, warehouseId: 201 })
+
+    const base = fresh.state.value.bases.find((b) => b.gameBaseId === 101)!
+
+    base.buildings = [
+      { id: 'planned-1', buildingId: 10, level: 1, slotId: 0 },
+    ]
+    base.recipes = [
+      { id: 'planned-recipe-1', recipeId: 200, count: 1 },
+    ]
+
+    const payload = {
+      id: 101,
+      name: 'API Base',
+      planetId: 1,
+      warehouseId: 201,
+      buildingSlots: [
+        { buildingId: 10, slot: 0, level: 3 },
+      ],
+      productionOrders: [
+        { recipeId: 200, quantity: 1 },
+        { recipeId: 200, quantity: 1 },
+        { recipeId: 200, quantity: 1 },
+      ],
+    }
+
+    const imported = fresh.importBaseFromApiPayload(base.id, payload)
+    expect(imported).toBe(true)
+
+    const updated = fresh.state.value.bases.find((b) => b.id === base.id)!
+    expect(updated.buildings[0].level).toBe(3)
+    expect(updated.recipes[0].currentCount).toBe(3)
+    expect(updated.recipes[0].count).toBe(3)
+  })
 })

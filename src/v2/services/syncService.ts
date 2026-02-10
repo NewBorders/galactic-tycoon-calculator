@@ -41,6 +41,8 @@ let countdownTimer: number | null = null
 let callbacks: SyncCallbacks = {}
 let pendingBasesData: Array<{ id: number; name: string; planetId: number; warehouseId: number }> | null = null
 const logger = createLogger('SyncService')
+let initializationPromise: Promise<void> | null = null
+let lastInitKey: string | null = null
 
 function getAutoRefreshInterval(entryId: string): number {
   if (entryId === 'gamedata') return AUTO_REFRESH_INTERVAL_GAMEDATA
@@ -112,125 +114,150 @@ export async function initializeSyncService(
     callbacks.onCompanyDataLoaded = onCompanyDataLoaded
   }
 
-  const entries: SyncEntry[] = []
   const world = getWorld()
   const apiKey = getApiKey()
+  const initKey = `${world}:${apiKey ?? ''}`
 
-  // 1. Game Data
-  entries.push({
-    id: 'gamedata',
-    name: 'Game Data',
-    icon: '📊',
-    lastSync: 0,
-    nextRefresh: AUTO_REFRESH_INTERVAL_GAMEDATA,
-    isRefreshing: false,
-    error: null,
-  })
+  if (initializationPromise && lastInitKey === initKey) {
+    return initializationPromise
+  }
 
-  // 2. Company (bases, ships, tech level)
-  entries.push({
-    id: 'company',
-    name: 'Company Data',
-    icon: '🏢',
-    lastSync: 0,
-    nextRefresh: AUTO_REFRESH_INTERVAL_COMPANY,
-    isRefreshing: false,
-    error: null,
-  })
+  if (lastInitKey === initKey && syncEntries.value.length > 0) {
+    return
+  }
 
-  // 3. Exchange Market Details
-  entries.push({
-    id: 'exchange',
-    name: 'Exchange Market',
-    icon: '📈',
-    lastSync: 0,
-    nextRefresh: AUTO_REFRESH_INTERVAL,
-    isRefreshing: false,
-    error: null,
-  })
+  lastInitKey = initKey
 
-  // Load company bases to create entries for each base
-  if (apiKey) {
-    try {
-      const result = await fetchCompanyBases(apiKey, world, true) // Force refresh on init
-      const bases = result.data.bases || []
+  const runInitialization = async () => {
+    const entries: SyncEntry[] = []
 
-      // Extract and set technology levels from Company Data
-      if (result.data.technologies && result.data.technologies.length > 0) {
-        applyCompanyTechnologyImport(result.data.technologies, result.data.startingBonus)
-      }
+    // 1. Game Data
+    entries.push({
+      id: 'gamedata',
+      name: 'Game Data',
+      icon: '📊',
+      lastSync: 0,
+      nextRefresh: AUTO_REFRESH_INTERVAL_GAMEDATA,
+      isRefreshing: false,
+      error: null,
+    })
 
-      // Format bases data
-      const formattedBases = bases.map((b) => ({
-        id: b.id,
-        name: b.name,
-        planetId: b.planetId,
-        warehouseId: b.warehouseId,
-      }))
+    // 2. Company (bases, ships, tech level)
+    entries.push({
+      id: 'company',
+      name: 'Company Data',
+      icon: '🏢',
+      lastSync: 0,
+      nextRefresh: AUTO_REFRESH_INTERVAL_COMPANY,
+      isRefreshing: false,
+      error: null,
+    })
 
-      // Trigger callback if already registered, otherwise store for later
-      if (callbacks.onCompanyDataLoaded) {
-        callbacks.onCompanyDataLoaded(formattedBases)
-      } else {
-        pendingBasesData = formattedBases
-      }
+    // 3. Exchange Market Details
+    entries.push({
+      id: 'exchange',
+      name: 'Exchange Market',
+      icon: '📈',
+      lastSync: 0,
+      nextRefresh: AUTO_REFRESH_INTERVAL,
+      isRefreshing: false,
+      error: null,
+    })
 
-      // 4. Base Details - one entry per base
-      for (const base of bases) {
-        entries.push({
-          id: `base-${base.id}`,
-          name: `Base: ${base.name || base.id}`,
-          icon: '🏭',
-          lastSync: 0,
-          nextRefresh: AUTO_REFRESH_INTERVAL_COMPANY,
-          isRefreshing: false,
-          error: null,
-        })
-      }
+    // Load company bases to create entries for each base
+    if (apiKey) {
+      try {
+        const result = await fetchCompanyBases(apiKey, world, true) // Force refresh on init
+        const bases = result.data.bases || []
 
-      // 5. Warehouse - one entry per base (with unique warehouse IDs)
-      const processedWarehouses = new Set<number>()
-      for (const base of bases) {
-        if (base.warehouseId && !processedWarehouses.has(base.warehouseId)) {
-          processedWarehouses.add(base.warehouseId)
+        // Extract and set technology levels from Company Data
+        if (result.data.technologies && result.data.technologies.length > 0) {
+          applyCompanyTechnologyImport(result.data.technologies, result.data.startingBonus)
+        }
+
+        // Format bases data
+        const formattedBases = bases.map((b) => ({
+          id: b.id,
+          name: b.name,
+          planetId: b.planetId,
+          warehouseId: b.warehouseId,
+        }))
+
+        // Trigger callback if already registered, otherwise store for later
+        if (callbacks.onCompanyDataLoaded) {
+          callbacks.onCompanyDataLoaded(formattedBases)
+        } else {
+          pendingBasesData = formattedBases
+        }
+
+        // 4. Base Details - one entry per base
+        for (const base of bases) {
           entries.push({
-            id: `warehouse-${base.warehouseId}`,
-            name: `Warehouse: ${base.name || base.id}`,
-            icon: '📦',
+            id: `base-${base.id}`,
+            name: `Base: ${base.name || base.id}`,
+            icon: '🏭',
             lastSync: 0,
-            nextRefresh: AUTO_REFRESH_INTERVAL,
+            nextRefresh: AUTO_REFRESH_INTERVAL_COMPANY,
             isRefreshing: false,
             error: null,
           })
         }
+
+        // 5. Warehouse - one entry per base (with unique warehouse IDs)
+        const processedWarehouses = new Set<number>()
+        for (const base of bases) {
+          if (base.warehouseId && !processedWarehouses.has(base.warehouseId)) {
+            processedWarehouses.add(base.warehouseId)
+            entries.push({
+              id: `warehouse-${base.warehouseId}`,
+              name: `Warehouse: ${base.name || base.id}`,
+              icon: '📦',
+              lastSync: 0,
+              nextRefresh: AUTO_REFRESH_INTERVAL,
+              isRefreshing: false,
+              error: null,
+            })
+          }
+        }
+      } catch (error) {
+        logger.error('Failed to load bases:', error)
       }
-    } catch (error) {
-      logger.error('Failed to load bases:', error)
+    }
+
+    syncEntries.value = entries
+
+    // Load saved sync times from localStorage
+    loadSyncTimes()
+
+    // Start background countdown timer if not already running
+    if (countdownTimer === null) {
+      startBackgroundRefresh()
+    }
+
+    // Initial warehouse stock load for all warehouses (after entries are set)
+    if (apiKey) {
+      const warehouseEntries = entries.filter(e => e.id.startsWith('warehouse-'))
+      for (const entry of warehouseEntries) {
+        try {
+          // Don't await - let them load in parallel
+          refreshEntry(entry.id).catch(e => {
+            logger.warn('Initial warehouse load failed:', entry.id, e)
+          })
+        } catch (e) {
+          logger.warn('Failed to trigger initial warehouse load:', entry.id, e)
+        }
+      }
     }
   }
 
-  syncEntries.value = entries
+  const currentInitialization = runInitialization()
+  initializationPromise = currentInitialization
 
-  // Load saved sync times from localStorage
-  loadSyncTimes()
-
-  // Start background countdown timer if not already running
-  if (countdownTimer === null) {
-    startBackgroundRefresh()
-  }
-
-  // Initial warehouse stock load for all warehouses (after entries are set)
-  if (apiKey) {
-    const warehouseEntries = entries.filter(e => e.id.startsWith('warehouse-'))
-    for (const entry of warehouseEntries) {
-      try {
-        // Don't await - let them load in parallel
-        refreshEntry(entry.id).catch(e => {
-          logger.warn('Initial warehouse load failed:', entry.id, e)
-        })
-      } catch (e) {
-        logger.warn('Failed to trigger initial warehouse load:', entry.id, e)
-      }
+  try {
+    await currentInitialization
+  } finally {
+    if (initializationPromise === currentInitialization) {
+      initializationPromise = null
     }
   }
 }

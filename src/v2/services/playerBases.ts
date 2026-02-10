@@ -395,12 +395,14 @@ export function usePlayerBases(gd: GameData) {
       b.buildings = b.currentBuildings.map((current) => {
         const existingPlanned = current.slotId != null ? plannedBySlotId.get(current.slotId) : null
         if (existingPlanned) {
+          const plannedLevel = Math.max(0, Math.floor(existingPlanned.level ?? 0))
+          const currentLevel = Math.max(0, Math.floor(current.level ?? 0))
           // Keep existing planned entry but update buildingId (in case it changed)
           return {
             ...existingPlanned,
             buildingId: current.buildingId,
             slotId: current.slotId,
-            // Keep planned.level (don't overwrite)
+            level: Math.max(plannedLevel, currentLevel),
           }
         } else {
           // New slot: create new planned entry from current
@@ -436,6 +438,12 @@ export function usePlayerBases(gd: GameData) {
       if (existing) {
         // Recipe already planned: just update currentCount, preserve count (planned)
         existing.currentCount = apiCount
+        const plannedCount = typeof existing.count === 'number' && Number.isFinite(existing.count)
+          ? Math.max(0, Math.floor(existing.count))
+          : 0
+        if (apiCount > plannedCount) {
+          existing.count = apiCount
+        }
       } else {
         // New recipe from API: add it with both current and planned matching
         const recipeInstanceId = addRecipe(baseId, recipeId)
