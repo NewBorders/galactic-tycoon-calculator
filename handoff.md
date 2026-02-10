@@ -6,6 +6,9 @@
 - All tests pass after running `docker compose exec web npx vitest run`.
  - Removed unused buildingCosts types file after tech-costs split.
  - Addressed PriceManagement template typing/null-guards; type-check and lint are green.
+ - Updated tier extra building costs to use fixed base amounts with growth scaling; adjusted tier 2 tests accordingly.
+ - Exported building cost input types from core as the single source; building cost tests now import from core.
+ - Fixed warehouse fixture naming and verified full test suite passes.
 
 ## Notes
 - Technology cost regression expectations updated to reflect downgrade cost behavior (level removed cost).

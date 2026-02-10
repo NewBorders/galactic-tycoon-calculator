@@ -1,12 +1,67 @@
+export type WorkersHousingInput =
+	| number[]
+	| { worker?: number; technician?: number; engineer?: number; scientist?: number }
+	| null
+	| undefined
+
+export type BuildingCostInput = {
+	constructionMaterials: Array<{ id: number; amount: number }>
+	name?: string
+	specialization?: number
+	workersHousing?: WorkersHousingInput
+}
+
+function normalizeWorkersHousing(workersHousing: WorkersHousingInput): number[] | null {
+	if (!workersHousing) return null
+	if (Array.isArray(workersHousing)) return workersHousing
+	if (typeof workersHousing === 'object') {
+		return [
+			workersHousing.worker ?? 0,
+			workersHousing.technician ?? 0,
+			workersHousing.engineer ?? 0,
+			workersHousing.scientist ?? 0,
+		]
+	}
+	return null
+}
+
+function getTierExtraMaterialId(planetTier: number): number | undefined {
+	if (planetTier === 2) return 90
+	if (planetTier === 3) return 120
+	if (planetTier === 4) return 121
+	return undefined
+}
+
+function getTierExtraBaseAmount(building: BuildingCostInput): number {
+	const name = building.name?.toLowerCase() || ''
+	const specialization = building.specialization
+	const workersHousing = normalizeWorkersHousing(building.workersHousing)
+
+	if (name.includes('warehouse')) {
+		return 2
+	}
+
+	if (
+		['barracks', 'residential', 'comfort', 'stella', 'suite'].some(hn => name.includes(hn)) ||
+		(Array.isArray(workersHousing) && workersHousing.some(x => x > 0))
+	) {
+		return 4
+	}
+
+	if ([2, 5, 6, 7, 10].includes(specialization ?? -1)) {
+		return 1
+	}
+
+	return 8
+}
+
 export function computeSingleBuildingLevelCost(
-	building: { constructionMaterials: Array<{ id: number; amount: number }> },
+	building: BuildingCostInput,
 	planetTier: number,
 	level: number
 ): Map<number, number> {
 	const result = new Map<number, number>()
 	const growth = level === 1 ? 1 : getBuildingGrowthMultiplier(level)
-
-  // TODO: add extra costs for planet tier > 1
 
 	for (const cm of building.constructionMaterials ?? []) {
 		const amount = Math.ceil((cm?.amount ?? 0) * growth)
@@ -14,6 +69,16 @@ export function computeSingleBuildingLevelCost(
 			result.set(cm.id, amount)
 		}
 	}
+
+	const extraMaterialId = getTierExtraMaterialId(planetTier)
+	if (extraMaterialId) {
+		const baseAmount = getTierExtraBaseAmount(building)
+		const extraAmount = Math.ceil(baseAmount * growth)
+		if (extraAmount > 0) {
+			result.set(extraMaterialId, (result.get(extraMaterialId) ?? 0) + extraAmount)
+		}
+	}
+
 	return result
 }
 
@@ -47,64 +112,6 @@ export const NEW_BASE_COSTS_BY_TIER: Record<number, Array<{ materialId: number; 
 	],
 }
 
-export function computeBuildingTierExtras(
-	building: {
-		name?: string
-		specialization?: number
-		workersHousing?:
-			| number[]
-			| { worker?: number; technician?: number; engineer?: number; scientist?: number }
-			| null
-		tier?: number
-	},
-	planetTier: number,
-	targetLevel: number,
-): Array<{ materialId: number; amount: number }> {
-	const name = building.name?.toLowerCase() || ''
-	const specialization = building.specialization
-	let workersHousing = building.workersHousing
-	if (
-		workersHousing &&
-		!Array.isArray(workersHousing) &&
-		typeof workersHousing === 'object' &&
-		workersHousing !== null &&
-		'worker' in workersHousing
-	) {
-		const wh = workersHousing as { worker?: number; technician?: number; engineer?: number; scientist?: number }
-		workersHousing = [
-			wh.worker ?? 0,
-			wh.technician ?? 0,
-			wh.engineer ?? 0,
-			wh.scientist ?? 0,
-		]
-	}
-
-	let amount = 0
-	if (name.includes('warehouse')) {
-		amount = targetLevel === 1 ? 2 : (targetLevel === 2 ? 3 : 1)
-	} else if (['barracks', 'residential', 'comfort', 'stella', 'suite'].some(hn => name.includes(hn)) || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0))) {
-		amount = targetLevel === 1 ? 4 : (targetLevel === 2 ? 5 : 1)
-	} else if (specialization === 4) {
-		if (targetLevel === 1) amount = 8;
-		else if (targetLevel === 2) amount = 10;
-		else if (targetLevel === 3) amount = 11;
-		else if (targetLevel === 4) amount = 13;
-		else amount = 2;
-	} else if (specialization === 3) {
-		amount = targetLevel === 1 ? 8 : (targetLevel === 2 ? 10 : 2);
-	} else if ([2,3,4,5,6,8,10].includes(specialization ?? -1)) {
-		amount = targetLevel === 1 ? 1 : (targetLevel === 2 ? 2 : 1)
-	}
-
-	let materialId: number | undefined
-	if (planetTier === 2) materialId = 90
-	else if (planetTier === 3) materialId = 120
-	else if (planetTier === 4) materialId = 121
-
-	if (!materialId) return []
-	return [{ materialId, amount }]
-}
-
 export function getBuildingGrowthMultiplier(level: number): number {
 	if (level < 2) return 1
 	if (level <= 8) {
@@ -136,28 +143,10 @@ export function computeBuildingUpgradeCost(
 	}
 
 	const materialTotals = new Map<number, number>()
-	const tierExtraTotals = new Map<number, number>()
 	const totals = new Map<number, number>()
 
 	const start = Math.min(fromLevel, toLevel)
 	const end = Math.max(fromLevel, toLevel)
-
-	let workersHousing = building.workersHousing
-	if (
-		workersHousing &&
-		!Array.isArray(workersHousing) &&
-		typeof workersHousing === 'object' &&
-		workersHousing !== null &&
-		'worker' in workersHousing
-	) {
-		const wh = workersHousing as { worker?: number; technician?: number; engineer?: number; scientist?: number }
-		workersHousing = [
-			wh.worker ?? 0,
-			wh.technician ?? 0,
-			wh.engineer ?? 0,
-			wh.scientist ?? 0,
-		]
-	}
 
 	if (fromLevel === 0 && toLevel === 1) {
 		for (const [id, amount] of computeSingleBuildingLevelCost(building, planetTier, 1)) {
@@ -171,67 +160,8 @@ export function computeBuildingUpgradeCost(
 		}
 	}
 
-	if (fromLevel === 0) {
-		if (toLevel === 1) {
-			const tierExtras = computeBuildingTierExtras(building, planetTier, 1)
-			for (const extra of tierExtras) {
-				if (extra?.amount > 0) {
-					tierExtraTotals.set(extra.materialId, (tierExtraTotals.get(extra.materialId) ?? 0) + extra.amount)
-				}
-			}
-		} else {
-			for (let lvl = 1; lvl <= toLevel; lvl++) {
-				const tierExtras = computeBuildingTierExtras(building, planetTier, lvl)
-				for (const extra of tierExtras) {
-					if (extra?.amount > 0) {
-						tierExtraTotals.set(extra.materialId, (tierExtraTotals.get(extra.materialId) ?? 0) + extra.amount)
-					}
-				}
-			}
-		}
-	} else if (fromLevel !== toLevel) {
-		const name = building.name?.toLowerCase() || ''
-		const specialization = building.specialization
-		let normalizedHousing = workersHousing
-		if (
-			normalizedHousing &&
-			!Array.isArray(normalizedHousing) &&
-			typeof normalizedHousing === 'object' &&
-			normalizedHousing !== null &&
-			'worker' in normalizedHousing
-		) {
-			const wh = normalizedHousing as { worker?: number; technician?: number; engineer?: number; scientist?: number }
-			normalizedHousing = [
-				wh.worker ?? 0,
-				wh.technician ?? 0,
-				wh.engineer ?? 0,
-				wh.scientist ?? 0,
-			]
-		}
-
-		let tierExtras: Array<{ materialId: number; amount: number }> = []
-		if (
-			['barracks', 'residential', 'comfort', 'stella', 'suite'].some(hn => name.includes(hn)) ||
-			(Array.isArray(normalizedHousing) && normalizedHousing.some(x => x > 0))
-		) {
-			tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel)
-		} else if ([2, 3, 4, 5, 6, 8, 10].includes(specialization ?? -1) && ![3, 8].includes(specialization ?? -1)) {
-			tierExtras = computeBuildingTierExtras(building, planetTier, toLevel)
-		} else {
-			tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel)
-		}
-		for (const extra of tierExtras) {
-			if (extra?.amount > 0) {
-				tierExtraTotals.set(extra.materialId, (tierExtraTotals.get(extra.materialId) ?? 0) + extra.amount)
-			}
-		}
-	}
-
 	materialTotals.forEach((amount, id) => {
 		totals.set(id, amount)
-	})
-	tierExtraTotals.forEach((amount, id) => {
-		totals.set(id, (totals.get(id) ?? 0) + amount)
 	})
 
 	if (totals.size === 0) return undefined
