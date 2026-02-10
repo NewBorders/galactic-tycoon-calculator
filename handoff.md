@@ -7,6 +7,7 @@
 - Sync intervals now applied per entry consistently (init, refresh, reload).
 - Added in-flight request deduping for sync init, game data loads, and warehouse/company/base API calls.
 - Base import now bumps planned building levels and recipe counts to at least current; added integration coverage.
+- TODO sync now updates from-levels when current advances and shows a browser notification on API updates.
 
 ---
 

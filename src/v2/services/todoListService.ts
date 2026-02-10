@@ -882,12 +882,16 @@ function createTodoList() {
 export function syncTodoListWithApiData(currentState: {
   technology?: Record<number, number>
   buildings?: Array<{ buildingId: number; level: number; planetId: number }>
-}): number {
+}): { completedCount: number; updatedCount: number } {
   const service = useTodoListService()
 
-  if (!service) return 0
+  if (!service) return { completedCount: 0, updatedCount: 0 }
 
   const completedChangeIds = new Set<string>()
+  let updatedCount = 0
+
+  const updateLevelDescription = (text: string, from: number, to: number): string =>
+    text.replace(/(\d+) → (\d+)/, `${from} → ${to}`)
 
   // Iterate through all scopes and their current states
   service.scopeHistories.value.forEach((scopeHistory) => {
@@ -902,6 +906,7 @@ export function syncTodoListWithApiData(currentState: {
           if (change.type === 'technology' && currentState.technology) {
             const techId = change.details?.technologyId ?? change.details?.techId
             const targetLevel = change.details?.to as number | undefined
+            const fromLevel = change.details?.from as number | undefined
             const currentLevel = currentState.technology[Number(techId)] ?? 0
 
             if (targetLevel !== undefined && Number.isFinite(targetLevel) && currentLevel >= targetLevel) {
@@ -909,12 +914,31 @@ export function syncTodoListWithApiData(currentState: {
                 `[TodoListService] Auto-completed technology: Tech ${techId} reached level ${currentLevel} (target: ${targetLevel})`
               )
               completedChangeIds.add(change.id)
+              return
+            }
+
+            if (
+              targetLevel !== undefined &&
+              fromLevel !== undefined &&
+              Number.isFinite(targetLevel) &&
+              Number.isFinite(fromLevel) &&
+              currentLevel > fromLevel &&
+              currentLevel < targetLevel
+            ) {
+              change.details = {
+                ...change.details,
+                from: currentLevel,
+              }
+              change.description = updateLevelDescription(change.description, currentLevel, targetLevel)
+              step.description = updateLevelDescription(step.description, currentLevel, targetLevel)
+              updatedCount += 1
             }
           }
 
           // Check if building change is completed
           if (change.type === 'building' && currentState.buildings) {
             const targetLevel = change.details?.to as number | undefined
+            const fromLevel = change.details?.from as number | undefined
             const planetId = group.planetId
 
             const building = currentState.buildings.find(
@@ -926,6 +950,25 @@ export function syncTodoListWithApiData(currentState: {
                 `[TodoListService] Auto-completed building: Building ${change.details?.buildingId} reached level ${building.level} (target: ${targetLevel}) on planet ${planetId}`
               )
               completedChangeIds.add(change.id)
+              return
+            }
+
+            if (
+              building &&
+              targetLevel !== undefined &&
+              fromLevel !== undefined &&
+              Number.isFinite(targetLevel) &&
+              Number.isFinite(fromLevel) &&
+              building.level > fromLevel &&
+              building.level < targetLevel
+            ) {
+              change.details = {
+                ...change.details,
+                from: building.level,
+              }
+              change.description = updateLevelDescription(change.description, building.level, targetLevel)
+              step.description = updateLevelDescription(step.description, building.level, targetLevel)
+              updatedCount += 1
             }
           }
         })
@@ -967,7 +1010,7 @@ export function syncTodoListWithApiData(currentState: {
     })
   }
 
-  return completedChangeIds.size
+  return { completedCount: completedChangeIds.size, updatedCount }
 }
 
 

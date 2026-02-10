@@ -86,9 +86,56 @@ function applyCompanyTechnologyImport(
     }
   }
 
-  syncTodoListWithApiData({
+  const todoSyncResult = syncTodoListWithApiData({
     technology: apiTechnology,
   })
+
+  notifyTodoSync(todoSyncResult, 'Technology')
+}
+
+function notifyTodoSync(
+  result: { completedCount: number; updatedCount: number },
+  context: string,
+): void {
+  if (typeof window === 'undefined') return
+  if (!('Notification' in window)) return
+
+  const totalChanges = result.completedCount + result.updatedCount
+  if (totalChanges === 0) return
+
+  const parts: string[] = []
+  if (result.completedCount > 0) {
+    parts.push(`${result.completedCount} completed`)
+  }
+  if (result.updatedCount > 0) {
+    parts.push(`${result.updatedCount} updated`)
+  }
+
+  const title = 'Todo list updated'
+  const body = `${context} sync: ${parts.join(', ')}.`
+
+  const showNotification = () => {
+    try {
+      new Notification(title, { body })
+    } catch (error) {
+      logger.debug('Failed to show notification:', error)
+    }
+  }
+
+  if (Notification.permission === 'granted') {
+    showNotification()
+    return
+  }
+
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') {
+        showNotification()
+      }
+    }).catch((error) => {
+      logger.debug('Notification permission request failed:', error)
+    })
+  }
 }
 
 /**
@@ -380,9 +427,10 @@ export async function refreshEntry(entryId: string): Promise<void> {
 
         // Auto-complete building TODOs for this base
         if (buildings.length > 0) {
-          syncTodoListWithApiData({
+          const todoSyncResult = syncTodoListWithApiData({
             buildings: buildings,
           })
+          notifyTodoSync(todoSyncResult, 'Base')
         }
       }
     } else if (entryId.startsWith('warehouse-')) {

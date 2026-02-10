@@ -201,4 +201,30 @@ describe('TODO List Sync with API Data', () => {
     expect(todoGroups.value).toHaveLength(0)
     console.log('✓ Building upgrade with exceeded level completed')
   })
+
+  it('should update TODO ranges when API level advances', async () => {
+    await loadGameData(true)
+    const { addChange, todoGroups } = useTodoList()
+
+    addChange({
+      type: 'technology',
+      description: 'Chemistry: Level 1 → 5',
+      details: {
+        techId: 1,
+        from: 1,
+        to: 5,
+      },
+    })
+
+    const result = syncTodoListWithApiData({
+      technology: {
+        1: 3,
+      },
+    })
+
+    expect(result.completedCount).toBe(0)
+    expect(result.updatedCount).toBe(1)
+    expect(todoGroups.value[0]?.steps[0]?.changes[0]?.details?.from).toBe(3)
+    expect(todoGroups.value[0]?.steps[0]?.description).toContain('Level 3 → 5')
+  })
 })
