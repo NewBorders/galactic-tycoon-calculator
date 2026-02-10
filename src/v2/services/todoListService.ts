@@ -1,5 +1,14 @@
+type WorkersHousingInput = {
+  workersHousing?:
+    | { worker?: number; technician?: number; engineer?: number; scientist?: number }
+    | number[]
+    | null
+}
+
+function normalizeWorkersHousing<T extends WorkersHousingInput>(building: T): T
+function normalizeWorkersHousing<T extends WorkersHousingInput>(building: T | undefined): T | undefined
 // Hilfsfunktion: workersHousing normalisieren (Objekt → Array)
-function normalizeWorkersHousing(building: any): any {
+function normalizeWorkersHousing<T extends WorkersHousingInput>(building: T | undefined): T | undefined {
   if (
     building &&
     building.workersHousing &&
@@ -12,7 +21,7 @@ function normalizeWorkersHousing(building: any): any {
     return {
       ...building,
       workersHousing: [wh.worker ?? 0, wh.technician ?? 0, wh.engineer ?? 0, wh.scientist ?? 0]
-    }
+    } as T
   }
   return building
 }
@@ -25,7 +34,8 @@ import { ref, computed } from 'vue'
 import type { PlayerBasesService } from './stateReversion'
 import { applyStateReversions } from './stateReversion'
 import { unregisterChange } from './changeStorage'
-import { computeTechnologyResearchCost, computeBuildingUpgradeCost } from '@/v2/services/buildingCosts/buildingCosts.core'
+import { computeBuildingUpgradeCost } from '@/v2/services/buildingCosts/buildingCosts.core'
+import { computeTechnologyResearchCost } from '@/v2/services/technologyCosts/technologyCosts.core'
 import { useWorldData } from './worldData'
 import { usePlanningMode } from './planningMode/state'
 import { getGameData } from './gamedata/gameDataRepository'

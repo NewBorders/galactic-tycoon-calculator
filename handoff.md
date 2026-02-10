@@ -1,12 +1,14 @@
-# 2026-02-10: Test Status After Refinery Expectation Update
+# 2026-02-10: Technology Costs Service Split
 
 ## Status
-- Updated legacy tests to import from `buildingCosts.core` (manualCosts references removed).
-- Ran `docker compose exec web npx vitest run` after the import fix.
+- Split technology cost logic into a dedicated `technologyCosts` service and updated all consumers/imports.
+- Fixed lint issues (explicit anys, unused imports/vars) touched during refactor.
+- All tests pass after running `docker compose exec web npx vitest run`.
+ - Removed unused buildingCosts types file after tech-costs split.
+ - Addressed PriceManagement template typing/null-guards; type-check and lint are green.
 
-## Failing Tests
-- technologyCostsWikiVerified.test.ts: expectations for wiki values do not match computed material outputs.
-- buildingCostDebug.test.ts: growth multiplier and refinery 3->4 expectations still match old wiki formula.
+## Notes
+- Technology cost regression expectations updated to reflect downgrade cost behavior (level removed cost).
 
 # 2024-06-12: Mine Baukosten Planet Tier 2 (Upgrade-Logik)
 

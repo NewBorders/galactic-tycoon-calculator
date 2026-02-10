@@ -3,8 +3,17 @@
 // ...existing code...
   // ...existing code...
 // ...existing code...
+type WorkersHousingInput = {
+  workersHousing?:
+    | { worker?: number; technician?: number; engineer?: number; scientist?: number }
+    | number[]
+    | null
+}
+
+function normalizeWorkersHousing<T extends WorkersHousingInput>(building: T): T
+function normalizeWorkersHousing<T extends WorkersHousingInput>(building: T | undefined): T | undefined
 // Hilfsfunktion: workersHousing normalisieren (Objekt → Array)
-function normalizeWorkersHousing(building: any): any {
+function normalizeWorkersHousing<T extends WorkersHousingInput>(building: T | undefined): T | undefined {
   if (
     building &&
     building.workersHousing &&
@@ -17,7 +26,7 @@ function normalizeWorkersHousing(building: any): any {
     return {
       ...building,
       workersHousing: [wh.worker ?? 0, wh.technician ?? 0, wh.engineer ?? 0, wh.scientist ?? 0]
-    }
+    } as T
   }
   return building
 }
@@ -36,7 +45,8 @@ function normalizeWorkersHousing(building: any): any {
 import { useTodoList, type Change } from './todoListService'
 import { registerChange } from './changeStorage'
 import type { GameData } from './gamedata/types'
-import { computeTechnologyResearchCost, getNewBaseCostForTier, computeBuildingTierExtras, formatMaterialList, computeBuildingUpgradeCost } from '@/v2/services/buildingCosts/buildingCosts.core'
+import { getNewBaseCostForTier, computeBuildingUpgradeCost } from '@/v2/services/buildingCosts/buildingCosts.core'
+import { computeTechnologyResearchCost } from '@/v2/services/technologyCosts/technologyCosts.core'
 import { useWorldData } from './worldData'
 import { usePlayerTechnology } from './playerTechnology'
 import { usePlanningMode } from './planningMode/state'

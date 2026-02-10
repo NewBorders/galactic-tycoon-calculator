@@ -1,5 +1,3 @@
-import type { TechnologyMaterial } from './buildingCosts.types';
-
 export function computeSingleBuildingLevelCost(
 	building: { constructionMaterials: Array<{ id: number; amount: number }> },
 	planetTier: number,
@@ -7,6 +5,9 @@ export function computeSingleBuildingLevelCost(
 ): Map<number, number> {
 	const result = new Map<number, number>()
 	const growth = level === 1 ? 1 : getBuildingGrowthMultiplier(level)
+
+  // TODO: add extra costs for planet tier > 1
+
 	for (const cm of building.constructionMaterials ?? []) {
 		const amount = Math.ceil((cm?.amount ?? 0) * growth)
 		if (amount > 0) {
@@ -14,78 +15,6 @@ export function computeSingleBuildingLevelCost(
 		}
 	}
 	return result
-}
-
-function getTechnologyLevelCost(nextLevel: number, totalTechnologies: number): TechnologyMaterial[] {
-	const currentLevel = nextLevel - 1
-	const valueMultiplier = Math.pow((currentLevel / 4) + 1, 3)
-	const techPenalty = Math.pow(totalTechnologies + 1, 1.015) - totalTechnologies
-	const techFlat = totalTechnologies * 3000
-	const totalValue = (valueMultiplier * 8000) * techPenalty + techFlat
-
-	const tierPart = nextLevel / 5.0
-	const materials: TechnologyMaterial[] = []
-
-	const T1_DIVISOR = 1100
-	const T2_DIVISOR = 3000
-	const T3_DIVISOR = 6000
-	const T4_DIVISOR = 10000
-
-	if (tierPart <= 1.0) {
-		const t1Amount = Math.ceil((totalValue * 1.0) / T1_DIVISOR)
-		if (t1Amount > 0) {
-			materials.push({ materialId: 64, amount: t1Amount })
-		}
-	} else if (tierPart <= 2.0) {
-		const progress = tierPart - 1.0
-		const t1Percentage = 0.8 - (0.6 * progress)
-		const t2Percentage = 0.2 + (0.6 * progress)
-
-		const t1Amount = Math.ceil((totalValue * t1Percentage) / T1_DIVISOR)
-		const t2Amount = Math.ceil((totalValue * t2Percentage) / T2_DIVISOR)
-
-		if (t1Amount > 0) {
-			materials.push({ materialId: 64, amount: t1Amount })
-		}
-		if (t2Amount > 0) {
-			materials.push({ materialId: 65, amount: t2Amount })
-		}
-	} else if (tierPart <= 3.0) {
-		const progress = tierPart - 2.0
-		const t2Percentage = 0.8 - (0.6 * progress)
-		const t3Percentage = 0.2 + (0.6 * progress)
-
-		const t2Amount = Math.ceil((totalValue * t2Percentage) / T2_DIVISOR)
-		const t3Amount = Math.ceil((totalValue * t3Percentage) / T3_DIVISOR)
-
-		if (t2Amount > 0) {
-			materials.push({ materialId: 65, amount: t2Amount })
-		}
-		if (t3Amount > 0) {
-			materials.push({ materialId: 127, amount: t3Amount })
-		}
-	} else if (tierPart <= 4.0) {
-		const progress = tierPart - 3.0
-		const t3Percentage = 0.8 - (0.6 * progress)
-		const t4Percentage = 0.2 + (0.6 * progress)
-
-		const t3Amount = Math.ceil((totalValue * t3Percentage) / T3_DIVISOR)
-		const t4Amount = Math.ceil((totalValue * t4Percentage) / T4_DIVISOR)
-
-		if (t3Amount > 0) {
-			materials.push({ materialId: 127, amount: t3Amount })
-		}
-		if (t4Amount > 0) {
-			materials.push({ materialId: 164, amount: t4Amount })
-		}
-	} else {
-		const t4Amount = Math.ceil((totalValue * 1.0) / T4_DIVISOR)
-		if (t4Amount > 0) {
-			materials.push({ materialId: 164, amount: t4Amount })
-		}
-	}
-
-	return materials
 }
 
 export const NEW_BASE_COSTS_BY_TIER: Record<number, Array<{ materialId: number; amount: number }>> = {
@@ -122,7 +51,10 @@ export function computeBuildingTierExtras(
 	building: {
 		name?: string
 		specialization?: number
-		workersHousing?: number[] | null
+		workersHousing?:
+			| number[]
+			| { worker?: number; technician?: number; engineer?: number; scientist?: number }
+			| null
 		tier?: number
 	},
 	planetTier: number,
@@ -184,7 +116,16 @@ export function getBuildingGrowthMultiplier(level: number): number {
 }
 
 export function computeBuildingUpgradeCost(
-	building: { constructionMaterials: Array<{ id: number; amount: number }>; tier?: number; workersHousing?: number[] | null; name?: string; specialization?: number },
+	building: {
+		constructionMaterials: Array<{ id: number; amount: number }>
+		tier?: number
+		workersHousing?:
+			| number[]
+			| { worker?: number; technician?: number; engineer?: number; scientist?: number }
+			| null
+		name?: string
+		specialization?: number
+	},
 	planetTier: number,
 	fromLevel: number,
 	toLevel: number,
@@ -218,7 +159,6 @@ export function computeBuildingUpgradeCost(
 		]
 	}
 
-	const isHeadquarters = building.name?.toLowerCase().includes('headquarters') ?? false
 	if (fromLevel === 0 && toLevel === 1) {
 		for (const [id, amount] of computeSingleBuildingLevelCost(building, planetTier, 1)) {
 			materialTotals.set(id, amount)
@@ -233,7 +173,7 @@ export function computeBuildingUpgradeCost(
 
 	if (fromLevel === 0) {
 		if (toLevel === 1) {
-			const tierExtras = computeBuildingTierExtras(building, planetTier, 1);
+			const tierExtras = computeBuildingTierExtras(building, planetTier, 1)
 			for (const extra of tierExtras) {
 				if (extra?.amount > 0) {
 					tierExtraTotals.set(extra.materialId, (tierExtraTotals.get(extra.materialId) ?? 0) + extra.amount)
@@ -241,7 +181,7 @@ export function computeBuildingUpgradeCost(
 			}
 		} else {
 			for (let lvl = 1; lvl <= toLevel; lvl++) {
-				const tierExtras = computeBuildingTierExtras(building, planetTier, lvl);
+				const tierExtras = computeBuildingTierExtras(building, planetTier, lvl)
 				for (const extra of tierExtras) {
 					if (extra?.amount > 0) {
 						tierExtraTotals.set(extra.materialId, (tierExtraTotals.get(extra.materialId) ?? 0) + extra.amount)
@@ -252,16 +192,16 @@ export function computeBuildingUpgradeCost(
 	} else if (fromLevel !== toLevel) {
 		const name = building.name?.toLowerCase() || ''
 		const specialization = building.specialization
-		let workersHousing = building.workersHousing
+		let normalizedHousing = workersHousing
 		if (
-			workersHousing &&
-			!Array.isArray(workersHousing) &&
-			typeof workersHousing === 'object' &&
-			workersHousing !== null &&
-			'worker' in workersHousing
+			normalizedHousing &&
+			!Array.isArray(normalizedHousing) &&
+			typeof normalizedHousing === 'object' &&
+			normalizedHousing !== null &&
+			'worker' in normalizedHousing
 		) {
-			const wh = workersHousing as { worker?: number; technician?: number; engineer?: number; scientist?: number }
-			workersHousing = [
+			const wh = normalizedHousing as { worker?: number; technician?: number; engineer?: number; scientist?: number }
+			normalizedHousing = [
 				wh.worker ?? 0,
 				wh.technician ?? 0,
 				wh.engineer ?? 0,
@@ -269,13 +209,16 @@ export function computeBuildingUpgradeCost(
 			]
 		}
 
-		let tierExtras: Array<{ materialId: number; amount: number }> = [];
-		if ((['barracks', 'residential', 'comfort', 'stella', 'suite'].some(hn => name.includes(hn)) || (Array.isArray(workersHousing) && workersHousing.some(x => x > 0)))) {
-			tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel);
-		} else if ([2,3,4,5,6,8,10].includes(specialization ?? -1) && ![3,8].includes(specialization ?? -1)) {
-			tierExtras = computeBuildingTierExtras(building, planetTier, toLevel);
+		let tierExtras: Array<{ materialId: number; amount: number }> = []
+		if (
+			['barracks', 'residential', 'comfort', 'stella', 'suite'].some(hn => name.includes(hn)) ||
+			(Array.isArray(normalizedHousing) && normalizedHousing.some(x => x > 0))
+		) {
+			tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel)
+		} else if ([2, 3, 4, 5, 6, 8, 10].includes(specialization ?? -1) && ![3, 8].includes(specialization ?? -1)) {
+			tierExtras = computeBuildingTierExtras(building, planetTier, toLevel)
 		} else {
-			tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel);
+			tierExtras = computeBuildingTierExtras(building, planetTier, fromLevel)
 		}
 		for (const extra of tierExtras) {
 			if (extra?.amount > 0) {
@@ -309,49 +252,6 @@ export function formatMaterialList(
 			return `${Math.ceil(it.amount)}× ${name}`
 		})
 		.join(', ')
-}
-
-// TODO: technology has nothing to do with building costs, should be moved to a different service/repository
-export function computeTechnologyResearchCost(
-	techId: number,
-	fromLevel: number,
-	toLevel: number,
-	gameData?: { materials: Array<{ id: number; name: string }> },
-	totalTechnologies?: number
-): string | undefined {
-	if (!Number.isFinite(techId) || !Number.isFinite(fromLevel) || !Number.isFinite(toLevel)) return undefined
-	if (toLevel === fromLevel) return undefined
-
-	const currentTotal = totalTechnologies ?? 0
-	let runningTotal = currentTotal
-	const totals = new Map<number, number>()
-
-	if (toLevel > fromLevel) {
-		for (let level = fromLevel; level < toLevel; level++) {
-			const nextLevel = level + 1
-			const materials = getTechnologyLevelCost(nextLevel, runningTotal)
-			runningTotal += 1
-			for (const mat of materials) {
-				const prev = totals.get(mat.materialId) || 0
-				totals.set(mat.materialId, prev + mat.amount)
-			}
-		}
-	} else {
-		for (let level = 1; level < toLevel; level++) {
-			const nextLevel = level + 1
-			const materials = getTechnologyLevelCost(nextLevel, runningTotal)
-			runningTotal += 1
-			for (const mat of materials) {
-				const prev = totals.get(mat.materialId) || 0
-				totals.set(mat.materialId, prev + mat.amount)
-			}
-		}
-	}
-
-	const list: Array<{ materialId: number; amount: number }> = []
-	totals.forEach((amount, materialId) => list.push({ materialId, amount }))
-
-	return list.length > 0 ? formatMaterialList(list, gameData) : undefined
 }
 
 export function getNewBaseCostForTier(

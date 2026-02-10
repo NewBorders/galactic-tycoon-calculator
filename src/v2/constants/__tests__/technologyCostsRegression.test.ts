@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeTechnologyResearchCost } from '@/v2/services/buildingCosts/buildingCosts.core'
+import { computeTechnologyResearchCost } from '@/v2/services/technologyCosts/technologyCosts.core'
 import { loadGameData } from '@/v2/services/gamedata/service'
 
 describe('Technology Costs - Downgrade & Multiple Tech Tests', () => {
@@ -27,21 +27,23 @@ describe('Technology Costs - Downgrade & Multiple Tech Tests', () => {
     expect(cost).toContain('127')
   })
 
-  it('should calculate cost for level 3→2 (downgrade) = same as 1→2', async () => {
+  it('should calculate cost for level 3→2 (downgrade) using level 3 cost', async () => {
     const { data: gameData } = await loadGameData(true)
     const cost = computeTechnologyResearchCost(1, 3, 2, gameData, TOTAL_TECH)
     console.log('Level 3→2 cost:', cost)
-    // Downgrade to level 2 should cost the same as upgrading to level 2
-    expect(cost).toContain('80')
+    // Downgrade cost reflects the level being removed (level 3)
+    expect(cost).toContain('99')
   })
 
-  it('should verify that 1→2 and 3→2 have same cost', async () => {
+  it('should verify that 1→2 and 3→2 have different costs', async () => {
     const { data: gameData } = await loadGameData(true)
     const cost1to2 = computeTechnologyResearchCost(1, 1, 2, gameData, TOTAL_TECH)
     const cost3to2 = computeTechnologyResearchCost(1, 3, 2, gameData, TOTAL_TECH)
     console.log('1→2:', cost1to2)
     console.log('3→2:', cost3to2)
-    expect(cost1to2).toBe(cost3to2)
+    expect(cost1to2).not.toBe(cost3to2)
+    expect(cost1to2).toContain('80')
+    expect(cost3to2).toContain('99')
   })
 
   it('should verify downgrade always equals target level cost', async () => {

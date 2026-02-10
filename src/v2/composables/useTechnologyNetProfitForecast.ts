@@ -3,7 +3,7 @@ import type { GameData } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
 import { computeBaseReport } from '@/v2/services/production/engine'
 import type { TechnologySpecialisation } from '@/v2/services/playerTechnology'
-import { computeTechnologyResearchCost } from '@/v2/services/buildingCosts/buildingCosts.core'
+import { computeTechnologyResearchCost } from '@/v2/services/technologyCosts/technologyCosts.core'
 
 export type TechnologyNetProfitForecast = {
   currentNetProfit: number

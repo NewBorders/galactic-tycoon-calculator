@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Material } from '@/v2/services/gamedata/types'
+import type { GameData, Material } from '@/v2/services/gamedata/types'
 import { ref, computed } from 'vue'
 import { loadGameData, useMaterialPricing } from '@/v2/services/gamedata/service'
 import type { PriceMode } from '@/v2/services/gamedata/prices'
@@ -7,8 +7,8 @@ import { formatPrice } from '@/v2/utils/formatNumber'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
 import { onMounted } from 'vue'
-const gameData = ref<any>(null)
-const pricing = ref<any>(null)
+const gameData = ref<GameData | null>(null)
+const pricing = ref<ReturnType<typeof useMaterialPricing> | null>(null)
 onMounted(async () => {
   const { data } = await loadGameData()
   gameData.value = data
@@ -52,9 +52,9 @@ const filteredMaterials = computed(() => {
       case 'id':
         return a.id - b.id
       case 'price': {
-        if (!pricing.value) return 0
-        const priceA = pricing.value.priceResolver.value(a.id)
-        const priceB = pricing.value.priceResolver.value(b.id)
+              if (!pricing.value) return 0
+              const priceA = pricing.value.priceResolver(a.id)
+              const priceB = pricing.value.priceResolver(b.id)
         return priceB - priceA
       }
       default:
@@ -118,8 +118,10 @@ function updateDefaultMode(mode: string) {
 function clearAllManualPrices() {
   if (!pricing.value || !gameData.value) return
   if (confirm('Are you sure you want to clear all manual prices?')) {
-    gameData.value.materials.forEach((material: any) => {
-      pricing.value.setManualPrice(material.id, null)
+    const currentPricing = pricing.value
+    if (!currentPricing) return
+    gameData.value.materials.forEach((material) => {
+      currentPricing.setManualPrice(material.id, null)
     })
   }
 }
@@ -145,10 +147,10 @@ async function refreshPrices() {
       <div class="flex gap-2">
         <button
           @click="refreshPrices"
-          :disabled="refreshing || (pricing && pricing.loading.value)"
+          :disabled="refreshing || (pricing ? pricing.loading : false)"
           class="px-3 py-2 bg-blue-700 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed rounded text-sm"
         >
-          {{ refreshing || (pricing && pricing.loading.value) ? 'Refreshing...' : 'Refresh API Prices' }}
+          {{ refreshing || (pricing ? pricing.loading : false) ? 'Refreshing...' : 'Refresh API Prices' }}
         </button>
         <button
           @click="clearAllManualPrices"
@@ -168,7 +170,7 @@ async function refreshPrices() {
               type="radio"
               name="defaultPriceMode"
               value="current"
-              :checked="pricing && pricing.settings.defaultMode === 'current'"
+              :checked="pricing ? pricing.settings.defaultMode === 'current' : false"
               @change="updateDefaultMode('current')"
               class="text-blue-600 mt-0.5"
             />
@@ -182,7 +184,7 @@ async function refreshPrices() {
               type="radio"
               name="defaultPriceMode"
               value="average"
-              :checked="pricing && pricing.settings.defaultMode === 'average'"
+              :checked="pricing ? pricing.settings.defaultMode === 'average' : false"
               @change="updateDefaultMode('average')"
               class="text-blue-600 mt-0.5"
             />
@@ -196,7 +198,7 @@ async function refreshPrices() {
               type="radio"
               name="defaultPriceMode"
               value="weightedAverage"
-              :checked="pricing && pricing.settings.defaultMode === 'weightedAverage'"
+              :checked="pricing ? pricing.settings.defaultMode === 'weightedAverage' : false"
               @change="updateDefaultMode('weightedAverage')"
               class="text-blue-600 mt-0.5"
             />
@@ -210,7 +212,7 @@ async function refreshPrices() {
           <p class="text-xs text-slate-300">
             <strong>Note:</strong> Manual prices always take priority over any selected mode.
             When you set a manual price for a material, it will be used regardless of the mode setting.
-          </p>
+              :checked="pricing ? pricing.settings.defaultMode === 'weightedAverage' : false"
         </div>
       </div>
 
@@ -229,10 +231,9 @@ async function refreshPrices() {
             <label class="flex items-center gap-2 text-sm">
               <input
                 v-model="showOnlyManual"
-                type="checkbox"
                 class="text-blue-600"
               />
-              Show only manual prices
+              <span class="text-sm">Manual only</span>
             </label>
           </div>
           <div class="flex items-center gap-2 text-sm">
@@ -251,12 +252,12 @@ async function refreshPrices() {
 
       <!-- Error Display -->
       <div
-        v-if="pricing && pricing.error.value"
+        v-if="pricing && pricing.error"
         class="bg-red-900/30 border border-red-700 rounded p-3 text-red-200"
       >
         <div class="flex items-center gap-2">
           <span class="text-red-400">⚠</span>
-          <span class="text-sm">{{ pricing.error.value }}</span>
+          <span class="text-sm">{{ pricing.error }}</span>
         </div>
       </div>
 
@@ -292,7 +293,7 @@ async function refreshPrices() {
                 <!-- Price Mode -->
                 <td class="text-center py-2 px-3">
                   <select
-                    :value="pricing.settings.overrides[material.id]?.mode ?? 'default'"
+                    :value="pricing ? (pricing.settings.overrides[material.id]?.mode ?? 'default') : 'default'"
                     @change="updatePriceMode(material.id, ($event.target as HTMLSelectElement).value)"
                     class="bg-slate-700 border border-slate-600 rounded px-1 py-0.5 text-xs w-20"
                   >
@@ -320,7 +321,7 @@ async function refreshPrices() {
                 <!-- Final Price (calculated) -->
                 <td class="text-right py-2 px-3">
                   <span class="text-emerald-400 font-medium">
-                    {{ formatPrice(pricing.priceResolver.value(material.id)) }}
+                    {{ pricing ? formatPrice(pricing.priceResolver(material.id)) : '-' }}
                   </span>
                   <div class="text-xs text-slate-500">
                     {{ getPriceModeForMaterial(material.id) }}
@@ -335,10 +336,10 @@ async function refreshPrices() {
       <!-- Stats Footer -->
       <div class="text-xs text-slate-400 flex justify-between">
         <div>
-          Showing {{ filteredMaterials.length }} of {{ gameData.materials.length }} materials
+          Showing {{ filteredMaterials.length }} of {{ gameData ? gameData.materials.length : 0 }} materials
         </div>
-        <div v-if="pricing && pricing.lastFetched.value">
-          API last fetched: {{ new Date(pricing.lastFetched.value).toLocaleString() }}
+        <div v-if="pricing && pricing.lastFetched">
+          API last fetched: {{ new Date(pricing.lastFetched).toLocaleString() }}
         </div>
       </div>
   </div>
