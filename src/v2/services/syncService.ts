@@ -471,6 +471,10 @@ export async function refreshEntry(entryId: string): Promise<void> {
     logger.error(`Failed to refresh ${entryId}:`, error)
   } finally {
     entry.isRefreshing = false
+    if (entry.nextRefresh <= 0) {
+      entry.nextRefresh = getAutoRefreshInterval(entryId)
+      saveSyncTimes()
+    }
   }
 }
 

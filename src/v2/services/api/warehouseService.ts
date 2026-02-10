@@ -13,6 +13,16 @@ import type {
   GameBaseRaw,
   GameBaseTransformed,
 } from './types'
+import { createLogger } from '../debug/logger'
+
+const logger = createLogger('WarehouseService')
+const apiCallCounts = new Map<string, number>()
+
+function trackApiCall(label: string) {
+  const next = (apiCallCounts.get(label) ?? 0) + 1
+  apiCallCounts.set(label, next)
+  logger.debug('[API Call]', label, 'count:', next)
+}
 
 function getApiBaseUrl(world: World): string {
   return `https://api.${world}.galactictycoons.com`
@@ -86,6 +96,7 @@ export async function fetchCompanyBases(
     const url = new URL(`${baseUrl}/public/company`)
     url.searchParams.set('apikey', apiKey)
 
+    trackApiCall(`/public/company?world=${world}`)
     const response = await fetch(url.toString())
 
     if (!response.ok) {
@@ -152,6 +163,7 @@ export async function fetchWarehouseStockForBase(
     const url = new URL(`${baseUrl}/public/company/warehouse/${warehouseId}`)
     url.searchParams.set('apikey', apiKey)
 
+    trackApiCall(`/public/company/warehouse/${warehouseId}?world=${world}`)
     const response = await fetch(url.toString())
 
     if (!response.ok) {
@@ -238,11 +250,13 @@ export async function fetchGameBaseDetails(
       const url = new URL(`${baseUrl}/public/company/base/${gameBaseId}`)
       url.searchParams.set('apikey', apiKey)
 
+      trackApiCall(`/public/company/base/${gameBaseId}?world=${world}`)
       const response = await fetch(url.toString())
       if (!response.ok) {
         // Fallback: try list endpoint and filter
         const listUrl = new URL(`${baseUrl}/public/company/base`)
         listUrl.searchParams.set('apikey', apiKey)
+        trackApiCall(`/public/company/base?world=${world}`)
         const listResp = await fetch(listUrl.toString())
         if (!listResp.ok) {
           // Try to extract error message from response body
