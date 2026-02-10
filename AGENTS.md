@@ -3,6 +3,8 @@
 * Always fix issues reported by `docker compose exec web npm run type-check`
 * Try to fix issues reported by `docker compose exec web npm run lint`
 * Always provide and run Integration Tests to cover processes and workflows you are working on
+* When running tests, prefer non-interactive mode (e.g., `npm run test -- --run` or `npx vitest run`) so the command exits without user input
+* Run Vitest in non-interactive mode (use `npm run test -- --run` or `npx vitest run`) so it exits without manual `q`
 * Always refactor code you are touching, to reduce complexity
 * Always create/update a document handoff.md in the root project directory, which contains a (brief) summary of what we've most recently worked on.
   The goal is that if the context window gets too crowded, we can restart with a new task, 
