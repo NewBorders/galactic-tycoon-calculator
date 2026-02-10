@@ -36,7 +36,7 @@ function normalizeWorkersHousing(building: any): any {
 import { useTodoList, type Change } from './todoListService'
 import { registerChange } from './changeStorage'
 import type { GameData } from './gamedata/types'
-import { computeTechnologyResearchCost, getNewBaseCostForTier, computeBuildingTierExtras, formatMaterialList, computeBuildingUpgradeCost } from '@/v2/constants/manualCosts'
+import { computeTechnologyResearchCost, getNewBaseCostForTier, computeBuildingTierExtras, formatMaterialList, computeBuildingUpgradeCost } from '@/v2/services/buildingCosts/buildingCosts.core'
 import { useWorldData } from './worldData'
 import { usePlayerTechnology } from './playerTechnology'
 import { usePlanningMode } from './planningMode/state'

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeTechnologyResearchCost } from '../manualCosts'
+import { computeTechnologyResearchCost } from '@/v2/services/buildingCosts/buildingCosts.core'
 import { loadGameData } from '@/v2/services/gamedata/service'
 
 describe('Technology Costs - Downgrade & Multiple Tech Tests', () => {

@@ -1,3 +1,33 @@
+# 2026-02-10: Test Status After Refinery Expectation Update
+
+## Status
+- Updated legacy tests to import from `buildingCosts.core` (manualCosts references removed).
+- Ran `docker compose exec web npx vitest run` after the import fix.
+
+## Failing Tests
+- technologyCostsWikiVerified.test.ts: expectations for wiki values do not match computed material outputs.
+- buildingCostDebug.test.ts: growth multiplier and refinery 3->4 expectations still match old wiki formula.
+
+# 2024-06-12: Mine Baukosten Planet Tier 2 (Upgrade-Logik)
+
+## Problem
+- Die Testfälle für Mine (Planet Tier 2, Level 2-4) schlagen fehl, weil die berechneten Mengen für Amenities, Construction Kit, Prefab Kit und Pressure Sealant Kit nicht mit den erwarteten Werten übereinstimmen.
+- Erwartet: Für Upgrades werden die Mengen für alle Levelschritte aufsummiert (z.B. für Stufe 4: Amenities, Construction Kit, Prefab Kit und Pressure Sealant Kit jeweils als Summe aus Level 2, 3, 4).
+- Tatsächlich berechnet: Die Mengen stimmen nicht, insbesondere Pressure Sealant Kit wird nicht korrekt summiert.
+
+## Was wurde bereits probiert?
+- Die Upgrade-Logik wurde so angepasst, dass für Mine die Mengen für Amenities, Construction Kit und Prefab Kit für alle Levelschritte (von start+1 bis end) aufsummiert werden.
+- Die Logik für Pressure Sealant Kit wurde so angepasst, dass die Werte für alle Levelschritte aus computeBuildingTierExtras genommen und addiert werden.
+- Die Werte für computeBuildingTierExtras für Mine (specialization === 4) wurden für Level 1 = 8, Level 2 = 10, Level 3 = 11, Level 4 = 13 gesetzt.
+- Die Testfälle schlagen trotzdem weiterhin fehl, weil die Summierung und die Mengen nicht exakt den Erwartungen entsprechen.
+
+## Nächste Schritte (offen)
+- Prüfen, ob die Summierung der Pressure Sealant Kit Mengen für alle Levelschritte korrekt erfolgt.
+- Ggf. die Logik für die Materialmengen und die Tier-Extras weiter debuggen und anpassen.
+- Integrationstests und Debug-Ausgaben ergänzen, um die Ursache zu finden.
+
+**Letzter Stand:**
+- Die Upgrade-Logik für Mine summiert die Mengen für alle Levelschritte, aber die Testfälle schlagen weiterhin fehl.
 # Handoff: Building Upgrade Cost Logic (2024-06-11)
 
 ## 2026-02-04: Offenes Problem - Falsche Gebäudekosten Stufe 1 (Refinery)

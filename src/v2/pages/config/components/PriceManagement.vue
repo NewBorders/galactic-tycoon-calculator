@@ -1,13 +1,19 @@
 <script setup lang="ts">
+import type { Material } from '@/v2/services/gamedata/types'
 import { ref, computed } from 'vue'
 import { loadGameData, useMaterialPricing } from '@/v2/services/gamedata/service'
 import type { PriceMode } from '@/v2/services/gamedata/prices'
 import { formatPrice } from '@/v2/utils/formatNumber'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
-// Load data and initialize pricing immediately
-const { data: gameData } = await loadGameData()
-const pricing = useMaterialPricing(gameData)
+import { onMounted } from 'vue'
+const gameData = ref<any>(null)
+const pricing = ref<any>(null)
+onMounted(async () => {
+  const { data } = await loadGameData()
+  gameData.value = data
+  pricing.value = useMaterialPricing(data)
+})
 
 // Filter and search
 const searchTerm = ref('')
@@ -16,9 +22,9 @@ const sortBy = ref<'name' | 'id' | 'price'>('name')
 
 // Computed material list with filters and sorting
 const filteredMaterials = computed(() => {
-  if (!gameData?.materials || !pricing) return []
+  if (!gameData.value?.materials || !pricing.value) return []
 
-  const materials = gameData.materials.filter(material => {
+  const materials = gameData.value.materials.filter((material: Material) => {
     // Search filter
     if (searchTerm.value) {
       const search = searchTerm.value.toLowerCase()
@@ -28,8 +34,8 @@ const filteredMaterials = computed(() => {
     }
 
     // Manual only filter
-    if (showOnlyManual.value && pricing) {
-      const override = pricing.settings.overrides[material.id]
+    if (showOnlyManual.value && pricing.value) {
+      const override = pricing.value.settings.overrides[material.id]
       if (!override?.manualPrice) {
         return false
       }
@@ -39,16 +45,16 @@ const filteredMaterials = computed(() => {
   })
 
   // Sort materials
-  materials.sort((a, b) => {
+  materials.sort((a: Material, b: Material) => {
     switch (sortBy.value) {
       case 'name':
         return a.name.localeCompare(b.name)
       case 'id':
         return a.id - b.id
       case 'price': {
-        if (!pricing) return 0
-        const priceA = pricing.priceResolver.value(a.id)
-        const priceB = pricing.priceResolver.value(b.id)
+        if (!pricing.value) return 0
+        const priceA = pricing.value.priceResolver.value(a.id)
+        const priceB = pricing.value.priceResolver.value(b.id)
         return priceB - priceA
       }
       default:
@@ -61,8 +67,8 @@ const filteredMaterials = computed(() => {
 
 // Get current price mode for display - shows actual price source being used
 function getPriceModeForMaterial(materialId: number): string {
-  if (!pricing) return 'Current'
-  const override = pricing.settings.overrides[materialId]
+  if (!pricing.value) return 'Current'
+  const override = pricing.value.settings.overrides[materialId]
 
   // Check if manual price exists and has priority (same logic as resolveMaterialPrice)
   if (override?.manualPrice != null && Number.isFinite(override.manualPrice) && override.manualPrice >= 0) {
@@ -70,7 +76,7 @@ function getPriceModeForMaterial(materialId: number): string {
   }
 
   // Fall back to configured mode display
-  const mode = override?.mode ?? pricing.settings.defaultMode
+  const mode = override?.mode ?? pricing.value.settings.defaultMode
   switch (mode) {
     case 'current': return 'Current'
     case 'average': return 'Average'
@@ -81,39 +87,39 @@ function getPriceModeForMaterial(materialId: number): string {
 }
 
 function getManualPrice(materialId: number): number | null {
-  if (!pricing) return null
-  return pricing.settings.overrides[materialId]?.manualPrice ?? null
+  if (!pricing.value) return null
+  return pricing.value.settings.overrides[materialId]?.manualPrice ?? null
 }
 
 function updateManualPrice(materialId: number, value: string) {
-  if (!pricing) return
+  if (!pricing.value) return
   const numValue = parseFloat(value)
   if (value === '' || Number.isNaN(numValue)) {
-    pricing.setManualPrice(materialId, null)
+    pricing.value.setManualPrice(materialId, null)
   } else {
-    pricing.setManualPrice(materialId, numValue)
+    pricing.value.setManualPrice(materialId, numValue)
   }
 }
 
 function updatePriceMode(materialId: number, mode: string) {
-  if (!pricing) return
+  if (!pricing.value) return
   if (mode === 'default') {
-    pricing.setOverrideMode(materialId, undefined)
+    pricing.value.setOverrideMode(materialId, undefined)
   } else {
-    pricing.setOverrideMode(materialId, mode as PriceMode)
+    pricing.value.setOverrideMode(materialId, mode as PriceMode)
   }
 }
 
 function updateDefaultMode(mode: string) {
-  if (!pricing) return
-  pricing.setDefaultMode(mode as PriceMode)
+  if (!pricing.value) return
+  pricing.value.setDefaultMode(mode as PriceMode)
 }
 
 function clearAllManualPrices() {
-  if (!pricing || !gameData) return
+  if (!pricing.value || !gameData.value) return
   if (confirm('Are you sure you want to clear all manual prices?')) {
-    gameData.materials.forEach(material => {
-      pricing.setManualPrice(material.id, null)
+    gameData.value.materials.forEach((material: any) => {
+      pricing.value.setManualPrice(material.id, null)
     })
   }
 }
@@ -121,10 +127,10 @@ function clearAllManualPrices() {
 // Refresh prices from API
 const refreshing = ref(false)
 async function refreshPrices() {
-  if (!pricing) return
+  if (!pricing.value) return
   refreshing.value = true
   try {
-    await pricing.refreshPrices(true)
+    await pricing.value.refreshPrices(true)
   } finally {
     refreshing.value = false
   }

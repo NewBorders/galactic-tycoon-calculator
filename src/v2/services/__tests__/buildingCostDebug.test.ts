@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeBuildingUpgradeCost, getBuildingGrowthMultiplier } from '@/v2/constants/manualCosts'
+import { computeBuildingUpgradeCost, getBuildingGrowthMultiplier } from '@/v2/services/buildingCosts/buildingCosts.core'
 import { loadGameData } from '@/v2/services/gamedata/service'
 
 describe('Building Cost Debug - Wiki Formula Verification', () => {
