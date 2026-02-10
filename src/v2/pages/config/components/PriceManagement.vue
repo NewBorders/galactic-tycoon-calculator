@@ -212,7 +212,7 @@ async function refreshPrices() {
           <p class="text-xs text-slate-300">
             <strong>Note:</strong> Manual prices always take priority over any selected mode.
             When you set a manual price for a material, it will be used regardless of the mode setting.
-              :checked="pricing ? pricing.settings.defaultMode === 'weightedAverage' : false"
+          </p>
         </div>
       </div>
 
