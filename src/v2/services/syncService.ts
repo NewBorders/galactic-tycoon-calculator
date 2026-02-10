@@ -1,6 +1,6 @@
 /**
  * Global Sync Service
- * 
+ *
  * Manages automatic background refreshing of API data and tracks sync status globally.
  * This service runs independently of any UI component lifecycle.
  */
@@ -34,18 +34,67 @@ export interface SyncCallbacks {
 // Global state
 const syncEntries = ref<SyncEntry[]>([])
 const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const AUTO_REFRESH_INTERVAL_GAMEDATA = 15 * 60 * 1000 // 15 minutes
+const AUTO_REFRESH_INTERVAL_COMPANY = 10 * 60 * 1000 // 10 minutes
 
 let countdownTimer: number | null = null
 let callbacks: SyncCallbacks = {}
 let pendingBasesData: Array<{ id: number; name: string; planetId: number; warehouseId: number }> | null = null
 const logger = createLogger('SyncService')
 
+function getAutoRefreshInterval(entryId: string): number {
+  if (entryId === 'gamedata') return AUTO_REFRESH_INTERVAL_GAMEDATA
+  if (entryId === 'company') return AUTO_REFRESH_INTERVAL_COMPANY
+  if (entryId.startsWith('base-')) return AUTO_REFRESH_INTERVAL_COMPANY
+  if (entryId.startsWith('warehouse-')) return AUTO_REFRESH_INTERVAL
+  return AUTO_REFRESH_INTERVAL
+}
+
+function applyCompanyTechnologyImport(
+  technologies: Array<{ id: number; level: number }>,
+  startingBonus?: number
+): void {
+  const { setFromApi } = usePlayerTechnology()
+  const { worldData } = useWorldData()
+
+  setFromApi(technologies, startingBonus)
+
+  const apiTechnology: Record<number, number> = {}
+  technologies.forEach((tech) => {
+    apiTechnology[tech.id] = tech.level
+  })
+
+  worldData.value.current.technology = apiTechnology
+  worldData.value.current.startingBonus = startingBonus ?? 1
+  worldData.value.current.fetchedAt = Date.now()
+
+  if (worldData.value.planning) {
+    let updated = false
+    Object.entries(apiTechnology).forEach(([id, level]) => {
+      const techId = Number(id)
+      const plannedLevel = worldData.value.planning?.technology[techId] ?? 0
+      if (level > plannedLevel) {
+        worldData.value.planning!.technology[techId] = level
+        updated = true
+      }
+    })
+
+    if (updated) {
+      worldData.value.planning.modifiedAt = Date.now()
+    }
+  }
+
+  syncTodoListWithApiData({
+    technology: apiTechnology,
+  })
+}
+
 /**
  * Register callbacks for sync events
  */
 export function registerSyncCallbacks(newCallbacks: SyncCallbacks) {
   callbacks = { ...callbacks, ...newCallbacks }
-  
+
   // If we have pending bases data and a callback is now registered, trigger it
   if (pendingBasesData && callbacks.onCompanyDataLoaded) {
     callbacks.onCompanyDataLoaded(pendingBasesData)
@@ -66,29 +115,29 @@ export async function initializeSyncService(
   const entries: SyncEntry[] = []
   const world = getWorld()
   const apiKey = getApiKey()
-  
+
   // 1. Game Data
   entries.push({
     id: 'gamedata',
     name: 'Game Data',
     icon: '📊',
     lastSync: 0,
-    nextRefresh: AUTO_REFRESH_INTERVAL,
+    nextRefresh: AUTO_REFRESH_INTERVAL_GAMEDATA,
     isRefreshing: false,
     error: null,
   })
-  
+
   // 2. Company (bases, ships, tech level)
   entries.push({
     id: 'company',
     name: 'Company Data',
     icon: '🏢',
     lastSync: 0,
-    nextRefresh: AUTO_REFRESH_INTERVAL,
+    nextRefresh: AUTO_REFRESH_INTERVAL_COMPANY,
     isRefreshing: false,
     error: null,
   })
-  
+
   // 3. Exchange Market Details
   entries.push({
     id: 'exchange',
@@ -99,39 +148,18 @@ export async function initializeSyncService(
     isRefreshing: false,
     error: null,
   })
-  
+
   // Load company bases to create entries for each base
   if (apiKey) {
     try {
       const result = await fetchCompanyBases(apiKey, world, true) // Force refresh on init
       const bases = result.data.bases || []
-      
+
       // Extract and set technology levels from Company Data
       if (result.data.technologies && result.data.technologies.length > 0) {
-        const { setFromApi } = usePlayerTechnology()
-        const { worldData } = useWorldData()
-        
-        // Update planned levels (keeping user's higher planned values)
-        setFromApi(result.data.technologies, result.data.startingBonus)
-        
-        // Update current state with API data
-        const apiTechnology: Record<number, number> = {}
-        
-        result.data.technologies.forEach((tech) => {
-          apiTechnology[tech.id] = tech.level
-        })
-        
-        worldData.value.current.technology = apiTechnology
-        worldData.value.current.startingBonus = result.data.startingBonus ?? 1
-        worldData.value.current.fetchedAt = Date.now()
-        
-        // Auto-complete TODOs when technology goals are achieved
-        // Note: Building data is fetched separately per-base, so we only sync technology here
-        syncTodoListWithApiData({
-          technology: apiTechnology,
-        })
+        applyCompanyTechnologyImport(result.data.technologies, result.data.startingBonus)
       }
-      
+
       // Format bases data
       const formattedBases = bases.map((b) => ({
         id: b.id,
@@ -139,14 +167,14 @@ export async function initializeSyncService(
         planetId: b.planetId,
         warehouseId: b.warehouseId,
       }))
-      
+
       // Trigger callback if already registered, otherwise store for later
       if (callbacks.onCompanyDataLoaded) {
         callbacks.onCompanyDataLoaded(formattedBases)
       } else {
         pendingBasesData = formattedBases
       }
-      
+
       // 4. Base Details - one entry per base
       for (const base of bases) {
         entries.push({
@@ -154,12 +182,12 @@ export async function initializeSyncService(
           name: `Base: ${base.name || base.id}`,
           icon: '🏭',
           lastSync: 0,
-          nextRefresh: AUTO_REFRESH_INTERVAL,
+          nextRefresh: AUTO_REFRESH_INTERVAL_COMPANY,
           isRefreshing: false,
           error: null,
         })
       }
-      
+
       // 5. Warehouse - one entry per base (with unique warehouse IDs)
       const processedWarehouses = new Set<number>()
       for (const base of bases) {
@@ -180,17 +208,17 @@ export async function initializeSyncService(
       logger.error('Failed to load bases:', error)
     }
   }
-  
+
   syncEntries.value = entries
-  
+
   // Load saved sync times from localStorage
   loadSyncTimes()
-  
+
   // Start background countdown timer if not already running
   if (countdownTimer === null) {
     startBackgroundRefresh()
   }
-  
+
   // Initial warehouse stock load for all warehouses (after entries are set)
   if (apiKey) {
     const warehouseEntries = entries.filter(e => e.id.startsWith('warehouse-'))
@@ -212,7 +240,7 @@ export async function initializeSyncService(
  */
 function formatApiError(error: unknown): string {
   const errorMsg = error instanceof Error ? error.message : String(error)
-  
+
   // Check for rate limit error with custom message
   if (errorMsg.includes('429') || errorMsg.toLowerCase().includes('rate limit')) {
     // Extract the actual error message if available
@@ -222,7 +250,7 @@ function formatApiError(error: unknown): string {
     }
     return 'Rate limit exceeded - please wait'
   }
-  
+
   // Check for other HTTP status codes with custom messages
   const statusMatch = errorMsg.match(/(401|403|404|500|502|503):\s*(.+)/)
   if (statusMatch) {
@@ -241,7 +269,7 @@ function formatApiError(error: unknown): string {
         return `Service unavailable: ${detail}`
     }
   }
-  
+
   // Fallback: Check for status code without details
   const simpleMatch = errorMsg.match(/\b(401|403|404|500|502|503)\b/)
   if (simpleMatch) {
@@ -259,7 +287,7 @@ function formatApiError(error: unknown): string {
         return 'Service temporarily unavailable'
     }
   }
-  
+
   // Return full error message (don't truncate for better debugging)
   return errorMsg.length > 100 ? errorMsg.substring(0, 97) + '...' : errorMsg
 }
@@ -270,13 +298,13 @@ function formatApiError(error: unknown): string {
 export async function refreshEntry(entryId: string): Promise<void> {
   const entry = syncEntries.value.find(e => e.id === entryId)
   if (!entry || entry.isRefreshing) return
-  
+
   entry.isRefreshing = true
   entry.error = null
-  
+
   const world = getWorld()
   const apiKey = getApiKey()
-  
+
   try {
     if (entryId === 'gamedata') {
       resetPriceCache()
@@ -284,40 +312,19 @@ export async function refreshEntry(entryId: string): Promise<void> {
     } else if (entryId === 'company') {
       if (!apiKey) throw new Error('No API key')
       const result = await fetchCompanyBases(apiKey, world, true)
-      
+
       // Extract and set technology levels from Company Data
       if (result.data.technologies && result.data.technologies.length > 0) {
-        const { setFromApi } = usePlayerTechnology()
-        const { worldData } = useWorldData()
-        
-        // Update planned levels (keeping user's higher planned values)
-        setFromApi(result.data.technologies, result.data.startingBonus)
-        
-        // Update current state with API data
-        const apiTechnology: Record<number, number> = {}
-        
-        result.data.technologies.forEach((tech) => {
-          apiTechnology[tech.id] = tech.level
-        })
-        
-        worldData.value.current.technology = apiTechnology
-        worldData.value.current.startingBonus = result.data.startingBonus ?? 1
-        worldData.value.current.fetchedAt = Date.now()
-        
-        // Auto-complete TODOs when technology goals are achieved
-        // Note: Building data is fetched separately per-base, so we only sync technology here
-        syncTodoListWithApiData({
-          technology: apiTechnology,
-        })
+        applyCompanyTechnologyImport(result.data.technologies, result.data.startingBonus)
       }
-      
+
       const bases = result.data.bases.map((b) => ({
         id: b.id,
         name: b.name,
         planetId: b.planetId,
         warehouseId: b.warehouseId,
       }))
-      
+
       // Trigger callback to update UI
       if (callbacks.onCompanyDataLoaded) {
         callbacks.onCompanyDataLoaded(bases)
@@ -329,11 +336,11 @@ export async function refreshEntry(entryId: string): Promise<void> {
       if (!apiKey) throw new Error('No API key')
       const baseId = parseInt(entryId.replace('base-', ''))
       const result = await fetchGameBaseDetails(apiKey, baseId, world)
-      
+
       // Extract building levels and sync with TODOs
       if (result.data.buildingSlots && Array.isArray(result.data.buildingSlots)) {
         const buildings: Array<{ buildingId: number; level: number; planetId: number }> = []
-        
+
         result.data.buildingSlots.forEach((slot) => {
           if (slot.status === 2 && slot.building && slot.building.level) {
             buildings.push({
@@ -343,7 +350,7 @@ export async function refreshEntry(entryId: string): Promise<void> {
             })
           }
         })
-        
+
         // Auto-complete building TODOs for this base
         if (buildings.length > 0) {
           syncTodoListWithApiData({
@@ -355,23 +362,23 @@ export async function refreshEntry(entryId: string): Promise<void> {
       if (!apiKey) throw new Error('No API key')
       const warehouseId = parseInt(entryId.replace('warehouse-', ''))
       const result = await fetchWarehouseStockForBase(apiKey, warehouseId, world, true)
-      
+
       // Convert warehouse items to materialId -> quantity map
       const warehouseStocks: Record<number, number> = {}
       result.data.items.forEach(item => {
         warehouseStocks[item.materialId] = item.quantity
       })
-      
+
       // NOTE: We do NOT update worldData.warehouseStocks anymore (removed for single source of truth)
       // Warehouse stocks are now ONLY stored in base.stock (via callback below)
-      
+
       // Update warehouseLastRefresh timestamp in localStorage for UI display
       try {
         localStorage.setItem('warehouseLastRefresh', String(Date.now()))
       } catch {
         // Silently fail on storage write
       }
-      
+
       // Trigger callback to update player bases (single source of truth)
       logger.debug('Warehouse stocks loaded', { warehouseId, stockCount: Object.keys(warehouseStocks).length, hasCallback: !!callbacks.onWarehouseStockLoaded })
       if (callbacks.onWarehouseStockLoaded) {
@@ -380,9 +387,9 @@ export async function refreshEntry(entryId: string): Promise<void> {
         logger.warn('No onWarehouseStockLoaded callback registered!')
       }
     }
-    
+
     entry.lastSync = Date.now()
-    entry.nextRefresh = AUTO_REFRESH_INTERVAL
+    entry.nextRefresh = getAutoRefreshInterval(entryId)
     saveSyncTimes()
   } catch (error) {
     entry.error = formatApiError(error)
@@ -399,7 +406,7 @@ export function updateSyncTime(entryId: string, timestamp: number = Date.now()) 
   const entry = syncEntries.value.find(e => e.id === entryId)
   if (entry) {
     entry.lastSync = timestamp
-    entry.nextRefresh = AUTO_REFRESH_INTERVAL
+    entry.nextRefresh = getAutoRefreshInterval(entryId)
     entry.error = null
     saveSyncTimes()
   }
@@ -412,7 +419,7 @@ function startBackgroundRefresh() {
   if (countdownTimer !== null) {
     clearInterval(countdownTimer)
   }
-  
+
   countdownTimer = window.setInterval(() => {
     syncEntries.value.forEach(entry => {
       if (entry.nextRefresh > 0) {
@@ -421,11 +428,11 @@ function startBackgroundRefresh() {
         // Auto-refresh when countdown reaches zero
         logger.debug(`Auto-refreshing ${entry.id}`)
         refreshEntry(entry.id)
-        entry.nextRefresh = AUTO_REFRESH_INTERVAL
+        entry.nextRefresh = getAutoRefreshInterval(entry.id)
       }
     })
   }, 1000)
-  
+
   logger.debug('Background refresh timer started')
 }
 
@@ -454,7 +461,8 @@ function loadSyncTimes() {
           entry.lastSync = parsed[entry.id]
           // Calculate remaining time until next refresh
           const elapsed = Date.now() - entry.lastSync
-          entry.nextRefresh = Math.max(0, AUTO_REFRESH_INTERVAL - elapsed)
+          const interval = getAutoRefreshInterval(entry.id)
+          entry.nextRefresh = Math.max(0, interval - elapsed)
         }
       })
     }
@@ -491,10 +499,10 @@ export function getSyncEntries(): Ref<SyncEntry[]> {
  */
 export function formatRelativeTime(timestamp: number): string {
   if (!timestamp) return 'Never'
-  
+
   const now = Date.now()
   const diff = now - timestamp
-  
+
   if (diff < 60 * 1000) return 'Just now'
   if (diff < 60 * 60 * 1000) {
     const minutes = Math.floor(diff / (60 * 1000))
@@ -504,7 +512,7 @@ export function formatRelativeTime(timestamp: number): string {
     const hours = Math.floor(diff / (60 * 60 * 1000))
     return `${hours}h ago`
   }
-  
+
   const days = Math.floor(diff / (24 * 60 * 60 * 1000))
   return `${days}d ago`
 }
@@ -514,10 +522,10 @@ export function formatRelativeTime(timestamp: number): string {
  */
 export function formatCountdown(ms: number): string {
   if (ms <= 0) return 'Soon'
-  
+
   const minutes = Math.floor(ms / (60 * 1000))
   const seconds = Math.floor((ms % (60 * 1000)) / 1000)
-  
+
   if (minutes > 0) return `${minutes}m ${seconds}s`
   return `${seconds}s`
 }

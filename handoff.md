@@ -2,7 +2,9 @@
 
 ## Status
 - No open items.
- - Added building add + upgrade merge in todo list and verified with new integration test.
+- Technology import now bumps planned levels to at least current during API sync.
+- Added integration coverage for planned tech bump on import.
+- Sync intervals now applied per entry consistently (init, refresh, reload).
 
 ---
 
