@@ -76,7 +76,7 @@ export async function extractMarketDetails(
     return existing
   }
 
-  const requestPromise = (async () => {
+  const requestPromise: Promise<{ data: MaterialDetailsRaw[]; source: 'api' | 'cache'; ts: number }> = (async () => {
     try {
       const baseUrl = getApiBaseUrl(world)
       const url = new URL(`${baseUrl}/public/exchange/mat-details`)
@@ -110,13 +110,13 @@ export async function extractMarketDetails(
         ts: now,
       })
 
-      return { data: materials, source: 'api', ts: now }
+      return { data: materials, source: 'api' as const, ts: now }
     } catch (error) {
       // If API fails and we have stale cache, return it (especially for rate limits)
       if (cached) {
         const cacheAgeMinutes = Math.floor((Date.now() - cached.ts) / 60000)
         logger.warn(`API failed, returning cached data (${cacheAgeMinutes}min old)`, error)
-          return { data: cached.data, source: 'cache', ts: cached.ts }
+          return { data: cached.data, source: 'cache' as const, ts: cached.ts }
       }
 
       throw error

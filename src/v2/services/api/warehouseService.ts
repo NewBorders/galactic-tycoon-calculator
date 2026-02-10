@@ -91,7 +91,7 @@ export async function fetchCompanyBases(
     return existing
   }
 
-  const requestPromise = (async () => {
+  const requestPromise: Promise<{ data: CompanyResponse; source: 'api' | 'cache' }> = (async () => {
     const baseUrl = getApiBaseUrl(world)
     const url = new URL(`${baseUrl}/public/company`)
     url.searchParams.set('apikey', apiKey)
@@ -120,7 +120,7 @@ export async function fetchCompanyBases(
     // Update cache
     cache.bases.set(world, { data, ts: Date.now() })
 
-    return { data, source: 'api' }
+    return { data, source: 'api' as const }
   })()
 
   inFlight.bases.set(world, requestPromise)
@@ -158,7 +158,7 @@ export async function fetchWarehouseStockForBase(
     return existing
   }
 
-  const requestPromise = (async () => {
+  const requestPromise: Promise<{ data: WarehouseStockResponse; source: 'api' | 'cache' }> = (async () => {
     const baseUrl = getApiBaseUrl(world)
     const url = new URL(`${baseUrl}/public/company/warehouse/${warehouseId}`)
     url.searchParams.set('apikey', apiKey)
@@ -189,7 +189,7 @@ export async function fetchWarehouseStockForBase(
     // Update cache
     cache.warehouse.set(cacheKey, { data, ts: Date.now() })
 
-    return { data, source: 'api' }
+    return { data, source: 'api' as const }
   })()
 
   inFlight.warehouse.set(cacheKey, requestPromise)
@@ -243,7 +243,7 @@ export async function fetchGameBaseDetails(
     return existing
   }
 
-  const requestPromise = (async () => {
+  const requestPromise: Promise<{ data: GameBaseRaw; source: 'api' | 'cache' }> = (async () => {
     try {
       const baseUrl = getApiBaseUrl(world)
       // Try endpoint with id path first
@@ -277,11 +277,11 @@ export async function fetchGameBaseDetails(
         // Try to find matching base
         const found = Array.isArray(listData) ? listData.find((b: Record<string, unknown>) => b.id === gameBaseId) : null
         if (!found) throw new Error(`Base ${gameBaseId} not found in API response`)
-        return { data: found as GameBaseRaw, source: 'api' }
+        return { data: found as GameBaseRaw, source: 'api' as const }
       }
 
       const data = await response.json()
-      return { data: data as GameBaseRaw, source: 'api' }
+      return { data: data as GameBaseRaw, source: 'api' as const }
     } catch (error) {
       throw new Error(
         `Failed to fetch base details for base ${gameBaseId}: ${error instanceof Error ? error.message : String(error)}`,

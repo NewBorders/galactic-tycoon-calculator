@@ -455,9 +455,10 @@ async function handleImportBase(base: typeof state.value.bases[0]) {
       })
 
       if (buildings.length > 0) {
-        completedTodosCount = syncTodoListWithApiData({
+        const todoSyncResult = syncTodoListWithApiData({
           buildings: buildings,
         })
+        completedTodosCount = todoSyncResult.completedCount
       }
     }
 
