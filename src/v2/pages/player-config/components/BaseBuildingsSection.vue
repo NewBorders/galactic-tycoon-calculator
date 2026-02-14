@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { getTierExtraMaterialId, getTierExtraBaseAmount } from '@/v2/services/buildingCosts/buildingCosts.core'
-import { useGameData } from '@/v2/composables/useGlobalSummary'
-const { gameData } = useGameData()
+import { buildingCostsRepository } from '@/v2/services/buildingCosts/buildingCosts.service'
+import { getGameData } from '@/v2/services/gamedata/gameDataRepository'
+const gameData = getGameData()
 import { computed } from 'vue'
 import type { Building } from '@/v2/services/gamedata/types'
 import type { PlayerBuilding } from '@/v2/services/playerBases'
@@ -23,6 +23,34 @@ defineEmits<{
 }>()
 
 const buildingById = computed(() => new Map(props.lookup.map(b => [b.id, b])))
+const validBuildingRefs = computed(() =>
+  props.buildingRefs.filter(inst => inst && inst.buildingId !== undefined && buildingById.value.get(inst.buildingId))
+)
+
+const EXTRA_MATERIAL_IDS = [90, 120, 121] as const
+
+const extraCostByInstanceId = computed(() => {
+  const map = new Map<string, { materialId: number; materialName: string; amount: number }>()
+  const byId = buildingById.value
+  const materials = gameData.materials
+
+  for (const inst of validBuildingRefs.value) {
+    const building = byId.get(inst.buildingId)
+    if (!building) continue
+
+    const costMap = buildingCostsRepository.getSingleLevelCost(building, building.tier, inst.level)
+    const extraMaterialId = EXTRA_MATERIAL_IDS.find(id => costMap.has(id))
+    if (!extraMaterialId) continue
+
+    const amount = costMap.get(extraMaterialId)
+    if (!amount) continue
+
+    const materialName = materials.find(m => m.id === extraMaterialId)?.name ?? `#${extraMaterialId}`
+    map.set(inst.id, { materialId: extraMaterialId, materialName, amount })
+  }
+
+  return map
+})
 </script>
 
 <template>
@@ -30,7 +58,7 @@ const buildingById = computed(() => new Map(props.lookup.map(b => [b.id, b])))
   <!-- User must reorder buildings in-game; tool always reflects game order -->
   <div class="grid gap-3 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
     <div
-      v-for="inst in buildingRefs"
+      v-for="inst in validBuildingRefs"
       :key="inst.id"
       :id="`building-tile-${inst.id}`"
       class="rounded border p-3 transition-all relative"
@@ -108,27 +136,20 @@ const buildingById = computed(() => new Map(props.lookup.map(b => [b.id, b])))
           </button>
         </div>
       </div>
-    </div>
-  </div>
 
       <!-- Zusatzkosten für Tier 2, 3, 4 -->
-      <div v-if="(() => {
-        const building = buildingById.get(inst.buildingId)
-        if (!building) return false
-        const extraMaterialId = getTierExtraMaterialId(building.tier)
-        return !!extraMaterialId
-      })()" class="mt-2 text-xs text-slate-400 flex items-center gap-2">
+      <div v-if="extraCostByInstanceId.get(inst.id)" class="mt-2 text-xs text-slate-400 flex items-center gap-2">
         <span>{{ translate('extra_costs') }}:</span>
-        <template v-if="(() => {
-          const building = buildingById.get(inst.buildingId)
-          if (!building) return false
-          const extraMaterialId = getTierExtraMaterialId(building.tier)
-          return !!extraMaterialId
-        })()">
-          <MaterialIcon :name="gameData.materials.find(m => m.id === getTierExtraMaterialId(buildingById.get(inst.buildingId)?.tier ?? 0))?.name ?? '#' + getTierExtraMaterialId(buildingById.get(inst.buildingId)?.tier ?? 0)" variant="xs" />
+        <template v-if="extraCostByInstanceId.get(inst.id)">
+          <MaterialIcon
+            :name="extraCostByInstanceId.get(inst.id)!.materialName"
+            variant="xs"
+          />
           <span>
-            {{ getTierExtraBaseAmount(buildingById.get(inst.buildingId)!) }}
+            {{ extraCostByInstanceId.get(inst.id)!.amount }}
           </span>
         </template>
       </div>
+    </div>
+  </div>
 </template>

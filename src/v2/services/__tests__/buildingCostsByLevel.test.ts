@@ -382,6 +382,48 @@ describe('Refinery costs Planet Tier 2', () => {
   })
 })
 
+describe('Refinery costs Planet Tier 3', () => {
+  const refinery = getBuildingRefinery()
+  const planetTier = 3
+
+  it('Level 1 Refinery', () => {
+    const cost = buildingCostsRepository.getSingleLevelCost(refinery, planetTier, 1)
+    expect(cost.get(93)).toBe(2) // Amenities
+    expect(cost.get(62)).toBe(3) // Construction Kit
+    expect(cost.get(92)).toBe(5) // Prefab Kit
+    expect(cost.get(120)).toBe(1) // Composite Shielding
+  })
+
+  it('Level 2 Refinery', () => {
+    const cost = buildingCostsRepository.getSingleLevelCost(refinery, planetTier, 2)
+    expect(cost.get(93)).toBe(3) // Amenities
+    expect(cost.get(62)).toBe(4) // Construction Kit
+    expect(cost.get(92)).toBe(6) // Prefab Kit
+    expect(cost.get(120)).toBe(2) // Composite Shielding
+  })
+})
+
+describe('Refinery costs Planet Tier 4', () => {
+  const refinery = getBuildingRefinery()
+  const planetTier = 4
+
+  it('Level 1 Refinery', () => {
+    const cost = buildingCostsRepository.getSingleLevelCost(refinery, planetTier, 1)
+    expect(cost.get(93)).toBe(2) // Amenities
+    expect(cost.get(62)).toBe(3) // Construction Kit
+    expect(cost.get(92)).toBe(5) // Prefab Kit
+    expect(cost.get(121)).toBe(1) // Nanoweave Shielding
+  })
+
+  it('Level 2 Refinery', () => {
+    const cost = buildingCostsRepository.getSingleLevelCost(refinery, planetTier, 2)
+    expect(cost.get(93)).toBe(3) // Amenities
+    expect(cost.get(62)).toBe(4) // Construction Kit
+    expect(cost.get(92)).toBe(6) // Prefab Kit
+    expect(cost.get(121)).toBe(2) // Nanoweave Shielding
+  })
+})
+
 
 function getBuildingWarehouse(): BuildingCostInput {
   return {

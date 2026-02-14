@@ -39,6 +39,29 @@
    - `__gt_debug.getConfig()` - View current config
    - `__gt_debug.reset()` - Clear cache
 
+---
+
+## Session 23 Summary (Tier Extra Costs UI + Refactor - COMPLETED)
+
+**Task**: Show tier 2/3/4 extra building costs without core imports, fix runtime errors, and clean up BaseBuildingsSection rendering.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **Switched to Service Layer**
+   - BaseBuildingsSection now uses `buildingCostsRepository` instead of core functions.
+   - Game data access uses `getGameData()` from the repository.
+
+2. **Safe Rendering + Refactor**
+   - Filtered invalid `buildingRefs` via `validBuildingRefs`.
+   - Added `extraCostByInstanceId` computed map to avoid repeated inline calculations.
+   - Moved extra-cost UI inside the building card to keep `inst` in scope.
+
+3. **Tests**
+   - `docker compose exec web npm run test -- --run`
+   - Result: 47 test files, 363 tests passed.
+
 4. **Smart Behavior**:
    - ERROR and WARN always logged (production-safe)
    - DEBUG/INFO/TRACE filtered by module (must be enabled)
