@@ -1,0 +1,577 @@
+/**
+ * State Reversion Service
+ * Handles reverting game state when undoing/redoing changes
+ */
+
+import type { Change, TodoGroup } from './todoListService'
+import { usePlayerTechnology, type TechnologySpecialisation } from './playerTechnology'
+import { useWorldData } from './worldData'
+import { getChange, type StoredChange } from './changeStorage'
+import { createLogger } from './debug/logger'
+
+const logger = createLogger('StateReversion')
+
+// Helper type for playerBases service
+type PlayerBuildingLike = {
+  id: string
+  buildingId?: number
+  level?: number
+  slotId?: number
+}
+
+type PlayerRecipeLike = {
+  id: string
+  recipeId: number
+  count?: number
+  currentCount?: number
+}
+
+export interface PlayerBasesService {
+  state: { value: { bases: Array<{
+    id: string
+    planetId?: number
+    name?: string
+    buildings: PlayerBuildingLike[]
+    currentBuildings?: PlayerBuildingLike[]
+    recipes?: PlayerRecipeLike[]
+    currentRecipes?: PlayerRecipeLike[]
+  }> } }
+  planets: { value: Array<{ id: number; name: string }> }
+  addBase: (planetId: number) => void
+  removeBase: (baseId: string) => void
+  addBuilding: (baseId: string, buildingId: number, level?: number) => string | undefined
+  setBuilding: (baseId: string, instanceId: string, patch: { level?: number }) => void
+  removeBuilding: (baseId: string, instanceId: string) => void
+  addRecipe: (baseId: string, recipeId: number) => string | undefined
+  removeRecipe: (baseId: string, recipeInstanceId: string) => void
+  setRecipeCount: (baseId: string, recipeInstanceId: string, count: number) => void
+  setStock: (baseId: string, stock: Record<number, number>) => void
+}
+
+/**
+ * Find base by ID
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function findBaseById(playerBases: PlayerBasesService, baseId: string): string | null {
+  const base = playerBases.state.value.bases.find(b => b.id === baseId)
+  logger.debug('findBaseById:', baseId, '→', base?.id || 'NOT FOUND')
+  logger.debug('Available bases:', playerBases.state.value.bases.map(b => ({ id: b.id, name: b.name || 'Base' })))
+  return base?.id || null
+}
+
+/**
+ * Find recipe instance by recipeId in a base
+ */
+function findRecipeInstance(playerBases: PlayerBasesService, baseId: string, recipeId: number): string | null {
+  const base = playerBases.state.value.bases.find(b => b.id === baseId)
+  if (!base) return null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recipeInstance = (base as any).recipes?.find((r: any) => r.recipeId === recipeId)
+  return recipeInstance?.id || null
+}
+
+/**
+ * Apply a technology level change to the correct state (planning mode or player technology)
+ */
+function applyTechnologyLevel(techId: TechnologySpecialisation, targetValue: number): void {
+  const { setLevel } = usePlayerTechnology()
+  const { isPlanningActive, worldData, save } = useWorldData()
+
+  if (isPlanningActive.value && worldData.value.planning) {
+    worldData.value.planning.technology[techId] = targetValue
+    worldData.value.planning.modifiedAt = Date.now()
+    save()
+  } else {
+    setLevel(techId, targetValue)
+  }
+}
+
+/**
+ * Calculate the diff between two TODO states
+ * Returns the changes that need to be applied/reverted
+ */
+export function calculateStateDiff(
+  fromGroups: TodoGroup[],
+  toGroups: TodoGroup[]
+): { changes: Change[], direction: 'forward' | 'backward' } {
+  // Flatten all changes from both states
+  const fromChanges = fromGroups.flatMap(g => g.steps.flatMap(s => s.changes))
+  const toChanges = toGroups.flatMap(g => g.steps.flatMap(s => s.changes))
+
+  logger.debug('fromChanges:', fromChanges.length, fromChanges.map(c => c.description))
+  logger.debug('toChanges:', toChanges.length, toChanges.map(c => c.description))
+
+  // Determine direction primarily by change counts
+  let direction: 'forward' | 'backward'
+  let changes: Change[] = []
+
+  if (toChanges.length !== fromChanges.length) {
+    direction = toChanges.length < fromChanges.length ? 'backward' : 'forward'
+    changes = direction === 'backward'
+      ? fromChanges.slice(toChanges.length)  // Changes to revert
+      : toChanges.slice(fromChanges.length)  // Changes to apply
+  } else {
+    // Same number of changes – detect content differences (e.g., merged step with different values)
+    // Compare last change first (most recent)
+    const lastFrom = fromChanges[fromChanges.length - 1]
+    const lastTo = toChanges[toChanges.length - 1]
+
+    // Decide direction by timestamp if available
+    if (lastFrom && lastTo) {
+      direction = (lastFrom.timestamp || 0) > (lastTo.timestamp || 0) ? 'backward' : 'forward'
+
+      // If target differs (by id or values), include appropriate change
+      const sameTarget = lastFrom.details?.targetId === lastTo.details?.targetId
+      const sameType = lastFrom.type === lastTo.type
+      const samePlanet = lastFrom.planetId === lastTo.planetId
+      const valueDiff = lastFrom.details?.to !== lastTo.details?.to || lastFrom.details?.from !== lastTo.details?.from
+
+      if (sameTarget && sameType && samePlanet && valueDiff) {
+        // For backward, revert the 'from' change; for forward, apply the 'to' change
+        changes = direction === 'backward' ? [lastFrom] : [lastTo]
+      } else {
+        // No differences detected; nothing to apply
+        changes = []
+      }
+    } else {
+      // Fallback: no changes
+      direction = 'backward'
+      changes = []
+    }
+  }
+
+  logger.debug('Direction:', direction, 'Changes to apply/revert:', changes.length)
+
+  return { changes, direction }
+}
+
+/**
+ * Update DOM element value and trigger change event for Vue reactivity
+ */
+function updateDOMValue(elementId: string, newValue: number): void {
+  const inputElement = document.getElementById(elementId) as HTMLInputElement | null
+  if (!inputElement) {
+    logger.warn('DOM element not found:', elementId)
+    return
+  }
+
+  logger.debug('Updating DOM element:', elementId, 'to value:', newValue)
+
+  // Update the value
+  inputElement.value = String(newValue)
+
+  // Trigger input and change events to notify Vue
+  inputElement.dispatchEvent(new Event('input', { bubbles: true }))
+  inputElement.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
+/**
+ * Revert a stored change using precise metadata
+ */
+function revertStoredChange(storedChange: StoredChange, isUndo: boolean, playerBases?: PlayerBasesService): void {
+  // Global changes (technology, starting bonus) don't need playerBases
+  if (storedChange.type === 'technologyLevel' || storedChange.type === 'startingBonus') {
+    if (storedChange.type === 'technologyLevel') {
+      const targetValue = isUndo
+        ? (storedChange.originalValue as number)
+        : (storedChange.newValue as number)
+      if (targetValue !== undefined && typeof storedChange.targetId === 'string') {
+        applyTechnologyLevel(storedChange.targetId as unknown as TechnologySpecialisation, targetValue)
+        logger.debug('Set technology level to:', targetValue)
+      }
+    } else {
+      const targetValue = isUndo
+        ? (storedChange.originalValue as number)
+        : (storedChange.newValue as number)
+      if (targetValue !== undefined) {
+        const { setStartingBonus } = usePlayerTechnology()
+        setStartingBonus(targetValue)
+        logger.debug('Set starting bonus to:', targetValue)
+      }
+    }
+    return
+  }
+
+  // Base-specific changes require playerBases
+  if (!playerBases) {
+    logger.warn('playerBases required for change type:', storedChange.type)
+    return
+  }
+
+  // Resolve baseId from planetId (primary identifier)
+  let baseId: string | null = null
+  if (typeof storedChange.planetId === 'number') {
+    const base = playerBases.state.value.bases.find(b => b.planetId === storedChange.planetId)
+    baseId = base?.id ?? null
+  }
+
+  const targetValue = storedChange.originalValue !== undefined && storedChange.newValue !== undefined
+    ? (isUndo ? storedChange.originalValue : storedChange.newValue)
+    : undefined
+
+  logger.debug('Reverting stored change:', {
+    type: storedChange.type,
+    targetId: storedChange.targetId,
+    baseId,
+    isUndo,
+    targetValue
+  })
+
+  switch (storedChange.type) {
+    case 'buildingLevel':
+      if (baseId && storedChange.targetId && targetValue !== undefined) {
+        playerBases.setBuilding(baseId, storedChange.targetId, { level: targetValue })
+        logger.debug('Set building level to:', targetValue)
+
+        // Also update DOM
+        updateDOMValue(`building-input-${storedChange.targetId}`, targetValue)
+      }
+      break
+
+    case 'buildingAdd':
+      // Undo add = remove, Redo add = add
+      if (baseId && storedChange.buildingId !== undefined) {
+        if (isUndo && storedChange.targetId) {
+          // Remove the building that was added
+          playerBases.removeBuilding(baseId, storedChange.targetId)
+          logger.debug('Removed building:', storedChange.targetId)
+        } else {
+          // Re-add the building
+          const instanceId = playerBases.addBuilding(baseId, storedChange.buildingId)
+          logger.debug('Added building:', storedChange.buildingId, '→', instanceId)
+
+          // Update the stored change with the instance ID for future reversions
+          if (instanceId) {
+            storedChange.targetId = instanceId
+          }
+        }
+      }
+      break
+
+    case 'buildingRemove':
+      // Undo remove = add back, Redo remove = remove
+      if (baseId && storedChange.buildingId !== undefined) {
+        if (isUndo) {
+          // Re-add the building that was removed
+          const instanceId = playerBases.addBuilding(baseId, storedChange.buildingId)
+          logger.debug('Re-added removed building:', storedChange.buildingId, '→', instanceId)
+        } else if (storedChange.targetId) {
+          // Remove the building again
+          playerBases.removeBuilding(baseId, storedChange.targetId)
+          logger.debug('Removed building:', storedChange.targetId)
+        }
+      }
+      break
+
+    case 'recipeCount':
+      if (baseId && storedChange.targetId && targetValue !== undefined) {
+        playerBases.setRecipeCount(baseId, storedChange.targetId, targetValue)
+        logger.debug('Set recipe count to:', targetValue)
+
+        // Also update DOM
+        updateDOMValue(`recipe-input-${storedChange.targetId}`, targetValue)
+      }
+      break
+
+    case 'recipeAdd':
+      // Undo add = remove, Redo add = add
+      if (baseId && storedChange.recipeId !== undefined) {
+        if (isUndo && storedChange.targetId) {
+          // Remove the recipe that was added
+          playerBases.removeRecipe(baseId, storedChange.targetId)
+          logger.debug('Removed recipe:', storedChange.targetId)
+        } else {
+          // Re-add the recipe
+          const instanceId = playerBases.addRecipe(baseId, storedChange.recipeId)
+          logger.debug('Added recipe:', storedChange.recipeId, '→', instanceId)
+
+          // Update the stored change with the instance ID for future reversions
+          if (instanceId) {
+            storedChange.targetId = instanceId
+          }
+        }
+      }
+      break
+
+    case 'recipeRemove':
+      // Undo remove = add back, Redo remove = remove
+      if (baseId && storedChange.recipeId !== undefined) {
+        if (isUndo) {
+          // Re-add the recipe that was removed
+          const instanceId = playerBases.addRecipe(baseId, storedChange.recipeId)
+          logger.debug('Re-added removed recipe:', storedChange.recipeId, '→', instanceId)
+        } else if (storedChange.targetId) {
+          // Remove the recipe again
+          playerBases.removeRecipe(baseId, storedChange.targetId)
+          logger.debug('Removed recipe:', storedChange.targetId)
+        }
+      }
+      break
+
+    case 'stock':
+      if (baseId && storedChange.targetId && targetValue !== undefined) {
+        const base = playerBases.state.value.bases.find(b => b.id === baseId)
+        if (base) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const currentStock = (base as any).stock || {}
+          const materialId = parseInt(storedChange.targetId)
+          playerBases.setStock(baseId, { ...currentStock, [materialId]: targetValue })
+          logger.debug('Set stock to:', targetValue)
+        }
+      }
+      break
+  }
+}
+
+/**
+ * Revert a single change to the game state
+ * First tries to use stored change metadata, falls back to parsing details
+ * playerBases is only required for base-specific changes (building, recipe, stock)
+ */
+export function revertChange(change: Change, direction: 'forward' | 'backward', playerBases?: PlayerBasesService): void {
+  const isUndo = direction === 'backward'
+
+  // Try to use stored change metadata if available
+  const changeId = change.details?.changeId as string | undefined
+  if (changeId) {
+    const storedChange = getChange(changeId)
+    if (storedChange) {
+      logger.debug('Using stored change for reversion')
+      revertStoredChange(storedChange, isUndo, playerBases)
+      return
+    } else {
+      logger.warn('Change ID found but no stored change:', changeId)
+    }
+  }
+
+  // Fallback to parsing details (for older changes or manual changes)
+  logger.debug('Falling back to detail parsing for change:', change.type)
+
+  const isRevert = isUndo
+
+  // Technology changes (global, don't need playerBases)
+  if (change.type === 'technology') {
+    const techId = change.details?.technologyId as unknown
+    if (!techId) return
+    const targetValue = isRevert
+      ? (change.details?.from as number)
+      : (change.details?.to as number)
+
+    if (targetValue !== undefined && typeof techId === 'string') {
+      applyTechnologyLevel(techId as unknown as TechnologySpecialisation, targetValue)
+    }
+    return
+  }
+
+  // Starting bonus changes (global, don't need playerBases)
+  if (change.type === 'starting-bonus') {
+    const { setStartingBonus } = usePlayerTechnology()
+    const targetValue = isRevert
+      ? (change.details?.from as number)
+      : (change.details?.to as number)
+
+    if (targetValue !== undefined) {
+      setStartingBonus(targetValue)
+    }
+    return
+  }
+
+  // Base creation/removal (global but needs playerBases)
+  if (change.type === 'base') {
+    if (!playerBases) {
+      logger.warn('playerBases required for base changes')
+      return
+    }
+
+    const action = change.details?.action as string | undefined
+    const planetId = change.details?.planetId as number | undefined
+    const baseId = change.details?.baseId as string | undefined
+
+    if (action === 'add') {
+      // Undo add = remove, Redo add = add
+      if (isRevert) {
+        // Remove the base that was added
+        if (planetId !== undefined) {
+          const base = playerBases.state.value.bases.find(b => b.planetId === planetId)
+          if (base) {
+            playerBases.removeBase(base.id)
+            logger.debug('Removed base:', base.id, 'from planet:', planetId)
+          }
+        }
+      } else {
+        // Re-add the base
+        if (planetId !== undefined) {
+          playerBases.addBase(planetId)
+          console.log('[StateReversion] Added base to planet:', planetId)
+        }
+      }
+    } else if (action === 'remove') {
+      // Undo remove = add back, Redo remove = remove
+      if (isRevert) {
+        // Re-add the base
+        if (planetId !== undefined) {
+          playerBases.addBase(planetId)
+          console.log('[StateReversion] Re-added base to planet:', planetId)
+        }
+      } else {
+        // Remove the base again
+        if (baseId) {
+          playerBases.removeBase(baseId)
+          console.log('[StateReversion] Removed base:', baseId)
+        }
+      }
+    }
+    return
+  }
+
+  // All other changes require playerBases
+  if (!playerBases) {
+    console.warn('[StateReversion] playerBases required for change type:', change.type)
+    return
+  }
+
+  // Base-specific changes require planetId
+  const planetId = change.planetId
+  if (planetId === undefined) return
+
+  // Resolve base from planetId (primary identifier)
+  const base = playerBases.state.value.bases.find(b => b.planetId === planetId)
+  const baseId = base?.id
+  if (!baseId) {
+    console.warn('[StateReversion] Could not resolve base for planetId:', planetId)
+    return
+  }
+  console.log('[StateReversion] Processing change for planetId:', planetId, '→ baseId:', baseId)
+
+  // Building changes
+  if (change.type === 'building') {
+    const action = change.details?.action as string | undefined
+    const buildingInstanceId = change.details?.buildingInstanceId as string | undefined
+    const buildingId = change.details?.buildingId as number | undefined
+
+    // Building add/remove
+    if (action && buildingId) {
+      if (action === 'add') {
+        // Revert add = remove, Apply add = add
+        if (isRevert && buildingInstanceId) {
+          playerBases.removeBuilding(baseId, buildingInstanceId)
+        } else if (!isRevert) {
+          playerBases.addBuilding(baseId, buildingId)
+        }
+      } else if (action === 'remove') {
+        // Revert remove = add back, Apply remove = remove
+        if (isRevert) {
+          playerBases.addBuilding(baseId, buildingId)
+        } else if (buildingInstanceId) {
+          playerBases.removeBuilding(baseId, buildingInstanceId)
+        }
+      }
+      return
+    }
+
+    // Building level change
+    if (buildingInstanceId && buildingId) {
+      const targetLevel = isRevert
+        ? (change.details?.from as number)
+        : (change.details?.to as number)
+
+      console.log('[StateReversion] Building level change - instanceId:', buildingInstanceId, 'targetLevel:', targetLevel)
+
+      if (targetLevel !== undefined) {
+        playerBases.setBuilding(baseId, buildingInstanceId, { level: targetLevel })
+        console.log('[StateReversion] Building level set to:', targetLevel)
+      }
+    }
+    return
+  }
+
+  // Recipe changes
+  if (change.type === 'recipe') {
+    const action = change.details?.action as string | undefined
+    const recipeId = change.details?.recipeId as number | undefined
+
+    // Recipe add/remove
+    if (action && recipeId) {
+      if (action === 'add') {
+        // Revert add = remove, Apply add = add
+        if (isRevert) {
+          const recipeInstanceId = findRecipeInstance(playerBases, baseId, recipeId)
+          if (recipeInstanceId) {
+            playerBases.removeRecipe(baseId, recipeInstanceId)
+          }
+        } else {
+          playerBases.addRecipe(baseId, recipeId)
+        }
+      } else if (action === 'remove') {
+        // Revert remove = add back, Apply remove = remove
+        if (isRevert) {
+          playerBases.addRecipe(baseId, recipeId)
+        } else {
+          const recipeInstanceId = findRecipeInstance(playerBases, baseId, recipeId)
+          if (recipeInstanceId) {
+            playerBases.removeRecipe(baseId, recipeInstanceId)
+          }
+        }
+      }
+      return
+    }
+
+    // Recipe count change
+    if (!action && recipeId) {
+      const targetCount = isRevert
+        ? (change.details?.from as number)
+        : (change.details?.to as number)
+
+      if (targetCount !== undefined) {
+        const recipeInstanceId = findRecipeInstance(playerBases, baseId, recipeId)
+        if (recipeInstanceId) {
+          playerBases.setRecipeCount(baseId, recipeInstanceId, targetCount)
+        }
+      }
+    }
+    return
+  }
+
+  // Stock changes
+  if (change.type === 'stock') {
+    const materialId = change.details?.materialId as number | undefined
+    if (!materialId) return
+
+    const targetAmount = isRevert
+      ? (change.details?.from as number)
+      : (change.details?.to as number)
+
+    if (targetAmount !== undefined) {
+      const base = playerBases.state.value.bases.find(b => b.id === baseId)
+      if (base) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const currentStock = (base as any).stock || {}
+        playerBases.setStock(baseId, { ...currentStock, [materialId]: targetAmount })
+      }
+    }
+    return
+  }
+}
+
+/**
+ * Apply all state reversions for an undo/redo operation
+ */
+export function applyStateReversions(
+  fromGroups: TodoGroup[],
+  toGroups: TodoGroup[],
+  playerBases?: PlayerBasesService
+): void {
+  const { changes, direction } = calculateStateDiff(fromGroups, toGroups)
+
+  console.log('[StateReversion] Direction:', direction, 'Changes to apply:', changes.length)
+  console.log('[StateReversion] Changes:', changes.map(c => ({ type: c.type, desc: c.description })))
+
+  // Apply changes in reverse order for backward direction (undo)
+  const orderedChanges = direction === 'backward' ? [...changes].reverse() : changes
+
+  orderedChanges.forEach(change => {
+    console.log('[StateReversion] Reverting change:', change.type, change.description)
+    revertChange(change, direction, playerBases)
+  })
+}

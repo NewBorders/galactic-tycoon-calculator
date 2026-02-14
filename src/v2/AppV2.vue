@@ -1,19 +1,27 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { loadGameData } from './services/gamedata/service'
+import { createLogger } from './services/debug/logger'
 import type { GameData, GdIndex } from './services/gamedata/service'
 import { translate } from './localisation'
 import { getWorld } from './services/api/apiKeyManager'
 import { resetPriceCache } from './services/gamedata/prices'
 import { usePriceAlerts } from './services/priceAlerts/alertManager'
 import { useMaterialPricing } from './services/gamedata/prices'
+import { useWorldData } from './services/worldData'
+import { initializeSyncService } from './services/syncService'
+import { loadSvgSprite } from './services/spriteLoader'
+import MaterialsShortagePage from './pages/MaterialsShortagePage.vue'
+import MaterialsBalancePage from './pages/MaterialsBalancePage.vue'
 import PlayerConfigPanel from './pages/player-config/PlayerConfigPanel.vue'
 import TechnologyPanel from './pages/technology/TechnologyPanel.vue'
 import ConfigPanel from './pages/config/ConfigPanel.vue'
 import MarketAnalysisPanel from './pages/market/MarketAnalysisPanel.vue'
 import PriceAlertsPanel from './pages/price-alerts/PriceAlertsPanel.vue'
+import TodoList from './components/TodoList.vue'
+import ApiLandingPage from './components/ApiLandingPage.vue'
 
-type Tab = 'bases' | 'technology' | 'config' | 'market' | 'alerts'
+type Tab = 'bases' | 'matsShortage' | 'matsBalance' | 'technology' | 'config' | 'market' | 'alerts'
 const LS_KEY = 'gt:v2:activeTab'
 
 const active = ref<Tab>('bases')
@@ -22,6 +30,9 @@ const gdIndex = ref<GdIndex | null>(null)
 const gdLoadedAt = ref<number | null>(null)
 const loading = ref(false)
 const err = ref<string | null>(null)
+
+const { hasApiKey } = useWorldData()
+const logger = createLogger('AppV2')
 
 // Global alert checking (runs regardless of active tab)
 const { checkAlerts, playAlertSound, showNotification, reloadAlertsForWorld } = usePriceAlerts()
@@ -55,9 +66,22 @@ onBeforeUnmount(() => {
   }
 })
 
+function setActiveTab(tab: Tab) {
+  active.value = tab
+}
+
 onMounted(async () => {
   const saved = localStorage.getItem(LS_KEY) as Tab | null
-  if (saved === 'bases' || saved === 'technology' || saved === 'config' || saved === 'market' || saved === 'alerts') active.value = saved
+  if (saved === 'bases' || saved === 'matsShortage' || saved === 'matsBalance' || saved === 'technology' || saved === 'config' || saved === 'market' || saved === 'alerts') {
+    active.value = saved
+  } else {
+    active.value = 'bases' // Default to bases
+  }
+
+  // Load SVG sprite first (parallel with game data)
+  loadSvgSprite().catch((e) => {
+    logger.error('Failed to load SVG sprite:', e)
+  })
 
   loading.value = true
   try {
@@ -65,8 +89,18 @@ onMounted(async () => {
     gd.value = data
     gdIndex.value = index
     gdLoadedAt.value = loadedAt
+    // Debug-Log: gameData nach erfolgreichem Laden
+    logger.info('gameData loaded', {
+      materialCount: data?.materials?.length,
+      buildingCount: data?.buildings?.length,
+      loadedAt,
+      firstMaterial: data?.materials?.[0],
+      firstBuilding: data?.buildings?.[0],
+    })
     // Start global alert checking once gameData is loaded
     setupAlertChecking()
+    // Initialize sync service for background auto-refresh
+    await initializeSyncService()
   } catch (e: unknown) {
     err.value = e instanceof Error ? e.message : 'error'
   } finally {
@@ -89,8 +123,18 @@ watch(getWorld, async () => {
     gd.value = result.data
     gdIndex.value = result.index
     gdLoadedAt.value = result.loadedAt
+    // Debug-Log: gameData nach erfolgreichem Laden (World-Wechsel)
+    logger.info('gameData loaded (world change)', {
+      materialCount: result.data?.materials?.length,
+      buildingCount: result.data?.buildings?.length,
+      loadedAt: result.loadedAt,
+      firstMaterial: result.data?.materials?.[0],
+      firstBuilding: result.data?.buildings?.[0],
+    })
     // Restart alert checking for new world
     setupAlertChecking()
+    // Reinitialize sync service for new world
+    await initializeSyncService()
   } catch (e: unknown) {
     err.value = e instanceof Error ? e.message : 'error'
   } finally {
@@ -110,9 +154,13 @@ async function handleGameDataRefreshed(payload: {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-900 text-slate-100">
+  <!-- Show landing page if no API key configured -->
+  <ApiLandingPage v-if="!hasApiKey" @set-active-tab="setActiveTab" />
+
+  <!-- Main app -->
+  <div v-else class="min-h-screen bg-slate-900 text-slate-100">
     <div class="p-4 space-y-4">
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 justify-between">
         <nav class="flex gap-2">
           <button
             class="px-3 py-2 border rounded"
@@ -120,6 +168,20 @@ async function handleGameDataRefreshed(payload: {
             @click="active = 'bases'"
           >
             {{ translate('tabPlayerConfig') }}
+          </button>
+          <button
+            class="px-3 py-2 border rounded"
+            :class="active === 'matsShortage' ? 'bg-gray-600' : ''"
+            @click="active = 'matsShortage'"
+          >
+            ⚠️ Mats Shortage
+          </button>
+          <button
+            class="px-3 py-2 border rounded"
+            :class="active === 'matsBalance' ? 'bg-gray-600' : ''"
+            @click="active = 'matsBalance'"
+          >
+            📦 Mats Balance
           </button>
           <button
             class="px-3 py-2 border rounded"
@@ -155,6 +217,16 @@ async function handleGameDataRefreshed(payload: {
       <p v-if="err" class="text-red-600 text-sm">{{ err }}</p>
       <p v-else-if="loading">…</p>
 
+      <MaterialsShortagePage
+        v-if="gd && gdIndex && active === 'matsShortage'"
+        :gameData="gd"
+        :index="gdIndex"
+      />
+      <MaterialsBalancePage
+        v-if="gd && gdIndex && active === 'matsBalance'"
+        :gameData="gd"
+        :index="gdIndex"
+      />
       <PlayerConfigPanel
         v-if="gd && gdIndex && active === 'bases'"
         :gameData="gd"
@@ -162,10 +234,13 @@ async function handleGameDataRefreshed(payload: {
         :game-data-loaded-at="gdLoadedAt"
         @gameDataRefreshed="handleGameDataRefreshed"
       />
-      <TechnologyPanel v-if="active === 'technology'" />
+      <TechnologyPanel v-if="gd && active === 'technology'" :gameData="gd" />
       <MarketAnalysisPanel v-if="gd && gdIndex && active === 'market'" :gameData="gd" :index="gdIndex" />
       <PriceAlertsPanel v-if="gd && gdIndex && active === 'alerts'" :gameData="gd" :index="gdIndex" />
       <ConfigPanel v-if="active === 'config'" />
     </div>
+
+    <!-- Floating TODO List -->
+    <TodoList />
   </div>
 </template>

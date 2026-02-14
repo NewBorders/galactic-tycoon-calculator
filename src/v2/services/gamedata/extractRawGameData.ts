@@ -1,4 +1,14 @@
 import { getWorld } from '../api/apiKeyManager'
+import { createLogger } from '../debug/logger'
+
+const logger = createLogger('GameDataExtract')
+const apiCallCounts = new Map<string, number>()
+
+function trackApiCall(label: string) {
+  const next = (apiCallCounts.get(label) ?? 0) + 1
+  apiCallCounts.set(label, next)
+  logger.debug('[API Call]', label, 'count:', next)
+}
 
 function getApiUrl(): string {
   const world = getWorld()
@@ -8,6 +18,7 @@ function getApiUrl(): string {
 const FALLBACK_URL = '/gamedata.fallback.json'
 
 async function fetchJson<T = unknown>(url: string, timeoutMs = 15000): Promise<T> {
+  trackApiCall(url)
   const c = new AbortController()
   const t = setTimeout(() => c.abort(), timeoutMs)
   try {

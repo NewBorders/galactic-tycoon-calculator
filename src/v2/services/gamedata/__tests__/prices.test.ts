@@ -6,8 +6,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Mock fetch globally
-const mockFetch = vi.fn()
-global.fetch = mockFetch as any
+const mockFetch = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+vi.stubGlobal('fetch', mockFetch)
 
 describe('Price Conversion', () => {
   beforeEach(() => {
@@ -26,7 +26,7 @@ describe('Price Conversion', () => {
     ]
 
     for (const testCase of testCases) {
-      const { cents, expectedDollars, description } = testCase
+      const { cents, expectedDollars } = testCase
 
       // Mock API response
       mockFetch.mockResolvedValueOnce({
@@ -43,9 +43,6 @@ describe('Price Conversion', () => {
         }),
       })
 
-      // Dynamically import the module to get fresh instance
-      const pricesModule = await import('../prices')
-      
       // Since we're testing internals, we verify the conversion happens correctly
       // by checking that values > 0 are divided by 100
       const result = cents / 100

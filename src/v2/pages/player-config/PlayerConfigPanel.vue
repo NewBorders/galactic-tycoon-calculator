@@ -1,21 +1,39 @@
+import { createLogger } from '@/v2/services/debug/logger'
+const logger = createLogger('PlayerConfigPanel')
+
+watch(() => props.gameData, (newVal, oldVal) => {
+  logger.info('PlayerConfigPanel: gameData updated', {
+    newMaterialCount: newVal?.materials?.length,
+    newBuildingCount: newVal?.buildings?.length,
+    loadedAt: props.gameDataLoadedAt,
+    firstMaterial: newVal?.materials?.[0],
+    firstBuilding: newVal?.buildings?.[0],
+  })
+})
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { createLogger } from '@/v2/services/debug/logger'
 import type { GameData, GdIndex, Planet } from '../../services/gamedata/service.ts'
 import { searchPlanetsByName, useMaterialPricing, loadGameData } from '../../services/gamedata/service.ts'
 import { usePlayerBases } from '../../services/playerBases.ts'
 import { getApiKey, getWorld } from '@/v2/services/api/apiKeyManager'
 import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
 import { fetchCompanyBases, fetchGameBaseDetails, transformGameBase } from '@/v2/services/api/warehouseService'
+import { updateSyncTime, registerSyncCallbacks } from '@/v2/services/syncService'
+import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
 import Draggable from 'vuedraggable'
 import { translate } from '../../localisation/index.js'
 
 import PlanetSearch from './components/PlanetSearch.vue'
 import ConfiguredBase from './components/ConfiguredBase.vue'
-import ApiSyncPanel from './components/ApiSyncPanel.vue'
-import LoadBasesButton from './components/LoadBasesButton.vue'
 import ImportConfirmDialog from './components/ImportConfirmDialog.vue'
 import GlobalSummary from './components/GlobalSummary.vue'
+import ApiSyncPanel from './components/ApiSyncPanel.vue'
 import { usePlayerTechnology } from '@/v2/services/playerTechnology'
+import { useWorldData } from '@/v2/services/worldData'
+import { usePlanningMode } from '@/v2/services/planningMode/state'
+import { getChangeTracker } from '@/v2/services/changeTracker'
+import { registerPlayerBases, syncTodoListWithApiData } from '@/v2/services/todoListService'
 
 import { computeBaseReport } from '@/v2/services/production/engine'
 
@@ -37,7 +55,6 @@ const {
   addBuilding,
   setBuilding,
   removeBuilding,
-  reorderBuildings,
   addRecipe,
   removeRecipe,
   reorderRecipes,
@@ -46,17 +63,55 @@ const {
   setStock,
   setMaterialSortOrder,
   syncBaseFromApi,
+  updateStockForWarehouse,
   updateBaseStockFromApi,
   importBaseFromApiPayload,
   isBaseOpen,
   setBaseOpen,
   getSections,
   setSection,
+  planets,
 } = usePlayerBases(props.gameData)
 
+// Register playerBases with TodoListService for state reversion
+registerPlayerBases({
+  state,
+  planets,
+  addBase,
+  removeBase,
+  addBuilding,
+  setBuilding,
+  removeBuilding,
+  addRecipe,
+  removeRecipe,
+  setRecipeCount,
+  setStock,
+})
+
+// Market analysis for price trends
+const { opportunities: marketOpportunities, fetch: fetchMarketData } = useMarketAnalysis()
+
+// Fetch market data on mount
+fetchMarketData()
+
 const { state: technologyState } = usePlayerTechnology()
-const technologyLevels = computed(() => technologyState.value.levels ?? {})
-const startingBonus = computed(() => technologyState.value.startingBonus ?? 1)
+const { current: currentWorldState } = useWorldData()
+const { isPlanningActive, plannedTechnology } = usePlanningMode()
+
+// Planned technology levels and starting bonus
+// Use planning mode state when in planning mode, otherwise use playerTechnology state
+const plannedTechnologyLevels = computed(() =>
+  isPlanningActive.value ? plannedTechnology.value : (technologyState.value.levels ?? {})
+)
+const plannedStartingBonus = computed(() => technologyState.value.startingBonus ?? 1)
+
+// Current technology levels and starting bonus (from API, read-only)
+const currentTechnologyLevels = computed(() => currentWorldState.value.technology ?? {})
+const currentStartingBonus = computed(() => currentWorldState.value.startingBonus ?? 1)
+
+// For backward compatibility and global calculations, use planned values
+const technologyLevels = plannedTechnologyLevels
+const startingBonus = plannedStartingBonus
 
 // Calculate global workforce burden across all bases for expansion overhead
 const globalWorkforceBurden = computed(() => {
@@ -104,7 +159,6 @@ const globalWorkforceBurden = computed(() => {
 })
 
 const query = ref('')
-const apiSyncPanel = ref()
 const importLoading = ref<string | null>(null) // baseId of base currently importing
 const importError = ref<string | null>(null)
 const importSuccess = ref<string | null>(null)
@@ -112,6 +166,8 @@ const confirmDialogOpen = ref(false)
 const confirmDialogBaseId = ref<string | null>(null)
 const confirmDialogTitle = ref<string | undefined>(undefined)
 const confirmDialogMessage = ref<string | undefined>(undefined)
+const apiSyncPanel = ref()
+
 
 // Game data refresh state
 const gameDataLoading = ref(false)
@@ -230,6 +286,12 @@ onMounted(() => {
   refreshTimer = setInterval(() => {
     updateCountdown()
   }, 1000)
+
+  // Register callback for when sync service loads company data
+  registerSyncCallbacks({
+    onCompanyDataLoaded: handleBasesLoaded,
+    onWarehouseStockLoaded: handleWarehouseStockLoaded
+  })
 })
 
 onBeforeUnmount(() => {
@@ -240,7 +302,13 @@ onBeforeUnmount(() => {
 })
 
 function selectPlanet(planet: Planet) {
-  if (!planetHasBase(planet.id)) addBase(planet.id)
+  if (!planetHasBase(planet.id)) {
+    // Track new base creation
+    const changeTracker = getChangeTracker(props.gameData)
+    changeTracker.trackNewBase(planet.name || `Planet ${planet.id}`, planet.tier, planet.id)
+
+    addBase(planet.id)
+  }
   query.value = ''
   persist()
 }
@@ -267,6 +335,9 @@ watch(
 async function handleBasesLoaded(
   bases: Array<{ id: number; name: string; planetId: number; warehouseId: number }>,
 ) {
+  // Update sync timestamp for company data
+  updateSyncTime('company')
+
   // Track existing gameBaseIds before sync to detect newly added bases
   const existingIds = new Set(
     state.value.bases
@@ -301,14 +372,23 @@ async function handleBasesLoaded(
           importBaseFromApiPayload(localBase.id, transformed)
         }
       } catch (e) {
-        console.warn('[LoadBases] Auto-import failed for base', gameBaseId, e)
+        const logger = createLogger('LoadBases')
+        logger.warn('Auto-import failed for base', gameBaseId, e)
       }
     }
   } else {
-    console.warn('[LoadBases] API key not set; skipping auto-import for new bases')
+    const logger = createLogger('LoadBases')
+    logger.warn('API key not set; skipping auto-import for new bases')
   }
 
   persist()
+}
+
+function handleWarehouseStockLoaded(warehouseId: number, stocks: Record<number, number>) {
+  const logger = createLogger('PlayerConfigPanel')
+  logger.debug('handleWarehouseStockLoaded', { warehouseId, stockCount: Object.keys(stocks).length })
+  // Update all bases that share this warehouse
+  updateStockForWarehouse(warehouseId, stocks)
 }
 
 function handleStocksLoaded(
@@ -358,12 +438,44 @@ async function handleImportBase(base: typeof state.value.bases[0]) {
     // Strict ETL: transform raw API payload to normalized format
     const transformed = transformGameBase(details.data)
     const imported = importBaseFromApiPayload(localBase.id, transformed)
+
+    // Auto-complete building TODOs based on imported data
+    let completedTodosCount = 0
+    if (details.data.buildingSlots && Array.isArray(details.data.buildingSlots)) {
+      const buildings: Array<{ buildingId: number; level: number; planetId: number }> = []
+
+      details.data.buildingSlots.forEach((slot) => {
+        if (slot.status === 2 && slot.building && slot.building.level) {
+          buildings.push({
+            buildingId: slot.building.type,
+            level: slot.building.level,
+            planetId: details.data.planetId,
+          })
+        }
+      })
+
+      if (buildings.length > 0) {
+        const todoSyncResult = syncTodoListWithApiData({
+          buildings: buildings,
+        })
+        completedTodosCount = todoSyncResult.completedCount
+      }
+    }
+
     if (!imported) {
       importError.value = translate('importBaseError')
-      console.warn('[ImportBase] Import returned false - nothing imported')
+      const logger = createLogger('ImportBase')
+      logger.warn('Import returned false - nothing imported')
     } else {
       persist()
-      importSuccess.value = translate('importBaseSuccess')
+
+      // Show success message with TODO completion count
+      if (completedTodosCount > 0) {
+        importSuccess.value = `${translate('importBaseSuccess')} (${completedTodosCount} ${completedTodosCount === 1 ? 'TODO' : 'TODOs'} ${translate('completed')})`
+      } else {
+        importSuccess.value = translate('importBaseSuccess')
+      }
+
       // Clear success message after 5 seconds
       setTimeout(() => {
         importSuccess.value = null
@@ -517,15 +629,12 @@ async function refreshGameData() {
       </div>
     </div>
 
-    <div class="flex items-center gap-2">
-      <PlanetSearch
-        v-model:query="query"
-        :suggestions="suggestions"
-        :hasBase="planetHasBase"
-        @select="selectPlanet"
-      />
-      <LoadBasesButton :bases="state.bases" @basesLoaded="handleBasesLoaded" />
-    </div>
+    <PlanetSearch
+      v-model:query="query"
+      :suggestions="suggestions"
+      :hasBase="planetHasBase"
+      @select="selectPlanet"
+    />
 
     <!-- Global Summary -->
     <GlobalSummary
@@ -535,10 +644,11 @@ async function refreshGameData() {
       :index="props.index"
       :price-resolver="priceResolver"
       :technology-levels="technologyLevels"
+      :current-technology-levels="currentTechnologyLevels"
       :starting-bonus="startingBonus"
       :timeframe-hours="timeframeHours"
       :global-workforce-burden="globalWorkforceBurden"
-      v-model:export-threshold="exportThreshold"
+      :export-threshold="exportThreshold"
     />
 
     <!-- Bases -->
@@ -559,8 +669,11 @@ async function refreshGameData() {
           :price-resolver="priceResolver"
           :technology-levels="technologyLevels"
           :starting-bonus="startingBonus"
+          :current-technology-levels="currentTechnologyLevels"
+          :current-starting-bonus="currentStartingBonus"
           :timeframe-hours="timeframeHours"
           :global-workforce-burden="globalWorkforceBurden"
+          :market-opportunities="marketOpportunities"
           :isBaseOpen="(id) => isBaseOpen(id)"
           :getSections="(id) => getSections(id)"
           :isImporting="importLoading === base.id"
@@ -590,42 +703,104 @@ async function refreshGameData() {
           "
           @addBuilding="
             ({ buildingId, level }) => {
-              addBuilding(base.id, buildingId, level)
+              // Add building first to get the instance ID
+              const instanceId = addBuilding(base.id, buildingId, level)
+
+              // Track building add with building ID, instance ID, and level
+              const buildingData = props.gameData.buildings.find(b => b.id === buildingId)
+              if (buildingData && instanceId) {
+                const changeTracker = getChangeTracker(props.gameData)
+                changeTracker.trackAddBuilding(base.planetId, buildingId, instanceId, level)
+              }
+
               persist()
             }
           "
           @updateBuilding="
             ({ id, patch }) => {
+              // Track building level change
+              if (patch.level != null) {
+                const building = base.buildings.find((b: typeof base.buildings[0]) => b.id === id)
+                const buildingData = props.gameData.buildings.find(b => b.id === building?.buildingId)
+                if (building && buildingData) {
+                  const changeTracker = getChangeTracker(props.gameData)
+                  changeTracker.trackBuildingChange(
+                    base.planetId,
+                    building.id,
+                    building.buildingId,
+                    building.level,
+                    patch.level
+                  )
+                }
+              }
               setBuilding(base.id, id, patch)
               persist()
             }
           "
           @removeBuilding="
             ({ id }) => {
+              // Track building remove
+              const building = base.buildings.find((b: typeof base.buildings[0]) => b.id === id)
+              if (building) {
+                const buildingData = props.gameData.buildings.find(b => b.id === building.buildingId)
+                if (buildingData) {
+                  const changeTracker = getChangeTracker(props.gameData)
+                  changeTracker.trackRemoveBuilding(base.planetId, building.buildingId, building.id)
+                }
+              }
               removeBuilding(base.id, id)
-              persist()
-            }
-          "
-          @reorderBuildings="
-            ({ ids }) => {
-              reorderBuildings(base.id, ids)
               persist()
             }
           "
           @addRecipe="
             ({ recipeId }) => {
-              addRecipe(base.id, recipeId)
+              // Add recipe first to get the instance ID
+              const instanceId = addRecipe(base.id, recipeId)
+
+              // Track recipe add with recipe ID and instance ID
+              const recipe = props.gameData.recipes.find(r => r.id === recipeId)
+              if (recipe && instanceId) {
+                const changeTracker = getChangeTracker(props.gameData)
+                changeTracker.trackAddRecipe(base.planetId, recipeId, instanceId)
+              }
+
               persist()
             }
           "
           @removeRecipe="
             ({ id }) => {
+              // Track recipe remove
+              const recipe = base.recipes.find((r: typeof base.recipes[0]) => r.id === id)
+              if (recipe) {
+                const recipeData = props.gameData.recipes.find(r => r.id === recipe.recipeId)
+                if (recipeData) {
+                  const changeTracker = getChangeTracker(props.gameData)
+                  changeTracker.trackRemoveRecipe(base.planetId, recipe.recipeId, recipe.id)
+                }
+              }
               removeRecipe(base.id, id)
               persist()
             }
           "
           @updateRecipe="
             ({ id, patch }) => {
+              // Track recipe count change
+              if (patch.count != null) {
+                const recipe = base.recipes.find((r: typeof base.recipes[0]) => r.id === id)
+                if (recipe) {
+                  const recipeData = props.gameData.recipes.find(r => r.id === recipe.recipeId)
+                  if (recipeData) {
+                    const changeTracker = getChangeTracker(props.gameData)
+                    changeTracker.trackRecipeCountChange(
+                      base.planetId,
+                      recipe.recipeId,
+                      id,  // recipeInstanceId
+                      recipe.count ?? 1,
+                      patch.count
+                    )
+                  }
+                }
+              }
               // patch.count may be undefined; ensure numeric
               setRecipeCount(base.id, id, patch.count ?? 0)
               persist()
@@ -646,6 +821,24 @@ async function refreshGameData() {
           "
           @updateStock="
             (stock) => {
+              // Track stock changes
+              const changeTracker = getChangeTracker(props.gameData)
+              const oldStock = base.stock ?? {}
+              Object.entries(stock).forEach(([materialIdStr, newQty]) => {
+                const materialId = Number(materialIdStr)
+                const oldQty = oldStock[materialId] ?? 0
+                if (oldQty !== newQty) {
+                  const material = props.gameData.materials.find(m => m.id === materialId)
+                  if (material) {
+                    changeTracker.trackStockChange(
+                      base.planetId,
+                      materialId,
+                      oldQty,
+                      newQty
+                    )
+                  }
+                }
+              })
               setStock(base.id, stock)
               persist()
             }

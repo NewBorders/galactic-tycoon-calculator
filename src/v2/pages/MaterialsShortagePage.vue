@@ -1,0 +1,123 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { usePlayerBases } from '@/v2/services/playerBases'
+import { useGlobalSummary } from '@/v2/composables/useGlobalSummary'
+import { useMaterialPricing } from '@/v2/services/gamedata/prices'
+import { usePlayerTechnology } from '@/v2/services/playerTechnology'
+import { useMarketAnalysis } from '@/v2/composables/useMarketAnalysis'
+import { getExportThresholdRef } from '@/v2/services/config/exportThreshold'
+import { computeBaseReport } from '@/v2/services/production/engine'
+import { analyzeStockSituation } from '@/v2/services/stockAnalysis'
+import { useTimeframe } from '@/v2/services/timeframe'
+import type { GameData, GdIndex } from '@/v2/services/gamedata/types'
+import StockWarnings from '@/v2/components/StockWarnings.vue'
+
+const props = defineProps<{
+  gameData: GameData
+  index: GdIndex
+}>()
+
+// Use shared timeframe
+const { timeframeHours } = useTimeframe()
+
+const { state: basesState } = usePlayerBases(props.gameData)
+const bases = computed(() => basesState.value.bases)
+
+const { priceResolver } = useMaterialPricing(props.gameData)
+const { state: technologyState } = usePlayerTechnology()
+const exportThreshold = getExportThresholdRef()
+
+const { opportunities: marketOpportunities } = useMarketAnalysis()
+
+// Calculate global workforce burden across all bases for expansion overhead
+const globalWorkforceBurden = computed(() => {
+  const technologyLevelsOption: Record<number, number> = {}
+  Object.entries(technologyLevels.value ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    technologyLevelsOption[spec] = Math.max(0, Math.floor(level))
+  })
+
+  let totalWorkforce = 0
+  bases.value.forEach((base) => {
+    const assignment = {
+      planetId: base.planetId,
+      buildings: (base.buildings ?? []).map((b: { buildingId: number; level: number }) => ({
+        buildingId: b.buildingId,
+        level: b.level,
+      })),
+      recipes: (base.recipes ?? []).map((r: { id: string; recipeId: number; count?: number }) => ({
+        recipeId: r.recipeId,
+        count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 0,
+      })),
+    }
+    const activeOptionalConsumables = new Set(
+      (base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'),
+    )
+
+    const report = computeBaseReport(props.gameData, {
+      assignment,
+      horizonDays: 1,
+      options: {
+        activeOptionalConsumables,
+        technologyLevels: technologyLevelsOption,
+        startingBonus: startingBonus.value,
+      },
+    })
+
+    // Sum up workforce from all tiers
+    report.workforceSummary.forEach((wf: { required: number }) => {
+      totalWorkforce += wf.required
+    })
+  })
+  return totalWorkforce
+})
+
+const technologyLevels = computed(() => technologyState.value.levels)
+const startingBonus = computed(() => technologyState.value.startingBonus)
+
+const updateTimeframe = (value: number) => {
+  timeframeHours.value = value
+}
+
+const summary = useGlobalSummary(
+  bases,
+  computed(() => props.gameData),
+  computed(() => props.index),
+  priceResolver,
+  technologyLevels,
+  startingBonus,
+  computed(() => timeframeHours.value),
+  globalWorkforceBurden,
+  exportThreshold,
+  marketOpportunities,
+)
+
+// Analyze stock situation for warnings
+const stockAnalysis = computed(() => {
+  return analyzeStockSituation(
+    summary.baseSummaries.value,
+    props.gameData,
+    props.index,
+    {
+      timeframeDays: timeframeHours.value / 24,
+      priceResolver: priceResolver.value,
+    },
+  )
+})
+
+</script>
+
+<template>
+  <div class="space-y-6 pb-16">
+    <!-- Global Stock Warnings with Integrated Timeframe Control -->
+    <StockWarnings
+      :analysis="stockAnalysis"
+      :index="props.index"
+      :timeframe-hours="timeframeHours"
+      :price-resolver="priceResolver"
+      @update:timeframe-hours="updateTimeframe"
+    />
+  </div>
+</template>

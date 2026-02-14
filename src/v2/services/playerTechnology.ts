@@ -14,14 +14,14 @@ export type TechnologyDefinition = {
 }
 
 export const TECHNOLOGIES: TechnologyDefinition[] = [
-  { id: 1, nameKey: 'technologyConstruction', descriptionKey: 'technologyConstructionDesc' },
-  { id: 2, nameKey: 'technologyManufacturing', descriptionKey: 'technologyManufacturingDesc' },
   { id: 3, nameKey: 'technologyAgriculture', descriptionKey: 'technologyAgricultureDesc' },
-  { id: 4, nameKey: 'technologyResourceExtraction', descriptionKey: 'technologyResourceExtractionDesc' },
-  { id: 5, nameKey: 'technologyMetallurgy', descriptionKey: 'technologyMetallurgyDesc' },
   { id: 6, nameKey: 'technologyChemistry', descriptionKey: 'technologyChemistryDesc' },
+  { id: 1, nameKey: 'technologyConstruction', descriptionKey: 'technologyConstructionDesc' },
   { id: 7, nameKey: 'technologyElectronics', descriptionKey: 'technologyElectronicsDesc' },
   { id: 8, nameKey: 'technologyFoodProduction', descriptionKey: 'technologyFoodProductionDesc' },
+  { id: 2, nameKey: 'technologyManufacturing', descriptionKey: 'technologyManufacturingDesc' },
+  { id: 5, nameKey: 'technologyMetallurgy', descriptionKey: 'technologyMetallurgyDesc' },
+  { id: 4, nameKey: 'technologyResourceExtraction', descriptionKey: 'technologyResourceExtractionDesc' },
   { id: 10, nameKey: 'technologyScience', descriptionKey: 'technologyScienceDesc' },
 ]
 
@@ -102,10 +102,31 @@ export function usePlayerTechnology() {
     saveState(next)
   }
 
+  function setFromApi(technologies: Array<{ id: number; level: number }>, startingBonus?: number) {
+    const apiLevels: Partial<Record<TechnologySpecialisation, number>> = {}
+    
+    technologies.forEach((tech) => {
+      const id = tech.id as TechnologySpecialisation
+      if (TECHNOLOGIES.some((t) => t.id === id)) {
+        apiLevels[id] = clampLevel(tech.level)
+      }
+    })
+
+    // Completely replace levels with API data (do not merge with existing)
+    const next: PlayerTechnologyState = {
+      startingBonus: startingBonus !== undefined ? clampStartingBonus(startingBonus) : state.value.startingBonus,
+      levels: apiLevels,
+    }
+    
+    state.value = next
+    saveState(next)
+  }
+
   return {
     state,
     setLevel,
     setStartingBonus,
+    setFromApi,
     reset,
   }
 }

@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import type { Building, GameData, GdIndex, Planet } from '@/v2/services/gamedata/types'
 import type { PlayerBase } from '@/v2/services/playerBases'
+import type { MarketOpportunity } from '@/v2/services/marketAnalysis/types'
 import { translate } from '@/v2/localisation'
+import { computeBaseReport } from '@/v2/services/production/engine'
+import { calculateWorkforceProductivity } from '@/v2/services/production/workforceProductivity'
+import { calculateLostProfit } from '@/v2/services/production/lostProfit'
+import { formatNumber, formatPrice } from '@/v2/utils/formatNumber'
 import BuildingSearch from './BuildingSearch.vue'
 import BaseBuildingsSection from './BaseBuildingsSection.vue'
 import ProductionSection from './ProductionSection.vue'
@@ -16,10 +21,13 @@ const props = defineProps<{
   gameData: GameData
   index: GdIndex
   priceResolver: (materialId: number) => number
-  technologyLevels: Partial<Record<number, number>>
-  startingBonus: number
+  technologyLevels: Partial<Record<number, number>> // Planned levels
+  startingBonus: number // Planned starting bonus
+  currentTechnologyLevels: Partial<Record<number, number>> // Current levels from API
+  currentStartingBonus: number // Current starting bonus from API
   timeframeHours: number
   globalWorkforceBurden: number
+  marketOpportunities?: MarketOpportunity[]
   isBaseOpen: (id: string) => boolean
   getSections: (id: string) => { buildings: boolean; production: boolean; dailySummary: boolean }
   isImporting?: boolean
@@ -32,9 +40,9 @@ const emit = defineEmits<{
   addBuilding: [{ buildingId: number; level: number }]
   updateBuilding: [{ id: string; patch: { level?: number } }]
   removeBuilding: [{ id: string }]
-  reorderBuildings: [{ ids: string[] }]
   addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
+  // Recipe reordering remains supported for display/UX; it does not affect simulation logic.
   reorderRecipes: [{ ids: string[] }]
   updateRecipe: [{ id: string; patch: { count?: number } }]
   setOptionalConsumables: [materialIds: number[]]
@@ -77,6 +85,103 @@ function onKey(e: KeyboardEvent) {
     cancelEdit()
   }
 }
+
+// Workforce productivity calculation for warning indicator
+const technologyLevelMap = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.technologyLevels ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    map.set(spec, Math.max(0, Math.floor(level)))
+  })
+  return map
+})
+
+const technologyLevelsOption = computed(() => {
+  const obj: Record<number, number> = {}
+  technologyLevelMap.value.forEach((level, spec) => {
+    obj[spec] = level
+  })
+  return obj
+})
+
+const assignment = computed(() => ({
+  planetId: props.base.planetId,
+  buildings: props.base.buildings.map((b) => ({
+    buildingId: b.buildingId,
+    level: b.level,
+  })),
+  recipes: props.base.recipes.map((r) => ({
+    recipeId: r.recipeId,
+    count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 0,
+  })),
+}))
+
+const activeOptionalConsumables = computed(() => {
+  return new Set((props.base.optionalConsumables ?? []).filter((id): id is number => typeof id === 'number'))
+})
+
+// Planned production report (uses planned technology levels)
+const report = computed(() =>
+  computeBaseReport(props.gameData, {
+    assignment: assignment.value,
+    horizonDays: 1,
+    options: {
+      activeOptionalConsumables: activeOptionalConsumables.value,
+      priceResolver: props.priceResolver,
+      technologyLevels: technologyLevelsOption.value,
+      startingBonus: props.startingBonus,
+      globalWorkforceBurden: props.globalWorkforceBurden,
+    },
+  }),
+)
+
+const workforceProductivity = computed(() => {
+  return calculateWorkforceProductivity(report.value, props.base.stock ?? {})
+})
+
+const showProductivityWarning = computed(() => {
+  return workforceProductivity.value.overallProductivityPercent < 100
+})
+
+// Calculate lost profit using service
+const lostProfitResult = computed(() => {
+  return calculateLostProfit(
+    workforceProductivity.value,
+    report.value,
+    props.gameData,
+    props.index,
+    assignment.value,
+    props.priceResolver,
+    technologyLevelsOption.value,
+    props.startingBonus,
+    props.globalWorkforceBurden,
+  )
+})
+
+// Generate compact summary with lost profit, housing coverage, and satisfaction
+const productivitySummary = computed(() => {
+  if (!showProductivityWarning.value) return ''
+
+  const productivity = workforceProductivity.value
+  const percent = productivity.overallProductivityPercent
+  const lostProfit = lostProfitResult.value
+
+  const parts: string[] = []
+  const housingCoverage = Math.floor(lostProfit.minHousingCoverage)
+  const satisfaction = Math.floor(lostProfit.minSatisfaction)
+
+  if (housingCoverage < 100) {
+    parts.push(`${housingCoverage}% housing coverage`)
+  }
+  if (satisfaction < 100) {
+    parts.push(`${satisfaction}% satisfaction`)
+  }
+
+  const details = parts.length > 0 ? ` (${parts.join(', ')})` : ''
+  return `${translate('workforceProductivity')} ${formatNumber(percent, 0)}%: Lost Profit ${formatPrice(lostProfit.lostProfitPerDay, 0)}${details}`
+})
 </script>
 
 <template>
@@ -173,6 +278,14 @@ function onKey(e: KeyboardEvent) {
                 />
               </svg>
             </button>
+            <!-- Workforce Productivity Warning - Compact Summary -->
+            <div
+              v-if="showProductivityWarning"
+              class="flex items-center gap-1 px-2 py-1 bg-orange-900/30 border border-orange-600 rounded text-orange-300 text-xs whitespace-nowrap"
+            >
+              <span>⚙️</span>
+              <span>{{ productivitySummary }}</span>
+            </div>
           </template>
         </div>
 
@@ -236,8 +349,11 @@ function onKey(e: KeyboardEvent) {
             :price-resolver="props.priceResolver"
             :technology-levels="props.technologyLevels"
             :starting-bonus="props.startingBonus"
+            :current-technology-levels="props.currentTechnologyLevels"
+            :current-starting-bonus="props.currentStartingBonus"
             :timeframe-hours="props.timeframeHours"
             :global-workforce-burden="props.globalWorkforceBurden"
+            :market-opportunities="props.marketOpportunities"
           />
 <!--        </div>-->
       </summary>
@@ -249,8 +365,11 @@ function onKey(e: KeyboardEvent) {
           :price-resolver="props.priceResolver"
           :technology-levels="props.technologyLevels"
           :starting-bonus="props.startingBonus"
+          :current-technology-levels="props.currentTechnologyLevels"
+          :current-starting-bonus="props.currentStartingBonus"
           :timeframe-hours="props.timeframeHours"
           :global-workforce-burden="props.globalWorkforceBurden"
+          :warehouse-stocks="base.stock ?? {}"
           @updateOptional="
             (materialIds) => {
               $emit('setOptionalConsumables', materialIds)
@@ -295,6 +414,8 @@ function onKey(e: KeyboardEvent) {
           :price-resolver="props.priceResolver"
           :technology-levels="props.technologyLevels"
           :starting-bonus="props.startingBonus"
+          :current-technology-levels="props.currentTechnologyLevels"
+          :current-starting-bonus="props.currentStartingBonus"
           :timeframe-hours="props.timeframeHours"
           :global-workforce-burden="props.globalWorkforceBurden"
           @addRecipe="
@@ -352,6 +473,7 @@ function onKey(e: KeyboardEvent) {
         <BaseBuildingsSection
           :base-id="base.id"
           :building-refs="base.buildings"
+          :current-buildings="base.currentBuildings"
           :lookup="buildings"
           @update="
             (p) => {
@@ -362,12 +484,6 @@ function onKey(e: KeyboardEvent) {
           @remove="
             (p) => {
               $emit('removeBuilding', p)
-              $emit('persist')
-            }
-          "
-          @reorder="
-            (p) => {
-              $emit('reorderBuildings', p)
               $emit('persist')
             }
           "

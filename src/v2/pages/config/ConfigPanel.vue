@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { getApiKey, getApiKeyRef, setApiKey, getWorld, setWorld } from '@/v2/services/api/apiKeyManager'
+import { getApiKey, getApiKeyRef, setApiKey } from '@/v2/services/api/apiKeyManager'
 import { getExportThreshold, setExportThreshold } from '@/v2/services/config/exportThreshold'
 import { translate } from '@/v2/localisation'
 import LanguageSwitcher from '@/v2/components/LanguageSwitcher.vue'
+import WorldSwitcher from '@/v2/components/WorldSwitcher.vue'
 import PriceManagement from './components/PriceManagement.vue'
-import type { World } from '@/v2/services/api/types'
+import SyncStatus from './components/SyncStatus.vue'
 
 const apiKey = ref(getApiKey() || '')
-const world = ref<World>(getWorld())
 const exportThreshold = ref(getExportThreshold())
 const saveSuccess = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -30,10 +30,6 @@ function handleSaveApiKey() {
   saveTimer = setTimeout(() => {
     saveSuccess.value = false
   }, 3000)
-}
-
-function handleWorldChange() {
-  setWorld(world.value)
 }
 
 function handleExportThresholdChange() {
@@ -86,20 +82,10 @@ function handleExportThresholdChange() {
 
       <!-- Right Column: World Selection & API Key -->
       <div class="space-y-4">
-        <!-- World Selection -->
-        <div class="space-y-2">
-          <label class="block text-sm">
-            <span class="text-slate-400">{{ translate('worldLabel') }}</span>
-            <select
-              v-model="world"
-              @change="handleWorldChange"
-              class="w-full mt-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100"
-            >
-              <option value="g1">{{ translate('worldG1') }}</option>
-              <option value="g2">{{ translate('worldG2') }}</option>
-            </select>
-          </label>
-          <p class="text-xs text-slate-400">{{ translate('worldHint') }}</p>
+        <!-- World Selection with WorldSwitcher -->
+        <div>
+          <WorldSwitcher />
+          <p class="text-xs text-slate-400 mt-1">{{ translate('worldHint') }}</p>
         </div>
 
         <!-- API Key -->
@@ -131,6 +117,11 @@ function handleExportThresholdChange() {
           <div v-if="saveSuccess" class="text-xs text-emerald-400 bg-emerald-900/30 rounded px-2 py-1">
             {{ translate('apiKeySaved') }}
           </div>
+        </div>
+
+        <!-- Sync Status -->
+        <div class="border-t border-slate-700 pt-4">
+          <SyncStatus />
         </div>
       </div>
     </div>

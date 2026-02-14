@@ -1,52 +1,39 @@
 /**
  * API Key and Configuration Management Service
  * Handles secure storage and retrieval of API keys and world settings from localStorage
+ * 
+ * NOTE: This module now integrates with worldData for per-world API keys.
+ * These functions provide backward compatibility and convenience.
  */
 
-import { ref } from 'vue'
 import type { World } from './types'
+import { useWorldData } from '../worldData'
 
-const API_KEY_LS_KEY = 'gt:v2:api:key'
-const WORLD_LS_KEY = 'gt:v2:api:world'
-const DEFAULT_WORLD: World = 'g2'
-
-// Reactive state for API key
-const apiKeyState = ref<string | null>(null)
-
-// Initialize state from localStorage on module load
-try {
-  apiKeyState.value = localStorage.getItem(API_KEY_LS_KEY) ?? null
-} catch {
-  apiKeyState.value = null
-}
+// Direct composable calls (no singleton - allows proper testing and SSR)
 
 /**
- * Get stored API key from localStorage
+ * Get stored API key for current world
  */
 export function getApiKey(): string | null {
-  return apiKeyState.value
+  const { apiKey } = useWorldData()
+  return apiKey.value || null
 }
 
 /**
- * Get reactive API key reference (for use in computed/watch)
+ * Get reactive API key reference for current world
  */
 export function getApiKeyRef() {
-  return apiKeyState
+  const { apiKey } = useWorldData()
+  return apiKey
 }
 
 /**
- * Store API key in localStorage
+ * Store API key for current world
  */
 export function setApiKey(key: string): boolean {
   try {
-    const trimmed = key.trim()
-    if (trimmed.length === 0) {
-      localStorage.removeItem(API_KEY_LS_KEY)
-      apiKeyState.value = null
-      return true
-    }
-    localStorage.setItem(API_KEY_LS_KEY, trimmed)
-    apiKeyState.value = trimmed
+    const { setApiKey: setWorldApiKey } = useWorldData()
+    setWorldApiKey(key)
     return true
   } catch {
     return false
@@ -54,43 +41,31 @@ export function setApiKey(key: string): boolean {
 }
 
 /**
- * Check if an API key is configured
+ * Check if an API key is configured for current world
  */
 export function hasApiKey(): boolean {
-  return apiKeyState.value !== null
+  const { hasApiKey } = useWorldData()
+  return hasApiKey.value
 }
 
 /**
- * Reset API key state (for testing only)
- */
-export function __resetApiKeyState__(): void {
-  apiKeyState.value = null
-}
-
-/**
- * Get stored world setting
+ * Get current active world
  */
 export function getWorld(): World {
-  try {
-    const world = localStorage.getItem(WORLD_LS_KEY)
-    if (world === 'g1' || world === 'g2') {
-      return world
-    }
-    return DEFAULT_WORLD
-  } catch {
-    return DEFAULT_WORLD
-  }
+  const { activeWorld } = useWorldData()
+  return activeWorld.value
 }
 
 /**
- * Store world setting in localStorage
+ * Switch to different world
  */
 export function setWorld(world: World): boolean {
   try {
     if (world !== 'g1' && world !== 'g2') {
       return false
     }
-    localStorage.setItem(WORLD_LS_KEY, world)
+    const { switchWorld } = useWorldData()
+    switchWorld(world)
     return true
   } catch {
     return false

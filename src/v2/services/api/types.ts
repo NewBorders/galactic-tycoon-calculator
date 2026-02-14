@@ -13,6 +13,11 @@ export type CompanyResponse = {
   name: string
   money: number
   bases: CompanyBase[]
+  technologies?: Array<{
+    id: number
+    level: number
+  }>
+  startingBonus?: number
 }
 
 /**

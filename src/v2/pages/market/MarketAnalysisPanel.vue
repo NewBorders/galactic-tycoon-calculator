@@ -6,6 +6,7 @@ import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
 import { translate, formatDateTime as formatDateTimeLocale } from '../../localisation'
 import { formatInteger, formatDecimal, formatPercent as formatPercentLocale } from '../../localisation/numbers'
+import { getSyncEntries } from '../../services/syncService'
 
 // Format price helper: cents → dollars with $ prefix
 const formatPrice = (cents: number): string => '$' + formatDecimal(cents / 100, 2)
@@ -26,6 +27,22 @@ const {
   fetch,
 
 } = useMarketAnalysis({ world: world.value })
+
+// Get sync entries to check for API errors
+const syncEntries = getSyncEntries()
+
+// Get exchange sync entry to check for errors
+const exchangeEntry = computed(() => {
+  return syncEntries.value.find(e => e.id === 'exchange')
+})
+
+const hasApiError = computed(() => {
+  return exchangeEntry.value?.error != null
+})
+
+const apiErrorMessage = computed(() => {
+  return exchangeEntry.value?.error || null
+})
 
 // Auto-refresh interval (5 minutes)
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000
@@ -249,31 +266,27 @@ const lastUpdatedLabel = computed(() => {
 
 <template>
   <div class="space-y-4">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-purple-400">📊 {{ translate('marketAnalysisTitle') }}</h1>
-        <p class="text-sm text-gray-400 mt-1">
-          {{ translate('marketAnalysisDescription') }}
-        </p>
+    <!-- Header with Refresh Button (compact, right-aligned) -->
+    <div class="flex justify-end">
+      <div class="rounded bg-gray-800 p-4 w-fit" :class="hasApiError ? 'border border-red-700' : 'border border-gray-700'">
+        <div class="flex flex-col items-end gap-2">
+          <button
+            @click="refresh"
+            :disabled="loading"
+            class="px-3 py-1 text-sm rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+            :class="hasApiError ? 'bg-red-700 hover:bg-red-600' : 'bg-blue-700 hover:bg-blue-600'"
+          >
+            <span>{{ loading ? '⏳' : '🔄' }}</span>
+            <span>{{ translate('marketAnalysisRefresh') }}</span>
+          </button>
+          <div class="text-xs text-gray-500">
+            {{ translate('marketAnalysisUpdated') }}: {{ lastUpdatedLabel }}
+          </div>
+          <div v-if="hasApiError && apiErrorMessage" class="text-red-400 text-xs">
+            ❌ {{ apiErrorMessage }}
+          </div>
+        </div>
       </div>
-      <div class="flex gap-2 items-center">
-        <span class="text-xs text-gray-500">
-          {{ translate('marketAnalysisUpdated') }}: {{ lastUpdatedLabel }}
-        </span>
-        <button
-          @click="refresh"
-          :disabled="loading"
-          class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded transition"
-        >
-          {{ loading ? `⏳ ${translate('marketAnalysisLoading')}` : `🔄 ${translate('marketAnalysisRefresh')}` }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Error/Warning Message -->
-    <div v-if="error" :class="filteredOpportunities.length > 0 ? 'bg-yellow-900/50 border-yellow-700 text-yellow-200' : 'bg-red-900/50 border-red-700 text-red-200'" class="border rounded p-4">
-      {{ error }}
     </div>
 
     <!-- Recommendation Stats -->
@@ -300,41 +313,47 @@ const lastUpdatedLabel = computed(() => {
       </div>
     </div>
 
-    <!-- Material Search -->
-    <div class="bg-gray-800 rounded p-4">
-      <label class="block text-sm font-medium text-gray-300 mb-2">
-        🔍 Search Material
-      </label>
-      <input
-        v-model="materialSearch"
-        type="text"
-        placeholder="Enter material name or ID..."
-        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-      />
-      <div v-if="materialSearch" class="mt-2 text-xs text-gray-400">
-        Showing {{ sortedOpportunities.length }} of {{ filteredOpportunities.length }} materials
-      </div>
-    </div>
-
-    <!-- Tier Filter -->
-    <div class="bg-gray-800 rounded p-4">
-      <label class="block text-sm font-medium text-gray-300 mb-2">
-        ⭐ {{ translate('tierFilter') }}
-      </label>
-      <div class="flex gap-3">
-        <label
-          v-for="tier in [1, 2, 3, 4]"
-          :key="tier"
-          class="flex items-center gap-2 cursor-pointer"
-        >
-          <input
-            type="checkbox"
-            :checked="tierFilter.has(tier)"
-            @change="toggleTier(tier)"
-            class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
-          />
-          <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
+    <!-- Search and Filter Column -->
+    <div class="space-y-4">
+      <!-- Material Search -->
+      <div class="bg-gray-800 rounded p-4">
+        <p class="text-sm text-gray-400 pb-2">
+          {{ translate('marketAnalysisDescription') }}
+        </p>
+        <label class="block text-sm font-medium text-gray-300 mb-2">
+          🔍 {{ translate('materialSearch') }}
         </label>
+        <input
+          v-model="materialSearch"
+          type="text"
+          placeholder="Enter material name or ID..."
+          class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+        <div v-if="materialSearch" class="mt-2 text-xs text-gray-400">
+          Showing {{ sortedOpportunities.length }} of {{ filteredOpportunities.length }} materials
+        </div>
+
+        <!-- Tier Filter (directly below search, inline) -->
+        <div class="mt-4 pt-4 border-t border-gray-700">
+          <label class="block text-sm font-medium text-gray-300 mb-3">
+            ⭐ {{ translate('tierFilter') }}
+          </label>
+          <div class="flex flex-wrap gap-4">
+            <label
+              v-for="tier in [1, 2, 3, 4]"
+              :key="tier"
+              class="flex items-center gap-2 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                :checked="tierFilter.has(tier)"
+                @change="toggleTier(tier)"
+                class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+              />
+              <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
 

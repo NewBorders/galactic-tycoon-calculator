@@ -1,0 +1,194 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useWorldData } from '@/v2/services/worldData'
+import { getSyncEntries, refreshEntry, formatRelativeTime, formatCountdown } from '@/v2/services/syncService'
+
+const { activeWorld } = useWorldData()
+const syncEntries = getSyncEntries()
+
+// Reactive computed to show message when no entries
+const hasEntries = computed(() => syncEntries.value.length > 0)
+</script>
+
+<template>
+  <div class="sync-status">
+    <h3 class="sync-status__title">API Sync Status ({{ activeWorld.toUpperCase() }})</h3>
+    
+    <div class="sync-status__table-container">
+      <div class="sync-status__table">
+        <div class="sync-status__header">
+          <div class="sync-status__cell sync-status__cell--header">Endpoint</div>
+          <div class="sync-status__cell sync-status__cell--header">Last Sync</div>
+          <div class="sync-status__cell sync-status__cell--header">Next Refresh</div>
+          <div class="sync-status__cell sync-status__cell--header">Actions</div>
+        </div>
+
+        <div 
+          v-for="entry in syncEntries" 
+          :key="entry.id"
+          class="sync-status__row"
+          :class="{ 'sync-status__row--error': entry.error }"
+        >
+          <div class="sync-status__cell">
+            <span class="sync-status__icon">{{ entry.icon }}</span>
+            {{ entry.name }}
+          </div>
+          <div class="sync-status__cell">
+            <span v-if="entry.error" class="sync-status__error" :title="entry.error">
+              ❌ {{ entry.error }}
+            </span>
+            <span v-else>{{ formatRelativeTime(entry.lastSync) }}</span>
+          </div>
+          <div class="sync-status__cell">
+            <span v-if="entry.error" class="sync-status__error-placeholder">—</span>
+            <span v-else>{{ formatCountdown(entry.nextRefresh) }}</span>
+          </div>
+          <div class="sync-status__cell">
+            <button 
+              @click="refreshEntry(entry.id)" 
+              :disabled="entry.isRefreshing"
+              class="sync-status__button"
+            >
+              {{ entry.isRefreshing ? '⏳' : '🔄' }}
+            </button>
+          </div>
+        </div>
+        
+        <div v-if="!hasEntries" class="sync-status__empty">
+          No API key configured
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.sync-status {
+  background-color: var(--color-background-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+}
+
+.sync-status__title {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.sync-status__table-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+}
+
+.sync-status__table {
+  display: flex;
+  flex-direction: column;
+}
+
+.sync-status__header {
+  position: sticky;
+  top: 0;
+  display: grid;
+  grid-template-columns: 2fr 1.25fr 1.25fr 0.75fr;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-background);
+  border-bottom: 2px solid var(--color-border);
+  z-index: 1;
+}
+
+.sync-status__row {
+  display: grid;
+  grid-template-columns: 2fr 1.25fr 1.25fr 0.75fr;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.2s;
+}
+
+.sync-status__row:hover {
+  background-color: var(--color-background-mute);
+}
+
+.sync-status__row--error {
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.sync-status__cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.sync-status__cell--header {
+  font-weight: 600;
+  color: var(--color-heading);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.sync-status__icon {
+  font-size: 1.25rem;
+}
+
+.sync-status__error {
+  color: var(--color-danger, #ef4444);
+  font-weight: 500;
+  cursor: help;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-status__error-placeholder {
+  color: var(--color-text-soft);
+}
+
+.sync-status__empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-soft);
+  font-size: 0.875rem;
+}
+
+.sync-status__button {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sync-status__button:hover:not(:disabled) {
+  background-color: var(--color-background-mute);
+  border-color: var(--color-border-hover);
+}
+
+.sync-status__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .sync-status__header,
+  .sync-status__row {
+    grid-template-columns: 1.5fr 1fr 1fr 0.5fr;
+  }
+  
+  .sync-status__cell {
+    font-size: 0.8125rem;
+  }
+}
+</style>

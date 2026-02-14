@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
-
+// defineProps/defineEmits are Vue compiler macros (no import needed)
 const props = defineProps<{
   open: boolean
   title?: string

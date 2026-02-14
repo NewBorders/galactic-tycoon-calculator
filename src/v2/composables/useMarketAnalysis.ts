@@ -12,12 +12,48 @@ import {
   type FetchMarketDetailsOptions,
   type MarketAnalysisFilters,
 } from '../services/marketAnalysis'
+import { getWorld } from '../services/api/apiKeyManager'
+
+function getMarketCacheKeys(world: string) {
+  return {
+    dataKey: `gt:v2:market:${world}:opportunities`,
+    tsKey: `gt:v2:market:${world}:ts`,
+  }
+}
+
+function loadCachedOpportunities(world: string): { opportunities: MarketOpportunity[]; ts: number | null } {
+  try {
+    const keys = getMarketCacheKeys(world)
+    const raw = localStorage.getItem(keys.dataKey)
+    const rawTs = localStorage.getItem(keys.tsKey)
+    if (!raw || !rawTs) return { opportunities: [], ts: null }
+    const parsed = JSON.parse(raw) as MarketOpportunity[]
+    const ts = Number(rawTs)
+    if (!Array.isArray(parsed) || Number.isNaN(ts)) return { opportunities: [], ts: null }
+    return { opportunities: parsed, ts }
+  } catch {
+    return { opportunities: [], ts: null }
+  }
+}
+
+function saveCachedOpportunities(world: string, data: MarketOpportunity[], ts: number | null) {
+  try {
+    const keys = getMarketCacheKeys(world)
+    localStorage.setItem(keys.dataKey, JSON.stringify(data))
+    if (ts !== null && Number.isFinite(ts)) {
+      localStorage.setItem(keys.tsKey, String(ts))
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
 
 export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
-  const opportunities = ref<MarketOpportunity[]>([])
+  const cached = loadCachedOpportunities(getWorld())
+  const opportunities = ref<MarketOpportunity[]>(cached.opportunities)
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const lastUpdated = ref<number | null>(null)
+  const lastUpdated = ref<number | null>(cached.ts)
 
   // Filter state
   const filters = ref<MarketAnalysisFilters>({
@@ -40,6 +76,7 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
       })
       opportunities.value = data
       lastUpdated.value = ts
+      saveCachedOpportunities(getWorld(), data, ts)
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to fetch market data'
 

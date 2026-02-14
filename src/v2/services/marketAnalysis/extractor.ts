@@ -6,6 +6,16 @@
 
 import type { MarketDetailsApiResponse, MaterialDetailsRaw } from './types'
 import type { World } from '../api/types'
+import { createLogger } from '../debug/logger'
+
+const logger = createLogger('MarketAnalysis')
+const apiCallCounts = new Map<string, number>()
+
+function trackApiCall(label: string) {
+  const next = (apiCallCounts.get(label) ?? 0) + 1
+  apiCallCounts.set(label, next)
+  logger.debug('[API Call]', label, 'count:', next)
+}
 
 /**
  * Cache configuration
@@ -21,6 +31,11 @@ const CACHE_CONFIG = {
 const cache = {
   marketDetails: new Map<string, { data: MaterialDetailsRaw[]; ts: number }>(),
 }
+
+const inFlight = new Map<
+  string,
+  Promise<{ data: MaterialDetailsRaw[]; source: 'api' | 'cache'; ts: number }>
+>()
 
 /**
  * Check if a cache entry is still valid
@@ -56,50 +71,64 @@ export async function extractMarketDetails(
     return { data: cached.data, source: 'cache', ts: cached.ts }
   }
 
-  try {
-    const baseUrl = getApiBaseUrl(world)
-    const url = new URL(`${baseUrl}/public/exchange/mat-details`)
-    url.searchParams.set('apikey', apiKey)
+  const existing = inFlight.get(cacheKey)
+  if (existing) {
+    return existing
+  }
 
-    const response = await fetch(url.toString())
+  const requestPromise: Promise<{ data: MaterialDetailsRaw[]; source: 'api' | 'cache'; ts: number }> = (async () => {
+    try {
+      const baseUrl = getApiBaseUrl(world)
+      const url = new URL(`${baseUrl}/public/exchange/mat-details`)
+      url.searchParams.set('apikey', apiKey)
 
-    if (!response.ok) {
-      let errorMsg = `API error ${response.status}: ${response.statusText}`
+      trackApiCall(`/public/exchange/mat-details?world=${world}`)
+      const response = await fetch(url.toString())
 
-      // Add specific messages for common errors
-      if (response.status === 429) {
-        errorMsg += ' - Rate limit exceeded. Please wait a moment before refreshing.'
-      } else if (response.status === 401 || response.status === 403) {
-        errorMsg += ' - Invalid or missing API key. Please check your configuration.'
+      if (!response.ok) {
+        let errorMsg = `API error ${response.status}: ${response.statusText}`
+
+        // Add specific messages for common errors
+        if (response.status === 429) {
+          errorMsg += ' - Rate limit exceeded. Please wait a moment before refreshing.'
+        } else if (response.status === 401 || response.status === 403) {
+          errorMsg += ' - Invalid or missing API key. Please check your configuration.'
+        }
+
+        throw new Error(errorMsg)
       }
 
-      throw new Error(errorMsg)
+      const apiResponse: MarketDetailsApiResponse = await response.json()
+
+      // Extract materials array
+      const materials = apiResponse.materials ?? []
+
+      // Update cache with world+apikey as key
+      const now = Date.now()
+      cache.marketDetails.set(cacheKey, {
+        data: materials,
+        ts: now,
+      })
+
+      return { data: materials, source: 'api' as const, ts: now }
+    } catch (error) {
+      // If API fails and we have stale cache, return it (especially for rate limits)
+      if (cached) {
+        const cacheAgeMinutes = Math.floor((Date.now() - cached.ts) / 60000)
+        logger.warn(`API failed, returning cached data (${cacheAgeMinutes}min old)`, error)
+          return { data: cached.data, source: 'cache' as const, ts: cached.ts }
+      }
+
+      throw error
     }
+  })()
 
-    const apiResponse: MarketDetailsApiResponse = await response.json()
+  inFlight.set(cacheKey, requestPromise)
 
-    // Extract materials array
-    const materials = apiResponse.materials ?? []
-
-    // Debug logging removed
-
-    // Update cache with world+apikey as key
-    const now = Date.now()
-    cache.marketDetails.set(cacheKey, {
-      data: materials,
-      ts: now,
-    })
-
-    return { data: materials, source: 'api', ts: now }
-  } catch (error) {
-    // If API fails and we have stale cache, return it (especially for rate limits)
-    if (cached) {
-      const cacheAgeMinutes = Math.floor((Date.now() - cached.ts) / 60000)
-      console.warn(`[Market Analysis] API failed, returning cached data (${cacheAgeMinutes}min old)`, error)
-        return { data: cached.data, source: 'cache', ts: cached.ts }
-    }
-
-    throw error
+  try {
+    return await requestPromise
+  } finally {
+    inFlight.delete(cacheKey)
   }
 }
 

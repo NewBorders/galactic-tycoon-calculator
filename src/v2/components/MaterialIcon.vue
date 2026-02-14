@@ -5,7 +5,7 @@ import { resolveIconId, spriteIndexReady } from '@/v2/constants/spriteIndex'
 const props = defineProps<{
   name: string
   size?: number
-  variant?: 'sm' | 'md' | 'lg'
+  variant?: 'xs' | 'sm' | 'md' | 'lg'
   class?: string
 }>()
 
@@ -16,7 +16,7 @@ const symbolId = computed(() => {
   void spriteIndexReady.value
   return resolveIconId(props.name)
 })
-const href = computed(() => `/galactic_tycoon_sprites.svg#${symbolId.value}`)
+const href = computed(() => `#${symbolId.value}`)
 </script>
 
 <template>

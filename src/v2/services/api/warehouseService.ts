@@ -13,6 +13,16 @@ import type {
   GameBaseRaw,
   GameBaseTransformed,
 } from './types'
+import { createLogger } from '../debug/logger'
+
+const logger = createLogger('WarehouseService')
+const apiCallCounts = new Map<string, number>()
+
+function trackApiCall(label: string) {
+  const next = (apiCallCounts.get(label) ?? 0) + 1
+  apiCallCounts.set(label, next)
+  logger.debug('[API Call]', label, 'count:', next)
+}
 
 function getApiBaseUrl(world: World): string {
   return `https://api.${world}.galactictycoons.com`
@@ -48,6 +58,12 @@ const cache = {
   warehouse: new Map<string, { data: WarehouseStockResponse; ts: number }>(), // key: "world:warehouseId"
 }
 
+const inFlight = {
+  bases: new Map<World, Promise<{ data: CompanyResponse; source: 'api' | 'cache' }>>(),
+  warehouse: new Map<string, Promise<{ data: WarehouseStockResponse; source: 'api' | 'cache' }>>(),
+  baseDetails: new Map<string, Promise<{ data: GameBaseRaw; source: 'api' | 'cache' }>>(),
+}
+
 /**
  * Check if a cache entry is still valid
  */
@@ -70,15 +86,33 @@ export async function fetchCompanyBases(
     return { data: cached.data, source: 'cache' }
   }
 
-  try {
+  const existing = inFlight.bases.get(world)
+  if (existing) {
+    return existing
+  }
+
+  const requestPromiseRaw: Promise<{ data: CompanyResponse; source: 'api' | 'cache' }> = (async () => {
     const baseUrl = getApiBaseUrl(world)
     const url = new URL(`${baseUrl}/public/company`)
     url.searchParams.set('apikey', apiKey)
 
+    trackApiCall(`/public/company?world=${world}`)
     const response = await fetch(url.toString())
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`)
+      // Try to extract error message from response body
+      let errorDetail = `${response.status} ${response.statusText}`
+      try {
+        const errorBody = await response.json()
+        if (errorBody.error) {
+          errorDetail = `${response.status}: ${errorBody.error}`
+        } else if (errorBody.message) {
+          errorDetail = `${response.status}: ${errorBody.message}`
+        }
+      } catch {
+        // Failed to parse error body, use status text
+      }
+      throw new Error(`API error: ${errorDetail}`)
     }
 
     const data: CompanyResponse = await response.json()
@@ -86,9 +120,19 @@ export async function fetchCompanyBases(
     // Update cache
     cache.bases.set(world, { data, ts: Date.now() })
 
-    return { data, source: 'api' }
-  } catch (error) {
+    return { data, source: 'api' as const }
+  })()
+
+  const requestPromise = requestPromiseRaw.catch((error) => {
     throw new Error(`Failed to fetch company bases: ${error instanceof Error ? error.message : String(error)}`)
+  })
+
+  inFlight.bases.set(world, requestPromise)
+
+  try {
+    return await requestPromise
+  } finally {
+    inFlight.bases.delete(world)
   }
 }
 
@@ -111,15 +155,33 @@ export async function fetchWarehouseStockForBase(
     return { data: cached.data, source: 'cache' }
   }
 
-  try {
+  const existing = inFlight.warehouse.get(cacheKey)
+  if (existing) {
+    return existing
+  }
+
+  const requestPromiseRaw: Promise<{ data: WarehouseStockResponse; source: 'api' | 'cache' }> = (async () => {
     const baseUrl = getApiBaseUrl(world)
     const url = new URL(`${baseUrl}/public/company/warehouse/${warehouseId}`)
     url.searchParams.set('apikey', apiKey)
 
+    trackApiCall(`/public/company/warehouse/${warehouseId}?world=${world}`)
     const response = await fetch(url.toString())
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`)
+      // Try to extract error message from response body
+      let errorDetail = `${response.status} ${response.statusText}`
+      try {
+        const errorBody = await response.json()
+        if (errorBody.error) {
+          errorDetail = `${response.status}: ${errorBody.error}`
+        } else if (errorBody.message) {
+          errorDetail = `${response.status}: ${errorBody.message}`
+        }
+      } catch {
+        // Failed to parse error body, use status text
+      }
+      throw new Error(`API error: ${errorDetail}`)
     }
 
     // Get raw response and transform to internal format
@@ -129,11 +191,21 @@ export async function fetchWarehouseStockForBase(
     // Update cache
     cache.warehouse.set(cacheKey, { data, ts: Date.now() })
 
-    return { data, source: 'api' }
-  } catch (error) {
+    return { data, source: 'api' as const }
+  })()
+
+  const requestPromise = requestPromiseRaw.catch((error) => {
     throw new Error(
       `Failed to fetch warehouse stock for warehouse ${warehouseId}: ${error instanceof Error ? error.message : String(error)}`,
     )
+  })
+
+  inFlight.warehouse.set(cacheKey, requestPromise)
+
+  try {
+    return await requestPromise
+  } finally {
+    inFlight.warehouse.delete(cacheKey)
   }
 }
 
@@ -169,32 +241,51 @@ export async function fetchGameBaseDetails(
   gameBaseId: number,
   world: World = 'g2',
 ): Promise<{ data: GameBaseRaw; source: 'api' | 'cache' }> {
-  try {
+  const cacheKey = `${world}:${gameBaseId}`
+  const existing = inFlight.baseDetails.get(cacheKey)
+  if (existing) {
+    return existing
+  }
+
+  const requestPromiseRaw: Promise<{ data: GameBaseRaw; source: 'api' | 'cache' }> = (async () => {
     const baseUrl = getApiBaseUrl(world)
     // Try endpoint with id path first
     const url = new URL(`${baseUrl}/public/company/base/${gameBaseId}`)
     url.searchParams.set('apikey', apiKey)
 
+    trackApiCall(`/public/company/base/${gameBaseId}?world=${world}`)
     const response = await fetch(url.toString())
     if (!response.ok) {
-      // Fallback: try list endpoint and filter
-      const listUrl = new URL(`${baseUrl}/public/company/base`)
-      listUrl.searchParams.set('apikey', apiKey)
-      const listResp = await fetch(listUrl.toString())
-      if (!listResp.ok) throw new Error(`API error: ${listResp.status} ${listResp.statusText}`)
-      const listData = await listResp.json()
-      // Try to find matching base
-      const found = Array.isArray(listData) ? listData.find((b: Record<string, unknown>) => b.id === gameBaseId) : null
-      if (!found) throw new Error(`Base ${gameBaseId} not found in API response`)
-      return { data: found as GameBaseRaw, source: 'api' }
+      let errorDetail = `${response.status} ${response.statusText}`
+      try {
+        const errorBody = await response.json()
+        if (errorBody.error) {
+          errorDetail = `${response.status}: ${errorBody.error}`
+        } else if (errorBody.message) {
+          errorDetail = `${response.status}: ${errorBody.message}`
+        }
+      } catch {
+        // Failed to parse error body, use status text
+      }
+      throw new Error(`API error: ${errorDetail}`)
     }
 
     const data = await response.json()
-    return { data: data as GameBaseRaw, source: 'api' }
-  } catch (error) {
+    return { data: data as GameBaseRaw, source: 'api' as const }
+  })()
+
+  const requestPromise = requestPromiseRaw.catch((error) => {
     throw new Error(
       `Failed to fetch base details for base ${gameBaseId}: ${error instanceof Error ? error.message : String(error)}`,
     )
+  })
+
+  inFlight.baseDetails.set(cacheKey, requestPromise)
+
+  try {
+    return await requestPromise
+  } finally {
+    inFlight.baseDetails.delete(cacheKey)
   }
 }
 

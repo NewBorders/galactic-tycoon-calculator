@@ -9,6 +9,7 @@ import { computeBaseReport, productionUnitsFromLevel } from '@/v2/services/produ
 import { evaluateRecipeAvailability } from '@/v2/services/production/availability'
 import type { RecipeProductionRow } from '@/v2/services/production/types'
 import { translate } from '@/v2/localisation'
+import { BuildingSpecialization } from '@/v2/constants/buildingSpecialization'
 import RecipeTile from './RecipeTile.vue'
 import MaterialIcon from '@/v2/components/MaterialIcon.vue'
 
@@ -19,6 +20,8 @@ const props = defineProps<{
   priceResolver: (materialId: number) => number
   technologyLevels: Partial<Record<number, number>>
   startingBonus: number
+  currentTechnologyLevels: Partial<Record<number, number>>
+  currentStartingBonus: number
   timeframeHours: number
   globalWorkforceBurden: number
 }>()
@@ -32,9 +35,46 @@ const emit = defineEmits<{
 
 const query = ref('')
 const optionalActive = ref<Set<number>>(new Set())
+
+function getSpecializationName(specId: number): string {
+  switch (specId) {
+    case BuildingSpecialization.Construction:
+      return 'Construction'
+    case BuildingSpecialization.Manufacturing:
+      return 'Manufacturing'
+    case BuildingSpecialization.Agriculture:
+      return 'Agriculture'
+    case BuildingSpecialization.ResourceExtraction:
+      return 'Resource Extraction'
+    case BuildingSpecialization.Metallurgy:
+      return 'Metallurgy'
+    case BuildingSpecialization.Chemistry:
+      return 'Chemistry'
+    case BuildingSpecialization.Electronics:
+      return 'Electronics'
+    case BuildingSpecialization.FoodProduction:
+      return 'Food Production'
+    case BuildingSpecialization.Science:
+      return 'Science'
+    default:
+      return `Specialization ${specId}`
+  }
+}
+
 const technologyLevelMap = computed(() => {
   const map = new Map<number, number>()
   Object.entries(props.technologyLevels ?? {}).forEach(([key, value]) => {
+    const spec = Number(key)
+    const level = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(spec) || Number.isNaN(level)) return
+    map.set(spec, Math.max(0, Math.floor(level)))
+  })
+  return map
+})
+
+const currentTechnologyLevelMap = computed(() => {
+  const map = new Map<number, number>()
+  Object.entries(props.currentTechnologyLevels ?? {}).forEach(([key, value]) => {
     const spec = Number(key)
     const level = typeof value === 'number' ? value : Number(value)
     if (!Number.isFinite(spec) || Number.isNaN(level)) return
@@ -51,17 +91,60 @@ const technologyLevelsOption = computed(() => {
   return obj
 })
 
+const currentTechnologyLevelsOption = computed(() => {
+  const obj: Record<number, number> = {}
+  currentTechnologyLevelMap.value.forEach((level, spec) => {
+    obj[spec] = level
+  })
+  return obj
+})
+
 const planet = computed(() => props.index.planetById.get(props.base.planetId))
-const buildingUnits = computed(() => {
+
+// Current building units (from API currentBuildings)
+const currentBuildingUnits = computed(() => {
   const acc = new Map<number, number>()
-  props.base.buildings.forEach((b) => {
-    const level = Math.max(1, Math.floor(b.level ?? 1))
+  const currentBuildings = props.base.currentBuildings ?? props.base.buildings
+  currentBuildings.forEach((b) => {
+    const level = Math.max(0, Math.floor(b.level ?? 1))
+    // Skip buildings with level 0
+    if (level === 0) return
     const units = productionUnitsFromLevel(level)
     acc.set(b.buildingId, (acc.get(b.buildingId) ?? 0) + units)
   })
   return acc
 })
 
+// Planned building units (from user-editable buildings)
+const buildingUnits = computed(() => {
+  const acc = new Map<number, number>()
+  props.base.buildings.forEach((b) => {
+    const level = Math.max(0, Math.floor(b.level ?? 1))
+    // Skip buildings with level 0
+    if (level === 0) return
+    const units = productionUnitsFromLevel(level)
+    acc.set(b.buildingId, (acc.get(b.buildingId) ?? 0) + units)
+  })
+  return acc
+})
+
+// Current assignment (uses currentBuildings from API and currentCount for recipes)
+// For new bases without API import, current values are empty (not falling back to planned)
+const currentAssignment = computed(() => ({
+  planetId: props.base.planetId,
+  buildings: (props.base.currentBuildings ?? []).map((b) => ({
+    buildingId: b.buildingId,
+    level: b.level,
+  })),
+  recipes: props.base.recipes
+    .filter((r) => r.currentCount !== undefined)
+    .map((r) => ({
+      recipeId: r.recipeId,
+      count: typeof r.currentCount === 'number' && Number.isFinite(r.currentCount) ? Math.max(0, Math.floor(r.currentCount)) : 0,
+    })),
+}))
+
+// Planned assignment (uses user-editable buildings)
 const assignment = computed(() => ({
   planetId: props.base.planetId,
   buildings: props.base.buildings.map((b) => ({
@@ -70,7 +153,7 @@ const assignment = computed(() => ({
   })),
   recipes: props.base.recipes.map((r) => ({
     recipeId: r.recipeId,
-    count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(1, Math.floor(r.count)) : 1,
+    count: typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(0, Math.floor(r.count)) : 1,
   })),
 }))
 
@@ -88,6 +171,22 @@ const runsPerHoursLabel = computed(() =>
   translate('runsPerHours', { hours: timeframeHours.value }),
 )
 
+// Current production report (based on API data)
+const reportCurrent = computed(() =>
+  computeBaseReport(props.gameData, {
+    assignment: currentAssignment.value,
+    horizonDays: 1,
+    options: {
+      activeOptionalConsumables: optionalActive.value,
+      priceResolver: props.priceResolver,
+      technologyLevels: currentTechnologyLevelsOption.value,
+      startingBonus: props.currentStartingBonus,
+      globalWorkforceBurden: props.globalWorkforceBurden,
+    },
+  }),
+)
+
+// Planned production report (based on user input)
 const report = computed(() =>
   computeBaseReport(props.gameData, {
     assignment: assignment.value,
@@ -107,12 +206,52 @@ const reportByRecipeId = computed(
     new Map<number, RecipeProductionRow>(report.value.recipes.map((row) => [row.recipeId, row])),
 )
 
+const reportCurrentByRecipeId = computed(
+  () =>
+    new Map<number, RecipeProductionRow>(reportCurrent.value.recipes.map((row) => [row.recipeId, row])),
+)
+
 const list = computed({
   get: () => props.base.recipes,
   set: (val) => emit('reorderRecipes', { ids: val.map((v) => v.id) }),
 })
 
 const hasRecipes = computed(() => props.base.recipes.length > 0)
+
+const cardsByIdCurrent = computed(() => {
+  const map = new Map<
+    string,
+    {
+      recipe: Recipe
+      reportRow?: RecipeProductionRow
+      buildingName: string
+      units: number
+      technologyLevel: number
+      requiredTech: number
+      technologyName: string
+    }
+  >()
+  props.base.recipes.forEach((selection) => {
+    const recipe = props.index.recipeById.get(selection.recipeId)
+    if (!recipe) return
+    const building = props.index.buildingById.get(recipe.producedInId)
+    const specialization = building?.specialization ?? 0
+    const technologyLevel = building
+      ? (currentTechnologyLevelMap.value.get(specialization) ?? 0)
+      : 0
+    const requiredTech = recipe.reqTech ?? 0
+    map.set(selection.id, {
+      recipe,
+      reportRow: reportCurrentByRecipeId.value.get(recipe.id),
+      buildingName: building?.name ?? `#${recipe.producedInId}`,
+      units: currentBuildingUnits.value.get(recipe.producedInId) ?? 0,
+      technologyLevel,
+      requiredTech,
+      technologyName: getSpecializationName(specialization),
+    })
+  })
+  return map
+})
 
 const cardsById = computed(() => {
   const map = new Map<
@@ -124,14 +263,16 @@ const cardsById = computed(() => {
       units: number
       technologyLevel: number
       requiredTech: number
+      technologyName: string
     }
   >()
   props.base.recipes.forEach((selection) => {
     const recipe = props.index.recipeById.get(selection.recipeId)
     if (!recipe) return
     const building = props.index.buildingById.get(recipe.producedInId)
+    const specialization = building?.specialization ?? 0
     const technologyLevel = building
-      ? (technologyLevelMap.value.get(building.specialization) ?? 0)
+      ? (technologyLevelMap.value.get(specialization) ?? 0)
       : 0
     const requiredTech = recipe.reqTech ?? 0
     map.set(selection.id, {
@@ -141,6 +282,7 @@ const cardsById = computed(() => {
       units: buildingUnits.value.get(recipe.producedInId) ?? 0,
       technologyLevel,
       requiredTech,
+      technologyName: getSpecializationName(specialization),
     })
   })
   return map
@@ -180,8 +322,9 @@ const suggestions = computed(() => {
         material,
       })
       const hasBuilding = units > 0
+      const specialization = building?.specialization ?? 0
       const technologyLevel = building
-        ? (technologyLevelMap.value.get(building.specialization) ?? 0)
+        ? (technologyLevelMap.value.get(specialization) ?? 0)
         : 0
       const requiredTech = recipe.reqTech ?? 0
       const technologySatisfied = technologyLevel >= requiredTech
@@ -209,6 +352,7 @@ const suggestions = computed(() => {
         technologyLevel,
         requiredTech,
         technologySatisfied,
+        technologyName: getSpecializationName(specialization),
         inputs: recipe.inputs.map((i) => ({
           name: props.index.materialById.get(i.id)?.name ?? `#${i.id}`,
           amount: i.amount * runsPerPeriod,
@@ -328,14 +472,11 @@ watch(
               {{ translate('technologyLevel') }}: {{ item.technologyLevel }} /
               {{ item.requiredTech }}
             </div>
-            <div v-if="!item.technologySatisfied" class="text-xs text-amber-300">
-              {{ translate('technologyRequirement') }} {{ item.requiredTech }}
-            </div>
             <div v-if="!item.hasBuilding" class="text-xs text-red-400">
               {{ translate('requiresBuilding') }} {{ item.buildingName }}
             </div>
-            <div v-else-if="item.blockedReason === 'technology'" class="text-xs text-amber-300">
-              {{ translate('technologyRequirement') }} {{ item.requiredTech }}
+            <div v-else-if="!item.technologySatisfied" class="text-xs text-amber-300">
+               {{ translate('technologyRequirement') }} {{ item.technologyName }} {{ item.requiredTech }}
             </div>
             <div v-else-if="item.blockedReason === 'abundance'" class="text-xs text-amber-300">
               {{ translate('requiresAbundance') }}
@@ -354,19 +495,25 @@ watch(
         v-model="list"
         item-key="id"
         handle=".recipe-dnd-handle"
-        class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        class="grid gap-3"
+        style="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr))"
       >
         <template #item="{ element }">
           <div class="h-full">
             <RecipeTile
               v-if="cardsById.get(element.id)"
+              :id="element.id"
               :recipe="cardsById.get(element.id)!.recipe"
+              :report-row-current="cardsByIdCurrent.get(element.id)!.reportRow"
               :report-row="cardsById.get(element.id)!.reportRow"
               :building-name="cardsById.get(element.id)!.buildingName"
               :units="cardsById.get(element.id)!.units"
-              :count="element.count ?? 1"
+              :count="typeof element.count === 'number' ? element.count : 1"
+              :current-count="element.currentCount"
               :technology-level="cardsById.get(element.id)!.technologyLevel"
+              :current-technology-level="cardsByIdCurrent.get(element.id)!.technologyLevel"
               :required-tech="cardsById.get(element.id)!.requiredTech"
+              :technology-name="cardsById.get(element.id)!.technologyName"
               :material-lookup="props.index.materialById"
               :timeframe-hours="props.timeframeHours"
               @remove="removeRecipe(element.id)"

@@ -4,52 +4,62 @@ import { ALL_ICON_OVERRIDES, normalizeIconId } from './iconOverrides'
 const loaded = ref(false)
 const symbolIds = new Set<string>()
 const normalizedToId = new Map<string, string>()
+let spriteListenerRegistered = false
 
 function normKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-let loadPromise: Promise<void> | null = null
+/**
+ * Build sprite index from the already-loaded DOM sprite container
+ * This function is called lazily when icons are first used
+ */
+function loadSpriteIndexFromDOM(): void {
+  if (loaded.value) return
 
-async function loadSpriteIndex(): Promise<void> {
-  if (loadPromise) return loadPromise
+  if (typeof document === 'undefined') {
+    return
+  }
 
-  loadPromise = (async () => {
-    try {
-      const res = await fetch('/galactic_tycoon_sprites.svg', {
-        headers: { Accept: 'image/svg+xml' },
-        cache: 'force-cache'
-      })
-      if (!res.ok) {
-        loadPromise = null // Allow retry on next call
-        return
-      }
-      const text = await res.text()
-      const re = /<symbol\s+[^>]*id="([^"]+)"/g
-      symbolIds.clear()
-      normalizedToId.clear()
-      for (const m of text.matchAll(re)) {
-        const id = m[1]
-        if (!id) continue
-        symbolIds.add(String(id))
-        normalizedToId.set(normKey(String(id)), String(id))
-      }
-      loaded.value = true
-    } catch {
-      loadPromise = null // Allow retry on error
-    }
-  })()
+  const container = document.getElementById('svg-sprite-container')
+  if (!container) {
+    console.warn('[SpriteIndex] Sprite container not found in DOM')
+    return
+  }
 
-  return loadPromise
+  // Extract symbol IDs from the DOM
+  const symbols = container.querySelectorAll('symbol[id]')
+  symbolIds.clear()
+  normalizedToId.clear()
+
+  symbols.forEach((symbol) => {
+    const id = symbol.getAttribute('id')
+    if (!id) return
+    symbolIds.add(id)
+    normalizedToId.set(normKey(id), id)
+  })
+
+  loaded.value = true
+  console.log('[SpriteIndex] Indexed', symbolIds.size, 'symbols from DOM')
 }
 
 export function ensureSpriteIndexLoaded(): void {
-  if (typeof window !== 'undefined' && !loadPromise) {
-    void loadSpriteIndex()
-  }
+  if (spriteListenerRegistered || typeof window === 'undefined') return
+
+  spriteListenerRegistered = true
+  window.addEventListener('sprite-loaded', () => {
+    loaded.value = false
+    loadSpriteIndexFromDOM()
+  })
 }
 
 export function resolveIconId(name: string): string {
+  ensureSpriteIndexLoaded()
+  // Lazy load index from DOM if not already loaded
+  if (!loaded.value) {
+    loadSpriteIndexFromDOM()
+  }
+
   if (!name) return '_fallback'
   // 1) manual overrides
   const o = ALL_ICON_OVERRIDES[name]
@@ -66,7 +76,5 @@ export function resolveIconId(name: string): string {
   return candidate
 }
 
-// Kick off loading in browser
-ensureSpriteIndexLoaded()
-
+// Don't load automatically
 export const spriteIndexReady = loaded
