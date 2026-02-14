@@ -835,6 +835,42 @@ function createTodoList() {
 
   // Clear all histories
   function clear(): void {
+    // Reset all planning state (global + all bases)
+    if (playerBasesInstance) {
+      // Remove all new bases (those without current counterpart)
+      const bases = playerBasesInstance.state.value.bases.slice()
+      for (const base of bases) {
+        // Annahme: Neue Basen haben keine currentBuildings (API) oder ein Flag
+        if (!base.currentBuildings || base.currentBuildings.length === 0) {
+          playerBasesInstance.removeBase(base.id)
+        } else {
+          // Reset planned buildings/recipes to current
+          base.buildings = base.currentBuildings.map(cur => ({
+            id: `planned_${cur.buildingId}_${Math.random().toString(36).slice(2, 10)}`,
+            buildingId: cur.buildingId,
+            level: cur.level,
+            slotId: cur.slotId,
+          }))
+          if (base.recipes && base.currentRecipes) {
+            base.recipes = base.currentRecipes.map(cur => ({
+              id: `planned_${cur.recipeId}_${Math.random().toString(36).slice(2, 10)}`,
+              recipeId: cur.recipeId,
+              count: cur.currentCount,
+              currentCount: cur.currentCount,
+            }))
+          }
+        }
+      }
+    }
+    // Reset global planning state (technology, starting-bonus)
+    try {
+      const { worldData } = useWorldData()
+      if (worldData.value.planning && worldData.value.current) {
+        worldData.value.planning.technology = { ...worldData.value.current.technology }
+        worldData.value.planning.startingBonus = worldData.value.current.startingBonus
+        worldData.value.planning.modifiedAt = Date.now()
+      }
+    } catch {}
     scopeHistories.value.clear()
     saveToStorage()
   }
@@ -843,6 +879,44 @@ function createTodoList() {
   function clearForScope(scope: ScopeType, planetId?: number): void {
     const scopeKey = getScopeKey(scope, planetId)
     scopeHistories.value.delete(scopeKey)
+    // Reset planning for this scope
+    if (playerBasesInstance) {
+      if (scope === 'base' && planetId !== undefined) {
+        const base = playerBasesInstance.state.value.bases.find(b => b.planetId === planetId)
+        if (base) {
+          // Neue Base entfernen
+          if (!base.currentBuildings || base.currentBuildings.length === 0) {
+            playerBasesInstance.removeBase(base.id)
+          } else {
+            // Reset planned buildings/recipes to current
+            base.buildings = base.currentBuildings.map(cur => ({
+              id: `planned_${cur.buildingId}_${Math.random().toString(36).slice(2, 10)}`,
+              buildingId: cur.buildingId,
+              level: cur.level,
+              slotId: cur.slotId,
+            }))
+            if (base.recipes && base.currentRecipes) {
+              base.recipes = base.currentRecipes.map(cur => ({
+                id: `planned_${cur.recipeId}_${Math.random().toString(36).slice(2, 10)}`,
+                recipeId: cur.recipeId,
+                count: cur.currentCount,
+                currentCount: cur.currentCount,
+              }))
+            }
+          }
+        }
+      } else if (scope === 'global') {
+        // Reset global planning state (technology, starting-bonus)
+        try {
+          const { worldData } = useWorldData()
+          if (worldData.value.planning && worldData.value.current) {
+            worldData.value.planning.technology = { ...worldData.value.current.technology }
+            worldData.value.planning.startingBonus = worldData.value.current.startingBonus
+            worldData.value.planning.modifiedAt = Date.now()
+          }
+        } catch {}
+      }
+    }
     saveToStorage()
   }
 
