@@ -118,7 +118,7 @@ function notifyTodoSync(
     try {
       new Notification(title, { body })
     } catch (error) {
-      logger.debug('Failed to show notification:', error)
+      // ...removed debug log...
     }
   }
 
@@ -133,7 +133,7 @@ function notifyTodoSync(
         showNotification()
       }
     }).catch((error) => {
-      logger.debug('Notification permission request failed:', error)
+      // ...removed debug log...
     })
   }
 }
@@ -267,7 +267,7 @@ export async function initializeSyncService(
           }
         }
       } catch (error) {
-        logger.error('Failed to load bases:', error)
+        // ...removed error log...
       }
     }
 
@@ -288,10 +288,10 @@ export async function initializeSyncService(
         try {
           // Don't await - let them load in parallel
           refreshEntry(entry.id).catch(e => {
-            logger.warn('Initial warehouse load failed:', entry.id, e)
+            // ...removed warn log...
           })
         } catch (e) {
-          logger.warn('Failed to trigger initial warehouse load:', entry.id, e)
+          // ...removed warn log...
         }
       }
     }
@@ -455,11 +455,11 @@ export async function refreshEntry(entryId: string): Promise<void> {
       }
 
       // Trigger callback to update player bases (single source of truth)
-      logger.debug('Warehouse stocks loaded', { warehouseId, stockCount: Object.keys(warehouseStocks).length, hasCallback: !!callbacks.onWarehouseStockLoaded })
+      // ...removed debug log...
       if (callbacks.onWarehouseStockLoaded) {
         callbacks.onWarehouseStockLoaded(warehouseId, warehouseStocks)
       } else {
-        logger.warn('No onWarehouseStockLoaded callback registered!')
+        // ...removed warn log...
       }
     }
 
@@ -468,7 +468,7 @@ export async function refreshEntry(entryId: string): Promise<void> {
     saveSyncTimes()
   } catch (error) {
     entry.error = formatApiError(error)
-    logger.error(`Failed to refresh ${entryId}:`, error)
+    // ...removed error log...
   } finally {
     entry.isRefreshing = false
     if (entry.nextRefresh <= 0) {
@@ -505,14 +505,14 @@ function startBackgroundRefresh() {
         entry.nextRefresh -= 1000
       } else {
         // Auto-refresh when countdown reaches zero
-        logger.debug(`Auto-refreshing ${entry.id}`)
+        // ...removed debug log...
         refreshEntry(entry.id)
         entry.nextRefresh = getAutoRefreshInterval(entry.id)
       }
     })
   }, 1000)
 
-  logger.debug('Background refresh timer started')
+  // ...removed debug log...
 }
 
 /**
@@ -522,7 +522,7 @@ export function stopBackgroundRefresh() {
   if (countdownTimer !== null) {
     clearInterval(countdownTimer)
     countdownTimer = null
-    logger.debug('Background refresh timer stopped')
+    // ...removed debug log...
   }
 }
 
@@ -546,7 +546,7 @@ function loadSyncTimes() {
       })
     }
   } catch (error) {
-    logger.error('Failed to load sync times:', error)
+    // ...removed error log...
   }
 }
 
@@ -562,7 +562,7 @@ function saveSyncTimes() {
     })
     localStorage.setItem(`gt:v2:syncStatus:${world}`, JSON.stringify(data))
   } catch (error) {
-    logger.error('Failed to save sync times:', error)
+    // ...removed error log...
   }
 }
 
