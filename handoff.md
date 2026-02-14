@@ -62,6 +62,24 @@
    - `docker compose exec web npm run test -- --run`
    - Result: 47 test files, 363 tests passed.
 
+---
+
+## Session 24 Summary (Todo List Tier Extra Costs Fix - COMPLETED)
+
+**Task**: Ensure tier 2/3/4 extra materials are included in TODO list costs for building adds.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **Fixed building add cost tier selection**
+   - `trackAddBuilding` now uses planet tier (from game data) instead of planetId when computing materials cost.
+   - Ensures extra materials for tiers 2/3/4 are included in TODO list cost strings.
+
+2. **Tests**
+   - `docker compose exec web npm run test -- --run`
+   - Result: 47 test files, 363 tests passed.
+
 4. **Smart Behavior**:
    - ERROR and WARN always logged (production-safe)
    - DEBUG/INFO/TRACE filtered by module (must be enabled)

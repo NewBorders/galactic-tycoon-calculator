@@ -294,10 +294,10 @@ export function createChangeTracker(gameData?: GameData) {
       let materialsCost: string | undefined = undefined
       const buildingForCost2 = normalizeWorkersHousing(building)
       if (buildingForCost2?.constructionMaterials && buildingForCost2.constructionMaterials.length > 0) {
-        // planetId entspricht planetTier
+        const planetTier = gameData?.planets.find(p => p.id === planetId)?.tier ?? 1
         materialsCost = computeBuildingUpgradeCost(
           buildingForCost2,
-          planetId,
+          planetTier,
           0,
           level,
           gameData ? { materials: gameData.materials } : undefined
