@@ -4,6 +4,7 @@ import { ALL_ICON_OVERRIDES, normalizeIconId } from './iconOverrides'
 const loaded = ref(false)
 const symbolIds = new Set<string>()
 const normalizedToId = new Map<string, string>()
+let spriteListenerRegistered = false
 
 function normKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -15,6 +16,10 @@ function normKey(s: string): string {
  */
 function loadSpriteIndexFromDOM(): void {
   if (loaded.value) return
+
+  if (typeof document === 'undefined') {
+    return
+  }
 
   const container = document.getElementById('svg-sprite-container')
   if (!container) {
@@ -39,10 +44,17 @@ function loadSpriteIndexFromDOM(): void {
 }
 
 export function ensureSpriteIndexLoaded(): void {
-  // Don't do anything automatically - index will be built on first resolveIconId call
+  if (spriteListenerRegistered || typeof window === 'undefined') return
+
+  spriteListenerRegistered = true
+  window.addEventListener('sprite-loaded', () => {
+    loaded.value = false
+    loadSpriteIndexFromDOM()
+  })
 }
 
 export function resolveIconId(name: string): string {
+  ensureSpriteIndexLoaded()
   // Lazy load index from DOM if not already loaded
   if (!loaded.value) {
     loadSpriteIndexFromDOM()

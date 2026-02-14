@@ -26,6 +26,15 @@ const buildingById = computed(() => new Map(props.lookup.map(b => [b.id, b])))
 const validBuildingRefs = computed(() =>
   props.buildingRefs.filter(inst => inst && inst.buildingId !== undefined && buildingById.value.get(inst.buildingId))
 )
+const currentBySlotId = computed(() => {
+  const map = new Map<number, PlayerBuilding>()
+  ;(props.currentBuildings ?? []).forEach((b) => {
+    if (typeof b.slotId === 'number') {
+      map.set(b.slotId, b)
+    }
+  })
+  return map
+})
 
 const EXTRA_MATERIAL_IDS = [90, 120, 121] as const
 
@@ -65,7 +74,7 @@ const extraCostByInstanceId = computed(() => {
       :class="(() => {
         // Compare planned vs current using slotId (not array index)
         const currentForSlot = inst.slotId != null
-          ? props.currentBuildings?.find(cb => cb.slotId === inst.slotId)
+          ? currentBySlotId.get(inst.slotId)
           : null
         const cur = currentForSlot?.level ?? 0
         const changed = cur !== inst.level
@@ -101,13 +110,13 @@ const extraCostByInstanceId = computed(() => {
           <span class="font-semibold">{{ translate('current') }}:</span>
           <span v-if="(() => {
             const currentForSlot = inst.slotId != null
-              ? currentBuildings?.find(cb => cb.slotId === inst.slotId)
+              ? currentBySlotId.get(inst.slotId)
               : null
             return currentForSlot
           })()" class="text-slate-300">
             Lvl {{ (() => {
               const currentForSlot = inst.slotId != null
-                ? currentBuildings?.find(cb => cb.slotId === inst.slotId)
+                ? currentBySlotId.get(inst.slotId)
                 : null
               return currentForSlot?.level
             })() }}

@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useMarketAnalysis } from '../useMarketAnalysis'
 import type { MarketOpportunity } from '@/v2/services/marketAnalysis'
 
+vi.mock('@/v2/services/api/apiKeyManager', () => ({
+  getWorld: () => 'g2',
+}))
+
 vi.mock('@/v2/services/marketAnalysis', () => {
   const opportunities: MarketOpportunity[] = [
     {
@@ -45,8 +49,8 @@ describe('useMarketAnalysis caching', () => {
         volume: { volumePerDay: 50 },
       },
     ]
-    localStorage.setItem('gt:v2:market:opportunities', JSON.stringify(cached))
-    localStorage.setItem('gt:v2:market:ts', '999')
+    localStorage.setItem('gt:v2:market:g2:opportunities', JSON.stringify(cached))
+    localStorage.setItem('gt:v2:market:g2:ts', '999')
 
     const { opportunities, lastUpdated } = useMarketAnalysis()
 
@@ -59,8 +63,8 @@ describe('useMarketAnalysis caching', () => {
 
     await fetch()
 
-    const stored = localStorage.getItem('gt:v2:market:opportunities')
-    const storedTs = localStorage.getItem('gt:v2:market:ts')
+    const stored = localStorage.getItem('gt:v2:market:g2:opportunities')
+    const storedTs = localStorage.getItem('gt:v2:market:g2:ts')
 
     expect(stored).not.toBeNull()
     expect(JSON.parse(stored || '[]')).toEqual(opportunities.value)

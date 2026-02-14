@@ -12,14 +12,20 @@ import {
   type FetchMarketDetailsOptions,
   type MarketAnalysisFilters,
 } from '../services/marketAnalysis'
+import { getWorld } from '../services/api/apiKeyManager'
 
-const MARKET_CACHE_KEY = 'gt:v2:market:opportunities'
-const MARKET_TS_KEY = 'gt:v2:market:ts'
+function getMarketCacheKeys(world: string) {
+  return {
+    dataKey: `gt:v2:market:${world}:opportunities`,
+    tsKey: `gt:v2:market:${world}:ts`,
+  }
+}
 
-function loadCachedOpportunities(): { opportunities: MarketOpportunity[]; ts: number | null } {
+function loadCachedOpportunities(world: string): { opportunities: MarketOpportunity[]; ts: number | null } {
   try {
-    const raw = localStorage.getItem(MARKET_CACHE_KEY)
-    const rawTs = localStorage.getItem(MARKET_TS_KEY)
+    const keys = getMarketCacheKeys(world)
+    const raw = localStorage.getItem(keys.dataKey)
+    const rawTs = localStorage.getItem(keys.tsKey)
     if (!raw || !rawTs) return { opportunities: [], ts: null }
     const parsed = JSON.parse(raw) as MarketOpportunity[]
     const ts = Number(rawTs)
@@ -30,11 +36,12 @@ function loadCachedOpportunities(): { opportunities: MarketOpportunity[]; ts: nu
   }
 }
 
-function saveCachedOpportunities(data: MarketOpportunity[], ts: number | null) {
+function saveCachedOpportunities(world: string, data: MarketOpportunity[], ts: number | null) {
   try {
-    localStorage.setItem(MARKET_CACHE_KEY, JSON.stringify(data))
+    const keys = getMarketCacheKeys(world)
+    localStorage.setItem(keys.dataKey, JSON.stringify(data))
     if (ts !== null && Number.isFinite(ts)) {
-      localStorage.setItem(MARKET_TS_KEY, String(ts))
+      localStorage.setItem(keys.tsKey, String(ts))
     }
   } catch {
     // ignore storage errors
@@ -42,7 +49,7 @@ function saveCachedOpportunities(data: MarketOpportunity[], ts: number | null) {
 }
 
 export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
-  const cached = loadCachedOpportunities()
+  const cached = loadCachedOpportunities(getWorld())
   const opportunities = ref<MarketOpportunity[]>(cached.opportunities)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -69,7 +76,7 @@ export function useMarketAnalysis(options: FetchMarketDetailsOptions = {}) {
       })
       opportunities.value = data
       lastUpdated.value = ts
-      saveCachedOpportunities(data, ts)
+      saveCachedOpportunities(getWorld(), data, ts)
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to fetch market data'
 

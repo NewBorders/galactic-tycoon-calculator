@@ -13,6 +13,10 @@ const saving = ref(false)
 const error = ref('')
 const statusMessage = ref('')
 
+const emit = defineEmits<{
+  (e: 'set-active-tab', tab: 'bases' | 'matsShortage' | 'matsBalance' | 'technology' | 'config' | 'market' | 'alerts'): void
+}>()
+
 async function saveApiKey() {
   const trimmed = apiKeyInput.value.trim()
 
@@ -56,11 +60,8 @@ async function saveApiKey() {
     statusMessage.value = 'Loading your data...'
     await initializeSyncService()
 
-    // Set active tab to overview
-    if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__setActiveTab) {
-      const setTab = (window as unknown as Record<string, unknown>).__setActiveTab as (tab: string) => void
-      setTab('overview')
-    }
+    // Switch to bases after successful setup
+    emit('set-active-tab', 'bases')
 
     statusMessage.value = 'Success! Loading application...'
     // Small delay to show success message before app loads

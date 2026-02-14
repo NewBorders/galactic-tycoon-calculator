@@ -80,6 +80,44 @@
    - `docker compose exec web npm run test -- --run`
    - Result: 47 test files, 363 tests passed.
 
+---
+
+## Session 25 Summary (PR Comment Fixes - COMPLETED)
+
+**Task**: Address unresolved PR review comments across sprite loading, caching, logging, and UI paths.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **Sprite Index Safety**
+   - Added DOM guard and `sprite-loaded` listener for re-indexing in [src/v2/constants/spriteIndex.ts](src/v2/constants/spriteIndex.ts).
+
+2. **Market Analysis Cache Scoping**
+   - Cache keys now include world; tests updated accordingly.
+
+3. **Warehouse Service Dedupe Errors**
+   - In-flight promises now store normalized error handling for consistent callers.
+
+4. **Logger Behavior**
+   - WARN/ERROR now bypass module gating unless level is OFF.
+
+5. **Recipe Count Zero Support**
+   - Updated ConfiguredBase + MaterialsShortagePage to allow `count = 0`.
+
+6. **Workforce Productivity Messaging**
+   - Explanation no longer gated by stock data; `hasStockData` reflects presence of keys.
+
+7. **Remove Global Tab Setter + Debug Logs**
+   - ApiLandingPage now emits `set-active-tab`; AppV2 uses logger instead of console.
+
+8. **BaseBuildingsSection Optimization**
+   - Cached `currentBuildings` by slotId for faster lookups.
+
+9. **Tests**
+   - `docker compose exec web npm run test -- --run`
+   - Result: 47 test files, 363 tests passed.
+
 4. **Smart Behavior**:
    - ERROR and WARN always logged (production-safe)
    - DEBUG/INFO/TRACE filtered by module (must be enabled)

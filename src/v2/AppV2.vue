@@ -32,6 +32,7 @@ const loading = ref(false)
 const err = ref<string | null>(null)
 
 const { hasApiKey } = useWorldData()
+const logger = createLogger('AppV2')
 
 // Global alert checking (runs regardless of active tab)
 const { checkAlerts, playAlertSound, showNotification, reloadAlertsForWorld } = usePriceAlerts()
@@ -65,14 +66,8 @@ onBeforeUnmount(() => {
   }
 })
 
-// Expose function to set active tab (for use by ApiLandingPage)
 function setActiveTab(tab: Tab) {
   active.value = tab
-}
-
-// Make setActiveTab available globally via window for ApiLandingPage
-if (typeof window !== 'undefined') {
-  (window as unknown as Record<string, unknown>).__setActiveTab = setActiveTab
 }
 
 onMounted(async () => {
@@ -85,7 +80,6 @@ onMounted(async () => {
 
   // Load SVG sprite first (parallel with game data)
   loadSvgSprite().catch((e) => {
-    const logger = createLogger('AppV2')
     logger.error('Failed to load SVG sprite:', e)
   })
 
@@ -96,7 +90,7 @@ onMounted(async () => {
     gdIndex.value = index
     gdLoadedAt.value = loadedAt
     // Debug-Log: gameData nach erfolgreichem Laden
-    console.info('AppV2: gameData loaded', {
+    logger.info('gameData loaded', {
       materialCount: data?.materials?.length,
       buildingCount: data?.buildings?.length,
       loadedAt,
@@ -130,7 +124,7 @@ watch(getWorld, async () => {
     gdIndex.value = result.index
     gdLoadedAt.value = result.loadedAt
     // Debug-Log: gameData nach erfolgreichem Laden (World-Wechsel)
-    console.info('AppV2: gameData loaded (world change)', {
+    logger.info('gameData loaded (world change)', {
       materialCount: result.data?.materials?.length,
       buildingCount: result.data?.buildings?.length,
       loadedAt: result.loadedAt,
@@ -161,7 +155,7 @@ async function handleGameDataRefreshed(payload: {
 
 <template>
   <!-- Show landing page if no API key configured -->
-  <ApiLandingPage v-if="!hasApiKey" />
+  <ApiLandingPage v-if="!hasApiKey" @set-active-tab="setActiveTab" />
 
   <!-- Main app -->
   <div v-else class="min-h-screen bg-slate-900 text-slate-100">

@@ -49,7 +49,7 @@ export function calculateWorkforceProductivity(
   
   // Check if any stock data was provided
   const stockValues = Object.values(stock)
-  const hasStockData = stockValues.length > 0 && stockValues.some(v => v > 0)
+  const hasStockData = stockValues.length > 0
 
   for (const wf of report.workforceSummary) {
     const housingCoverage = wf.coverage * 100 // convert from decimal (0-1) to percent (0-100)
@@ -143,9 +143,7 @@ export function calculateWorkforceProductivity(
 
   // Generate explanation
   let explanation = ''
-  if (!hasStockData) {
-    explanation = 'No stock data available - enter material stock to calculate productivity'
-  } else if (overallProductivityPercent >= 100) {
+  if (overallProductivityPercent >= 100) {
     explanation = 'Workforce is operating at full capacity'
   } else if (overallProductivityPercent >= 90) {
     explanation = 'Workforce is operating near full capacity'

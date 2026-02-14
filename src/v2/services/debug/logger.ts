@@ -84,11 +84,13 @@ function shouldLog(level: LogLevel, moduleName: string): boolean {
   const currentLevel = getDebugLevel()
   const levelValue = LOG_LEVEL_VALUES[level]
   const currentLevelValue = LOG_LEVEL_VALUES[currentLevel]
-  
-  if (levelValue > currentLevelValue) return false
-  
+
+  if (currentLevel === 'OFF') return false
+
   // ERROR and WARN always show (regardless of module setting)
   if (level === 'ERROR' || level === 'WARN') return true
+
+  if (levelValue > currentLevelValue) return false
   
   // DEBUG, INFO, TRACE only show if module is enabled
   return isModuleEnabled(moduleName)

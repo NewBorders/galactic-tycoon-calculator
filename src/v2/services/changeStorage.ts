@@ -3,6 +3,10 @@
  * Enables reliable state reversion by tracking exactly what needs to be undone
  */
 
+import { createLogger } from './debug/logger'
+
+const logger = createLogger('ChangeStorage')
+
 export interface StoredChange {
   changeId: string
   type: 'buildingLevel' | 'recipeCount' | 'technologyLevel' | 'startingBonus' | 'stock' | 'buildingAdd' | 'buildingRemove' | 'recipeAdd' | 'recipeRemove'
@@ -19,7 +23,7 @@ export interface StoredChange {
 const changeMap = new Map<string, StoredChange>()
 
 export function registerChange(changeId: string, change: StoredChange): void {
-  console.log('[ChangeStorage] Registering change:', changeId, change)
+  logger.debug('Registering change:', changeId, change)
   changeMap.set(changeId, change)
 }
 
