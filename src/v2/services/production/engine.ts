@@ -96,7 +96,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
   const productionUnitsById = new Map<number, number>()
   const workforceUnitsById = new Map<number, number>()
   assignment.buildings.forEach((instance) => {
-    const level = clampPositiveInt(instance.level, 0)
+    const level = clampPositiveInt(instance.level)
     const count = clampPositiveInt(instance.count, 1)
     // Skip buildings with level 0
     if (level === 0) return
@@ -171,7 +171,7 @@ export function computeBaseReport(gd: GameData, ctx: BaseProductionContext): Bas
     if (productionUnits <= 0) return
     const workforceUnits = workforceUnitsById.get(recipe.producedInId) ?? 0
     const countRaw = (selection as Record<string, unknown>).count
-    const count = typeof countRaw === 'number' && Number.isFinite(countRaw) ? Math.max(0, Math.floor(countRaw)) : 1
+    const count = typeof countRaw === 'number' && Number.isFinite(countRaw) ? Math.max(0, Math.floor(countRaw)) : 0
     // Skip recipes with count 0
     if (count === 0) return
     const group = buildingGroups.get(recipe.producedInId)

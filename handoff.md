@@ -154,6 +154,37 @@
 2. **Command Run**
    - `docker compose exec web npm run type-check`
 
+---
+
+## Session 28 Summary (PR Open Points Cleanup - COMPLETED)
+
+**Task**: Resolve remaining PR review comments and re-run checks.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **ImportConfirmDialog Macro Note**
+   - Documented `defineProps/defineEmits` as compiler macros (no imports).
+
+2. **Price Tests Mocking**
+   - Replaced `as unknown as` with `vi.stubGlobal` and typed mock.
+
+3. **Production Engine Clarity**
+   - Default recipe count to 0 when invalid; removed redundant clamp arg.
+
+4. **Config + Localisation Cleanup**
+   - Added stdin_open comment in compose.
+   - Extracted `MAX_DISPLAYABLE_DAYS` constant for `formatDays`.
+
+5. **ConfiguredBase Emit Note**
+   - Documented why recipe reordering remains supported.
+
+6. **Commands Run**
+   - `docker compose exec web npm run type-check`
+   - `docker compose exec web npm run lint`
+   - `docker compose exec web npm run test -- --run`
+
 4. **Smart Behavior**:
    - ERROR and WARN always logged (production-safe)
    - DEBUG/INFO/TRACE filtered by module (must be enabled)

@@ -3,6 +3,8 @@
 
 import { getCurrentLocale } from './locale'
 
+const MAX_DISPLAYABLE_DAYS = 9999
+
 export function formatDateTime(ts: number | Date | null): string {
   if (!ts) return ''
   const date = typeof ts === 'number' ? new Date(ts) : ts
@@ -24,7 +26,7 @@ export function formatDateTime(ts: number | Date | null): string {
  * @returns Formatted string like "2d 3h" or "3h" or "∞"
  */
 export function formatDays(days: number): string {
-  if (days === Infinity || days > 9999) {
+  if (days === Infinity || days > MAX_DISPLAYABLE_DAYS) {
     return '∞'
   }
 

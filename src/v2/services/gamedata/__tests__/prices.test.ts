@@ -6,8 +6,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Mock fetch globally
-const mockFetch = vi.fn()
-global.fetch = mockFetch as unknown as typeof global.fetch
+const mockFetch = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+vi.stubGlobal('fetch', mockFetch)
 
 describe('Price Conversion', () => {
   beforeEach(() => {

@@ -42,6 +42,7 @@ const emit = defineEmits<{
   removeBuilding: [{ id: string }]
   addRecipe: [{ recipeId: number }]
   removeRecipe: [{ id: string }]
+  // Recipe reordering remains supported for display/UX; it does not affect simulation logic.
   reorderRecipes: [{ ids: string[] }]
   updateRecipe: [{ id: string; patch: { count?: number } }]
   setOptionalConsumables: [materialIds: number[]]
