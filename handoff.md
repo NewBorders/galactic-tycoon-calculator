@@ -118,6 +118,26 @@
    - `docker compose exec web npm run test -- --run`
    - Result: 47 test files, 363 tests passed.
 
+---
+
+## Session 26 Summary (Type Check + Lint Fixes - COMPLETED)
+
+**Task**: Run `docker compose` type checks and fix all errors; address lint issues.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **Type Check Fixes**
+   - Expanded `PlayerBasesService` type to include `currentBuildings`, `currentRecipes`, and `recipes`.
+
+2. **Lint Fixes**
+   - Removed unused logger import and unused catch parameters in `syncService`.
+
+3. **Commands Run**
+   - `docker compose exec web npm run type-check`
+   - `docker compose exec web npm run lint`
+
 4. **Smart Behavior**:
    - ERROR and WARN always logged (production-safe)
    - DEBUG/INFO/TRACE filtered by module (must be enabled)

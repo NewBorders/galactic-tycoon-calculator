@@ -12,8 +12,30 @@ import { createLogger } from './debug/logger'
 const logger = createLogger('StateReversion')
 
 // Helper type for playerBases service
+type PlayerBuildingLike = {
+  id: string
+  buildingId?: number
+  level?: number
+  slotId?: number
+}
+
+type PlayerRecipeLike = {
+  id: string
+  recipeId: number
+  count?: number
+  currentCount?: number
+}
+
 export interface PlayerBasesService {
-  state: { value: { bases: Array<{ id: string; planetId?: number; name?: string; buildings: Array<{ id: string }> }> } }
+  state: { value: { bases: Array<{
+    id: string
+    planetId?: number
+    name?: string
+    buildings: PlayerBuildingLike[]
+    currentBuildings?: PlayerBuildingLike[]
+    recipes?: PlayerRecipeLike[]
+    currentRecipes?: PlayerRecipeLike[]
+  }> } }
   planets: { value: Array<{ id: number; name: string }> }
   addBase: (planetId: number) => void
   removeBase: (baseId: string) => void

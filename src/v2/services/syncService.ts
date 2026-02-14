@@ -7,7 +7,6 @@
 
 import { ref, type Ref } from 'vue'
 import { getWorld, getApiKey } from './api/apiKeyManager'
-import { createLogger } from './debug/logger'
 import { loadGameData } from './gamedata/service'
 import { resetPriceCache } from './gamedata/prices'
 import { fetchCompanyBases, fetchGameBaseDetails, fetchWarehouseStockForBase } from './api/warehouseService'
@@ -40,7 +39,6 @@ const AUTO_REFRESH_INTERVAL_COMPANY = 10 * 60 * 1000 // 10 minutes
 let countdownTimer: number | null = null
 let callbacks: SyncCallbacks = {}
 let pendingBasesData: Array<{ id: number; name: string; planetId: number; warehouseId: number }> | null = null
-const logger = createLogger('SyncService')
 let initializationPromise: Promise<void> | null = null
 let lastInitKey: string | null = null
 
@@ -117,7 +115,7 @@ function notifyTodoSync(
   const showNotification = () => {
     try {
       new Notification(title, { body })
-    } catch (error) {
+    } catch {
       // ...removed debug log...
     }
   }
@@ -132,7 +130,7 @@ function notifyTodoSync(
       if (permission === 'granted') {
         showNotification()
       }
-    }).catch((error) => {
+    }).catch(() => {
       // ...removed debug log...
     })
   }
@@ -266,7 +264,7 @@ export async function initializeSyncService(
             })
           }
         }
-      } catch (error) {
+      } catch {
         // ...removed error log...
       }
     }
@@ -287,10 +285,10 @@ export async function initializeSyncService(
       for (const entry of warehouseEntries) {
         try {
           // Don't await - let them load in parallel
-          refreshEntry(entry.id).catch(e => {
+          refreshEntry(entry.id).catch(() => {
             // ...removed warn log...
           })
-        } catch (e) {
+        } catch {
           // ...removed warn log...
         }
       }
@@ -466,7 +464,7 @@ export async function refreshEntry(entryId: string): Promise<void> {
     entry.lastSync = Date.now()
     entry.nextRefresh = getAutoRefreshInterval(entryId)
     saveSyncTimes()
-  } catch (error) {
+  } catch {
     entry.error = formatApiError(error)
     // ...removed error log...
   } finally {
@@ -545,7 +543,7 @@ function loadSyncTimes() {
         }
       })
     }
-  } catch (error) {
+  } catch {
     // ...removed error log...
   }
 }
@@ -561,7 +559,7 @@ function saveSyncTimes() {
       data[entry.id] = entry.lastSync
     })
     localStorage.setItem(`gt:v2:syncStatus:${world}`, JSON.stringify(data))
-  } catch (error) {
+  } catch {
     // ...removed error log...
   }
 }
