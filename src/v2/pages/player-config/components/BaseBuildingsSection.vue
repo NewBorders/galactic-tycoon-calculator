@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { getTierExtraMaterialId, getTierExtraBaseAmount } from '@/v2/services/buildingCosts/buildingCosts.core'
+import { useGameData } from '@/v2/composables/useGlobalSummary'
+const { gameData } = useGameData()
 import { computed } from 'vue'
 import type { Building } from '@/v2/services/gamedata/types'
 import type { PlayerBuilding } from '@/v2/services/playerBases'
@@ -107,4 +110,25 @@ const buildingById = computed(() => new Map(props.lookup.map(b => [b.id, b])))
       </div>
     </div>
   </div>
+
+      <!-- Zusatzkosten für Tier 2, 3, 4 -->
+      <div v-if="(() => {
+        const building = buildingById.get(inst.buildingId)
+        if (!building) return false
+        const extraMaterialId = getTierExtraMaterialId(building.tier)
+        return !!extraMaterialId
+      })()" class="mt-2 text-xs text-slate-400 flex items-center gap-2">
+        <span>{{ translate('extra_costs') }}:</span>
+        <template v-if="(() => {
+          const building = buildingById.get(inst.buildingId)
+          if (!building) return false
+          const extraMaterialId = getTierExtraMaterialId(building.tier)
+          return !!extraMaterialId
+        })()">
+          <MaterialIcon :name="gameData.materials.find(m => m.id === getTierExtraMaterialId(buildingById.get(inst.buildingId)?.tier ?? 0))?.name ?? '#' + getTierExtraMaterialId(buildingById.get(inst.buildingId)?.tier ?? 0)" variant="xs" />
+          <span>
+            {{ getTierExtraBaseAmount(buildingById.get(inst.buildingId)!) }}
+          </span>
+        </template>
+      </div>
 </template>
