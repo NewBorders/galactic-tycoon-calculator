@@ -10,6 +10,7 @@
 - TODO sync now updates from-levels when current advances and shows a browser notification on API updates.
 - Deduped concurrent market-details fetches and added refresh backoff on sync errors to prevent repeat calls.
 - Added debug counters for API calls in game data extract, warehouse service, and market details extractor.
+- Deduped game data loads across force/normal requests and removed /public/company/base list fallback.
 
 ---
 

@@ -95,7 +95,7 @@ export async function loadGameData(force = false): Promise<{
   loadedAt: number
 }> {
   const world = getWorld()
-  const inFlightKey = `${world}:${force ? 'force' : 'normal'}`
+  const inFlightKey = world
   if (!force) {
     const c = readCache(world)
     if (c) {

@@ -253,31 +253,18 @@ export async function fetchGameBaseDetails(
       trackApiCall(`/public/company/base/${gameBaseId}?world=${world}`)
       const response = await fetch(url.toString())
       if (!response.ok) {
-        // Fallback: try list endpoint and filter
-        const listUrl = new URL(`${baseUrl}/public/company/base`)
-        listUrl.searchParams.set('apikey', apiKey)
-        trackApiCall(`/public/company/base?world=${world}`)
-        const listResp = await fetch(listUrl.toString())
-        if (!listResp.ok) {
-          // Try to extract error message from response body
-          let errorDetail = `${listResp.status} ${listResp.statusText}`
-          try {
-            const errorBody = await listResp.json()
-            if (errorBody.error) {
-              errorDetail = `${listResp.status}: ${errorBody.error}`
-            } else if (errorBody.message) {
-              errorDetail = `${listResp.status}: ${errorBody.message}`
-            }
-          } catch {
-            // Failed to parse error body, use status text
+        let errorDetail = `${response.status} ${response.statusText}`
+        try {
+          const errorBody = await response.json()
+          if (errorBody.error) {
+            errorDetail = `${response.status}: ${errorBody.error}`
+          } else if (errorBody.message) {
+            errorDetail = `${response.status}: ${errorBody.message}`
           }
-          throw new Error(`API error: ${errorDetail}`)
+        } catch {
+          // Failed to parse error body, use status text
         }
-        const listData = await listResp.json()
-        // Try to find matching base
-        const found = Array.isArray(listData) ? listData.find((b: Record<string, unknown>) => b.id === gameBaseId) : null
-        if (!found) throw new Error(`Base ${gameBaseId} not found in API response`)
-        return { data: found as GameBaseRaw, source: 'api' as const }
+        throw new Error(`API error: ${errorDetail}`)
       }
 
       const data = await response.json()
