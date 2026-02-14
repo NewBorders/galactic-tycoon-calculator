@@ -464,7 +464,7 @@ export async function refreshEntry(entryId: string): Promise<void> {
     entry.lastSync = Date.now()
     entry.nextRefresh = getAutoRefreshInterval(entryId)
     saveSyncTimes()
-  } catch {
+  } catch (error) {
     entry.error = formatApiError(error)
     // ...removed error log...
   } finally {

@@ -138,6 +138,22 @@
    - `docker compose exec web npm run type-check`
    - `docker compose exec web npm run lint`
 
+---
+
+## Session 27 Summary (Build Type-Check Fix - COMPLETED)
+
+**Task**: Fix build-time type-check error in sync service.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **syncService catch fix**
+   - Restored `error` parameter in catch so `formatApiError(error)` works.
+
+2. **Command Run**
+   - `docker compose exec web npm run type-check`
+
 4. **Smart Behavior**:
    - ERROR and WARN always logged (production-safe)
    - DEBUG/INFO/TRACE filtered by module (must be enabled)
