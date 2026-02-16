@@ -239,6 +239,13 @@ export function calculateOpportunityScore(
     score += 2
   }
 
+  // 4. Oversupply penalty based on revenue gap
+  if (demand && demand.revenueAvgPerDay > 0 && demand.revenueGapPerDay < 0) {
+    const oversupplyRatio = Math.abs(demand.revenueGapPerDay) / demand.revenueAvgPerDay
+    const oversupplyPenalty = Math.min(25, oversupplyRatio * 8)
+    score = Math.max(0, score - oversupplyPenalty)
+  }
+
   // Clamp to 0-100
   return Math.round(Math.max(0, Math.min(100, score)))
 }

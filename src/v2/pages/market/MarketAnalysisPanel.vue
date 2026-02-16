@@ -4,6 +4,7 @@ import { useMarketAnalysis } from '../../composables/useMarketAnalysis'
 import MaterialIcon from '../../components/MaterialIcon.vue'
 import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
+import { getMaterialExchangeLink } from '../../services/gamedata/gameDataRepository'
 import { translate, formatDateTime as formatDateTimeLocale } from '../../localisation'
 import { formatInteger, formatDecimal, formatPercent as formatPercentLocale } from '../../localisation/numbers'
 import { getSyncEntries } from '../../services/syncService'
@@ -92,6 +93,10 @@ const materialSearch = ref('')
 // Tier filter (default: all tiers selected)
 const tierFilter = ref<Set<number>>(new Set([1, 2, 3, 4]))
 
+type SupplyLevel = 'undersupplied' | 'balanced' | 'oversupplied'
+
+const supplyFilter = ref<Set<SupplyLevel>>(new Set(['undersupplied', 'balanced', 'oversupplied']))
+
 // Toggle tier filter
 function toggleTier(tier: number) {
   if (tierFilter.value.has(tier)) {
@@ -101,6 +106,15 @@ function toggleTier(tier: number) {
   }
   // Trigger reactivity
   tierFilter.value = new Set(tierFilter.value)
+}
+
+function toggleSupply(level: SupplyLevel) {
+  if (supplyFilter.value.has(level)) {
+    supplyFilter.value.delete(level)
+  } else {
+    supplyFilter.value.add(level)
+  }
+  supplyFilter.value = new Set(supplyFilter.value)
 }
 
 // Sorting state
@@ -132,6 +146,13 @@ const searchFilteredOpportunities = computed(() => {
     const tier = materialTiers.value.get(opp.materialId)
     return tier !== undefined && tierFilter.value.has(tier)
   })
+
+  if (supplyFilter.value.size < 3) {
+    opportunities = opportunities.filter(opp => {
+      const level = opp.saturation.saturationLevel
+      return level !== 'unknown' && supplyFilter.value.has(level)
+    })
+  }
 
   // Filter by search text
   if (materialSearch.value.trim()) {
@@ -346,25 +367,61 @@ const lastUpdatedLabel = computed(() => {
           Showing {{ sortedOpportunities.length }} of {{ filteredOpportunities.length }} materials
         </div>
 
-        <!-- Tier Filter (directly below search, inline) -->
-        <div class="mt-4 pt-4 border-t border-gray-700">
-          <label class="block text-sm font-medium text-gray-300 mb-3">
-            ⭐ {{ translate('tierFilter') }}
-          </label>
-          <div class="flex flex-wrap gap-4">
-            <label
-              v-for="tier in [1, 2, 3, 4]"
-              :key="tier"
-              class="flex items-center gap-2 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                :checked="tierFilter.has(tier)"
-                @change="toggleTier(tier)"
-                class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
-              />
-              <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
+        <!-- Tier + Supply Filters (compact, responsive) -->
+        <div class="mt-4 pt-4 border-t border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-3">
+              ⭐ {{ translate('tierFilter') }}
             </label>
+            <div class="flex flex-wrap gap-4">
+              <label
+                v-for="tier in [1, 2, 3, 4]"
+                :key="tier"
+                class="flex items-center gap-2 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  :checked="tierFilter.has(tier)"
+                  @change="toggleTier(tier)"
+                  class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                />
+                <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-3">
+              📦 Supply
+            </label>
+            <div class="flex flex-wrap gap-4">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  :checked="supplyFilter.has('undersupplied')"
+                  @change="toggleSupply('undersupplied')"
+                  class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                />
+                <span class="text-sm text-gray-300">Undersupplied</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  :checked="supplyFilter.has('balanced')"
+                  @change="toggleSupply('balanced')"
+                  class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                />
+                <span class="text-sm text-gray-300">Balanced</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  :checked="supplyFilter.has('oversupplied')"
+                  @change="toggleSupply('oversupplied')"
+                  class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                />
+                <span class="text-sm text-gray-300">Oversupplied</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -471,10 +528,17 @@ const lastUpdatedLabel = computed(() => {
               <!-- Material Name with Icon -->
               <td class="w-[28%] px-3 py-2 text-white font-medium truncate">
                 <div class="flex items-center gap-2 min-w-0">
-                  <MaterialIcon :name="materialNames.get(opp.materialId) || `ID ${opp.materialId}`" variant="lg" />
-                  <span class="block truncate" :title="materialNames.get(opp.materialId) || `ID ${opp.materialId}`">
-                    {{ materialNames.get(opp.materialId) || `ID ${opp.materialId}` }}
-                  </span>
+                  <a
+                    :href="getMaterialExchangeLink(opp.materialId)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-2 min-w-0 hover:opacity-80 transition"
+                  >
+                    <MaterialIcon :name="materialNames.get(opp.materialId) || `ID ${opp.materialId}`" variant="lg" />
+                    <span class="block truncate underline decoration-dotted" :title="materialNames.get(opp.materialId) || `ID ${opp.materialId}`">
+                      {{ materialNames.get(opp.materialId) || `ID ${opp.materialId}` }}
+                    </span>
+                  </a>
                 </div>
               </td>
 
