@@ -55,6 +55,7 @@ export interface MarketDemand {
   volumeAvgPerDay: number
   revenue7d: number
   revenueAvgPerDay: number
+  revenueGapPerDay: number
   demandLevel: 'high' | 'medium' | 'low'
 }
 

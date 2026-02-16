@@ -2,6 +2,7 @@
 
 ## Status
 - No open items.
+- Added revenue gap per day to market analysis demand and UI display.
 - Technology import now bumps planned levels to at least current during API sync.
 - Added integration coverage for planned tech bump on import.
 - Sync intervals now applied per entry consistently (init, refresh, reload).
@@ -11,6 +12,32 @@
 - Deduped concurrent market-details fetches and added refresh backoff on sync errors to prevent repeat calls.
 - Added debug counters for API calls in game data extract, warehouse service, and market details extractor.
 - Deduped game data loads across force/normal requests and removed /public/company/base list fallback.
+
+---
+
+## Session 29 Summary (Market Analysis Revenue Gap - COMPLETED)
+
+**Task**: Add a second Revenue/Day line that shows signed revenue gap (sold per day minus available), and surface it in the Market Analysis table.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **Demand Model Update**
+   - Added `revenueGapPerDay` to market demand and computed it from avg sold vs available quantity.
+
+2. **UI Enhancements**
+   - Revenue/Day column now shows a second line with signed gap and color cues.
+   - Updated tooltip to explain gap meaning and sign.
+
+3. **Tests**
+   - Added coverage for positive and negative revenue gap calculations.
+   - Added repository test to ensure transformed opportunities include the gap.
+
+4. **Commands Run**
+   - `docker compose exec web npm run type-check`
+   - `docker compose exec web npm run lint`
+   - `docker compose exec web npm run test -- --run`
 
 ---
 

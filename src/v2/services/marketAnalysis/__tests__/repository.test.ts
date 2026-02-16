@@ -13,6 +13,7 @@ import {
 } from '../repository'
 import type { MarketOpportunity } from '../types'
 import {
+  createTestMaterial,
   createRisingTrendMaterial,
   createFallingTrendMaterial,
   createStableTrendMaterial,
@@ -62,6 +63,24 @@ describe('fetchMarketOpportunities', () => {
 
     const opportunities = await fetchMarketOpportunities()
     expect(opportunities).toHaveLength(0)
+  })
+
+  it('should include revenue gap per day in transformed demand', async () => {
+    mockExtractMarketDetails.mockResolvedValueOnce({
+      data: [createTestMaterial({
+        avgQtySoldDaily: 100,
+        totalQtyAvailable: 60,
+        avgPrice: 200,
+        priceHistory: [
+          { date: '2025-11-27', avgPrice: 200, qtySold: 100, qtyRemaining: 60 },
+        ],
+      })],
+      source: 'api' as const,
+    })
+
+    const opportunities = await fetchMarketOpportunities()
+
+    expect(opportunities[0].demand.revenueGapPerDay).toBe(8000)
   })
 
   it('should pass forceRefresh to extractor', async () => {
@@ -143,6 +162,7 @@ describe('filterOpportunities', () => {
         volumeAvgPerDay: 5000,
         revenue7d: 0,
         revenueAvgPerDay: 0,
+        revenueGapPerDay: 0,
         demandLevel: 'high',
       },
       saturation: {
@@ -150,7 +170,10 @@ describe('filterOpportunities', () => {
         bidPrice: 114,
         spread: 6,
         spreadPercent: 5.26,
+        daysOfSupply: 2,
         saturationLevel: 'balanced',
+        qtyAvailable: 1000,
+        qtySoldDaily: 500,
       },
     },
     {
@@ -170,6 +193,7 @@ describe('filterOpportunities', () => {
         volumeAvgPerDay: 50,
         revenue7d: 0,
         revenueAvgPerDay: 0,
+        revenueGapPerDay: 0,
         demandLevel: 'low',
       },
       saturation: {
@@ -177,7 +201,10 @@ describe('filterOpportunities', () => {
         bidPrice: 76,
         spread: 4,
         spreadPercent: 5.26,
+        daysOfSupply: 5,
         saturationLevel: 'oversupplied',
+        qtyAvailable: 1000,
+        qtySoldDaily: 200,
       },
     },
     {
@@ -197,6 +224,7 @@ describe('filterOpportunities', () => {
         volumeAvgPerDay: 500,
         revenue7d: 0,
         revenueAvgPerDay: 0,
+        revenueGapPerDay: 0,
         demandLevel: 'medium',
       },
       saturation: {
@@ -204,7 +232,10 @@ describe('filterOpportunities', () => {
         bidPrice: 96.9,
         spread: 5.1,
         spreadPercent: 5.26,
+        daysOfSupply: 2,
         saturationLevel: 'balanced',
+        qtyAvailable: 1000,
+        qtySoldDaily: 500,
       },
     },
   ]

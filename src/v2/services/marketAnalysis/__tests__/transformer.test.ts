@@ -17,6 +17,7 @@ import {
   createRisingTrendMaterial,
   createFallingTrendMaterial,
   createStableTrendMaterial,
+  createTestMaterial,
   createHighDemandMaterial,
   createMediumDemandMaterial,
   createLowDemandMaterial,
@@ -126,6 +127,36 @@ describe('calculateMarketDemand', () => {
     const demand = calculateMarketDemand(raw)
     expect(demand).not.toBeNull()
     expect(demand!.volume7d).toBe(70000) // 10000 * 7 days
+  })
+
+  it('should calculate revenue gap per day from supply vs demand', () => {
+    const raw = createTestMaterial({
+      avgQtySoldDaily: 100,
+      totalQtyAvailable: 50,
+      avgPrice: 200,
+      priceHistory: [
+        { date: '2025-11-27', avgPrice: 200, qtySold: 100, qtyRemaining: 50 },
+      ],
+    })
+
+    const demand = calculateMarketDemand(raw)
+    expect(demand).not.toBeNull()
+    expect(demand!.revenueGapPerDay).toBe(10000)
+  })
+
+  it('should return negative revenue gap when oversupplied', () => {
+    const raw = createTestMaterial({
+      avgQtySoldDaily: 100,
+      totalQtyAvailable: 200,
+      avgPrice: 200,
+      priceHistory: [
+        { date: '2025-11-27', avgPrice: 200, qtySold: 100, qtyRemaining: 200 },
+      ],
+    })
+
+    const demand = calculateMarketDemand(raw)
+    expect(demand).not.toBeNull()
+    expect(demand!.revenueGapPerDay).toBe(-20000)
   })
 
   it('should return null when history is empty', () => {

@@ -71,6 +71,9 @@ export function calculateMarketDemand(raw: MaterialDetailsRaw): MarketDemand | n
   const volume7d = raw.priceHistory.reduce((sum, entry) => sum + entry.qtySold, 0)
   const volumeAvgPerDay = raw.avgQtySoldDaily
 
+  const avgPrice = volume7d > 0 ? revenue7d / volume7d : raw.avgPrice
+  const revenueGapPerDay = (raw.avgQtySoldDaily - raw.totalQtyAvailable) * avgPrice
+
   // Classify demand level based on average daily revenue
   // Note: Prices are in cents
   // High: >$5k/day (500k cents), Medium: $500-5k/day (50k-500k cents), Low: <$500/day (<50k cents)
@@ -88,6 +91,7 @@ export function calculateMarketDemand(raw: MaterialDetailsRaw): MarketDemand | n
     volumeAvgPerDay,
     revenue7d,
     revenueAvgPerDay,
+    revenueGapPerDay,
     demandLevel,
   }
 }
@@ -286,6 +290,7 @@ export function transformToMarketOpportunity(raw: MaterialDetailsRaw): MarketOpp
       volumeAvgPerDay: raw.avgQtySoldDaily,
       revenue7d: 0,
       revenueAvgPerDay: 0,
+      revenueGapPerDay: 0,
       demandLevel: 'low',
     },
     saturation,

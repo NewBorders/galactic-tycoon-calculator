@@ -8,8 +8,12 @@ import { translate, formatDateTime as formatDateTimeLocale } from '../../localis
 import { formatInteger, formatDecimal, formatPercent as formatPercentLocale } from '../../localisation/numbers'
 import { getSyncEntries } from '../../services/syncService'
 
-// Format price helper: cents → dollars with $ prefix
+// Format price helper: cents -> dollars with $ prefix
 const formatPrice = (cents: number): string => '$' + formatDecimal(cents / 100, 2)
+const formatSignedPrice = (cents: number): string => {
+  const sign = cents > 0 ? '+' : cents < 0 ? '-' : ''
+  return sign + formatPrice(Math.abs(cents))
+}
 
 const props = defineProps<{
   gameData: GameData
@@ -201,6 +205,12 @@ function getDemandColor(level: string): string {
     case 'low': return 'text-red-400'
     default: return 'text-gray-400'
   }
+}
+
+function getGapColor(value: number): string {
+  if (value > 0) return 'text-green-400'
+  if (value < 0) return 'text-red-400'
+  return 'text-gray-400'
 }
 
 function getDemandLabel(level: string): string {
@@ -417,7 +427,7 @@ const lastUpdatedLabel = computed(() => {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Average daily revenue = quantity sold per day × average price. This is the KEY metric for scoring - higher revenue = higher opportunity score, even within the same demand level.
+                      Average daily revenue = quantity sold per day x average price. Gap/Day = (qty sold per day - qty available) x average price. Positive gap means unmet demand; negative means oversupplied.
                     </span>
                   </span>
                 </span>
@@ -507,8 +517,18 @@ const lastUpdatedLabel = computed(() => {
               </td>
 
               <!-- Revenue per Day -->
-              <td class="w-[13%] px-3 py-2 text-right text-white font-mono whitespace-nowrap text-sm">
-                {{ formatPrice(opp.demand.revenueAvgPerDay) }}
+              <td class="w-[13%] px-3 py-2 text-right whitespace-nowrap">
+                <div class="flex flex-col items-end gap-0.5">
+                  <span class="text-white font-mono font-semibold text-sm">
+                    {{ formatPrice(opp.demand.revenueAvgPerDay) }}
+                  </span>
+                  <span
+                    class="text-[11px] font-mono"
+                    :class="getGapColor(opp.demand.revenueGapPerDay)"
+                  >
+                    {{ formatSignedPrice(opp.demand.revenueGapPerDay) }}
+                  </span>
+                </div>
               </td>
 
               <!-- Saturation with Available Supply -->
