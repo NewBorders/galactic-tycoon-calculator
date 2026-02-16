@@ -2,6 +2,7 @@
 
 ## Status
 - No open items.
+- Revenue gap now influences market opportunity scoring to penalize oversupplied markets.
 - Added revenue gap per day to market analysis demand and UI display.
 - Technology import now bumps planned levels to at least current during API sync.
 - Added integration coverage for planned tech bump on import.
@@ -12,6 +13,22 @@
 - Deduped concurrent market-details fetches and added refresh backoff on sync errors to prevent repeat calls.
 - Added debug counters for API calls in game data extract, warehouse service, and market details extractor.
 - Deduped game data loads across force/normal requests and removed /public/company/base list fallback.
+
+---
+
+## Session 30 Summary (Market Analysis Gap Scoring - COMPLETED)
+
+**Task**: Use revenue gap per day to better penalize oversupplied markets in scoring.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **Scoring Update**
+   - Added a gap-based adjustment to opportunity scores using revenue gap ratio.
+
+2. **Tests**
+   - Added coverage to ensure negative revenue gaps reduce the score.
 
 ---
 

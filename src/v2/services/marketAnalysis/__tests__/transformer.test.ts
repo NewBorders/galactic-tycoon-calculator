@@ -239,6 +239,36 @@ describe('calculateOpportunityScore', () => {
     expect(score).toBeLessThanOrEqual(100)
   })
 
+  it('should penalize score when revenue gap is strongly negative', () => {
+    const balancedRaw = createTestMaterial({
+      avgQtySoldDaily: 1000,
+      totalQtyAvailable: 2000,
+      avgPrice: 100,
+      priceHistory: [
+        { date: '2025-11-27', avgPrice: 100, qtySold: 1000, qtyRemaining: 2000 },
+      ],
+    })
+    const oversuppliedRaw = createTestMaterial({
+      avgQtySoldDaily: 1000,
+      totalQtyAvailable: 5000,
+      avgPrice: 100,
+      priceHistory: [
+        { date: '2025-11-27', avgPrice: 100, qtySold: 1000, qtyRemaining: 5000 },
+      ],
+    })
+
+    const trend = calculatePriceTrend(createStableTrendMaterial())!
+    const balancedDemand = calculateMarketDemand(balancedRaw)!
+    const oversuppliedDemand = calculateMarketDemand(oversuppliedRaw)!
+    const balancedSaturation = calculateMarketSaturation(balancedRaw)
+    const oversuppliedSaturation = calculateMarketSaturation(oversuppliedRaw)
+
+    const balancedScore = calculateOpportunityScore(trend, balancedDemand, balancedSaturation)
+    const oversuppliedScore = calculateOpportunityScore(trend, oversuppliedDemand, oversuppliedSaturation)
+
+    expect(oversuppliedScore).toBeLessThan(balancedScore)
+  })
+
   it('should give low score for falling trend + low demand + oversupplied', () => {
     const trend = calculatePriceTrend(createFallingTrendMaterial())!
     const demand = calculateMarketDemand(createLowDemandMaterial())!
@@ -255,8 +285,8 @@ describe('calculateOpportunityScore', () => {
     const saturation = calculateMarketSaturation(createBalancedMaterial())
 
     const score = calculateOpportunityScore(trend, demand, saturation)
-    // Stable: 10pts, Medium revenue ($1M/day): ~30pts, Balanced: 10pts = ~50
-    expect(score).toBeGreaterThanOrEqual(40)
+    // Stable: 10pts, Medium revenue ($1M/day): ~30pts, Balanced: 10pts with gap penalty
+    expect(score).toBeGreaterThanOrEqual(35)
     expect(score).toBeLessThanOrEqual(60)
   })
 
@@ -311,8 +341,8 @@ describe('transformToMarketOpportunity', () => {
     expect(opportunity.materialId).toBe(42)
     expect(opportunity.priceTrend.direction).toBe('rising')
     expect(opportunity.demand.demandLevel).toBe('low') // Volume 500/day with price 120 cents = very low revenue
-    // Rising trend adds points, but low revenue keeps it low overall
-    expect(opportunity.opportunityScore).toBeGreaterThan(20)
+    // Rising trend adds points, but low revenue and gap penalty keep it low overall
+    expect(opportunity.opportunityScore).toBeGreaterThan(10)
     expect(opportunity.recommendation).toMatch(/poor|neutral/)
   })
 

@@ -216,6 +216,12 @@ export function calculateOpportunityScore(
         score += Math.min(5, revenueDollars / 20_000)
       }
     }
+
+    if (demand.revenueGapPerDay !== 0) {
+      const gapRatio = revenueCents > 0 ? demand.revenueGapPerDay / revenueCents : 0
+      const clampedGapRatio = Math.max(-2, Math.min(1, gapRatio))
+      score += clampedGapRatio * 10
+    }
   }
 
   // 3. Market Saturation Score (0-20 points)
