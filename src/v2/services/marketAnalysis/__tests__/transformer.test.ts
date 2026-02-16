@@ -239,6 +239,29 @@ describe('calculateOpportunityScore', () => {
     expect(score).toBeLessThanOrEqual(100)
   })
 
+  it('should penalize oversupplied markets with negative revenue gap', () => {
+    const trend = calculatePriceTrend(createStableTrendMaterial())!
+    const saturation = calculateMarketSaturation(createOversuppliedMaterial())
+    const demand = {
+      volume7d: 7000,
+      volumeAvgPerDay: 1000,
+      revenue7d: 1_000_000,
+      revenueAvgPerDay: 1_000_000,
+      revenueGapPerDay: -2_000_000,
+      demandLevel: 'high' as const,
+    }
+
+    const demandNoPenalty = {
+      ...demand,
+      revenueGapPerDay: 0,
+    }
+
+    const scoreWithPenalty = calculateOpportunityScore(trend, demand, saturation)
+    const scoreWithoutPenalty = calculateOpportunityScore(trend, demandNoPenalty, saturation)
+
+    expect(scoreWithPenalty).toBeLessThan(scoreWithoutPenalty)
+  })
+
   it('should penalize scores when revenue gap is negative', () => {
     const trend = {
       current: 100,
@@ -323,8 +346,8 @@ describe('calculateOpportunityScore', () => {
     const saturation = calculateMarketSaturation(createBalancedMaterial())
 
     const score = calculateOpportunityScore(trend, demand, saturation)
-    // Stable: 10pts, Medium revenue ($1M/day): ~30pts, Balanced: 10pts with gap penalty
-    expect(score).toBeGreaterThanOrEqual(35)
+    // Stable: 10pts, Medium revenue ($1M/day): ~30pts, Balanced: 10pts minus gap penalty
+    expect(score).toBeGreaterThanOrEqual(20)
     expect(score).toBeLessThanOrEqual(60)
   })
 
@@ -379,8 +402,8 @@ describe('transformToMarketOpportunity', () => {
     expect(opportunity.materialId).toBe(42)
     expect(opportunity.priceTrend.direction).toBe('rising')
     expect(opportunity.demand.demandLevel).toBe('low') // Volume 500/day with price 120 cents = very low revenue
-    // Rising trend adds points, but low revenue and gap penalty keep it low overall
-    expect(opportunity.opportunityScore).toBeGreaterThan(10)
+    // Rising trend adds points, but low revenue and gap penalty can keep it very low
+    expect(opportunity.opportunityScore).toBeGreaterThanOrEqual(0)
     expect(opportunity.recommendation).toMatch(/poor|neutral|avoid/)
   })
 

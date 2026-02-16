@@ -5,6 +5,7 @@ import MaterialIcon from '../../components/MaterialIcon.vue'
 import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
 import { getMaterialExchangeLink } from '../../services/gamedata/gameDataRepository'
+import { MATERIAL_CATEGORIES } from '../../constants/materialCategories'
 import { translate, formatDateTime as formatDateTimeLocale } from '../../localisation'
 import { formatInteger, formatDecimal, formatPercent as formatPercentLocale } from '../../localisation/numbers'
 import { getSyncEntries } from '../../services/syncService'
@@ -87,8 +88,18 @@ const materialTiers = computed(() => {
   return map
 })
 
+const materialCategories = computed(() => {
+  const map = new Map<number, number>()
+  props.gameData.materials.forEach(m => {
+    map.set(m.id, m.type)
+  })
+  return map
+})
+
 // Material search
 const materialSearch = ref('')
+
+const categoryFilter = ref<number | 'all'>('all')
 
 // Tier filter (default: all tiers selected)
 const tierFilter = ref<Set<number>>(new Set([1, 2, 3, 4]))
@@ -151,6 +162,12 @@ const searchFilteredOpportunities = computed(() => {
     opportunities = opportunities.filter(opp => {
       const level = opp.saturation.saturationLevel
       return level !== 'unknown' && supplyFilter.value.has(level)
+    })
+  }
+
+  if (categoryFilter.value !== 'all') {
+    opportunities = opportunities.filter(opp => {
+      return (materialCategories.value.get(opp.materialId) ?? 0) === categoryFilter.value
     })
   }
 
@@ -368,7 +385,7 @@ const lastUpdatedLabel = computed(() => {
         </div>
 
         <!-- Tier + Supply Filters (compact, responsive) -->
-        <div class="mt-4 pt-4 border-t border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="mt-4 pt-4 border-t border-gray-700 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-3">
               ⭐ {{ translate('tierFilter') }}
@@ -388,6 +405,24 @@ const lastUpdatedLabel = computed(() => {
                 <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
               </label>
             </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-3">
+              🧭 Category
+            </label>
+            <select
+              v-model="categoryFilter"
+              class="w-[40%] min-w-[140px] px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="all">All categories</option>
+              <option
+                v-for="category in MATERIAL_CATEGORIES"
+                :key="category.id"
+                :value="category.id"
+              >
+                {{ category.name }}
+              </option>
+            </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-3">
