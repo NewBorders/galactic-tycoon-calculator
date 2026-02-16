@@ -104,11 +104,11 @@ function toggleTier(tier: number) {
 }
 
 // Sorting state
-const sortColumn = ref<'score' | 'demand' | 'revenue' | null>(null)
+const sortColumn = ref<'score' | 'demand' | 'revenue' | 'gap' | null>(null)
 const sortDirection = ref<'asc' | 'desc'>('desc')
 
 // Toggle sort
-function toggleSort(column: 'score' | 'demand' | 'revenue') {
+function toggleSort(column: 'score' | 'demand' | 'revenue' | 'gap') {
   if (sortColumn.value === column) {
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
   } else {
@@ -118,7 +118,7 @@ function toggleSort(column: 'score' | 'demand' | 'revenue') {
 }
 
 // Get sort indicator
-function getSortIndicator(column: 'score' | 'demand' | 'revenue'): string {
+function getSortIndicator(column: 'score' | 'demand' | 'revenue' | 'gap'): string {
   if (sortColumn.value !== column) return ''
   return sortDirection.value === 'asc' ? ' ▲' : ' ▼'
 }
@@ -164,6 +164,9 @@ const sortedOpportunities = computed(() => {
         break
       case 'revenue':
         comparison = a.demand.revenueAvgPerDay - b.demand.revenueAvgPerDay
+        break
+      case 'gap':
+        comparison = a.demand.revenueGapPerDay - b.demand.revenueGapPerDay
         break
     }
 
@@ -427,7 +430,21 @@ const lastUpdatedLabel = computed(() => {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Average daily revenue = quantity sold per day x average price. Gap/Day = (qty sold per day - qty available) x average price. Positive gap means unmet demand; negative means oversupplied.
+                      Average daily revenue = quantity sold per day x average price. This is the key metric for scoring.
+                    </span>
+                  </span>
+                </span>
+              </th>
+              <th
+                class="w-[11%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                @click="toggleSort('gap')"
+              >
+                <span class="flex items-center justify-end gap-1">
+                  Gap/Day{{ getSortIndicator('gap') }}
+                  <span class="info-tooltip text-purple-400 cursor-help">
+                    ⓘ
+                    <span class="tooltip-text">
+                      Revenue gap = (qty sold per day - qty available) x average price. Positive means unmet demand; negative means oversupplied.
                     </span>
                   </span>
                 </span>
@@ -517,18 +534,15 @@ const lastUpdatedLabel = computed(() => {
               </td>
 
               <!-- Revenue per Day -->
-              <td class="w-[13%] px-3 py-2 text-right whitespace-nowrap">
-                <div class="flex flex-col items-end gap-0.5">
-                  <span class="text-white font-mono font-semibold text-sm">
-                    {{ formatPrice(opp.demand.revenueAvgPerDay) }}
-                  </span>
-                  <span
-                    class="text-[11px] font-mono"
-                    :class="getGapColor(opp.demand.revenueGapPerDay)"
-                  >
-                    {{ formatSignedPrice(opp.demand.revenueGapPerDay) }}
-                  </span>
-                </div>
+              <td class="w-[13%] px-3 py-2 text-right text-white font-mono whitespace-nowrap text-sm">
+                {{ formatPrice(opp.demand.revenueAvgPerDay) }}
+              </td>
+
+              <!-- Revenue Gap per Day -->
+              <td class="w-[11%] px-3 py-2 text-right whitespace-nowrap text-[11px] font-mono">
+                <span :class="getGapColor(opp.demand.revenueGapPerDay)">
+                  {{ formatSignedPrice(opp.demand.revenueGapPerDay) }}
+                </span>
               </td>
 
               <!-- Saturation with Available Supply -->
