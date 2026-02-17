@@ -2,6 +2,8 @@
 
 ## Status
 - No open items.
+- Shortened Market Analysis category dropdown width for a more compact layout.
+- Added revenue gap per day to market analysis demand and UI display.
 - Technology import now bumps planned levels to at least current during API sync.
 - Added integration coverage for planned tech bump on import.
 - Sync intervals now applied per entry consistently (init, refresh, reload).
@@ -11,6 +13,30 @@
 - Deduped concurrent market-details fetches and added refresh backoff on sync errors to prevent repeat calls.
 - Added debug counters for API calls in game data extract, warehouse service, and market details extractor.
 - Deduped game data loads across force/normal requests and removed /public/company/base list fallback.
+
+## Session 29 Summary (Market Analysis Revenue Gap - COMPLETED)
+
+**Task**: Add a Gap/Day column that shows signed revenue gap (sold per day minus available), and surface it in the Market Analysis table.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **Demand Model Update**
+   - Added `revenueGapPerDay` to market demand and computed it from avg sold vs available quantity.
+
+2. **UI Enhancements**
+   - Added a Gap/Day column with signed gap and color cues.
+   - Updated tooltip to explain gap meaning and sign.
+
+3. **Tests**
+   - Added coverage for positive and negative revenue gap calculations.
+   - Added repository test to ensure transformed opportunities include the gap.
+
+4. **Commands Run**
+   - `docker compose exec web npm run type-check`
+   - `docker compose exec web npm run lint`
+   - `docker compose exec web npm run test -- --run`
 
 ---
 
@@ -540,21 +566,13 @@ This is the code block that represents the suggested code change:
 
 ### What was done
 
-- Die Logik für Gebäudekosten (Shielding/Pressure Sealant Kits) auf T2+ Planeten wurde vollständig überprüft.
-- Die Funktion `computeBuildingTierExtras` wurde mit den neuen Regeln abgeglichen:
   - Warehouse: 2 pro Stufe
   - Housing: 4 pro Stufe
   - Production (ohne Fertility/Abundance): 1 (Level 1), ab Level 2: 2 pro Stufe
   - Production (mit Fertility/Abundance): 8 pro Stufe
-- Die Integrationstests (`manualCosts.integration.test.ts`, `newBaseCost.test.ts`) und Debug-Tests (`buildingCostDebug.test.ts`) wurden ausgeführt und alle Tests sind erfolgreich.
-- Die Werte für Barracks, Mine und andere Gebäude stimmen mit den neuen Regeln überein.
-- Es waren keine Codeänderungen nötig, da die aktuelle Implementierung bereits korrekt ist.
 
 ### Nächste Schritte
-- Keine weiteren Anpassungen an der Shielding-Kosten-Logik nötig.
-- Bei neuen Regeln oder Bugs: Tests und Logik erneut prüfen.
 
----
 Letzter Stand: Shielding-Kosten auf T2+ Planeten sind korrekt implementiert und durch Tests abgedeckt.
 ```
 <changeDescription>

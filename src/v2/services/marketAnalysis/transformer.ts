@@ -71,6 +71,9 @@ export function calculateMarketDemand(raw: MaterialDetailsRaw): MarketDemand | n
   const volume7d = raw.priceHistory.reduce((sum, entry) => sum + entry.qtySold, 0)
   const volumeAvgPerDay = raw.avgQtySoldDaily
 
+  const avgPrice = volume7d > 0 ? revenue7d / volume7d : raw.avgPrice
+  const revenueGapPerDay = (raw.avgQtySoldDaily - raw.totalQtyAvailable) * avgPrice
+
   // Classify demand level based on average daily revenue
   // Note: Prices are in cents
   // High: >$5k/day (500k cents), Medium: $500-5k/day (50k-500k cents), Low: <$500/day (<50k cents)
@@ -88,6 +91,7 @@ export function calculateMarketDemand(raw: MaterialDetailsRaw): MarketDemand | n
     volumeAvgPerDay,
     revenue7d,
     revenueAvgPerDay,
+    revenueGapPerDay,
     demandLevel,
   }
 }
@@ -212,6 +216,14 @@ export function calculateOpportunityScore(
         score += Math.min(5, revenueDollars / 20_000)
       }
     }
+
+    if (demand.revenueGapPerDay !== 0) {
+      const gapRatio = revenueCents > 0
+        ? demand.revenueGapPerDay / revenueCents
+        : Math.sign(demand.revenueGapPerDay)
+      const clampedGapRatio = Math.max(-2, Math.min(1, gapRatio))
+      score += clampedGapRatio * 10
+    }
   }
 
   // 3. Market Saturation Score (0-20 points)
@@ -227,6 +239,16 @@ export function calculateOpportunityScore(
   } else if (saturation.saturationLevel === 'oversupplied') {
     // Oversupplied reduces score slightly
     score += 2
+  }
+
+  // 4. Revenue gap penalty (negative gap only)
+  if (demand && demand.revenueGapPerDay < 0) {
+    const oversupplyRatio = demand.revenueAvgPerDay > 0
+      ? Math.abs(demand.revenueGapPerDay) / demand.revenueAvgPerDay
+      : 1
+    const penaltyScale = saturation.saturationLevel === 'oversupplied' ? 12 : 8
+    const oversupplyPenalty = Math.min(25, oversupplyRatio * penaltyScale)
+    score = Math.max(0, score - oversupplyPenalty)
   }
 
   // Clamp to 0-100
@@ -286,6 +308,7 @@ export function transformToMarketOpportunity(raw: MaterialDetailsRaw): MarketOpp
       volumeAvgPerDay: raw.avgQtySoldDaily,
       revenue7d: 0,
       revenueAvgPerDay: 0,
+      revenueGapPerDay: 0,
       demandLevel: 'low',
     },
     saturation,

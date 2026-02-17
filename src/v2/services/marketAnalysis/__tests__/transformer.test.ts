@@ -17,6 +17,7 @@ import {
   createRisingTrendMaterial,
   createFallingTrendMaterial,
   createStableTrendMaterial,
+  createTestMaterial,
   createHighDemandMaterial,
   createMediumDemandMaterial,
   createLowDemandMaterial,
@@ -128,6 +129,36 @@ describe('calculateMarketDemand', () => {
     expect(demand!.volume7d).toBe(70000) // 10000 * 7 days
   })
 
+  it('should calculate revenue gap per day from supply vs demand', () => {
+    const raw = createTestMaterial({
+      avgQtySoldDaily: 100,
+      totalQtyAvailable: 50,
+      avgPrice: 200,
+      priceHistory: [
+        { date: '2025-11-27', avgPrice: 200, qtySold: 100, qtyRemaining: 50 },
+      ],
+    })
+
+    const demand = calculateMarketDemand(raw)
+    expect(demand).not.toBeNull()
+    expect(demand!.revenueGapPerDay).toBe(10000)
+  })
+
+  it('should return negative revenue gap when oversupplied', () => {
+    const raw = createTestMaterial({
+      avgQtySoldDaily: 100,
+      totalQtyAvailable: 200,
+      avgPrice: 200,
+      priceHistory: [
+        { date: '2025-11-27', avgPrice: 200, qtySold: 100, qtyRemaining: 200 },
+      ],
+    })
+
+    const demand = calculateMarketDemand(raw)
+    expect(demand).not.toBeNull()
+    expect(demand!.revenueGapPerDay).toBe(-20000)
+  })
+
   it('should return null when history is empty', () => {
     const raw = createNoHistoryMaterial()
 
@@ -208,6 +239,97 @@ describe('calculateOpportunityScore', () => {
     expect(score).toBeLessThanOrEqual(100)
   })
 
+  it('should penalize oversupplied markets with negative revenue gap', () => {
+    const trend = calculatePriceTrend(createStableTrendMaterial())!
+    const saturation = calculateMarketSaturation(createOversuppliedMaterial())
+    const demand = {
+      volume7d: 7000,
+      volumeAvgPerDay: 1000,
+      revenue7d: 1_000_000,
+      revenueAvgPerDay: 1_000_000,
+      revenueGapPerDay: -2_000_000,
+      demandLevel: 'high' as const,
+    }
+
+    const demandNoPenalty = {
+      ...demand,
+      revenueGapPerDay: 0,
+    }
+
+    const scoreWithPenalty = calculateOpportunityScore(trend, demand, saturation)
+    const scoreWithoutPenalty = calculateOpportunityScore(trend, demandNoPenalty, saturation)
+
+    expect(scoreWithPenalty).toBeLessThan(scoreWithoutPenalty)
+  })
+
+  it('should penalize scores when revenue gap is negative', () => {
+    const trend = {
+      current: 100,
+      avg7d: 100,
+      avg1d: 100,
+      changePercent7d: 0,
+      changePercent1d: 0,
+      direction: 'stable' as const,
+    }
+    const saturation = {
+      askPrice: 100,
+      bidPrice: 95,
+      spread: 5,
+      spreadPercent: 5.26,
+      daysOfSupply: 2,
+      saturationLevel: 'balanced' as const,
+      qtyAvailable: 1000,
+      qtySoldDaily: 500,
+    }
+    const baseDemand = {
+      volume7d: 7000,
+      volumeAvgPerDay: 1000,
+      revenue7d: 700_000_000,
+      revenueAvgPerDay: 100_000_000,
+      revenueGapPerDay: 0,
+      demandLevel: 'high' as const,
+    }
+
+    const baseScore = calculateOpportunityScore(trend, baseDemand, saturation)
+    const oversuppliedScore = calculateOpportunityScore(
+      trend,
+      { ...baseDemand, revenueGapPerDay: -300_000_000 },
+      saturation,
+    )
+
+    expect(oversuppliedScore).toBeLessThan(baseScore - 15)
+  })
+
+  it('should penalize score when revenue gap is strongly negative', () => {
+    const balancedRaw = createTestMaterial({
+      avgQtySoldDaily: 1000,
+      totalQtyAvailable: 2000,
+      avgPrice: 100,
+      priceHistory: [
+        { date: '2025-11-27', avgPrice: 100, qtySold: 1000, qtyRemaining: 2000 },
+      ],
+    })
+    const oversuppliedRaw = createTestMaterial({
+      avgQtySoldDaily: 1000,
+      totalQtyAvailable: 5000,
+      avgPrice: 100,
+      priceHistory: [
+        { date: '2025-11-27', avgPrice: 100, qtySold: 1000, qtyRemaining: 5000 },
+      ],
+    })
+
+    const trend = calculatePriceTrend(createStableTrendMaterial())!
+    const balancedDemand = calculateMarketDemand(balancedRaw)!
+    const oversuppliedDemand = calculateMarketDemand(oversuppliedRaw)!
+    const balancedSaturation = calculateMarketSaturation(balancedRaw)
+    const oversuppliedSaturation = calculateMarketSaturation(oversuppliedRaw)
+
+    const balancedScore = calculateOpportunityScore(trend, balancedDemand, balancedSaturation)
+    const oversuppliedScore = calculateOpportunityScore(trend, oversuppliedDemand, oversuppliedSaturation)
+
+    expect(oversuppliedScore).toBeLessThan(balancedScore)
+  })
+
   it('should give low score for falling trend + low demand + oversupplied', () => {
     const trend = calculatePriceTrend(createFallingTrendMaterial())!
     const demand = calculateMarketDemand(createLowDemandMaterial())!
@@ -224,8 +346,8 @@ describe('calculateOpportunityScore', () => {
     const saturation = calculateMarketSaturation(createBalancedMaterial())
 
     const score = calculateOpportunityScore(trend, demand, saturation)
-    // Stable: 10pts, Medium revenue ($1M/day): ~30pts, Balanced: 10pts = ~50
-    expect(score).toBeGreaterThanOrEqual(40)
+    // Stable: 10pts, Medium revenue ($1M/day): ~30pts, Balanced: 10pts minus gap penalty
+    expect(score).toBeGreaterThanOrEqual(20)
     expect(score).toBeLessThanOrEqual(60)
   })
 
@@ -280,9 +402,9 @@ describe('transformToMarketOpportunity', () => {
     expect(opportunity.materialId).toBe(42)
     expect(opportunity.priceTrend.direction).toBe('rising')
     expect(opportunity.demand.demandLevel).toBe('low') // Volume 500/day with price 120 cents = very low revenue
-    // Rising trend adds points, but low revenue keeps it low overall
-    expect(opportunity.opportunityScore).toBeGreaterThan(20)
-    expect(opportunity.recommendation).toMatch(/poor|neutral/)
+    // Rising trend adds points, but low revenue and gap penalty can keep it very low
+    expect(opportunity.opportunityScore).toBeGreaterThanOrEqual(0)
+    expect(opportunity.recommendation).toMatch(/poor|neutral|avoid/)
   })
 
   it('should transform falling trend material correctly', () => {

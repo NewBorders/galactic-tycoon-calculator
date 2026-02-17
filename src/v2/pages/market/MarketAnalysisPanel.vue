@@ -4,12 +4,18 @@ import { useMarketAnalysis } from '../../composables/useMarketAnalysis'
 import MaterialIcon from '../../components/MaterialIcon.vue'
 import type { GameData, GdIndex } from '../../services/gamedata/service'
 import { getWorld } from '../../services/api/apiKeyManager'
+import { getMaterialExchangeLink } from '../../services/gamedata/gameDataRepository'
+import { MATERIAL_CATEGORIES } from '../../constants/materialCategories'
 import { translate, formatDateTime as formatDateTimeLocale } from '../../localisation'
 import { formatInteger, formatDecimal, formatPercent as formatPercentLocale } from '../../localisation/numbers'
 import { getSyncEntries } from '../../services/syncService'
 
-// Format price helper: cents → dollars with $ prefix
+// Format price helper: cents -> dollars with $ prefix
 const formatPrice = (cents: number): string => '$' + formatDecimal(cents / 100, 2)
+const formatSignedPrice = (cents: number): string => {
+  const sign = cents > 0 ? '+' : cents < 0 ? '-' : ''
+  return sign + formatPrice(Math.abs(cents))
+}
 
 const props = defineProps<{
   gameData: GameData
@@ -82,11 +88,25 @@ const materialTiers = computed(() => {
   return map
 })
 
+const materialCategories = computed(() => {
+  const map = new Map<number, number>()
+  props.gameData.materials.forEach(m => {
+    map.set(m.id, m.type)
+  })
+  return map
+})
+
 // Material search
 const materialSearch = ref('')
 
+const categoryFilter = ref<number | 'all'>('all')
+
 // Tier filter (default: all tiers selected)
 const tierFilter = ref<Set<number>>(new Set([1, 2, 3, 4]))
+
+type SupplyLevel = 'undersupplied' | 'balanced' | 'oversupplied'
+
+const supplyFilter = ref<Set<SupplyLevel>>(new Set(['undersupplied', 'balanced', 'oversupplied']))
 
 // Toggle tier filter
 function toggleTier(tier: number) {
@@ -99,12 +119,21 @@ function toggleTier(tier: number) {
   tierFilter.value = new Set(tierFilter.value)
 }
 
+function toggleSupply(level: SupplyLevel) {
+  if (supplyFilter.value.has(level)) {
+    supplyFilter.value.delete(level)
+  } else {
+    supplyFilter.value.add(level)
+  }
+  supplyFilter.value = new Set(supplyFilter.value)
+}
+
 // Sorting state
-const sortColumn = ref<'score' | 'demand' | 'revenue' | null>(null)
+const sortColumn = ref<'score' | 'demand' | 'revenue' | 'gap' | null>(null)
 const sortDirection = ref<'asc' | 'desc'>('desc')
 
 // Toggle sort
-function toggleSort(column: 'score' | 'demand' | 'revenue') {
+function toggleSort(column: 'score' | 'demand' | 'revenue' | 'gap') {
   if (sortColumn.value === column) {
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
   } else {
@@ -114,7 +143,7 @@ function toggleSort(column: 'score' | 'demand' | 'revenue') {
 }
 
 // Get sort indicator
-function getSortIndicator(column: 'score' | 'demand' | 'revenue'): string {
+function getSortIndicator(column: 'score' | 'demand' | 'revenue' | 'gap'): string {
   if (sortColumn.value !== column) return ''
   return sortDirection.value === 'asc' ? ' ▲' : ' ▼'
 }
@@ -128,6 +157,21 @@ const searchFilteredOpportunities = computed(() => {
     const tier = materialTiers.value.get(opp.materialId)
     return tier !== undefined && tierFilter.value.has(tier)
   })
+
+  if (supplyFilter.value.size > 0 && supplyFilter.value.size < 3) {
+    opportunities = opportunities.filter(opp => {
+      const level = opp.saturation.saturationLevel
+      return level !== 'unknown' && supplyFilter.value.has(level)
+    })
+  } else if (supplyFilter.value.size === 0) {
+    opportunities = []
+  }
+
+  if (categoryFilter.value !== 'all') {
+    opportunities = opportunities.filter(opp => {
+      return (materialCategories.value.get(opp.materialId) ?? 0) === categoryFilter.value
+    })
+  }
 
   // Filter by search text
   if (materialSearch.value.trim()) {
@@ -160,6 +204,9 @@ const sortedOpportunities = computed(() => {
         break
       case 'revenue':
         comparison = a.demand.revenueAvgPerDay - b.demand.revenueAvgPerDay
+        break
+      case 'gap':
+        comparison = a.demand.revenueGapPerDay - b.demand.revenueGapPerDay
         break
     }
 
@@ -201,6 +248,12 @@ function getDemandColor(level: string): string {
     case 'low': return 'text-red-400'
     default: return 'text-gray-400'
   }
+}
+
+function getGapColor(value: number): string {
+  if (value > 0) return 'text-green-400'
+  if (value < 0) return 'text-red-400'
+  return 'text-gray-400'
 }
 
 function getDemandLabel(level: string): string {
@@ -333,25 +386,79 @@ const lastUpdatedLabel = computed(() => {
           Showing {{ sortedOpportunities.length }} of {{ filteredOpportunities.length }} materials
         </div>
 
-        <!-- Tier Filter (directly below search, inline) -->
-        <div class="mt-4 pt-4 border-t border-gray-700">
-          <label class="block text-sm font-medium text-gray-300 mb-3">
-            ⭐ {{ translate('tierFilter') }}
-          </label>
-          <div class="flex flex-wrap gap-4">
-            <label
-              v-for="tier in [1, 2, 3, 4]"
-              :key="tier"
-              class="flex items-center gap-2 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                :checked="tierFilter.has(tier)"
-                @change="toggleTier(tier)"
-                class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
-              />
-              <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
+        <!-- Tier + Supply Filters (compact, responsive) -->
+        <div class="mt-4 pt-4 border-t border-gray-700 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-3">
+              ⭐ {{ translate('tierFilter') }}
             </label>
+            <div class="flex flex-wrap gap-4">
+              <label
+                v-for="tier in [1, 2, 3, 4]"
+                :key="tier"
+                class="flex items-center gap-2 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  :checked="tierFilter.has(tier)"
+                  @change="toggleTier(tier)"
+                  class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                />
+                <span class="text-sm text-gray-300">{{ translate(`tier${tier}`) }}</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-3">
+              🧭 Category
+            </label>
+            <select
+              v-model="categoryFilter"
+              class="w-[40%] min-w-[140px] px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="all">All categories</option>
+              <option
+                v-for="category in MATERIAL_CATEGORIES"
+                :key="category.id"
+                :value="category.id"
+              >
+                {{ category.name }}
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-3">
+              📦 Supply
+            </label>
+            <div class="flex flex-wrap gap-4">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  :checked="supplyFilter.has('undersupplied')"
+                  @change="toggleSupply('undersupplied')"
+                  class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                />
+                <span class="text-sm text-gray-300">Undersupplied</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  :checked="supplyFilter.has('balanced')"
+                  @change="toggleSupply('balanced')"
+                  class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                />
+                <span class="text-sm text-gray-300">Balanced</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  :checked="supplyFilter.has('oversupplied')"
+                  @change="toggleSupply('oversupplied')"
+                  class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                />
+                <span class="text-sm text-gray-300">Oversupplied</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -417,7 +524,21 @@ const lastUpdatedLabel = computed(() => {
                   <span class="info-tooltip text-purple-400 cursor-help">
                     ⓘ
                     <span class="tooltip-text">
-                      Average daily revenue = quantity sold per day × average price. This is the KEY metric for scoring - higher revenue = higher opportunity score, even within the same demand level.
+                      Average daily revenue = quantity sold per day x average price. This is the key metric for scoring.
+                    </span>
+                  </span>
+                </span>
+              </th>
+              <th
+                class="w-[11%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                @click="toggleSort('gap')"
+              >
+                <span class="flex items-center justify-end gap-1">
+                  Gap/Day{{ getSortIndicator('gap') }}
+                  <span class="info-tooltip text-purple-400 cursor-help">
+                    ⓘ
+                    <span class="tooltip-text">
+                      Revenue gap = (qty sold per day - qty available) x average price. Positive means unmet demand; negative means oversupplied.
                     </span>
                   </span>
                 </span>
@@ -444,10 +565,17 @@ const lastUpdatedLabel = computed(() => {
               <!-- Material Name with Icon -->
               <td class="w-[28%] px-3 py-2 text-white font-medium truncate">
                 <div class="flex items-center gap-2 min-w-0">
-                  <MaterialIcon :name="materialNames.get(opp.materialId) || `ID ${opp.materialId}`" variant="lg" />
-                  <span class="block truncate" :title="materialNames.get(opp.materialId) || `ID ${opp.materialId}`">
-                    {{ materialNames.get(opp.materialId) || `ID ${opp.materialId}` }}
-                  </span>
+                  <a
+                    :href="getMaterialExchangeLink(opp.materialId)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-2 min-w-0 hover:opacity-80 transition"
+                  >
+                    <MaterialIcon :name="materialNames.get(opp.materialId) || `ID ${opp.materialId}`" variant="lg" />
+                    <span class="block truncate underline decoration-dotted" :title="materialNames.get(opp.materialId) || `ID ${opp.materialId}`">
+                      {{ materialNames.get(opp.materialId) || `ID ${opp.materialId}` }}
+                    </span>
+                  </a>
                 </div>
               </td>
 
@@ -509,6 +637,13 @@ const lastUpdatedLabel = computed(() => {
               <!-- Revenue per Day -->
               <td class="w-[13%] px-3 py-2 text-right text-white font-mono whitespace-nowrap text-sm">
                 {{ formatPrice(opp.demand.revenueAvgPerDay) }}
+              </td>
+
+              <!-- Revenue Gap per Day -->
+              <td class="w-[11%] px-3 py-2 text-right whitespace-nowrap text-[11px] font-mono">
+                <span :class="getGapColor(opp.demand.revenueGapPerDay)">
+                  {{ formatSignedPrice(opp.demand.revenueGapPerDay) }}
+                </span>
               </td>
 
               <!-- Saturation with Available Supply -->
