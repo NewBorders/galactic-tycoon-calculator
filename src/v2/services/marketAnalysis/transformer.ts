@@ -218,7 +218,9 @@ export function calculateOpportunityScore(
     }
 
     if (demand.revenueGapPerDay !== 0) {
-      const gapRatio = revenueCents > 0 ? demand.revenueGapPerDay / revenueCents : 0
+      const gapRatio = revenueCents > 0
+        ? demand.revenueGapPerDay / revenueCents
+        : Math.sign(demand.revenueGapPerDay)
       const clampedGapRatio = Math.max(-2, Math.min(1, gapRatio))
       score += clampedGapRatio * 10
     }
@@ -239,21 +241,13 @@ export function calculateOpportunityScore(
     score += 2
   }
 
-  if (
-    demand &&
-    saturation.saturationLevel === 'oversupplied' &&
-    demand.revenueGapPerDay < 0 &&
-    demand.revenueAvgPerDay > 0
-  ) {
-    const gapRatio = Math.min(2, Math.abs(demand.revenueGapPerDay) / demand.revenueAvgPerDay)
-    const oversupplyPenalty = gapRatio * 15
-    score = Math.max(0, score - oversupplyPenalty)
-  }
-
-  // 4. Oversupply penalty based on revenue gap
-  if (demand && demand.revenueAvgPerDay > 0 && demand.revenueGapPerDay < 0) {
-    const oversupplyRatio = Math.abs(demand.revenueGapPerDay) / demand.revenueAvgPerDay
-    const oversupplyPenalty = Math.min(25, oversupplyRatio * 8)
+  // 4. Revenue gap penalty (negative gap only)
+  if (demand && demand.revenueGapPerDay < 0) {
+    const oversupplyRatio = demand.revenueAvgPerDay > 0
+      ? Math.abs(demand.revenueGapPerDay) / demand.revenueAvgPerDay
+      : 1
+    const penaltyScale = saturation.saturationLevel === 'oversupplied' ? 12 : 8
+    const oversupplyPenalty = Math.min(25, oversupplyRatio * penaltyScale)
     score = Math.max(0, score - oversupplyPenalty)
   }
 

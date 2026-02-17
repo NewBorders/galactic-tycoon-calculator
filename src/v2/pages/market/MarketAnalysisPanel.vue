@@ -158,11 +158,13 @@ const searchFilteredOpportunities = computed(() => {
     return tier !== undefined && tierFilter.value.has(tier)
   })
 
-  if (supplyFilter.value.size < 3) {
+  if (supplyFilter.value.size > 0 && supplyFilter.value.size < 3) {
     opportunities = opportunities.filter(opp => {
       const level = opp.saturation.saturationLevel
       return level !== 'unknown' && supplyFilter.value.has(level)
     })
+  } else if (supplyFilter.value.size === 0) {
+    opportunities = []
   }
 
   if (categoryFilter.value !== 'all') {
