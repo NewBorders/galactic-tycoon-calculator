@@ -96,10 +96,64 @@ const materialCategories = computed(() => {
   return map
 })
 
+const categoryById = computed(() => {
+  return new Map(MATERIAL_CATEGORIES.map((c) => [c.id, c]))
+})
+
+const materialProducedIn = computed(() => {
+  const map = new Map<number, Set<number>>()
+  props.gameData.recipes.forEach((recipe) => {
+    const materialId = recipe.output.id
+    const buildingId = recipe.producedInId
+    if (!map.has(materialId)) {
+      map.set(materialId, new Set<number>())
+    }
+    map.get(materialId)?.add(buildingId)
+  })
+  const normalized = new Map<number, number[]>()
+  map.forEach((ids, materialId) => {
+    normalized.set(materialId, [...ids].sort((a, b) => a - b))
+  })
+  return normalized
+})
+
+const buildingNameById = computed(() => {
+  const map = new Map<number, string>()
+  props.gameData.buildings.forEach((building) => {
+    map.set(building.id, building.name)
+  })
+  return map
+})
+
+const buildingTierById = computed(() => {
+  const map = new Map<number, number>()
+  props.gameData.buildings.forEach((building) => {
+    map.set(building.id, building.tier)
+  })
+  return map
+})
+
+const buildingFilterOptions = computed(() => {
+  const ids = new Set<number>()
+  props.gameData.recipes.forEach((recipe) => ids.add(recipe.producedInId))
+  return [...ids]
+    .map((id) => ({
+      id,
+      name: buildingNameById.value.get(id) ?? `Building ${id}`,
+      tier: buildingTierById.value.get(id) ?? 0,
+    }))
+    .sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name))
+})
+
 // Material search
 const materialSearch = ref('')
+const buildingSearch = ref('')
+const categorySearch = ref('')
+const buildingFilterDetailsRef = ref<HTMLDetailsElement | null>(null)
+const categoryFilterDetailsRef = ref<HTMLDetailsElement | null>(null)
 
-const categoryFilter = ref<number | 'all'>('all')
+const categoryFilter = ref<Set<number>>(new Set())
+const buildingFilter = ref<Set<number>>(new Set())
 
 // Tier filter (default: all tiers selected)
 const tierFilter = ref<Set<number>>(new Set([1, 2, 3, 4]))
@@ -107,6 +161,190 @@ const tierFilter = ref<Set<number>>(new Set([1, 2, 3, 4]))
 type SupplyLevel = 'undersupplied' | 'balanced' | 'oversupplied'
 
 const supplyFilter = ref<Set<SupplyLevel>>(new Set(['undersupplied', 'balanced', 'oversupplied']))
+
+// Sorting state
+const sortColumn = ref<'score' | 'demand' | 'revenue' | 'gap' | null>(null)
+const sortDirection = ref<'asc' | 'desc'>('desc')
+
+type PersistedFilterState = {
+  materialSearch: string
+  buildingSearch: string
+  categorySearch: string
+  categoryFilter: number[]
+  tierFilter: number[]
+  supplyFilter: SupplyLevel[]
+  buildingFilter: number[]
+  sortColumn: 'score' | 'demand' | 'revenue' | 'gap' | null
+  sortDirection: 'asc' | 'desc'
+}
+
+function getFilterStorageKey(): string {
+  return `gt:v2:marketAnalysis:filters:${world.value}`
+}
+
+function persistFilterState() {
+  const payload: PersistedFilterState = {
+    materialSearch: materialSearch.value,
+    buildingSearch: buildingSearch.value,
+    categorySearch: categorySearch.value,
+    categoryFilter: [...categoryFilter.value],
+    tierFilter: [...tierFilter.value],
+    supplyFilter: [...supplyFilter.value],
+    buildingFilter: [...buildingFilter.value],
+    sortColumn: sortColumn.value,
+    sortDirection: sortDirection.value
+  }
+
+  try {
+    localStorage.setItem(getFilterStorageKey(), JSON.stringify(payload))
+  } catch {
+    // Ignore storage errors to keep UI functional in restricted environments.
+  }
+}
+
+function restoreFilterState() {
+  try {
+    const raw = localStorage.getItem(getFilterStorageKey())
+    if (!raw) return
+
+    const parsed = JSON.parse(raw) as Partial<PersistedFilterState>
+
+    if (typeof parsed.materialSearch === 'string') {
+      materialSearch.value = parsed.materialSearch
+    }
+    if (typeof parsed.buildingSearch === 'string') {
+      buildingSearch.value = parsed.buildingSearch
+    }
+    if (typeof parsed.categorySearch === 'string') {
+      categorySearch.value = parsed.categorySearch
+    }
+    if (Array.isArray(parsed.categoryFilter)) {
+      const validCategoryIds = new Set(MATERIAL_CATEGORIES.map((c) => c.id))
+      categoryFilter.value = new Set(parsed.categoryFilter.filter((id): id is number => validCategoryIds.has(id)))
+    }
+    if (Array.isArray(parsed.tierFilter)) {
+      const allowedTiers = new Set([1, 2, 3, 4])
+      tierFilter.value = new Set(parsed.tierFilter.filter((tier): tier is number => allowedTiers.has(tier)))
+    }
+    if (Array.isArray(parsed.supplyFilter)) {
+      const allowedSupply = new Set<SupplyLevel>(['undersupplied', 'balanced', 'oversupplied'])
+      supplyFilter.value = new Set(parsed.supplyFilter.filter((level): level is SupplyLevel => allowedSupply.has(level)))
+    }
+    if (Array.isArray(parsed.buildingFilter)) {
+      const validBuildingIds = new Set(buildingFilterOptions.value.map((option) => option.id))
+      buildingFilter.value = new Set(parsed.buildingFilter.filter((id): id is number => validBuildingIds.has(id)))
+    }
+    if (parsed.sortColumn === null || parsed.sortColumn === 'score' || parsed.sortColumn === 'demand' || parsed.sortColumn === 'revenue' || parsed.sortColumn === 'gap') {
+      sortColumn.value = parsed.sortColumn
+    }
+    if (parsed.sortDirection === 'asc' || parsed.sortDirection === 'desc') {
+      sortDirection.value = parsed.sortDirection
+    }
+  } catch {
+    // Ignore invalid JSON and keep defaults.
+  }
+}
+
+watch(
+  [materialSearch, buildingSearch, categorySearch, categoryFilter, tierFilter, supplyFilter, buildingFilter, sortColumn, sortDirection],
+  persistFilterState,
+  { deep: true }
+)
+
+watch(world, () => {
+  restoreFilterState()
+})
+
+const filteredBuildingOptions = computed(() => {
+  const search = buildingSearch.value.trim().toLowerCase()
+  if (!search) return buildingFilterOptions.value
+  return buildingFilterOptions.value.filter((building) => {
+    return building.name.toLowerCase().includes(search) || building.id.toString().includes(search)
+  })
+})
+
+const filteredBuildingGroupedByTier = computed(() => {
+  const groups = new Map<number, Array<{ id: number; name: string; tier: number }>>()
+  for (const building of filteredBuildingOptions.value) {
+    if (!groups.has(building.tier)) groups.set(building.tier, [])
+    groups.get(building.tier)!.push(building)
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([tier, buildings]) => ({ tier, buildings }))
+})
+
+function isTierFullySelected(tier: number): boolean {
+  const buildings = buildingFilterOptions.value.filter((b) => b.tier === tier)
+  return buildings.length > 0 && buildings.every((b) => buildingFilter.value.has(b.id))
+}
+
+function isTierPartiallySelected(tier: number): boolean {
+  const buildings = buildingFilterOptions.value.filter((b) => b.tier === tier)
+  return buildings.some((b) => buildingFilter.value.has(b.id)) && !buildings.every((b) => buildingFilter.value.has(b.id))
+}
+
+function toggleTierBuildings(tier: number) {
+  const buildings = buildingFilterOptions.value.filter((b) => b.tier === tier)
+  if (isTierFullySelected(tier)) {
+    buildings.forEach((b) => buildingFilter.value.delete(b.id))
+  } else {
+    buildings.forEach((b) => buildingFilter.value.add(b.id))
+  }
+  buildingFilter.value = new Set(buildingFilter.value)
+}
+
+const filteredCategoryOptions = computed(() => {
+  const search = categorySearch.value.trim().toLowerCase()
+  if (!search) return MATERIAL_CATEGORIES
+  return MATERIAL_CATEGORIES.filter((c) => c.name.toLowerCase().includes(search))
+})
+
+function getCategoryFilterLabel(): string {
+  const selected = categoryFilter.value.size
+  if (selected === 0) return 'All categories'
+  if (selected === 1) {
+    const firstId = [...categoryFilter.value][0]
+    if (firstId === undefined) return 'All categories'
+    const cat = MATERIAL_CATEGORIES.find((c) => c.id === firstId)
+    return cat ? cat.name : `Category ${firstId}`
+  }
+  return `${selected} categories`
+}
+
+function toggleCategory(categoryId: number) {
+  if (categoryFilter.value.has(categoryId)) {
+    categoryFilter.value.delete(categoryId)
+  } else {
+    categoryFilter.value.add(categoryId)
+  }
+  categoryFilter.value = new Set(categoryFilter.value)
+}
+
+const allCategoriesSelected = computed(() => {
+  return MATERIAL_CATEGORIES.every((c) => categoryFilter.value.has(c.id))
+})
+
+function toggleAllCategories() {
+  if (allCategoriesSelected.value) {
+    categoryFilter.value = new Set()
+  } else {
+    categoryFilter.value = new Set(MATERIAL_CATEGORIES.map((c) => c.id))
+  }
+}
+
+function handleDocumentClick(event: MouseEvent) {
+  const target = event.target
+  if (!(target instanceof Node)) return
+  const buildingDetails = buildingFilterDetailsRef.value
+  if (buildingDetails?.open && !buildingDetails.contains(target)) {
+    buildingDetails.open = false
+  }
+  const categoryDetails = categoryFilterDetailsRef.value
+  if (categoryDetails?.open && !categoryDetails.contains(target)) {
+    categoryDetails.open = false
+  }
+}
 
 // Toggle tier filter
 function toggleTier(tier: number) {
@@ -128,9 +366,57 @@ function toggleSupply(level: SupplyLevel) {
   supplyFilter.value = new Set(supplyFilter.value)
 }
 
-// Sorting state
-const sortColumn = ref<'score' | 'demand' | 'revenue' | 'gap' | null>(null)
-const sortDirection = ref<'asc' | 'desc'>('desc')
+function toggleBuilding(buildingId: number) {
+  if (buildingFilter.value.has(buildingId)) {
+    buildingFilter.value.delete(buildingId)
+  } else {
+    buildingFilter.value.add(buildingId)
+  }
+  buildingFilter.value = new Set(buildingFilter.value)
+}
+
+const allBuildingsSelected = computed(() => {
+  return buildingFilterOptions.value.every((b) => buildingFilter.value.has(b.id))
+})
+
+function toggleAllBuildings() {
+  if (allBuildingsSelected.value) {
+    buildingFilter.value = new Set()
+  } else {
+    buildingFilter.value = new Set(buildingFilterOptions.value.map((b) => b.id))
+  }
+}
+
+function getBuildingFilterLabel(): string {
+  const selected = buildingFilter.value.size
+  if (selected === 0) return 'All buildings'
+  if (selected === 1) {
+    const firstId = [...buildingFilter.value][0]
+    if (firstId === undefined) return 'All buildings'
+    return buildingNameById.value.get(firstId) ?? `Building ${firstId}`
+  }
+  return `${selected} buildings`
+}
+
+function getProducedInLabel(materialId: number): string {
+  const buildingIds = materialProducedIn.value.get(materialId) ?? []
+  if (buildingIds.length === 0) return 'Unknown'
+  const names = buildingIds
+    .map((id) => buildingNameById.value.get(id) ?? `Building ${id}`)
+    .filter(Boolean)
+  if (names.length === 0) return 'Unknown'
+  const primaryName = names[0]
+  if (!primaryName) return 'Unknown'
+  if (names.length === 1) return primaryName
+  return `${primaryName} (+${names.length - 1})`
+}
+
+function getMaterialCategoryLabel(materialId: number): string {
+  const categoryId = materialCategories.value.get(materialId) ?? 0
+  const category = categoryById.value.get(categoryId)
+  if (!category) return 'Unknown'
+  return `${category.symbol} ${category.name}`.trim()
+}
 
 // Toggle sort
 function toggleSort(column: 'score' | 'demand' | 'revenue' | 'gap') {
@@ -167,9 +453,16 @@ const searchFilteredOpportunities = computed(() => {
     opportunities = []
   }
 
-  if (categoryFilter.value !== 'all') {
+  if (categoryFilter.value.size > 0) {
     opportunities = opportunities.filter(opp => {
-      return (materialCategories.value.get(opp.materialId) ?? 0) === categoryFilter.value
+      return categoryFilter.value.has(materialCategories.value.get(opp.materialId) ?? 0)
+    })
+  }
+
+  if (buildingFilter.value.size > 0) {
+    opportunities = opportunities.filter((opp) => {
+      const producedIn = materialProducedIn.value.get(opp.materialId) ?? []
+      return producedIn.some((buildingId) => buildingFilter.value.has(buildingId))
     })
   }
 
@@ -292,9 +585,11 @@ const statsByRecommendation = computed(() => {
 
 // Auto-fetch on mount
 onMounted(() => {
+  restoreFilterState()
   // Starte den Auto-Refresh sicher bevor der erste Fetch läuft
   setupAutoRefresh()
   fetch()
+  document.addEventListener('click', handleDocumentClick)
 })
 
 // Cleanup on unmount
@@ -303,6 +598,7 @@ onUnmounted(() => {
     clearInterval(autoRefreshTimer)
     autoRefreshTimer = null
   }
+  document.removeEventListener('click', handleDocumentClick)
 })
 
 // Refresh handler
@@ -386,8 +682,8 @@ const lastUpdatedLabel = computed(() => {
           Showing {{ sortedOpportunities.length }} of {{ filteredOpportunities.length }} materials
         </div>
 
-        <!-- Tier + Supply Filters (compact, responsive) -->
-        <div class="mt-4 pt-4 border-t border-gray-700 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Tier + Category + Building + Supply Filters (compact, responsive) -->
+        <div class="mt-4 pt-4 border-t border-gray-700 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-3">
               ⭐ {{ translate('tierFilter') }}
@@ -412,19 +708,104 @@ const lastUpdatedLabel = computed(() => {
             <label class="block text-sm font-medium text-gray-300 mb-3">
               🧭 Category
             </label>
-            <select
-              v-model="categoryFilter"
-              class="w-[40%] min-w-[140px] px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="all">All categories</option>
-              <option
-                v-for="category in MATERIAL_CATEGORIES"
-                :key="category.id"
-                :value="category.id"
-              >
-                {{ category.name }}
-              </option>
-            </select>
+            <details ref="categoryFilterDetailsRef" class="relative">
+              <summary class="w-full list-none cursor-pointer select-none px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <span class="inline-flex items-center justify-between w-full gap-2">
+                  <span class="truncate">{{ getCategoryFilterLabel() }}</span>
+                  <span class="text-gray-400">▾</span>
+                </span>
+              </summary>
+              <div class="absolute z-30 mt-1 w-full max-h-56 overflow-auto rounded border border-gray-600 bg-gray-700 p-2 shadow-xl">
+                <input
+                  v-model="categorySearch"
+                  type="text"
+                  placeholder="Filter categories..."
+                  class="mb-1 w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <button
+                  type="button"
+                  @click="toggleAllCategories"
+                  class="mb-2 w-full px-2 py-1 text-xs text-purple-400 hover:text-purple-200 text-left transition"
+                >
+                  {{ allCategoriesSelected ? 'Deselect all' : 'Select all' }}
+                </button>
+                <label
+                  v-for="category in filteredCategoryOptions"
+                  :key="category.id"
+                  class="flex items-center gap-2 cursor-pointer py-1"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="categoryFilter.has(category.id)"
+                    @change="toggleCategory(category.id)"
+                    class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                  />
+                  <span class="text-sm text-gray-300 truncate" :title="category.name">{{ category.name }}</span>
+                </label>
+                <div v-if="filteredCategoryOptions.length === 0" class="py-2 text-xs text-gray-400">
+                  No categories found.
+                </div>
+              </div>
+            </details>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-3">
+              🏭 Buildings
+            </label>
+            <details ref="buildingFilterDetailsRef" class="relative">
+              <summary class="w-full list-none cursor-pointer select-none px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <span class="inline-flex items-center justify-between w-full gap-2">
+                  <span class="truncate">{{ getBuildingFilterLabel() }}</span>
+                  <span class="text-gray-400">▾</span>
+                </span>
+              </summary>
+              <div class="absolute z-30 mt-1 w-full max-h-64 overflow-auto rounded border border-gray-600 bg-gray-700 p-2 shadow-xl">
+                <input
+                  v-model="buildingSearch"
+                  type="text"
+                  placeholder="Filter buildings..."
+                  class="mb-1 w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <button
+                  type="button"
+                  @click="toggleAllBuildings"
+                  class="mb-2 w-full px-2 py-1 text-xs text-purple-400 hover:text-purple-200 text-left transition"
+                >
+                  {{ allBuildingsSelected ? 'Deselect all' : 'Select all' }}
+                </button>
+                <template v-for="group in filteredBuildingGroupedByTier" :key="group.tier">
+                  <!-- Tier header: clicking toggles all buildings in this tier -->
+                  <button
+                    type="button"
+                    @click="toggleTierBuildings(group.tier)"
+                    class="flex items-center gap-1.5 w-full px-1 py-1 text-left text-xs font-semibold text-yellow-400 hover:text-yellow-200 transition"
+                  >
+                    <span :class="isTierFullySelected(group.tier) ? 'text-purple-400' : isTierPartiallySelected(group.tier) ? 'text-purple-300 opacity-60' : 'text-gray-500'">
+                      {{ isTierFullySelected(group.tier) ? '☑' : isTierPartiallySelected(group.tier) ? '⊟' : '☐' }}
+                    </span>
+                    ⭐ Tier {{ group.tier }}
+                    <span class="ml-auto text-gray-500 font-normal">({{ group.buildings.length }})</span>
+                  </button>
+                  <!-- Buildings within this tier -->
+                  <label
+                    v-for="building in group.buildings"
+                    :key="building.id"
+                    class="flex items-center gap-2 cursor-pointer py-0.5 pl-5"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="buildingFilter.has(building.id)"
+                      @change="toggleBuilding(building.id)"
+                      class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-500 focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                    />
+                    <span class="text-sm text-gray-300 truncate" :title="building.name">{{ building.name }}</span>
+                  </label>
+                </template>
+                <div v-if="filteredBuildingGroupedByTier.length === 0" class="py-2 text-xs text-gray-400">
+                  No buildings found.
+                </div>
+              </div>
+            </details>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-3">
@@ -470,14 +851,17 @@ const lastUpdatedLabel = computed(() => {
         <table class="table-fixed w-full text-xs">
           <thead class="bg-gray-700 sticky top-0 z-20">
             <tr>
-              <th class="w-[28%] px-3 py-2 text-left text-[11px] font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[22%] px-3 py-2 text-left text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 Material
               </th>
-              <th class="w-[8%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[14%] px-3 py-2 text-left text-[11px] font-medium text-gray-300 uppercase tracking-wider">
+                Produced In
+              </th>
+              <th class="w-[7%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 Tier
               </th>
               <th
-                class="w-[12%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                class="w-[11%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('score')"
               >
                 <span class="flex items-center justify-center gap-1">
@@ -490,7 +874,7 @@ const lastUpdatedLabel = computed(() => {
                   </span>
                 </span>
               </th>
-              <th class="w-[13%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[11%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 <span class="flex items-center justify-end gap-1">
                   Avg Price
                   <span class="info-tooltip text-purple-400 cursor-help">
@@ -502,7 +886,7 @@ const lastUpdatedLabel = computed(() => {
                 </span>
               </th>
               <th
-                class="w-[13%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                class="w-[10%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('demand')"
               >
                 <span class="flex items-center justify-center gap-1">
@@ -516,7 +900,7 @@ const lastUpdatedLabel = computed(() => {
                 </span>
               </th>
               <th
-                class="w-[13%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                class="w-[10%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('revenue')"
               >
                 <span class="flex items-center justify-end gap-1">
@@ -530,7 +914,7 @@ const lastUpdatedLabel = computed(() => {
                 </span>
               </th>
               <th
-                class="w-[11%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
+                class="w-[8%] px-3 py-2 text-right text-[11px] font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600 transition"
                 @click="toggleSort('gap')"
               >
                 <span class="flex items-center justify-end gap-1">
@@ -543,7 +927,7 @@ const lastUpdatedLabel = computed(() => {
                   </span>
                 </span>
               </th>
-              <th class="w-[13%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider">
+              <th class="w-[10%] px-3 py-2 text-center text-[11px] font-medium text-gray-300 uppercase tracking-wider">
                 <span class="flex items-center justify-center gap-1">
                   Supply
                   <span class="info-tooltip text-purple-400 cursor-help">
@@ -563,7 +947,7 @@ const lastUpdatedLabel = computed(() => {
               class="hover:bg-gray-750 transition"
             >
               <!-- Material Name with Icon -->
-              <td class="w-[28%] px-3 py-2 text-white font-medium truncate">
+              <td class="w-[22%] px-3 py-2 text-white font-medium truncate">
                 <div class="flex items-center gap-2 min-w-0">
                   <a
                     :href="getMaterialExchangeLink(opp.materialId)"
@@ -579,15 +963,27 @@ const lastUpdatedLabel = computed(() => {
                 </div>
               </td>
 
+              <!-- Produced In + Category -->
+              <td class="w-[14%] px-3 py-2 text-left whitespace-nowrap">
+                <div class="flex flex-col gap-0.5 min-w-0">
+                  <span class="text-[11px] text-white truncate" :title="getProducedInLabel(opp.materialId)">
+                    {{ getProducedInLabel(opp.materialId) }}
+                  </span>
+                  <span class="text-[11px] text-gray-400 truncate" :title="getMaterialCategoryLabel(opp.materialId)">
+                    {{ getMaterialCategoryLabel(opp.materialId) }}
+                  </span>
+                </div>
+              </td>
+
               <!-- Tier -->
-              <td class="w-[8%] px-3 py-2 text-center">
+              <td class="w-[7%] px-3 py-2 text-center">
                 <span class="text-yellow-400 font-semibold">
                   {{ materialTiers.get(opp.materialId) ?? '?' }}
                 </span>
               </td>
 
               <!-- Score & Recommendation Combined -->
-              <td class="w-[12%] px-3 py-2">
+              <td class="w-[11%] px-3 py-2">
                 <div class="flex flex-col items-center gap-0.5">
                   <span
                     class="text-xl font-bold"
@@ -605,7 +1001,7 @@ const lastUpdatedLabel = computed(() => {
               </td>
 
               <!-- Average Price with 7d Trend -->
-              <td class="w-[13%] px-3 py-2 text-right whitespace-nowrap">
+              <td class="w-[11%] px-3 py-2 text-right whitespace-nowrap">
                 <div class="flex flex-col items-end gap-0.5">
                   <span class="text-white font-mono font-semibold text-sm">
                     {{ formatPrice(opp.priceTrend.avg7d) }}
@@ -620,7 +1016,7 @@ const lastUpdatedLabel = computed(() => {
               </td>
 
               <!-- Demand with Daily Volume -->
-              <td class="w-[13%] px-3 py-2 text-center whitespace-nowrap">
+              <td class="w-[10%] px-3 py-2 text-center whitespace-nowrap">
                 <div class="flex flex-col items-center gap-0.5">
                   <span
                     class="inline-block px-2 py-0.5 rounded text-[11px] font-medium uppercase"
@@ -635,19 +1031,19 @@ const lastUpdatedLabel = computed(() => {
               </td>
 
               <!-- Revenue per Day -->
-              <td class="w-[13%] px-3 py-2 text-right text-white font-mono whitespace-nowrap text-sm">
+              <td class="w-[10%] px-3 py-2 text-right text-white font-mono whitespace-nowrap text-sm">
                 {{ formatPrice(opp.demand.revenueAvgPerDay) }}
               </td>
 
               <!-- Revenue Gap per Day -->
-              <td class="w-[11%] px-3 py-2 text-right whitespace-nowrap text-[11px] font-mono">
+              <td class="w-[8%] px-3 py-2 text-right whitespace-nowrap text-[11px] font-mono">
                 <span :class="getGapColor(opp.demand.revenueGapPerDay)">
                   {{ formatSignedPrice(opp.demand.revenueGapPerDay) }}
                 </span>
               </td>
 
               <!-- Saturation with Available Supply -->
-              <td class="w-[13%] px-3 py-2 text-center whitespace-nowrap">
+              <td class="w-[10%] px-3 py-2 text-center whitespace-nowrap">
                 <div class="flex flex-col items-center gap-0.5">
                   <span class="text-[11px] text-gray-400 uppercase">
                     {{ opp.saturation.saturationLevel }}
