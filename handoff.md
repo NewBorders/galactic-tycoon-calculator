@@ -2,6 +2,9 @@
 
 ## Status
 - No open items.
+- Market Analysis filters now persist across tab switches (including sort state).
+- Building filter now supports text search and closes on outside click.
+- Added Market Analysis building multi-select filter and a new Produced In column (building + category) after material.
 - Shortened Market Analysis category dropdown width for a more compact layout.
 - Added revenue gap per day to market analysis demand and UI display.
 - Technology import now bumps planned levels to at least current during API sync.
@@ -13,6 +16,64 @@
 - Deduped concurrent market-details fetches and added refresh backoff on sync errors to prevent repeat calls.
 - Added debug counters for API calls in game data extract, warehouse service, and market details extractor.
 - Deduped game data loads across force/normal requests and removed /public/company/base list fallback.
+
+## Session 31 Summary (Market Analysis Filter Persistence + Building Dropdown UX - COMPLETED)
+
+**Task**: Keep all Market Analysis filters when switching tabs, make building filter searchable, and close building list on outside click.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **Filter Persistence Across Tab Switches**
+   - Added localStorage-backed persistence for Market Analysis controls keyed by world:
+     - material search
+     - building search
+     - category filter
+     - tier filter
+     - supply filter
+     - building filter
+     - sort column + sort direction
+   - Added restore on mount and on world change.
+
+2. **Building Filter Search**
+   - Added text input inside the building dropdown.
+   - Building options now filter by building name or ID.
+   - Added compact empty state: "No buildings found.".
+
+3. **Close on Outside Click**
+   - Added click-outside listener for building dropdown (`details`) and close behavior when user clicks elsewhere.
+
+4. **Validation Commands Run**
+   - `docker compose exec web npm run type-check`
+   - `docker compose exec web npm run lint`
+   - `docker compose exec web npm run test -- --run src/v2/services/marketAnalysis/__tests__/transformer.test.ts src/v2/services/marketAnalysis/__tests__/repository.test.ts src/v2/services/marketAnalysis/__tests__/extractor.test.ts`
+
+## Session 30 Summary (Market Analysis Building Filter + Produced In Column - COMPLETED)
+
+**Task**: Add a compact multi-select building filter for Market Analysis and show where each material is produced, including category context.
+
+**Status**: ✅ COMPLETED
+
+### What Was Done
+
+1. **Building Filter (Multi-Select)**
+   - Added a compact dropdown with checkbox multi-select for producing buildings.
+   - Filter now narrows opportunities to materials produced in selected buildings.
+
+2. **Produced In Column**
+   - Added a new table column right after Material.
+   - Displays primary producing building and a compact "+N" indicator when multiple buildings produce the material.
+   - Shows material category on a second compact line for quick context.
+
+3. **Type Safety Fixes**
+   - Added safe guards for potential undefined array access in building label helpers.
+
+4. **Commands Run**
+   - `docker compose up -d`
+   - `docker compose exec web npm run type-check`
+   - `docker compose exec web npm run lint`
+   - `docker compose exec web npm run test -- --run src/v2/services/marketAnalysis/__tests__/transformer.test.ts src/v2/services/marketAnalysis/__tests__/repository.test.ts src/v2/services/marketAnalysis/__tests__/extractor.test.ts`
 
 ## Session 29 Summary (Market Analysis Revenue Gap - COMPLETED)
 
